@@ -66,10 +66,9 @@
          href="${p.disabled ? '#' : p.href}"
          ${p.disabled ? 'data-disabled="true"' : ''}
          ${p.external ? 'target="_blank" rel="noopener"' : ''}>
+        <span class="status ${p.status}">${statusLabel[p.status] ?? ''}</span>
         <div class="head">
           <div class="icon">${escapeHtml(p.icon)}</div>
-          <div class="spacer"></div>
-          <span class="status ${p.status}">${statusLabel[p.status] ?? ''}</span>
         </div>
         <h3>${escapeHtml(p.title)}</h3>
         <p class="desc">${escapeHtml(p.description)}</p>
