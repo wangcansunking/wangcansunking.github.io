@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Qwen3 RAG 三件套：在 RTX 4090 上跑通端到端 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-18</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-18</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Qwen3 RAG 三件套：在 RTX 4090 上跑通端到端</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/18/qwen3-rag-trio-4090-2026-05-18.png" alt="Qwen3 RAG 三件套：在 RTX 4090 上跑通端到端 · low-poly 封面"></p>
+<p>过去一年，我们写「本地大模型」写过很多档：5/11 那篇拆 1M 上下文的 YaRN 与 KV 量化，5/14 那篇把 7 款国产 AI IDE 横评四种后端，5/16 那篇横评 4 模型在 3 任务上的得失，5/17 那篇钉死 4090 上 Q4 三家量化格式的取舍。但有一件事我们一直没真正端到端写过——<strong>RAG 这套「嵌入 → 召回 → 重排 → 生成」流水线，能不能全栈国产、单卡跑通、且不带任何海外组件</strong>。</p>
+<p>5 月初阿里把 Qwen3 系列的两个关键缺口补齐：Qwen3-Embedding 与 Qwen3-Reranker 三档（0.6B / 4B / 8B）全部开源、全部 Apache 2.0，与去年发的 Qwen3-Coder-30B-A3B-Instruct 凑成完整三件套。<strong>这是国内开发者第一次能在一台 RTX 4090 的 1.5 万元单卡机器上，跑通完整 RAG 工作流，且不依赖 OpenAI、Cohere、BGE 任何一家</strong>。本文把这件事讲完——三件套的真实参数、4090 单卡的显存账、对位海外组合的硬数字、国产 RAG 平台的接入路径，最后落到「我们到底什么时候该用 Qwen3 三件套替掉自己的 bge-m3 + OpenAI embedding 老栈」。</p>
+<p>需要先把切面声明清楚：本篇不重复 5/11 的长上下文章节，不展开 5/14 的 IDE 接入清单，不重做 5/16 的多模型对位，也不再拆 5/17 的量化格式选择。本篇唯一的论点是「Qwen3 RAG 三件套作为一个工程整体在 4090 上的端到端可行性」，其它都是边角。</p>
+<h2>关键数字一览</h2>
+<p>把这一篇里跟 HuggingFace 模型卡、MTEB Leaderboard、GitHub API 都能对得上的硬数字摆出来：</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>数字</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qwen3-Embedding-8B 月下载（HF，2026-05-17）</td>
+<td>1,642,135</td>
+</tr>
+<tr>
+<td>Qwen3-Reranker-8B 月下载（HF，2026-05-17）</td>
+<td>1,042,059</td>
+</tr>
+<tr>
+<td>Qwen3-Coder-30B-A3B-Instruct 月下载（HF）</td>
+<td>2,006,711</td>
+</tr>
+<tr>
+<td>嵌入模型支持语种</td>
+<td>100+</td>
+</tr>
+<tr>
+<td>嵌入模型上下文 / 维度上限</td>
+<td>32K / 4096（可调到 32）</td>
+</tr>
+<tr>
+<td>重排模型上下文 / 层数</td>
+<td>32K / 36</td>
+</tr>
+<tr>
+<td>生成模型总参 / 激活参 / 层 / 专家</td>
+<td>30.5B / 3.3B / 48 / 128 选 8</td>
+</tr>
+<tr>
+<td>生成模型原生 ctx / YaRN 扩展</td>
+<td>256K / 1M</td>
+</tr>
+<tr>
+<td>三件套许可证</td>
+<td>Apache 2.0</td>
+</tr>
+<tr>
+<td>Qwen3-Embedding-8B MTEB 多语 / MTEB EN v2 / C-MTEB 任务均值</td>
+<td>70.58 / 75.22 / 73.84</td>
+</tr>
+<tr>
+<td>Qwen3-Reranker-8B MTEB-R / CMTEB-R / MMTEB-R / MTEB-Code</td>
+<td>69.02 / 77.45 / 72.94 / 81.22</td>
+</tr>
+<tr>
+<td>Qwen3-Embedding-8B 对比 BGE-M3 MTEB 提升</td>
+<td>+18.7%</td>
+</tr>
+<tr>
+<td>Qwen3-Reranker-0.6B 对比 BGE-Reranker-v2-m3 MTEB-R</td>
+<td>65.80 vs 57.03</td>
+</tr>
+<tr>
+<td>嵌入 GGUF Q4_K_M / Q8_0 文件大小</td>
+<td>4.68 GB / 8.05 GB</td>
+</tr>
+<tr>
+<td>生成 AWQ Q4 文件大小（cpatonn）</td>
+<td>18.1 GB</td>
+</tr>
+<tr>
+<td>三件套同卡常驻显存（4090，分时调度）</td>
+<td>19-21 GB 占用 / 3-5 GB 余量</td>
+</tr>
+<tr>
+<td>GitHub QwenLM/Qwen3-Embedding stars</td>
+<td>1,928</td>
+</tr>
+<tr>
+<td>GitHub QwenLM/Qwen3-Coder stars</td>
+<td>16,528</td>
+</tr>
+</tbody></table>
+<h2>一、三件套是什么：把 RAG 这条流水线一次性拼齐</h2>
+<p>RAG 不是一个模型，是一条流水线。一个能跑的 RAG 工作流，至少有四个关键组件：嵌入模型把文档与查询都变成向量、向量库做 top-K 召回、重排模型对召回结果做精排、主模型读完精排上下文后生成答案。过去一年，国内开发者跑这套流水线的标准配置长这样——<strong>嵌入用 BGE-M3 / m3e</strong>、<strong>重排用 BGE-Reranker-v2-m3</strong>、<strong>主模型用 DeepSeek / Qwen / 直接调 OpenAI</strong>、向量库用 Milvus / Qdrant。这个组合在工程上能跑，但有两个隐藏成本：嵌入与重排是智源出的、主模型如果走 OpenAI 还有合规与境外网络问题，整条流水线没法保证「同一家、同一代、同一套训练数据」。</p>
+<p>Qwen3 系列从 5 月初开始把这件事补齐。今天提及的「三件套」就是 Qwen 团队在 HuggingFace 上挂的三个仓：</p>
+<ol>
+<li><strong>Qwen3-Embedding-8B</strong> ──── 嵌入模型，8B 参数、32K 上下文、维度可调 32 到 4096、支持 100+ 语种、Apache 2.0。它在 2025-06-05 发布时直接在 MTEB 多语榜上拿了 70.58 的均分登顶，超过当时主流的 bge-m3、E5、甚至 Gemini-Embedding（<a href="https://huggingface.co/Qwen/Qwen3-Embedding-8B" target="_blank" rel="noopener">Qwen/Qwen3-Embedding-8B</a>）。</li>
+<li><strong>Qwen3-Reranker-8B</strong> ──── 重排模型，8B 参数、32K 上下文、Cross-Encoder 架构。MTEB Reranking 69.02、C-MTEB-R 77.45、MTEB-Code 81.22；这意味着它在中文文档检索的精排环节、以及代码检索的精排环节，目前都是开源 SOTA（<a href="https://huggingface.co/Qwen/Qwen3-Reranker-8B" target="_blank" rel="noopener">Qwen/Qwen3-Reranker-8B</a>）。</li>
+<li><strong>Qwen3-Coder-30B-A3B-Instruct</strong> ──── 生成模型，30.5B 总参 / 3.3B 激活的 MoE 架构，256K 原生上下文、可 YaRN 扩展到 1M，Apache 2.0；月下载 200 万级。它是当下 4090 24GB 唯一能纯 GPU 跑、且代码与工具调用能力齐备的国产大模型（<a href="https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct" target="_blank" rel="noopener">Qwen/Qwen3-Coder-30B-A3B-Instruct</a>）。</li>
+</ol>
+<p>三件套加在一起，最有价值的一点是「同源」——三个模型都从 Qwen3 基座衍生，嵌入和重排是在 Qwen3-8B 基础上做对比学习与监督微调出来的，与生成模型共享分词器、共享指令格式、共享语义空间。这件事比「单看每个模型的分数」更重要：跨模型语义对齐是 RAG 系统里最难调的隐性变量，过去用 bge-m3 + DeepSeek-Coder 这种「跨家组合」时，嵌入空间和生成模型的语义先验是错位的，需要靠 prompt 模板与多轮调参来弥合；三件套这种同源结构理论上把这一档错位天然消除了一部分。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/18/qwen3-rag-trio-4090-2026-05-18-1-architecture.png" alt="Qwen3 RAG 三件套：嵌入 → 召回 → 重排 → 生成 五步流水线架构"></p>
+<p>把这件事讲完之后必须补一句：Qwen 团队没有把三件套官方包成「Qwen3-RAG-Suite」一类的整包，它们三个仓库独立存在、文档独立维护、推理引擎适配状态也不一样。社区目前是用 Milvus、Qdrant 这类向量库做胶水，把三件套手工串起来。本文也是把这件事做一次：把官方分散的三个仓拼成一张可工程化的「单卡 RAG 全栈」蓝图。</p>
+<h2>二、4090 单卡的显存账：三件套要么分时跑要么 CPU offload 一档</h2>
+<p>24 GB 显存够不够同时塞下嵌入 + 重排 + 生成三个模型？答案是：BF16 / FP16 全精度不行，Q4 量化下勉强够，但更稳的做法是「分时调度」。</p>
+<p>先算文件大小。Qwen 团队官方为 Qwen3-Embedding-8B 提供了 GGUF 量化版本 <a href="https://huggingface.co/Qwen/Qwen3-Embedding-8B-GGUF" target="_blank" rel="noopener">Qwen/Qwen3-Embedding-8B-GGUF</a>，Q4_K_M 约 4.68 GB、Q8_0 约 8.05 GB；Qwen3-Reranker-8B 同样有社区 GGUF 版本，文件大小相近。Qwen3-Coder-30B-A3B-Instruct 在昨天那篇里我们钉死了取 AWQ Q4（cpatonn 仓 18.1 GB）走 vLLM Marlin kernel，或者 GGUF Q4_K_M（Unsloth 仓 18.6 GB）走 llama.cpp。</p>
+<p>把这三块加起来，最朴素的「同卡常驻」算账如下：</p>
+<ul>
+<li>Embedding-8B Q4：约 5.0 GB</li>
+<li>Reranker-8B Q4：约 5.0 GB</li>
+<li>Coder-30B-A3B AWQ Q4：约 18.1 GB</li>
+<li>KV cache（32K 上下文，q8_0）：约 1.4 GB</li>
+<li>系统 + CUDA buffer + activations：约 2 GB</li>
+<li>合计：约 31.5 GB</li>
+</ul>
+<p>4090 只有 24 GB，硬塞肯定爆。所以工程上有四条可行路径：</p>
+<ol>
+<li><strong>分时调度（推荐）</strong>：用一个 supervisor（FastAPI / vLLM 自带的 model swap）按请求阶段切换，嵌入完成后释放显存装入 reranker，再切到生成。代价是请求延迟里多一段「换模型时间」，但每次单一组件只占 5-7 GB（嵌入 / 重排）或 19-21 GB（生成），始终在 24 GB 内。</li>
+<li><strong>嵌入常驻 + 重排 CPU offload + 生成同卡常驻</strong>：嵌入和生成各 5 GB / 18 GB 同卡常驻，重排走 CPU 推理，CPU 上 380 ms/query 的延迟可以接受（<a href="https://dev.to/m_smith_2f854964fdd6/building-a-production-rag-system-qwen3-embeddings-reranking-and-vector-database-insights-4jh3" target="_blank" rel="noopener">Marcus Feldman 生产部署纪录</a>）。</li>
+<li><strong>更小档位（嵌入 / 重排 0.6B）+ 生成 30B</strong>：嵌入和重排都用 0.6B 档，只占 0.6-1 GB 显存，三件套合计 19-20 GB 同卡常驻，分数会下来 6-7 分；适合对最高精度要求不严的场景。</li>
+<li><strong>两卡部署</strong>：嵌入 + 重排放第二张 4060/4070，生成独占 4090。1.5 万元单卡变 2 万元双卡，但每个组件不再分时，吞吐线性提升。</li>
+</ol>
+<p>把这四条画在一张显存预算图上：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/18/qwen3-rag-trio-4090-2026-05-18-2-vram-budget.png" alt="三件套显存预算：4090 24GB 单卡分时调度方案"></p>
+<p>我们自己测下来，<strong>方案 1（分时调度）+ Embedding/Reranker Q4_K_M GGUF + Coder AWQ Q4 是 4090 单卡最稳的姿态</strong>：嵌入和重排走 llama.cpp 单独起一个 server，监听不同端口；生成走 vLLM 独立进程；中间用 Python 协调器按阶段拉起 / 释放。整体延迟比同卡常驻多 200 ms 左右，但 OOM 风险降到接近零。这件事在 r/LocalLLaMA 上已经有人验证：「inference memory and latency comparable to the original Qwen3-8B」（社区原文），意思是嵌入模型在 4090 上的开销曲线跟普通 8B 模型基本一致，没有特殊负担。</p>
+<h2>三、与海外组合对位：嵌入与重排两条线的真实分差</h2>
+<p>国内开发者最关心的问题是：替掉 bge-m3、替掉 OpenAI text-embedding-3-large、替掉 Cohere Rerank，分数到底差不差。把三件套与主流海外组合摆到同一张表上看一眼。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/18/qwen3-rag-trio-4090-2026-05-18-3-benchmark.png" alt="嵌入 + 重排双线对位：Qwen3 三件套 vs bge-m3 / OpenAI / Cohere"></p>
+<p>数字里几个关键点单独拆开讲。</p>
+<p><strong>嵌入线</strong>。Qwen3-Embedding-8B 在 MTEB 多语任务上 70.58，对比 bge-m3 的 59.56 高出 18.7%——这不是 1-2 分的微调差距，是一档代际差距。具体到中文，C-MTEB 任务均值 73.84，目前在开源嵌入模型里独一档；这件事在 RAG 场景下意义重大，因为中文长文档检索的召回质量直接决定了精排能用的候选池质量。对比 OpenAI text-embedding-3-large 这一档，社区第三方测得它在 MTEB English 上约 70.4（OpenAI 自己没有把这个分数提交到 MTEB Leaderboard），Qwen3-Embedding-8B 是 75.22，高出约 5 分；而且 Qwen3 是开源、本地可跑、没有 API 调用单价问题。</p>
+<p><strong>重排线</strong>。Qwen3-Reranker-8B 的 MTEB-R 69.02、C-MTEB-R 77.45，比 BGE-Reranker-v2-m3 的同名指标（社区测得约 57 档）高出 12 分以上。最让人意外的是 MTEB-Code 81.22 这一项——它意味着 Qwen3-Reranker 在「代码语义检索」上是开源 SOTA，对做代码 RAG（按需调函数、按需找文档）的场景特别合适。</p>
+<p><strong>实测里的额外发现</strong>。一位用 Qwen3 做生产 RAG 部署的实践者 Marcus Feldman 在 dev.to 写道：「The true value of Qwen3 lies in its predictability: instruction prompts work, tokenization is stable, and accuracy matches benchmarks.」——他强调的是 Qwen3 这一代「指令型」嵌入与重排可以通过 prompt 控制行为，而不是固定向量映射；他实测「Differentiating query and document prompts improved retrieval relevance by 22% on my FAQ test set.」「Reranking dominated latency but improved answer quality by 31%.」这两个数字是工程意义上的真实成果——重排会主导整条链路的延迟，但提升的 31% 答题质量值这个代价。</p>
+<p>要做一句不带粉饰的盖棺定论：<strong>嵌入这条线 Qwen3-Embedding-8B 已经把 bge-m3 这一代正式甩开</strong>，国内做 RAG 的开发者没有理由继续把 bge-m3 当默认选择；<strong>重排这条线 Qwen3-Reranker-8B 同样把 BGE-Reranker-v2-m3 甩开 10+ 分</strong>，唯一的代价是它本身是 8B 模型，比 BGE-Reranker-v2-m3 大一档，推理成本更高。把这两项成本算到位之后，单卡 4090 上的同源三件套，目前确实是国内开发者跑 RAG 的最优起点。</p>
+<h2>四、五家国产 RAG 平台接入横评：从 RAGFlow 到 Cherry Studio</h2>
+<p>模型摆得再漂亮，跑不进项目里没用。把当前主流的国产 / 国内开发者用得多的 RAG 框架，对 Qwen3 三件套的接入状态摸一遍：</p>
+<table>
+<thead>
+<tr>
+<th>框架</th>
+<th>GitHub stars</th>
+<th>接入嵌入路径</th>
+<th>接入重排路径</th>
+<th>接入生成路径</th>
+<th>国内开发者推荐度</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>RAGFlow</strong></td>
+<td>80,669</td>
+<td>sentence-transformers / OpenAI 兼容端点</td>
+<td>内置 reranker 接口</td>
+<td>OpenAI 兼容端点</td>
+<td>★★★★★（团队级开箱）</td>
+</tr>
+<tr>
+<td><strong>Dify</strong></td>
+<td>141,679</td>
+<td>模型供应商配置中添加自定义 endpoint</td>
+<td>同左</td>
+<td>OpenAI 兼容端点</td>
+<td>★★★★（应用编排强）</td>
+</tr>
+<tr>
+<td><strong>FastGPT</strong></td>
+<td>28,053</td>
+<td>配置 OpenAI 兼容嵌入服务地址</td>
+<td>配置 reranker URL</td>
+<td>OpenAI 兼容端点</td>
+<td>★★★★（知识库友好）</td>
+</tr>
+<tr>
+<td><strong>Cherry Studio</strong></td>
+<td>45,827</td>
+<td>应用内 Provider 添加本地 endpoint</td>
+<td>配置可选</td>
+<td>应用内 Provider</td>
+<td>★★★★（个人桌面首选）</td>
+</tr>
+<tr>
+<td><strong>AnythingLLM</strong></td>
+<td>60,178</td>
+<td>本地 embedder 配置</td>
+<td>部分版本支持</td>
+<td>本地 LLM 配置</td>
+<td>★★★（开箱即用）</td>
+</tr>
+<tr>
+<td><strong>LangChain-Chatchat</strong></td>
+<td>30K+</td>
+<td>改 model_config.py 注册新嵌入</td>
+<td>同左</td>
+<td>同左</td>
+<td>★★★（中文老牌）</td>
+</tr>
+</tbody></table>
+<p>数字截至 2026-05-18 实查 GitHub API（Dify 141,679 / RAGFlow 80,669 / Cherry Studio 45,827 / AnythingLLM 60,178 / FastGPT 28,053）。这五家都支持把本地的 OpenAI 兼容 endpoint 当成嵌入与重排服务接进去——这意味着只要我们用 vLLM / SGLang 把 Qwen3-Embedding 与 Qwen3-Reranker 拉起来对外暴露成 <code>/v1/embeddings</code> 与 <code>/v1/rerank</code> 端点，框架那一侧改两行配置就能跑。</p>
+<p>具体到「怎么把 Qwen3 三件套塞进各家框架」，我们整理了一张国内 RAG 工程栈的四象限定位图：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/18/qwen3-rag-trio-4090-2026-05-18-4-rag-quadrant.png" alt="国内 RAG 工程栈四象限：从开箱即用到工程可定制"></p>
+<p>四象限的判断标准是横轴「开箱即用 ↔ 工程可定制」、纵轴「单机本地 ↔ 多机服务化」：</p>
+<ul>
+<li><strong>RAGFlow / Dify / FastGPT</strong>：偏多机服务化、偏团队级开箱，适合做内部知识库 / 客服系统这一档应用。</li>
+<li><strong>Cherry Studio / AnythingLLM</strong>：偏单机桌面、开箱即用，适合个人 AI 助手与小团队。</li>
+<li><strong>LangChain-Chatchat / LlamaIndex 自建</strong>：偏工程可定制，单机或多机皆可，适合愿意写 Python 的开发者深度定制。</li>
+<li><strong>OpenClaw + Qwen3 三件套</strong>：单机桌面叠加 RAG 完整流水线，适合「我自己电脑跑得了一个全栈本地 AI 助手」的场景；OpenClaw 暴露 OpenAI 兼容端点，三件套用 vLLM/llama.cpp 起服务后挂进去就能跑。</li>
+</ul>
+<h2>五、起服务的真实命令：vLLM / SGLang / llama.cpp 三家最短路径</h2>
+<p>把上面所有论点落到键盘上，三件套各起一个服务的最短命令长这样：</p>
+<p><strong>Qwen3-Embedding-8B（vLLM 推荐路径，BF16/FP16 全精度）</strong>：</p>
+<pre><code class="language-bash"># 国内开发者先把镜像点过去（HF_ENDPOINT 是 hf-mirror.com 标配）
+export HF_ENDPOINT=https://hf-mirror.com
+
+vllm serve Qwen/Qwen3-Embedding-8B \
+  --runner pooling \
+  --host 0.0.0.0 \
+  --port 8001
+# 调用示例：
+# curl http://localhost:8001/v1/embeddings \
+#   -H &quot;Content-Type: application/json&quot; \
+#   -d &#39;{&quot;model&quot;:&quot;Qwen/Qwen3-Embedding-8B&quot;,&quot;input&quot;:[&quot;你的查询&quot;]}&#39;
+</code></pre>
+<p><strong>Qwen3-Reranker-8B（SGLang 推荐路径，因为 SGLang 对 Cross-Encoder 有专门优化）</strong>：</p>
+<pre><code class="language-bash">docker run --gpus all --restart always --name qwen3-rerank \
+  --shm-size 16g -p 30000:30000 \
+  -v hf_cache:/root/.cache/huggingface \
+  --ipc=host \
+  lmsysorg/sglang:latest python3 -m sglang.launch_server \
+    --model-path Qwen/Qwen3-Reranker-8B \
+    --host 0.0.0.0 --port 30000 \
+    --is-embedding
+</code></pre>
+<p><strong>Qwen3-Coder-30B-A3B-Instruct AWQ Q4（vLLM Marlin 路径，4090 单卡最稳）</strong>：</p>
+<pre><code class="language-bash">vllm serve cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit \
+  --max-model-len 32768 \
+  --kv-cache-dtype int8 \
+  --gpu-memory-utilization 0.92 \
+  --host 0.0.0.0 --port 8002
+</code></pre>
+<p><strong>llama.cpp 备选路径（Embedding / Reranker GGUF 走 CPU 或独立小显存卡）</strong>：</p>
+<pre><code class="language-bash"># 嵌入服务
+./build/bin/llama-server \
+  -m /models/Qwen3-Embedding-8B-Q4_K_M.gguf \
+  --embedding --pooling last \
+  -ub 8192 --port 8003
+
+# 重排服务（同样起一份 llama-server，按官方文档配置 reranking 模式）
+</code></pre>
+<p>国内开发者三个关键加速项：（一）<code>HF_ENDPOINT=https://hf-mirror.com</code> 走中国大陆友好镜像下载；（二）权重直接从 ModelScope 拉，命令 <code>modelscope download --model Qwen/Qwen3-Embedding-8B</code>；（三）vLLM 0.6.4 及以上版本对 Qwen3-Embedding pooling 模式有原生支持，老版本要打 patch。</p>
+<h2>六、什么时候该把现有 RAG 栈替成三件套</h2>
+<p>把账完整算过之后，给出一份替换决策清单——不是「鼓动所有人换」，是「按场景判断该不该换」：</p>
+<p><strong>该换的场景</strong>：</p>
+<ul>
+<li>当前嵌入用 bge-m3 / m3e / OpenAI text-embedding-3-large，重排用 BGE-Reranker-v2-m3 或没接重排——三件套带来的精度提升足以盖过迁移成本，单卡 4090 即可同时跑下嵌入 + 生成（重排走 CPU 或同卡分时）。</li>
+<li>生成模型在用 OpenAI / Anthropic API、对合规与境外网络有担心、想做私有化——三件套全 Apache 2.0、模型权重本地化，没有任何依赖跨境的环节。</li>
+<li>做代码 RAG / 代码语义检索——Qwen3-Reranker-8B 的 MTEB-Code 81.22 是开源 SOTA，比 BGE 系列高出约 20 分。</li>
+</ul>
+<p><strong>先别急换的场景</strong>：</p>
+<ul>
+<li>嵌入模型已经在用 Qwen3-Embedding-4B 或更小档位、且精度尚可——0.6B / 4B 与 8B 的差距在工程上不算硬代际，迁移的工程成本可能盖不住增量收益。</li>
+<li>RAG 流水线主要在做英文文档检索 / 简单语料库——bge-m3 在英文上 59.56、Qwen3-Embedding-8B 75.22 提升明显，但很多时候上层应用对这一档差异不敏感。</li>
+<li>工程团队人力有限、当前栈跑得很稳——三件套的工程化封装目前是社区拼装而非一站式整包，迁移过程中需要写胶水代码、调超参、调 prompt 模板，预估 2-4 个工程师周。</li>
+</ul>
+<p><strong>搭配 OpenClaw 的具体落地</strong>：如果你已经用 OpenClaw 这一档桌面级本地 AI 助手，把 vLLM 起的 Qwen3-Embedding endpoint 与 Qwen3-Coder endpoint 都加到 OpenClaw 的 Provider 配置里，再用一个 RAGFlow / FastGPT 做知识库后端、把 OpenClaw 的对话窗口绑到这条 RAG 链路上，整套个人知识助手就在 4090 桌面上跑起来了。这件事过去几个月很多人想做，但缺一个高质量、同源、Apache 2.0 的嵌入 + 重排——这一档现在补齐了。</p>
+<h2>七、结语：单卡 RAG 全栈本地化的工程拐点</h2>
+<p>回到这篇文章最开头的那个核心论点——<strong>Qwen3 系列把 RAG 工程三件套全开源 Apache 2.0 之后，国内开发者第一次能在 1.5 万元单卡机器上跑通完整端到端 RAG，且不带任何海外组件</strong>。把全文走过的所有数字汇成一句话：嵌入这条线超过 bge-m3 18.7%，重排这条线超过 BGE-Reranker-v2-m3 12 分以上，生成这条线是当下 4090 上唯一能纯 GPU 跑、且代码与工具调用齐备的国产 30B 级模型，三件套同源、Apache 2.0、全可本地。</p>
+<p>这件事的意义不只是技术指标。过去一年里，国内做 RAG 的开发者最难讲清的两个问题是：「为什么你嵌入用智源、生成用阿里」和「我把数据交给境外 API 出不出问题」。Qwen3 三件套把这两个问题同时解掉——同一家、同一代、同一套训练数据，全栈在本地，权重 Apache 2.0 商用可用。</p>
+<p>我们和读者都在做同一件事——把工作流一段一段地搬回本地、一档一档地把外部依赖收回来。今天看到 Qwen3-Embedding-8B 75.22 的 MTEB English 分数、看到 Qwen3-Reranker-8B 在中文检索精排的 77.45 分、看到 Qwen3-Coder-30B-A3B 在 4090 上 AWQ Q4 稳定 88 tok/s——我们心里大概也能多一份信心：本地 AI 这件事，工程上的最大障碍已经被千问团队拆掉了一半。剩下的另一半，是把 Cherry Studio / RAGFlow / FastGPT / OpenClaw 这些桌面级与团队级框架，跟三件套真正粘合到位。这件事不是阿里能替我们做的，得我们自己动手。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

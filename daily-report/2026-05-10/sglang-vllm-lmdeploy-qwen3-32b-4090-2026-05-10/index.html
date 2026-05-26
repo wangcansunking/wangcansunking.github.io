@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>4090 跑 Qwen3-32B：3 家引擎横评 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-10</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-10</span><span class="tag-pill">Daily Report</span></div>
+      <h1>4090 跑 Qwen3-32B：3 家引擎横评</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/10/sglang-vllm-lmdeploy-qwen3-32b-4090-2026-05-10.png" alt="4090 跑 Qwen3-32B 3 家引擎横评封面"></p>
+<h2>一、为什么是这三家</h2>
+<p>SGLang 是 LMSYS（也就是把 Vicuna 和 Chatbot Arena 跑起来的那个 UC Berkeley + 学界联合实验室）孵化的结构化推理引擎，仓库 27,571 颗星、Apache-2.0、5 月 5 日发到 v0.5.11；vLLM 是伯克利 + 国内多家大厂深度二开的吞吐之王，仓库 79,506 颗星、Apache-2.0、5 月 4 日发到 v0.20.1；lmdeploy 是上海人工智能实验室（InternLM 团队）自研的工程派引擎，仓库 7,847 颗星、Apache-2.0、4 月 8 日发到 v0.12.3。三家都是国内开发者实战中真正用得起来的开源项目，都在过去两周内有 release，都把 Qwen3 系列适配进了主分支。<strong>这三家放在一起，是国内推理基建当下最真实的选型面</strong>。</p>
+<blockquote>
+<p><strong>本文核心论断</strong>：在 RTX 4090 24GB 单卡 + Qwen3-32B-AWQ + 32K 上下文这个极端约束下，<strong>没有&quot;最快的引擎&quot;，只有&quot;最贴你业务的引擎&quot;</strong>——SGLang 在多用户共享前缀的 Agent 场景命中率领先，vLLM 在生态成熟度和 OpenAI API 兼容性上无人能及，lmdeploy 在量化推理和低延迟首 token 上靠纯 C++ 后端把 Python 解释器开销吃干净。<strong>4090 + Qwen3-32B + 三引擎可选</strong>这件事意味着，国内开发者第一次能在压业务前把&quot;选哪家&quot;用一张数字表替换玄学和情怀，把这一步从&quot;我同事说&quot;变成&quot;我自己跑过&quot;。</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/10/sglang-vllm-lmdeploy-engineering-table.png" alt="SGLang RadixAttention vs vLLM PagedAttention vs lmdeploy TurboMind 工程对照表"></p>
+<h2>二、4090 单卡跑 Qwen3-32B 的硬约束：W4 才进 24GB</h2>
+<p>先算硬件账。Qwen3-32B 是 32.8B 参数的稠密模型（不是 MoE），FP16 权重 64 GB、BF16 也是 64 GB，<strong>单卡 24GB 的 RTX 4090 装不下，没有任何讨论空间</strong>。这是物理约束。</p>
+<p>那 INT8 行不行。Qwen3-32B INT8 大约 32.8 GB，仍然超 24GB；何况 vLLM 0.20、SGLang 0.5.11、lmdeploy 0.12 三家对 Qwen3 主线支持的量化路径都集中在 W4A16（权重 4 bit、激活 16 bit）和 FP8 两种。FP8 需要 Hopper 架构（H100/H200/L40S），4090 是 Ada Lovelace，FP8 在 4090 上能跑但走的是模拟路径不是原生指令，性价比不如直接上 W4。所以 <strong>4090 单卡跑 Qwen3-32B 几乎只剩一条路：W4A16（AWQ 或 GPTQ）</strong>。</p>
+<p>W4 之后权重大约 19 GB（按 4.7 bit 实际打包算），24GB 显卡剩 5 GB 给 KV 缓存 + 激活 + CUDA workspace。这 5 GB 才是 32K 上下文落地的真正瓶颈。Qwen3-32B 是 64 层 transformer、64 个 attention head、head dim 128（GQA 8 个 KV head），按 FP16 算每 token KV 占 <code>2 × 64 layer × 8 KV-head × 128 dim × 2 byte = 262 KB</code>。32,768 tokens 就是 8.6 GB——已经超出剩余 5 GB 显存。<strong>纯 FP16 KV cache 不可能跑 32K</strong>。</p>
+<p>所以三家在 4090 上跑 32K 都会触发同一种工程决定：<strong>KV cache 必须再量化</strong>。lmdeploy 默认走 KV8（Key 和 Value 都 INT8）能直接砍一半到 4.3 GB；vLLM 0.20 支持 KV FP8；SGLang 在 v0.5 之后也加了 KV FP8 选项。社区里更激进的做法是 Q4 K-cache + Q8 V-cache 异构组合，把 32K KV 压到 ~2.7 GB——TechPlained 的实测把这个组合在 4090 上跑通，weight 19.7 GB + KV 12 GB（这是 4 bit 量化模型 + Q4/Q8 KV 的近似上限），刚好卡进 24GB。这是 4090 单卡跑 Qwen3-32B 32K 真正能落地的硬件配置，不是理论值。</p>
+<table>
+<thead>
+<tr>
+<th>配置</th>
+<th>权重</th>
+<th>KV @ 32K</th>
+<th>总显存</th>
+<th>4090 24GB 可行性</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>FP16</td>
+<td>64 GB</td>
+<td>8.6 GB</td>
+<td>72.6 GB</td>
+<td>❌ 装不下</td>
+</tr>
+<tr>
+<td>INT8</td>
+<td>32.8 GB</td>
+<td>8.6 GB</td>
+<td>41.4 GB</td>
+<td>❌ 装不下</td>
+</tr>
+<tr>
+<td>W4A16 + KV FP16</td>
+<td>19 GB</td>
+<td>8.6 GB</td>
+<td>27.6 GB</td>
+<td>❌ 略超</td>
+</tr>
+<tr>
+<td>W4A16 + KV INT8（lmdeploy 默认）</td>
+<td>19 GB</td>
+<td>4.3 GB</td>
+<td>23.3 GB</td>
+<td>✅ 紧贴</td>
+</tr>
+<tr>
+<td>W4A16 + Q4K/Q8V（社区组合）</td>
+<td>19 GB</td>
+<td>2.7 GB</td>
+<td>21.7 GB</td>
+<td>✅ 留 2GB workspace</td>
+</tr>
+</tbody></table>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/10/qwen3-coder-30b-vram-budget.png" alt="4090 24GB 跑 Qwen3-32B 显存预算图：W4A16 + KV 量化才进得去"></p>
+<p><strong>判断</strong>：4090 单卡跑 Qwen3-32B 32K 上下文不是&quot;能不能&quot;的问题，是&quot;必须把 KV 也量化&quot;的问题；这一点三家引擎在工程默认值上的取舍直接决定了开发者部署时第一行命令该怎么写。</p>
+<p>再补一个工程小细节。AWQ 和 GPTQ 在 4090 上跑 Qwen3-32B 不是等价的两条路。AWQ（Activation-aware Weight Quantization）在长序列场景的精度保持比 GPTQ 略好，因为它在量化时会按激活分布重要性给权重打分；GPTQ 在 batch 较小时反而更省显存（约 0.5-1GB）。Qwen 官方放出来的 Qwen3-32B-AWQ 是用 mixtral-style 校准数据集做的，<strong>Qwen3-32B-AWQ 是这条路上的官方推荐</strong>——三家引擎对 AWQ 的支持都是 day 0、稳定性最好、benchmark 数据最多。FP8 在 4090 上虽然可以模拟运行，但失去了 Hopper 上 sm_90 的原生加速，性价比下降一档；INT8 在 W4 时代基本被边缘化，仅作为部分老型号 backup。</p>
+<h2>三、SGLang RadixAttention：共享前缀命中率天花板</h2>
+<p>SGLang 这家的工程立身之本是 <strong>RadixAttention</strong>——LMSYS 团队 2024 年 1 月那篇博客最早提出的概念，到 2026 年 5 月已经做到第三代。它和 vLLM 的 PagedAttention 不是替代关系，而是叠加在 PagedAttention 之上的一层：vLLM 解决&quot;显存怎么分页&quot;，RadixAttention 解决&quot;算过的 KV 怎么找回来不再算&quot;。</p>
+<p>技术细节直接引官方博客：「<strong>we utilize a radix tree to manage a mapping. This mapping is between sequences of tokens, which act as the keys, and their corresponding KV cache tensors, which serve as the values. These KV cache tensors are stored on the GPU in a paged layout, where the size of each page is equivalent to one token</strong>」——把 token 序列当作 key、KV 缓存张量当作 value，用一棵 radix tree（基数树）管这个映射，匹配前缀 → 复用 KV → 跳过重算。这棵 radix tree 比普通 trie 更省内存（边可以标注变长字符串而不是单字符），在内存吃紧的 GPU 上特别合适。</p>
+<p>那这一招到底能省多少。Medium 上 Don Moon 那篇横评给了一个很扎实的数据：<strong>few-shot learning 共享 example 的场景，vLLM PagedAttention prefix cache 命中率 15-25%、SGLang RadixAttention 命中率 85-95%</strong>——差出 60 个百分点。多轮对话场景，vLLM 命中率 10-20%、SGLang 75-90%。代码分析场景共享模板，vLLM 命中率 5-15%、SGLang 60-80%。这三个数字的物理原因都是同一个：vLLM 的 prefix cache 是 block 级哈希（每 16 token 算一个 block），block 边界变了就 miss；SGLang 是 token 级 radix tree，前缀只要有任何重叠就能复用一段。</p>
+<p>这个差异在 4090 单卡跑 Qwen3-32B 时落地是这样的：你在 OpenWebUI 或者 Cherry Studio 里挂一个 Qwen3-32B 后端给 5-10 个同事用，每个人的 system prompt 一样、对话历史不一样，<strong>SGLang 几乎可以做到 system prompt 这一段只算一次</strong>——它在 radix tree 里找到完全相同的前缀路径直接复用 KV；vLLM 也能复用但只在 block 边界对齐时复用。Runpod 那篇 H100 双卡上跑 DeepSeek-R1-Distill-Llama-70B 的实测里 SGLang RadixAttention 在 7K 上下文有缓存命中时是 35.0 tok/s、无命中是 29.5 tok/s（提升约 19%），vLLM 同条件下是 32.8 vs 28.6 tok/s（提升约 15%）——SGLang 在多轮对话场景比 vLLM 多约 10% 吞吐。</p>
+<p>但 SGLang 不是没有取舍。它有一个 <strong>warm-up 现象</strong>：第一波请求性能不到稳态，要等 radix tree 建索引以后吞吐才会拉起来。GitHub 上 qiulang/vllm-sglang-perf 那个独立第三方测试里，作者明确写了「<strong>vLLM delivered consistent performance from the first request without warm-up, while SGLang showed a significant warm-up effect requiring initial requests to reach optimal performance</strong>」——这一点在容器冷启动 / Kubernetes 自动扩缩容场景是个工程坑。</p>
+<p>SGLang 在 v0.5 系列还做了一件让国内 Agent 开发者特别舒服的事——<strong>结构化输出（structured output）一等公民集成 XGrammar</strong>。XGrammar 是清华系团队做的语法约束推理库，能在 token 级保证 JSON schema / regex / EBNF grammar 严格匹配，不像 outlines 那种走采样后过滤的旁路方案。Qwen3-32B 在 SGLang 上跑函数调用 / JSON 输出，每个生成 token 的 logits 都会被 XGrammar 实时 mask 掉所有不合 schema 的候选，速度损失只有 5-10%，正确率 99%+。这一点在做 Agent 工具链（特别是 OpenClaw / 通义灵码 / Trae 这一类需要严格 JSON 协议的国内 IDE）的开发者眼里是硬性优势。</p>
+<p>另一个工程坑值得提一下——SGLang 的 radix tree 在显存吃紧时的 LRU eviction 策略。LMSYS 官方博客原话写：「<strong>we use an LRU eviction policy that recursively evicts leaf nodes</strong>」，递归驱逐叶子节点。这意味着如果你的 4090 显存只剩 2-3GB 给 KV 缓存（W4 + 32K context 的紧场景），SGLang 会比 vLLM 更频繁触发 eviction；表现是某些请求看起来&quot;明明前缀应该命中&quot;但实际没命中。这种情况建议把 <code>--max-total-tokens</code> 调大一点（默认会按显存自动算）、或者加 <code>--enable-flashinfer</code> 用更紧凑的 attention kernel 腾出空间。这是 SGLang 的&quot;小众坑&quot;，但 4090 这种紧显存场景容易遇到。</p>
+<p><strong>判断</strong>：SGLang 适合&quot;会话型&quot;场景（同一 prompt 模板被打 N 次），不适合&quot;短平快&quot;的 batch 任务；4090 上跑 Qwen3-32B 给团队做 AI 助手是 SGLang 的最佳生态位。</p>
+<h2>四、vLLM PagedAttention：单用户稳定性 + 生态天花板</h2>
+<p>vLLM 是这三家里最老牌的（2023 年 2 月开仓），79,506 颗星几乎是 SGLang（27,571）+ lmdeploy（7,847）之和。这个差距不是营销做得好——是 vLLM 把 OpenAI API 兼容、tensor parallelism、continuous batching、PagedAttention、chunked prefill 这套基建一年一年补完了，国内大厂二开它的版本（魔搭、华为昇腾、智谱、阶跃星辰各家都有内部 fork）数量最多、bug 修复路径最熟、stack overflow 答案最丰富。</p>
+<p>PagedAttention 的核心洞察是把虚拟内存的分页机制搬到 GPU KV 缓存上。每个序列的 KV 缓存被切成固定大小的 block（默认 16 token），用一张映射表把逻辑序列号映射到物理 block——<strong>显存碎片化从此被消灭</strong>。这一项在 2023 年 vLLM 0.1 发布时是革命性的，今天已经是所有引擎的事实标准。vLLM 之所以一直拿&quot;吞吐之王&quot;的标签，是因为它把 PagedAttention 和 continuous batching 这两件事的耦合做到了 0 开销——不需要等一个 batch 跑完才开下一个 batch，新 token 一生成就能动态加入。</p>
+<p>但 5 月这个时点 vLLM 在 SGLang 和 lmdeploy 面前不再是吞吐第一了。Pre.ai 那篇 2026 年 3 月的横评在 H100 + Llama 3.1 8B 上测出来的数字很硬：<strong>SGLang ~16,200 tok/s、LMDeploy ~16,100 tok/s、vLLM ~12,500 tok/s</strong>——SGLang 和 lmdeploy 都比 vLLM 快约 29%。原文给了个很清醒的解释：「<strong>Even when vLLM is optimized with the exact same kernels (FlashInfer) as SGLang, SGLang and LMDeploy maintain a 29% advantage over the fully optimized vLLM. This indicates that the bottleneck is no longer the mathematical kernel, but the engine&#39;s internal orchestration overhead</strong>」——瓶颈早已从计算 kernel 移到了 batch 调度器和内存管理本身，vLLM 的调度器抽象层略重。</p>
+<p>这一差距在 Qwen3-32B-AWQ 上更夸张。vllm-project/vllm#18136 这个 GitHub Issue 里有人在 4× A10G（4×24GB）上同模型同 backend 测出来：<strong>vLLM total token throughput 178.15 tok/s，SGLang 748.92 tok/s——SGLang 是 vLLM 的 4.2 倍</strong>；TTFT 方面 vLLM 平均 2,945,424 ms（49 分钟）、SGLang 815,107 ms（13.6 分钟）。这个数字看起来很夸张但是真实的 issue 内容，原因是 vLLM 在 awq_marlin + tensor-parallel-size 4 + 50 并发 + 25K input 这个极端组合下调度器排队严重；SGLang 同条件因为 RadixAttention 把 25K 输入里的共享部分缓存了。</p>
+<p>但 vLLM 不是没有翻盘点。<strong>单 GPU 单用户长上下文场景</strong>它依然是最稳的——qiulang/vllm-sglang-perf 在单卡 A10 + Qwen2.5-7B-AWQ + 8K context + 30 并发条件下，vLLM 的 OpenAI API 行为和 max_tokens 严格匹配（SGLang 的 native API 完全无视 max_tokens），调试体验更好。<strong>国内标准 chat completion API 网关厂家、客户端开源项目（Cherry Studio、Open WebUI、NextChat）的兼容测试矩阵第一档基本都是 vLLM</strong>——你压一个不主流的引擎客户端可能踩到某个 streaming format 的小坑。</p>
+<p>vLLM 在 5/4 v0.20.1 这个版本还引入了一个 4090 用户特别关心的优化——<strong>chunked prefill 默认开</strong>。Chunked prefill 把超长 prompt 的 prefill 阶段切成块（默认 512 token 一块），prefill 和 decode 交叉调度，避免长 prompt 把整个 batch 卡在 prefill 等不到 decode token。Qwen3-32B 在 4090 上跑 32K 长 prompt 时，chunked prefill 能把首 token 延迟从 8-10s 降到 2-3s，体感差距巨大。SGLang 也支持 chunked prefill 但默认关，需要 <code>--enable-chunked-prefill</code> 显式开。lmdeploy 的 dynamic split &amp; fuse 是同类思想的 C++ 实现，默认开。</p>
+<p>vLLM 还有一项国内开发者高频用到的功能——<strong>LoRA 热加载</strong>。一台 4090 单卡跑一个 Qwen3-32B base，外挂 N 个不同任务的 LoRA adapter（每个 50-200MB），切换 adapter 不需要重启服务、不需要重新加载 base 权重。这一点对&quot;我要给客服、销售、技术支持三个团队各自做一个微调版 Qwen3-32B&quot;这一类场景是杀手级。SGLang 在 v0.5 之后也加了 LoRA 支持但成熟度落后 vLLM 半年；lmdeploy 的 LoRA 支持目前还在实验阶段。<strong>vLLM 是 Qwen3-32B + LoRA 多任务热切换的当下唯一稳定选择</strong>。</p>
+<p><strong>判断</strong>：vLLM 适合&quot;我要先把 Qwen3-32B 跑通、跑稳定、对外暴露 OpenAI API、不踩奇怪坑、未来还要外挂 LoRA&quot;这一类目标；不适合追求绝对吞吐第一或者搞 Agent 多轮共享前缀的极致优化。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/10/sglang-vllm-lmdeploy-throughput-chart.png" alt="三家在 4090 + Qwen3-32B + 32K 上下文吞吐对照"></p>
+<h2>五、lmdeploy TurboMind：纯 C++ 后端吃干净 Python 开销</h2>
+<p>lmdeploy 在三家里星数最少（7,847）但工程口碑最硬。它的核心是 <strong>TurboMind 引擎</strong>——纯 C++ + CUDA 实现的推理后端，<strong>整个 Python 解释器从热路径里移除</strong>。lmdeploy 的 README 直接给了 benchmark：「<strong>LMDeploy delivers up to 1.8x higher request throughput than vLLM</strong>」、「<strong>the 4-bit inference performance is 2.4x higher than FP16</strong>」、「<strong>rocketing the internlm2-20b model inference to 16+ RPS, about 1.8x faster than vLLM</strong>」。</p>
+<p>TurboMind 不是凭空快的。它把这些做到了极致：(1) 持久 batch（continuous batching）+ blocked KV cache 都自己用 C++ 实现一遍，跳过 PyTorch 的 Tensor 抽象层；(2) dynamic split &amp; fuse 把不同长度的请求在 attention 层合并计算；(3) 自研 CUDA kernel 用于 W4A16 反量化 + matmul，比 marlin / GPTQ kernel 在 Ada 架构（4090）上少 10-20% 开销；(4) KV cache 量化到 INT8 是默认行为，不需要额外 flag。<strong>lmdeploy 在 4090 上跑 Qwen3-32B-AWQ 不需要任何&quot;微调一下 launch flag&quot;就能拿到 4 bit 模型加速 2.4× 的官方数字</strong>——开箱即用这件事它做得最扎实。</p>
+<p>这家的另一个隐藏优势是<strong>国内硬件适配</strong>。除了 NVIDIA 主线，lmdeploy 给昇腾 910B（华为）、海光 DCU、寒武纪 MLU 都有官方分支或 PR；上海 AI Lab 自己的 InternLM 系列模型从 day 0 就是 lmdeploy first，国内合规私有化项目里 &quot;我们要支持国产 GPU&quot; 这个 RFP 条款，lmdeploy 是当下唯一能稳定满足的开源项目。</p>
+<p>但 lmdeploy 不是万能。它在三件事上比 SGLang/vLLM 弱：(1) <strong>OpenAI API 兼容做得不如 vLLM 完整</strong>——一些边角字段（logprobs、tool_choice 高级模式、structured outputs）支持滞后；(2) <strong>多模态模型支持比 vLLM 慢</strong>——Qwen-VL、InternVL 主线在 vLLM 上的适配速度明显更快；(3) <strong>社区活跃度一般</strong>——issue 平均响应时间在三家里最长，遇到奇怪问题没有 stack overflow 救你。</p>
+<p>知乎 5 月那篇五一书生工具链实战营的 Qwen3 量化部署文章里有一句很真实的话：「<strong>LMDeploy 的优势在于国产硬件深度适配和量化方案的性能收益</strong>」——这个定位不夸张也不谦虚。lmdeploy 是工程派、不是生态派。</p>
+<p>很多人忽略 lmdeploy 还有一个&quot;非 TurboMind&quot;的 PyTorch 后端，跟 SGLang/vLLM 一样是 Python + 原生 kernel 路径。lmdeploy 的设计思路是 <strong>TurboMind 走极致性能、PyTorch 后端走灵活适配</strong>：主流模型（InternLM / Qwen / GLM / DeepSeek 主线）默认走 TurboMind 拿满性能，少数实验性或者复杂多模态模型走 PyTorch 后端拿适配速度。这套双后端架构是它在工程上比 SGLang/vLLM 更&quot;老派&quot;的体现——成熟、可控、对国产 GPU 友好；代价是社区扩展的速度（特别是新出现的多模态模型）会比 vLLM 慢一拍。这种工程取舍很务实，特别适合&quot;我们运维不接受调试半成品 SDK&quot;的国内中型企业。</p>
+<p>lmdeploy 在量化栈上也比另外两家更深。除了主线的 W4A16，它还原生支持 <strong>KV cache 量化到 INT8 / INT4</strong> 两档，配 W4A16 权重相当于&quot;全栈 4 bit&quot;——4090 上跑 Qwen3-32B 在最激进的全 4 bit 配置下，理论显存占用能压到 ~12GB，意味着 4090 24GB 上还可以同时跑两个 Qwen3-32B 实例做 A/B 测试。这是 SGLang 和 vLLM 当下都还做不到的极限工程能力。</p>
+<p><strong>判断</strong>：lmdeploy 适合&quot;我有合规私有化要求、要榨干 4090 的最后 5% 吞吐、用国产硬件备份&quot;这一类场景；不适合&quot;我要快速接入一个新出的多模态模型、需要完整的 OpenAI API 兼容&quot;这一类。</p>
+<h2>六、三家在 4090 + Qwen3-32B + 32K 上下文的数字对照</h2>
+<p>把前面四节的工程定性翻成一张数字表。</p>
+<blockquote>
+<p>⚠️ <strong>数据来源说明</strong>：以下表格中的 30 并发吞吐和 TTFT 数字，<strong>为基于三家公开 benchmark + Qwen 官方 speed_benchmark + lmdeploy README 自报系数综合的工程估算，并非同一台 4090 上的一手实测</strong>，仅供选型参考。一手实测请自行 docker pull 三家 image 用业务真实流量跑一周再决定。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>SGLang v0.5.11</th>
+<th>vLLM v0.20.1</th>
+<th>lmdeploy v0.12.3</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>核心机制</strong></td>
+<td>RadixAttention（token 级 radix tree）</td>
+<td>PagedAttention（block 级哈希分页）</td>
+<td>TurboMind（纯 C++ + 自研 CUDA）</td>
+</tr>
+<tr>
+<td><strong>KV 缓存策略</strong></td>
+<td>默认 FP16，可选 FP8；radix tree 自动复用</td>
+<td>默认 FP16，可选 FP8；block 哈希复用</td>
+<td>默认 INT8（开箱即用），可选 INT4</td>
+</tr>
+<tr>
+<td><strong>W4A16 内核</strong></td>
+<td>marlin + flashinfer</td>
+<td>awq_marlin + flashinfer</td>
+<td>自研 W4A16 CUDA kernel</td>
+</tr>
+<tr>
+<td><strong>prefix cache 命中率</strong></td>
+<td>多轮对话 75-90%</td>
+<td>多轮对话 10-20%</td>
+<td>自动 prefix caching（命中率介于两者）</td>
+</tr>
+<tr>
+<td><strong>单用户单序列吞吐</strong>（输入 6K，输出 1K，估算）</td>
+<td>~160 tok/s</td>
+<td>~150 tok/s</td>
+<td>~165 tok/s</td>
+</tr>
+<tr>
+<td><strong>30 并发吞吐</strong>（共享 system prompt，估算）</td>
+<td>~720 tok/s（含 cache hit）</td>
+<td>~500 tok/s</td>
+<td>~640 tok/s</td>
+</tr>
+<tr>
+<td><strong>平均 TTFT</strong>（30 并发，估算）</td>
+<td>0.9-1.5 s</td>
+<td>1.5-2.5 s</td>
+<td>0.6-1.0 s</td>
+</tr>
+<tr>
+<td><strong>OpenAI API 兼容</strong></td>
+<td>完整（含 tools、logprobs）</td>
+<td>完整（最成熟）</td>
+<td>基础（部分高级字段滞后）</td>
+</tr>
+<tr>
+<td><strong>冷启动稳定性</strong></td>
+<td>有 warm-up（前 2-3 个请求慢）</td>
+<td>第一个请求即稳态</td>
+<td>第一个请求即稳态</td>
+</tr>
+<tr>
+<td><strong>国产硬件支持</strong></td>
+<td>NVIDIA 主线，AMD MI300X 实验性</td>
+<td>NVIDIA + AMD ROCm + TPU</td>
+<td>NVIDIA + 昇腾 + 海光 + 寒武纪</td>
+</tr>
+<tr>
+<td><strong>多模态</strong></td>
+<td>Qwen-VL / GLM-V / DeepSeek-V 已支持</td>
+<td>全面（Qwen-VL / Llama-V / Phi-V 等）</td>
+<td>InternVL 优先，其他略滞后</td>
+</tr>
+<tr>
+<td><strong>结构化输出</strong></td>
+<td>一等公民（XGrammar 集成）</td>
+<td>第三方（outlines / xgrammar）</td>
+<td>基础 JSON schema</td>
+</tr>
+<tr>
+<td><strong>release 节奏</strong></td>
+<td>月级，5/5 v0.5.11</td>
+<td>周级，5/4 v0.20.1</td>
+<td>月级，4/8 v0.12.3</td>
+</tr>
+<tr>
+<td><strong>社区规模</strong></td>
+<td>27.5K star，Discord 活跃</td>
+<td>79.5K star，国内大厂深度二开</td>
+<td>7.8K star，上海 AI Lab 主导</td>
+</tr>
+</tbody></table>
+<p><strong>判断</strong>：单看数字，4090 上跑 Qwen3-32B 给 30 个并发用户用 system prompt 复用强的场景，<strong>SGLang 吞吐第一、lmdeploy TTFT 第一、vLLM 兼容第一</strong>；没有一个引擎在所有维度都赢——选型本质是选&quot;我最在乎哪一档指标&quot;。</p>
+<h2>七、r/LocalLLaMA 真人帖：开发者的引擎选型实战</h2>
+<p>光看数字不够，看真实开发者怎么决定。下面是从 r/LocalLLaMA、HN 和知乎抓出的几条比较有信息密度的真实反馈（节选有删改、保持核心观点 verbatim）。</p>
+<p>第一条来自一个把 Qwen3-32B-AWQ 推到 4090 上的开发者，引自 vllm-project/vllm#18136 的 issue 描述：「<strong>SGLang achieves approximately 4.2x higher total token throughput and 4.2x higher output token throughput compared to vLLM under identical hardware and model conditions</strong>」——同硬件同模型 SGLang 是 vLLM 的 4.2 倍。这个数字夸张，作者自己在 issue 里也明确说是 awq_marlin + tensor-parallel-size 4 + 50 并发 + 25K input 的极端配置，不是普通场景。但即使是普通场景，SGLang 在 awq 量化上也比 vLLM 快 30-50%，这一点社区共识很高。</p>
+<p>第二条是关于 vLLM 的 OpenAI 兼容反馈，来自独立第三方 qiulang/vllm-sglang-perf 仓库的 README：「<strong>vLLM delivered consistent performance from the first request without warm-up, while SGLang showed a significant warm-up effect requiring initial requests to reach optimal performance</strong>」——vLLM 第一个请求就是稳态，SGLang 有明显的预热期。「<strong>SGLang&#39;s native API completely ignores the max_tokens parameter while vLLM&#39;s native API generates exactly the max_tokens amount of tokens. This difference makes comparisons between them challenging</strong>」——SGLang 的原生 API 不严格 honor max_tokens，vLLM 严格 honor，这一点直接影响很多业务对成本和延迟的可控性。</p>
+<p>第三条来自 r/LocalLLaMA 一个真实部署反馈，针对 4090 + AWQ 的组合：「<strong>AWQ quants technically work in vllm but are painfully slow—around 5 tokens/sec for a ~700 input / ~70 output generation</strong>」——某些版本的 vLLM 在某些硬件配置下跑 AWQ 慢得离谱。原帖的建议是改用 GPTQ 或者切到 SGLang。这个吐槽的真正原因是 vLLM 的 awq_marlin kernel 在 Ada 架构上不如 lmdeploy 的自研 W4A16 kernel 紧致，社区里这一类反馈在 vLLM 0.18-0.19 期间很集中，0.20 之后改善了一些。</p>
+<p>第四条来自 Runpod 那篇 H100 双卡 + DeepSeek-R1-Distill-70B 的实测博客，结论非常实在：「<strong>Choose SGLang for multi-turn conversations where context overlaps but varies. Choose vLLM for batch inference with predictable, templated prompts</strong>」——多轮对话上 SGLang，批处理上 vLLM。「<strong>For single-turn tasks, vLLM performed better (60.0 vs 52.7 tok/s), demonstrating that neither framework universally dominates</strong>」——单轮任务上 vLLM 反而更快，没有一个框架是全能。</p>
+<p>四条加起来给国内开发者的启示是清晰的：<strong>不要听任何一家自己做的 benchmark，自己用业务真实流量跑一周再决定</strong>。三家的 docker 镜像都是分钟级 pull 起来，4090 上同一个 AWQ 模型切换部署成本只是改一行 docker run 命令。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/10/sglang-vllm-lmdeploy-community-feedback.png" alt="r/LocalLLaMA 国内外开发者真人选型反馈拼贴"></p>
+<h2>八、国内开源生态：三家在中国的角色不一样</h2>
+<p>把视野拉到国内特有的工程红利上。三家在国内开发者生态里其实角色非常不一样。</p>
+<p><strong>lmdeploy 是国内&quot;亲生&quot;的</strong>：上海人工智能实验室自研，InternLM 系列从 day 0 走 lmdeploy 部署路径，TurboMind 引擎对国产 GPU（昇腾 910B / 海光 DCU / 寒武纪 MLU）的官方支持是三家里最完整的。Qwen3 / GLM-5 / 月之暗面 Kimi 系列在 lmdeploy 主分支的 PR 合并速度通常领先 vLLM 一到两周。<strong>国内合规私有化项目要求&quot;用得上国产 GPU&quot;是 lmdeploy 唯一的不可替代性</strong>。</p>
+<p><strong>SGLang 是&quot;半个国内&quot;的</strong>：LMSYS 是 UC Berkeley 学界为主，但核心 contributor 里有大量国内大厂工程师，飞书 / 钉钉 / 字节 / 阿里都对 SGLang 有深度二开。它在 Qwen3 系列的适配速度仅次于 lmdeploy，Qwen3-32B-AWQ / Qwen3-32B-FP8 在 v0.5.10 之后是 day 0 支持。Qwen 官方文档的 speed_benchmark.html 里 Qwen3-32B 的速度数字就是用 SGLang 跑的——AWQ-INT4 在 input 1 时 47.67 tok/s、6144 时 159.99 tok/s、14336 时 260.44 tok/s、30720 时 366.84 tok/s。这套数字是 Qwen 团队自己测的、SGLang 跑的、官方文档发布的——<strong>SGLang 是 Qwen 系列的官方推荐推理引擎之一</strong>。</p>
+<p><strong>vLLM 是&quot;全球通&quot;的</strong>：伯克利出身、国内大厂普遍二开（华为版、智谱版、字节内部版各家都有），但国内 release 节奏永远比上游慢一到三周。它的优势是生态——所有海外开源 SaaS 客户端 / Agent 框架 / 标准 chat completion API 网关默认对接 vLLM，<strong>vLLM 是&quot;我装一个，全世界都能连&quot;的最大公约数</strong>。</p>
+<p>ModelScope（魔搭）这个国内开源模型分发平台把三家都列为官方推荐推理引擎，Qwen3-32B-AWQ 的模型卡上同时给三家的 docker 部署命令。这是三年前不可想象的——国内开发者今天可以在魔搭一个页面上点三家的命令复制按钮，分钟级把同一个模型在三家引擎上轮一遍。<strong>这种&quot;模型 + 引擎 + 国内分发平台&quot;三方都是开源 + 都打通的状态，是 2026 年国内 AI 工程基建最值得高兴的事之一</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>国产生态适配</th>
+<th>SGLang</th>
+<th>vLLM</th>
+<th>lmdeploy</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qwen3 day-0 PR</td>
+<td>✅ v0.5.10</td>
+<td>✅ v0.18+</td>
+<td>✅ v0.12</td>
+</tr>
+<tr>
+<td>GLM-5 适配</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Kimi K2 系列</td>
+<td>✅</td>
+<td>✅</td>
+<td>滞后 1-2 周</td>
+</tr>
+<tr>
+<td>昇腾 910B 官方支持</td>
+<td>实验性</td>
+<td>第三方 fork</td>
+<td>✅ 主线</td>
+</tr>
+<tr>
+<td>海光 DCU 官方支持</td>
+<td>❌</td>
+<td>第三方 fork</td>
+<td>✅ 主线</td>
+</tr>
+<tr>
+<td>ModelScope 推荐</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>中文文档完整度</td>
+<td>中</td>
+<td>高（社区翻译完整）</td>
+<td>高（官方中文文档）</td>
+</tr>
+<tr>
+<td>国内大厂二开 fork</td>
+<td>阿里 / 字节</td>
+<td>华为 / 智谱 / 阶跃</td>
+<td>上海 AI Lab 自研</td>
+</tr>
+</tbody></table>
+<p><strong>判断</strong>：国内开发者今天在三家引擎之间切换的工程成本前所未有地低；选型这件事真的可以从&quot;我同事说&quot;升级到&quot;我自己 docker pull 三个跑一周再说&quot;。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/10/sglang-vllm-lmdeploy-throughput-chart.png" alt="三家在 4090 + Qwen3-32B + 32K 上下文吞吐分布对照"></p>
+<h2>九、九个场景对应九条选型答案</h2>
+<p>把前面所有节折叠成一张实际选型表。下面这九个场景是国内开发者最常见的、4090 上跑 Qwen3-32B 这种规模的项目落地决策。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/10/sglang-vllm-lmdeploy-engineering-table.png" alt="SGLang vs vLLM vs lmdeploy 工程取舍对照（决策回顾图）"></p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>首选</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>团队 5-10 人 AI 助手（共享 system prompt）</td>
+<td><strong>SGLang</strong></td>
+<td>RadixAttention 在共享前缀场景命中率 75-90%，吞吐领先</td>
+</tr>
+<tr>
+<td>单用户长文档分析（每次 prompt 不一样）</td>
+<td><strong>vLLM</strong></td>
+<td>PagedAttention 单序列稳定性强，无 warm-up</td>
+</tr>
+<tr>
+<td>私有化合规要求支持国产 GPU</td>
+<td><strong>lmdeploy</strong></td>
+<td>昇腾 910B / 海光 DCU 官方主线支持，唯一选择</td>
+</tr>
+<tr>
+<td>对接现有 OpenAI API 客户端 / Agent 框架</td>
+<td><strong>vLLM</strong></td>
+<td>OpenAI 兼容最完整，调试体验最稳</td>
+</tr>
+<tr>
+<td>追求 4090 上 Qwen3-32B 吞吐绝对极限</td>
+<td><strong>SGLang 或 lmdeploy</strong></td>
+<td>都比 vLLM 快约 30%；SGLang 更强 prefix cache，lmdeploy 更强 W4 kernel</td>
+</tr>
+<tr>
+<td>极低 TTFT 要求（≤1s）</td>
+<td><strong>lmdeploy</strong></td>
+<td>TurboMind 纯 C++ 后端，首 token 延迟最低</td>
+</tr>
+<tr>
+<td>多模态模型（VLM / 图文）</td>
+<td><strong>vLLM</strong></td>
+<td>Qwen-VL / Phi-V / Llama-V 适配最快</td>
+</tr>
+<tr>
+<td>结构化输出（JSON schema / 函数调用）</td>
+<td><strong>SGLang</strong></td>
+<td>XGrammar 一等公民集成，结构化输出 token 级保证</td>
+</tr>
+<tr>
+<td>Kubernetes 自动扩缩容 / Serverless</td>
+<td><strong>vLLM 或 lmdeploy</strong></td>
+<td>第一个请求即稳态，无 warm-up，扩缩容友好</td>
+</tr>
+</tbody></table>
+<p><strong>判断</strong>：把这九个场景对应的引擎写进项目立项文档，再在 4090 单机上做一次 docker run 三家轮测，国内开发者今天就能给&quot;用哪家推理引擎&quot;这件事一个具体到行的答案——不是&quot;听 leader 说&quot;也不是&quot;看哪家 PR 多&quot;，是自己业务流量跑出来的数字。</p>
+<h2>十、小结：国产推理基建把&quot;选型不靠玄学&quot;做到同一张表上</h2>
+<p>回到开头那个判断。SGLang 用 RadixAttention 把多用户共享前缀做到 75-90% 命中率、vLLM 用 PagedAttention 把生态成熟度和 chat completion API 兼容做到事实标准、lmdeploy 用 TurboMind 纯 C++ 后端把量化推理和首 token 延迟做到天花板——三家在 5 月这一周一起把 Qwen3-32B 系列适配到位，让一台一万五左右的 4090 单卡也能用 W4A16 + KV INT8 跑到 30 并发可用。<strong>4090 + Qwen3-32B + 三引擎可选 = 国产推理这条路终于把&quot;选型不靠玄学、压业务有数字&quot;两件事走到了同一张表上</strong>。</p>
+<p>对国内开发者来说这件事的真正意义不是&quot;今晚就能装机&quot;那种功能层面的便利，是<strong>心态层面的升级</strong>：你不再需要在&quot;vLLM 是行业标准、用就完了&quot;和&quot;SGLang 看起来更快、但社区小怕踩坑&quot;之间凭情怀决定；不再需要在&quot;lmdeploy 是国产、所以要支持&quot;和&quot;国产开源真的能用吗、出 bug 找谁&quot;之间犹豫；不再需要在&quot;压一个引擎吃一辈子、还是多引擎冗余、运维成本翻倍&quot;之间反复折腾。<strong>今天你只要在 4090 单机上 docker pull 三家 image，按业务真实流量跑一周，每家给一个数字、贴一份成本账，然后照着九条场景表做决定就行</strong>。</p>
+<p>这才是国产开源推理基建在 2026 年 5 月最值得记住的位置：不是哪家最快、不是谁打谁——是三家终于做到了同一张表上互相兜底，让开发者第一次能从&quot;听别人说&quot;升级到&quot;自己跑过&quot;。这一步走稳了，国内私有化 AI 基建的下一程才会真正属于工程派而不是营销派。</p>
+<hr>
+<p><strong>参考资料</strong></p>
+<ul>
+<li>SGLang 官方仓库与 v0.5.11：<a href="https://github.com/sgl-project/sglang" target="_blank" rel="noopener">https://github.com/sgl-project/sglang</a></li>
+<li>vLLM 官方仓库与 v0.20.1：<a href="https://github.com/vllm-project/vllm" target="_blank" rel="noopener">https://github.com/vllm-project/vllm</a></li>
+<li>lmdeploy 官方仓库与 v0.12.3：<a href="https://github.com/InternLM/lmdeploy" target="_blank" rel="noopener">https://github.com/InternLM/lmdeploy</a></li>
+<li>LMSYS RadixAttention 原始博客（2024-01-17）：<a href="https://www.lmsys.org/blog/2024-01-17-sglang/" target="_blank" rel="noopener">https://www.lmsys.org/blog/2024-01-17-sglang/</a></li>
+<li>Qwen3-32B Speed Benchmark（SGLang 官方实测）：<a href="https://qwen.readthedocs.io/en/latest/getting_started/speed_benchmark.html" target="_blank" rel="noopener">https://qwen.readthedocs.io/en/latest/getting_started/speed_benchmark.html</a></li>
+<li>vllm-project/vllm#18136 SGLang vs vLLM 4.2× Qwen3-32B-AWQ：<a href="https://github.com/vllm-project/vllm/issues/18136" target="_blank" rel="noopener">https://github.com/vllm-project/vllm/issues/18136</a></li>
+<li>2026 LLM Inference Engine Benchmark（Pre.ai）：<a href="https://blog.premai.io/vllm-vs-sglang-vs-lmdeploy-fastest-llm-inference-engine-in-2026/" target="_blank" rel="noopener">https://blog.premai.io/vllm-vs-sglang-vs-lmdeploy-fastest-llm-inference-engine-in-2026/</a></li>
+<li>SGLang vs vLLM KV Cache Reuse（Runpod）：<a href="https://www.runpod.io/blog/sglang-vs-vllm-kv-cache" target="_blank" rel="noopener">https://www.runpod.io/blog/sglang-vs-vllm-kv-cache</a></li>
+<li>Prefix Caching SGLang vs vLLM（Medium）：<a href="https://medium.com/byte-sized-ai/prefix-caching-sglang-vs-vllm-token-level-radix-tree-vs-block-level-hashing-b99ece9977a1" target="_blank" rel="noopener">https://medium.com/byte-sized-ai/prefix-caching-sglang-vs-vllm-token-level-radix-tree-vs-block-level-hashing-b99ece9977a1</a></li>
+<li>vllm-sglang-perf 第三方实测：<a href="https://github.com/qiulang/vllm-sglang-perf" target="_blank" rel="noopener">https://github.com/qiulang/vllm-sglang-perf</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

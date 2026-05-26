@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>完全本地跑的 Deep Research agent：千问 27B 在 SimpleQA 拿 95.7% — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-07</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-07</span><span class="tag-pill">Daily Report</span></div>
+      <h1>完全本地跑的 Deep Research agent：千问 27B 在 SimpleQA 拿 95.7%</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/07/local-deep-research-learningcircuit-2026-05-07.png" alt="完全本地跑的 Deep Research agent"></p>
+<p>2026 年 5 月 7 日今天，海外开源 Deep Research 项目 <code>LearningCircuit/local-deep-research</code>（下文简称 LDR）的 GitHub 星数冲到 5988，社区跑分榜单第一名是国产千问 3.6 27B——不是 gpt-oss，不是 Llama，是千问。这条赛道国内开发者等了大半年的&quot;不烧 OpenAI token、研究问题不发去 Tavily&quot;的替代品，现在有了一份干净的成绩单可以参照。</p>
+<p>LDR 项目 2026-02 上线，HN 顶贴 190+，过去 7 天 push 38 个 commit，主作者累计 5144 commits 的活跃度。社区在 Hugging Face 维护的真实跑分 dataset 里，<strong>Qwen 3.6 27B + Ollama + LDR 的 langgraph_agent 策略，在 SimpleQA 上做到 287/300（95.7%）</strong>——这个成绩不仅追平 OpenAI Deep Research 的官方公开口径，还把同测试中的 gpt-oss-120b（86.7%）甩开 9 个百分点。</p>
+<p>更值得注意的是这条路线的政治性：<strong>它是国产模型在海外社区的真实成绩单</strong>——不是厂商自评，是社区贡献者用同一脚本、同一测试集、同一个搜索后端跑出来的横评。本文要回答的就是这一件事：<strong>这套 5988 星的本地化 Deep Research agent 在国内开发者手里到底能跑成什么样，硬件门槛在哪，跟我们已经熟悉的 gpt-researcher / Khoj 比强在哪。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/07/local-deep-research-benchmark-table.png" alt="LDR 真实跑分 - 千问 3.6 27B 在 SimpleQA 拿 95.7%"></p>
+<h2>一、这个 5988 星的项目到底干什么</h2>
+<p><strong>核心论断</strong>：LDR 是一个把&quot;问问题 → 自动搜索 → 多轮迭代 → 输出带引用的研究报告&quot;完整流程跑在本地的 agent 框架，最大的价值不是 SimpleQA 那个分数，而是<strong>整套搜索 + LLM + 加密知识库都不出本机</strong>这件事。</p>
+<p>它的工作流可以一句话讲完：</p>
+<ul>
+<li>你输入一个研究问题（&quot;DeepSeek-V4 跟 Claude 4.5 Sonnet 的 RLHF 路线差异&quot;）</li>
+<li>LDR 让本地 LLM 拆题、决定先搜 arXiv 还是先搜 Wikipedia</li>
+<li>LangGraph agent 策略循环跑：搜 → 读 → 评估 → 再搜，直到信息足够</li>
+<li>输出 markdown 研究报告，每条结论挂引用、可导出 PDF</li>
+<li>顺手把搜到的源文件下到本地 SQLCipher 加密库里，下次研究复用</li>
+</ul>
+<p>它的差异化在三件事上：</p>
+<ol>
+<li><strong>本地 LLM 是一等公民</strong>——Ollama、LM Studio、llama.cpp 三种方式都内置，连 LangChain 那种&quot;装 OpenAI 套壳&quot;的味道都没有</li>
+<li><strong>20+ 研究策略</strong>——从 30 秒的 quick_summary 到 30 分钟的 detailed_research，按问题深度选；新加的 <code>langgraph-agent</code> 策略让 LLM 自己决定调哪个引擎</li>
+<li><strong>加密知识库 + MCP 服务器</strong>——SQLCipher AES-256 加密；自带 MCP server 让 Claude Code / Claude Desktop 直接调用 LDR 跑深度研究</li>
+</ol>
+<p>后两件事是 gpt-researcher 不做、Khoj 部分做的——而 MCP 这条线对国内 Claude Code 用户特别关键，下文专门展开。</p>
+<h2>二、千问 27B 拿 95.7% 是怎么回事</h2>
+<p><strong>核心论断</strong>：这不是厂商自评，是社区贡献者用同一套测试脚本跑出来的横评——而且<strong>国产模型在这套测试里第一名</strong>。</p>
+<p>数据来源是 <code>huggingface.co/datasets/local-deep-research/ldr-benchmarks</code>，社区 CI 校验过的 10 条提交记录里：</p>
+<ul>
+<li><strong>qwen3.6:27b（Ollama）+ langgraph_agent + Serper</strong>：SimpleQA 287/300 = 95.7%</li>
+<li><strong>qwen3.6:latest（Ollama）+ langgraph_agent + Serper</strong>：SimpleQA 287/300 = 95.7%</li>
+<li><strong>qwen3.5:9b（Ollama）+ langgraph_agent + Serper</strong>：SimpleQA 182/200 = 91.2%</li>
+<li><strong>gemma4:31b（Ollama）+ langgraph_agent + Serper</strong>：SimpleQA 271/300 = 90.3%</li>
+<li><strong>gpt-oss-120b（OpenAI 端点）+ langgraph_agent + Serper</strong>：SimpleQA 26/30 = 86.7%</li>
+<li><strong>gpt-oss:20b（Ollama）+ langgraph_agent + Serper</strong>：SimpleQA 295/346 = 85.4%</li>
+</ul>
+<p>把数字翻译成一句判断：<strong>这套测试里，27B 的国产模型把 120B 的海外开源模型甩开 9 个百分点，胜负不在参数规模这一栏。</strong></p>
+<p>几个角度可以读这张表：</p>
+<p><strong>第一</strong>，27B 的千问比 120B 的 gpt-oss 高 9 个百分点。这不是参数规模决定一切——LDR 这种 agent 任务里，模型对&quot;决定搜什么、什么时候停止搜&quot;的判断能力比参数量更重要。千问 3.6 在中文工具调用 + 多步推理这两条上的训练显然下了功夫。</p>
+<p><strong>第二</strong>，9B 的千问 3.5 也能拿 91.2%，比 31B 的 Gemma 4 高。<strong>这意味着一台 RTX 3090 / 4090 24GB 显存的家用机器，跑 9B 全精度或者 27B 4-bit 量化，就能复现接近 SOTA 的 Deep Research 体验</strong>——不需要 H100，不需要云端 API 账户，不需要把研究问题发给硅谷服务器。</p>
+<p><strong>第三</strong>，这是社区提交，不是厂商自评。LearningCircuit（项目作者）跑了 8 条，djpetti（也是 BSAIL Lab 学术评测人）跑了 1 条，kwhyte7 跑了 1 条 —— <strong>谁都可以提自己的跑分 PR，CI 会复跑校验</strong>。这套机制本身就是对&quot;厂商发布会跑分&quot;那种营销叙事的反向校准。</p>
+<p>xbench-DeepSearch 这个更难的多步检索测试上，千问 3.6 27B 也拿到 77/100 = 77.0%——9B 的版本掉到 59%，说明 deep-search 任务对模型容量更敏感，27B 是分水岭。</p>
+<h2>三、跟 gpt-researcher / Khoj 比差在哪、强在哪</h2>
+<p>国内开发者圈早就熟悉 <code>assafelovic/gpt-researcher</code>（21k 星）和 <code>khoj-ai/khoj</code>（30k 星）。LDR 5988 星，从绝对量看不算最大——但定位差异非常明确。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/07/local-deep-research-vs-competitors.png" alt="三条本地化 Deep Research 路线对比"></p>
+<p><strong>核心论断</strong>：LDR 不是来抢 gpt-researcher 用户的——它服务的是&quot;我连云端 API 都不想调&quot;的私有化场景。</p>
+<p>三个项目的真实差异：</p>
+<ul>
+<li><strong>gpt-researcher</strong>：默认 OpenAI / Anthropic + Tavily / SerpAPI，云端 API 是一等公民。本地化是补丁，不是主线。21k 星里大部分用户是云端 API 跑研究的，国内用户走它需要至少一个海外 API 账户</li>
+<li><strong>Khoj</strong>：定位是&quot;个人 AI 助手 + 知识库&quot;，研究只是一个能力。本地化通过 Ollama 支持，但搜索引擎那一头不如 LDR 全（10+ 学术源）</li>
+<li><strong>LDR</strong>：默认就是本地——Ollama + SearXNG + SQLCipher 是&quot;开箱主角&quot;，云端 API 反而是&quot;如果你想用也行&quot;的备选</li>
+</ul>
+<p>对国内开发者意味着：</p>
+<ul>
+<li>如果你已经有 OpenAI 信用卡 + Tavily 账户，gpt-researcher 工程成熟度更好，没必要换</li>
+<li>如果你要的是&quot;个人助手 + 偶尔深度研究&quot;，Khoj 体验更轻</li>
+<li>如果你的诉求是&quot;完全私有 + 公司合规要数据不出本机 + 要跑学术研究&quot;——LDR 是目前最贴合的选择</li>
+</ul>
+<p>特别说一下 SearXNG 这条线。LDR 默认推荐 docker run SearXNG 在本机做元搜索后端——SearXNG 自己就是个隐私优先的开源搜索元引擎，10+ 学术源（arXiv、PubMed、Semantic Scholar、Wikipedia、Wayback、Guardian、GitHub、StackExchange、OpenLibrary、Gutenberg）默认接好。<strong>整条研究链上没有一个云端商业 API 出现</strong>——这种纯净度在 2026 年的 deep research 项目里非常少见。</p>
+<h2>四、硬件门槛：3090 / 24GB 显存能不能跑</h2>
+<p><strong>核心论断</strong>：跑得动，而且能跑出 SOTA 段位——但要选对模型 + 量化方案。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/07/local-deep-research-hardware-guide.png" alt="LDR 国内开发者硬件配置参考"></p>
+<p>按硬件预算给具体推荐：</p>
+<ul>
+<li><strong>RTX 3060 12GB</strong>（学生 / 入门家用）：跑 qwen3:4b 量化版，走 quick_research 策略——SimpleQA 段位 74%，问简单问题没问题，复杂多步推理勉强</li>
+<li><strong>RTX 3090 / 4090 24GB</strong>（个人开发者主力机）：两个甜蜜点<ul>
+<li>qwen3.5:9b 全精度 + langgraph_agent → SimpleQA 91% 段位</li>
+<li>qwen3.6:27b 4bit 量化 + langgraph_agent → SimpleQA 95.7% 段位</li>
+</ul>
+</li>
+<li><strong>M1/M2 Max 32GB Mac</strong>（Mac 用户）：gpt-oss:20b 是社区跑得最熟的一条，SimpleQA 85% 段位，跑得稳，发热可控</li>
+<li><strong>纯 CPU 32GB 内存</strong>（无独显）：gemma4:26b 量化能跑，SimpleQA 73% 段位，但单次研究 15-30 分钟得忍——quick_research 模式更适合</li>
+<li><strong>云端零硬件</strong>（不想买卡）：DeepSeek API / 千问云 + LDR 的 langgraph_agent 也走得通——准确率接近 95% 段位，但你就回到了&quot;研究问题发给云端&quot;的状态</li>
+</ul>
+<p>显存怎么估算？粗略口径：参数量 × 2 = 半精度显存 GB；4bit 量化版本约 = 参数量 × 0.6。所以 27B 全精度要 ~54GB，4bit 量化压到 ~17GB——24GB 显存的 3090 / 4090 装得下，但留给上下文的余地不大，跑长研究要分批。</p>
+<p><strong>Ollama 默认拉模型这条体验非常关键</strong>——LDR 1.7 之后取消了&quot;自动拉 gemma3:12b&quot;的默认（避免悄悄下载 GB 级权重），改成必须在 Settings → LLM 里手动选模型。这是个对的设计——但意味着第一次跑要花 10-30 分钟先 <code>ollama pull qwen3.6:27b</code>，做好心理准备。</p>
+<h2>五、Claude Code 用户的隐藏价值：MCP server</h2>
+<p><strong>核心论断</strong>：LDR 自带的 MCP server 让 Claude Code 直接调用本地 LDR 跑深度研究——这是 gpt-researcher / Khoj 都没有的、对 Claude Code 重度用户特别关键的能力。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/07/local-deep-research-mcp-tools.png" alt="LDR 接入 Claude Code 的 MCP 工具清单"></p>
+<p>接入方式简单到一行 JSON。在 <code>~/.claude/mcp.json</code> 写：</p>
+<pre><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;local-deep-research&quot;: {
+      &quot;command&quot;: &quot;ldr-mcp&quot;,
+      &quot;env&quot;: {
+        &quot;LDR_LLM_PROVIDER&quot;: &quot;ollama&quot;,
+        &quot;LDR_LLM_OLLAMA_URL&quot;: &quot;http://localhost:11434&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<p>然后 Claude Code 里就能直接说&quot;用 quick_research 帮我查 DeepSeek-V4 的 RLHF 路线&quot;——Claude Code 会调 <code>ldr-mcp</code>，LDR 用本地 Ollama + SearXNG 跑完，把带引用的报告还回来。</p>
+<p>7 个 MCP 工具的分工很清楚：</p>
+<ul>
+<li><code>search</code>：单引擎原始结果（arxiv / pubmed / wikipedia 等），秒级，不烧 LLM token——<strong>特别适合做日常监控</strong>（每周扫一次某个领域的新论文）</li>
+<li><code>quick_research</code>：1-5 分钟出汇总，适合临时查问题</li>
+<li><code>detailed_research</code>：5-15 分钟深度分析</li>
+<li><code>generate_report</code>：10-30 分钟出完整 markdown 报告</li>
+<li><code>analyze_documents</code>：搜你本地 SQLCipher 库里的文档（学术 PDF / 公司内部资料）</li>
+<li><code>list_search_engines</code> / <code>list_strategies</code> / <code>get_configuration</code>：元工具，秒回</li>
+</ul>
+<p><strong>这套 MCP 设计对国内 Claude Code 用户的特殊意义在于</strong>：你日常用 Claude Code 写代码已经在烧 Anthropic API token 了，研究环节如果再走 OpenAI Deep Research 又是一笔。LDR 把研究环节切到本地——Claude Code 还是 Claude Code，但 Deep Research 这一段变成本地 Ollama + SearXNG，token 账单只剩 Claude Code 自己那一份。</p>
+<p>需要注意的安全提醒：LDR 的 MCP server 设计是<strong>纯本地 STDIO 传输</strong>，没有内置鉴权和速率限制。不要把它暴露到网络上——这是 LDR 文档里明确写的红线。</p>
+<h2>六、真实读者的 5 条吐槽（HN 顶贴）</h2>
+<p><strong>核心论断</strong>：这个项目还在活跃迭代，不是&quot;装上就能用&quot;的状态——HN 顶贴 190+ 评论里，社区给出的 5 条具体吐槽值得你先有心理准备。</p>
+<p>直接引用 HN 顶贴评论（<code>news.ycombinator.com/item?id=43330164</code>）：</p>
+<ul>
+<li><strong>mentalgear</strong>：「输出文档结构有点散」——希望接图数据库做结论之间的关系图谱</li>
+<li><strong>sinenomore</strong>：「需要做正经的自动化 eval」——LLM-as-judge 跟 perplexity / openai / deepseek 横评</li>
+<li><strong>CGamesPlay</strong>：「跑长研究遇到很多错误，没法生成完整报告，最关键的是失败了不能 resume」——这是真实痛点，长 research 单 session 跑 30 分钟，中间挂掉就全没</li>
+<li><strong>throwaway24681</strong>：「内部检索按问题搜不优，应该按关键词搜」——同时希望日志再详细些</li>
+<li><strong>HashedViking</strong>（已是项目第 5 大贡献者）：「很多号称开源的 deep research 都是 OpenAI API 的套壳」——这条对照来看反而是 LDR 的卖点：它<strong>真的</strong>是本地的</li>
+</ul>
+<p>GitHub issue tracker 也有非常具体的当前痛点：</p>
+<ul>
+<li>Issue #3826：「巨大内存泄漏，主机内存被吃满」——昨天 6 个评论在跟进</li>
+<li>Issue #3800：「LM Studio 模型识别不到」——一个 LM Studio 用户报的</li>
+<li>Issue #3827：下载管理器下不了</li>
+</ul>
+<p>这些不是项目质量差的信号——5144 commit、过去 7 天 38 个 commit 的项目里，issue 跟 PR 是同一个量级的。这是项目在以高速度迭代的副产品。<strong>国内开发者上手时建议先用 docker compose 走最稳的一条路，并且把 quick_research（5 分钟内完成）作为常用模式，detailed_research 只在确定不会被打断时再跑</strong>。</p>
+<h2>七、国内开发者的真实落地路径</h2>
+<p><strong>核心论断</strong>：先 docker compose + 千问 9B + SearXNG 跑通三件套，再决定要不要升级到 27B。</p>
+<p>对国内开发者，三步上路：</p>
+<ol>
+<li><strong>基础设施一次配齐</strong>（一台 24GB 显存的家用机或公司开发机）<ul>
+<li>装 Docker Desktop</li>
+<li><code>docker run -d -p 11434:11434 --name ollama ollama/ollama</code></li>
+<li><code>docker exec ollama ollama pull qwen3.5:9b</code>（先从 9B 起步，成本低）</li>
+<li><code>docker run -d -p 8080:8080 --name searxng searxng/searxng</code></li>
+<li><code>docker compose up -d</code> 起 LDR 主服务</li>
+</ul>
+</li>
+<li><strong>Settings 里选模型 + 选策略</strong><ul>
+<li>LLM provider 选 Ollama，model 填 <code>qwen3.5:9b</code></li>
+<li>研究策略默认 <code>langgraph-agent</code>（社区跑分最高的那条）</li>
+<li>搜索引擎勾选 SearXNG + arXiv + Wikipedia + PubMed</li>
+</ul>
+</li>
+<li><strong>第一次研究测水温</strong><ul>
+<li>先跑 quick_research 模式，问一个你已经熟悉的领域（比如&quot;Qwen 3.6 跟 DeepSeek V4 的对比&quot;）</li>
+<li>看 5 分钟内能否拿到带引用的合理汇总</li>
+<li>通了再升级到 27B 4bit 量化版本，跑 detailed_research</li>
+</ul>
+</li>
+</ol>
+<p>国内可能踩的两个坑：</p>
+<ul>
+<li><strong>SearXNG 部分上游搜索引擎在国内访问慢或被墙</strong>——可以在 SearXNG 配置里挑国内可达的源（DuckDuckGo、Bing、StackExchange 这些都还行，Google / Yahoo 不稳）</li>
+<li><strong>千问 / DeepSeek 之外的本地模型拉权重慢</strong>——Ollama 默认从国外 CDN 拉，可以走 modelscope 镜像或者公司内网代理</li>
+</ul>
+<h2>八、收尾：这是国产模型在海外社区拿到的一张干净成绩单</h2>
+<p>回到开头那个论点。LDR 的真正价值不在 5988 星这个数字，也不在&quot;OpenAI Deep Research 平替&quot;这个 slogan——它的价值在于：<strong>在一个由海外开发者主导的开源项目里，由社区贡献者用统一脚本横评出来的真实跑分，第一名是国产的千问 3.6 27B</strong>。</p>
+<p>这件事的两层含义都值得国内开发者记住：</p>
+<p>第一层是技术层面——<strong>完全本地的 Deep Research agent 路线已经走通了</strong>。一台 24GB 显存的家用机器，跑千问量化版，配 SearXNG + LDR，准确率追平甚至超过云端商业服务。如果你的工作场景对数据隐私 / 公司合规有硬要求，这条路线现在就能落地。</p>
+<p>第二层是生态层面——<strong>国产模型在海外开源社区的真实接纳度，远比我们日常感受到的要高</strong>。LearningCircuit 这个海外项目的 SimpleQA 跑分页面，前两名都是千问，社区 CI 跟着复跑校验。这不是营销，是开发者用 PR 投出来的票。</p>
+<p>这一代 AI 开发者特别幸运的地方在于：基础设施已经搭得很完整。本地有 Ollama + LM Studio + llama.cpp，模型有千问 / DeepSeek / Gemma 全谱系，研究框架有 LDR / gpt-researcher / Khoj 三条路线可选，编辑器里有 Claude Code + MCP 这套粘合层。<strong>剩下要做的就是把它们组装起来跑通自己的工作流——前辈已经把路趟出来了，路在前面，一起加油。</strong></p>
+<hr>
+<p><strong>项目地址</strong>：<code>github.com/LearningCircuit/local-deep-research</code>（5988 星 · MIT License · 截至 2026-05-07）</p>
+<p><strong>社区跑分数据集</strong>：<code>huggingface.co/datasets/local-deep-research/ldr-benchmarks</code></p>
+<p><strong>HN 顶贴讨论</strong>：<code>news.ycombinator.com/item?id=43330164</code>（190+ 评论）</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

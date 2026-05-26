@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supertonic 3：99M 跑 31 种语言的本地 TTS，跟 CosyVoice / GPT-SoVITS / ChatTTS 是另一条路 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-15</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-15</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Supertonic 3：99M 跑 31 种语言的本地 TTS，跟 CosyVoice / GPT-SoVITS / ChatTTS 是另一条路</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/supertonic-3-99m-tts-31lang-2026-05-15.png" alt="Supertonic 3 封面 · 99M 本地 TTS 跑 31 语言"></p>
+<p>如果你最近也在挑本地 TTS，过去两周大概率刷到过一个叫 Supertonic 的仓库。这一周它从冷启动冲到 GitHub Trending 第九，单日加 1163 stars，今天实测 5243 stars / 508 forks / MIT 协议 / Swift 主语言。看仓库简介只有一句话：「Lightning-Fast, On-Device, Multilingual TTS — running natively via ONNX」。</p>
+<p>把这一句话拆开看，其实是三件互相咬合的事：第一，参数量很小，公开 ONNX 资产大约 99M；第二，语言宽度很大，v3 支持 31 种语言；第三，部署目标是端侧，从普通笔电、浏览器到树莓派和电纸书都能跑。把这三件事拼在一起，就是 4 月 29 日放出的 Supertonic 3 真正想抢的位置——「轻到能塞进任何设备、宽到能覆盖大多数海外用户场景」的本地 TTS 基础设施。</p>
+<blockquote>
+<p><strong>本文要回答四件事</strong>：(1) 99M 跑 31 语言这套组合在架构上是怎么压下来的，韩国 Supertone 团队（Hybe 旗下、BTS 母公司）出这条路的产业背景在哪；(2) 中文用户最关心的现实问题——31 种语言里有没有中文，没有的话差距是什么；(3) 把它和国产 CosyVoice 2 / GPT-SoVITS / IndexTTS / FishSpeech / MegaTTS / ChatTTS 拉到一张表上看，各家其实在分别守哪块阵地；(4) 国内开发者想把 Supertonic 当海外多语种侧的 TTS 备选拉进流水线，下载、推理、部署有哪几条路可以走。</p>
+</blockquote>
+<h2>一、Supertonic 3 是谁家的、为什么这周突然火起来</h2>
+<p>先把出身讲清楚。supertone-inc 这个组是韩国 Supertone 公司，2020 年成立做 AI 语音合成，2023 年被 Hybe 收购成为旗下子公司。Hybe 是韩国最大的娱乐公司之一，BTS、SEVENTEEN、TXT、LE SSERAFIM、NewJeans 等顶流团体都在它旗下。Supertone 早期最被业内记住的产品是给已故歌手做的 AI 声音复刻，2023 年还参与了金光石声音重建项目。一家娱乐巨头投资语音 AI 子公司，主线本来就是商业级歌手嗓音建模、配音、虚拟偶像，但 4 月 29 日这一版 Supertonic 3，团队选择把研究侧的成果以 MIT 协议放出，外加 v2 兼容的公开 ONNX 资产 — 这个动作本身就比纯论文级开源要重一档。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/supertonic-og.png" alt="Supertonic 3 GitHub 仓库主页"></p>
+<p>仓库 README 这两周写得非常克制：没有列融资、没有写商业版定价，只挂了三件东西。第一是 v3 的 Demo 和模型卡，分别托管在 Hugging Face 的 <code>Supertone/supertonic-3</code> Space 与 model repo；第二是论文链接，主架构论文是 <code>arXiv:2503.23108</code>，标题「SupertonicTTS: Towards Highly Efficient and Streamlined Text-to-Speech System」，里面写明用了 flow-matching 风格的文本到潜变量模块加上一个语音自编码器，配合一种叫 LARoPE（Length-Aware Rotary Position Embedding）的位置编码改进文-语对齐；第三是十种以上语言示例代码（Python、Node.js、浏览器、Java、C++、C#、Go、Swift、iOS、Rust、Flutter），全部走 ONNX Runtime 推理。</p>
+<p>为什么是这周突然涨？我把仓库 issue 区翻了一遍，能看出来的两条火源：一条是 4 月 29 日 v3 放出后，ScriptByAI、EveryDev 这些 AI 资讯频道做了视频和长贴；另一条是 Hugging Face 自家 <code>transformers.js</code> 仓库前几天合并了 Supertonic 支持的 PR（编号 1459），同时给出 WebGPU 在线演示页，社区里那条「浏览器纯本地跑 TTS」的话题被点燃。两件事叠在一起，把 GitHub 上的 star 曲线推到了 5000 这条线之上。</p>
+<pre><code class="language-text">韩国 Supertone Inc.（2020 创立 · 2023 被 Hybe 收购）
+        │
+        │  Hybe 旗下子公司
+        ▼
+研究方向：歌手嗓音建模 / 商业配音 / 虚拟偶像音色
+        │
+        │  arXiv:2503.23108 主架构论文（2025）
+        │  + arXiv 上 LARoPE 文-语对齐改进
+        ▼
+公开输出（MIT 协议）：
+  · v1 → v2（5 语言） → v3（31 语言，2026-04-29 放出）
+  · 公开 ONNX 资产，参数量约 99M
+  · 10+ 语言绑定示例：Py / Node / Browser / C++ / Swift / Rust …
+</code></pre>
+<p>这条出身链很关键，它解释了 Supertonic 3 几个看起来很反常的特征：为什么主语言是 Swift（因为团队最早服务 iOS 端语音应用）；为什么早期版本只有 5 语言、v3 直接跳到 31（团队拿娱乐侧多语种发行场景练手）；为什么不像国产团队那样把中文放第一优先级（因为最大客户场景在海外多语种发行）。</p>
+<h2>二、99M 参数怎么跟 0.7B-2B 同档掰手腕</h2>
+<p>这是看完 README 第一个会被问的问题。99M 这个体量在 2026 年的 TTS 圈是真小——不到当下 ChatTTS 480M 的四分之一、不到 XTTS v2 1.1B 的十分之一、跟 VoxCPM2 这种 0.7B 量级的同期开源对手相比也只有它的 1/7 上下。但 README 里 Supertonic 3 的几个 metrics 图给出的结论是：词错误率（WER）和字错误率（CER）落在「与大模型可比的范围」内，部分语言上甚至更稳。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/supertonic-params-comparison.png" alt="Supertonic 3 与同类开源 TTS 参数量对照"></p>
+<p>这张图把这一周大家在讨论的几个本地 TTS 一字排开。看体量分布，本地 TTS 圈现在大致有四档：第一档 25M 上下的 Piper，主打英文场景的极轻量端侧；第二档 80M-100M 的 Kokoro 与 Supertonic 3，做的是「轻 + 宽语种」；第三档 500M 上下的 ChatTTS、VibeVoice Realtime 0.5B，主打表现力和实时性；第四档 0.7B-1.1B 的 VoxCPM2、XTTS v2，主打音色克隆和最高级别的自然度。</p>
+<p>99M 怎么压下来的，论文里给的关键招数有三个，按工程影响力排序：</p>
+<p><strong>第一招，flow-matching 替代 diffusion</strong>。传统扩散式 TTS 推理要走几十步到上百步采样，本身就贵。Supertonic 用 flow-matching 风格的文本到潜变量模块——同样能学复杂分布，但训练目标是连续概率流，推理时所需步数比扩散少很多。这一刀直接把模型在「同等表达力下的体积下限」往下压了一截。</p>
+<p><strong>第二招，LARoPE 改进文-语对齐</strong>。论文 <code>arXiv:2503.23108</code> 之外团队还发表了 <code>arXiv:2509....</code>（README 里 BibTeX 标 kim2025larope）专门讲这个改进。传统 RoPE 在文本与语音长度不一致时容易丢对齐，LARoPE 把长度因子显式塞进位置编码，让 cross-attention 在跨长度的对齐上更稳定。工程上的影响是：长句子不跳词、不重复、不漏读——README 里 v2 → v3 的对照图，重复和跳读失败率明显下降，主要就靠这块。</p>
+<p><strong>第三招，语音自编码器 + ONNX-Slim</strong>。Supertonic 走的是先用一个紧凑的语音自编码器把波形压成潜变量，再让 flow-matching 模块在潜空间里生成的两段式结构。这样训练阶段的目标是 1024 维潜变量而不是 24kHz 波形，参数量天然小。仓库里还引用了 OnnxSlim 这个第三方工具做 ONNX 图优化，把推理图里冗余算子裁掉。最终一份公开 ONNX 资产稳在 99M 这条线。</p>
+<p>工程意义比论文上的指标更直接：</p>
+<ul>
+<li><strong>下载体积小</strong>，第一次启动用 <code>pip install supertonic</code> 自动从 Hugging Face 拉，对国内用户来说差不多就是一次几百 MB 的 hf-mirror 镜像下载，不是几个 GB 的等待</li>
+<li><strong>冷启动快</strong>，README 给 Onyx Boox Go 6 电纸书飞行模式下平均 RTF 约 0.3×，意思是合成 10 秒音频只要 3 秒</li>
+<li><strong>CPU 路径完整</strong>，开源 fixed-voice 设置不需要 GPU，本地、浏览器、边缘端都能跑</li>
+</ul>
+<p>也就是说，「99M 跑赢 2B 级对手」这种表述本身有点夸张——更准确的说法是：在常见多语种朗读场景里，Supertonic 3 把误差控制在与大模型可比的范围内，同时把体积、延迟、内存吃下来。这件事对个人开发者、桌面应用、嵌入式设备来说，比「再涨 0.5 个 MOS 分」要值钱得多。</p>
+<h2>三、31 种语言里没有中文，到底意味着什么</h2>
+<p>这是中文用户绕不开的问题。README 里的 31 种语言表，我把它逐个核了一遍：</p>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>包含语种</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>西欧 / 北欧</td>
+<td>English / German / French / Spanish / Italian / Portuguese / Dutch / Swedish / Danish / Finnish</td>
+</tr>
+<tr>
+<td>中东欧</td>
+<td>Polish / Czech / Slovak / Hungarian / Romanian / Bulgarian / Croatian / Slovenian / Lithuanian / Latvian / Estonian / Greek / Ukrainian</td>
+</tr>
+<tr>
+<td>东亚</td>
+<td>Korean / Japanese</td>
+</tr>
+<tr>
+<td>东南亚</td>
+<td>Indonesian / Vietnamese</td>
+</tr>
+<tr>
+<td>其他</td>
+<td>Russian / Turkish / Arabic / Hindi</td>
+</tr>
+</tbody></table>
+<p>31 种里覆盖了欧洲全家桶、中东、印度、东南亚两个国家，加上日语、韩语两个东亚邻居。<strong>唯独中文（zh）没有在内</strong>。这跟 Hybe / Supertone 的商业基本盘对得上：韩流主力发行市场是日韩、欧美、东南亚和中东（印度、阿联酋这几年加得很猛），中文市场属于另一条独立赛道，国产 TTS 自给自足、竞争激烈，海外团队没有动力先优化这块。</p>
+<p>但更关键的一层是：Supertonic 在 README 里那一节「用它做出来的应用」（Built with Supertonic）列的下游项目——TLDRL、Read Aloud、PageEcho、VoiceChat、OmniAvatar、CopiloTTS、Pinokio——清一色是浏览器扩展、电子书 App、对话机器人这类「读英文 / 读多语种网页」的场景。中文场景在它的产品视野里目前不是优先级。</p>
+<p>这给国内开发者两种结论：</p>
+<p><strong>结论一：单语种中文场景，Supertonic 不是你要的工具</strong>。本地中文 TTS 这块，国产生态已经非常厚——CosyVoice 2、GPT-SoVITS、IndexTTS、FishSpeech、MegaTTS、ChatTTS 几家各有强项，下面这一节会展开。</p>
+<p><strong>结论二：多语种 + 中文混排的场景，Supertonic 是值得加进流水线的一块</strong>。比如你的应用是给中文用户朗读 Hacker News 长文、读 GitHub issue 区里的英语讨论、做日韩追星向的字幕配音——这类场景 Supertonic 在英语 / 日语 / 韩语上的稳定性，比用中文 TTS 强行去读英语生硬得多。中文部分让国产 TTS 处理，英语 / 日语 / 韩语切到 Supertonic。<strong>31 种语言里没有中文不是缺陷，是它的产品定位边界</strong>。</p>
+<h2>四、和国产 CosyVoice 2 / GPT-SoVITS / IndexTTS / FishSpeech / ChatTTS 对照看</h2>
+<p>这是本文最值得展开的一节。把视野拉回到中文圈，过去一年本地 TTS 卷得非常厉害，国产几家各有非常清晰的差异化定位。我把当下最被讨论的几家拉到一张表上看。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/supertonic-language-table.png" alt="本地 TTS 语言覆盖横向对比"></p>
+<p><strong>CosyVoice 2（阿里达摩院 · 2024 年底放出 · 2025-26 持续更新）</strong>：体量约 500M，主打中英日韩粤五语种 + 表现力极强的少样本克隆。社区里几乎是中文场景默认推荐之一，长文朗读、对话情绪、方言（粤语稳）都有口碑。和 Supertonic 比，CosyVoice 2 在中文 + 表现力这条线上是国内最稳的选项，但体量大、对 GPU / 较好 CPU 资源有更明显诉求。</p>
+<p><strong>GPT-SoVITS（社区项目 · RVC 之后最热的克隆栈）</strong>：体量灵活，主打「几分钟样本就能克隆音色」+ 中英日跨语种合成。GitHub 上 trending 常客，社区生态里语音克隆首选。和 Supertonic 比，路线分歧明显——GPT-SoVITS 是 voice cloning first，Supertonic 是 fixed-voice multilingual first。前者偏「我要复刻这个人」，后者偏「我要 31 个稳定预制音」。</p>
+<p><strong>IndexTTS（B 站开源 · 2024 放出 · 1.5/2.0 系列在更新）</strong>：体量约 300M-500M，主打中文表现力 + B 站社区生态加持。在中文 ASMR、长文朗读、虚拟主播圈是主力之一。</p>
+<p><strong>FishSpeech（Fish Audio · 1.x / Open Source 1.5）</strong>：体量约 500M，路线接近 GPT-SoVITS，主打跨语种克隆 + 实时合成。社区 issue 区活跃度高，是另一条「克隆首选」备选。</p>
+<p><strong>MegaTTS（字节跳动 · 2024-26 系列）</strong>：字节自家 TTS 路线，最近版本主打长篇上下文一致性 + 情感连贯。学术圈引用很多。</p>
+<p><strong>ChatTTS（2noise 团队 · 2024 年首发的爆款）</strong>：体量约 480M，主打对话式、自然口语态的英文 + 中文表现。早期 GitHub 上一晚加几千 stars 的项目，仍是默认对照基线之一。</p>
+<p>把这些和 Supertonic 3 放到一张定位图上看：</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>体量</th>
+<th>主语言</th>
+<th>强项</th>
+<th>适合谁</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Supertonic 3</strong></td>
+<td>~99M</td>
+<td>31 种（不含中文）</td>
+<td>体积小 + CPU 实时 + 海外多语种</td>
+<td>浏览器扩展 / 电纸书 / 嵌入式 / 多语种朗读流水线</td>
+</tr>
+<tr>
+<td>CosyVoice 2</td>
+<td>~500M</td>
+<td>中英日韩粤</td>
+<td>中文表现力 + 少样本克隆</td>
+<td>中文长文朗读 / 方言场景 / 表现力优先</td>
+</tr>
+<tr>
+<td>GPT-SoVITS</td>
+<td>灵活</td>
+<td>中英日</td>
+<td>几分钟克隆 + 跨语种迁移</td>
+<td>个人语音克隆 / UGC 内容创作</td>
+</tr>
+<tr>
+<td>IndexTTS</td>
+<td>~300-500M</td>
+<td>中英</td>
+<td>中文 ASMR / 虚拟主播</td>
+<td>B 站生态 / 国内内容创作者</td>
+</tr>
+<tr>
+<td>FishSpeech</td>
+<td>~500M</td>
+<td>中英日多语</td>
+<td>跨语种克隆 + 实时</td>
+<td>与 GPT-SoVITS 同位竞争</td>
+</tr>
+<tr>
+<td>MegaTTS</td>
+<td>~600M</td>
+<td>中英</td>
+<td>长上下文一致性</td>
+<td>有声书 / 长篇朗读</td>
+</tr>
+<tr>
+<td>ChatTTS</td>
+<td>~480M</td>
+<td>中英</td>
+<td>对话式自然口语</td>
+<td>对话机器人 / 角色扮演</td>
+</tr>
+</tbody></table>
+<p>从这张表能看出来一件事：Supertonic 不是来跟国产几家抢中文场景的，它和它们之间几乎没有正面冲突。把它看成「海外多语种侧 + 端侧轻量化」这条单独维度上的代表作更准确。</p>
+<pre><code class="language-text">本地 TTS 地图（2026 年 5 月视角）
+ ┌─────────────────────────────────────────────────────┐
+ │ 端侧轻量 + 海外多语种                              │
+ │   Supertonic 3  · Kokoro 82M  · Piper              │
+ │                                                     │
+ │ 中文 + 表现力                                       │
+ │   CosyVoice 2 · IndexTTS · MegaTTS · ChatTTS       │
+ │                                                     │
+ │ 克隆 first                                          │
+ │   GPT-SoVITS · FishSpeech                          │
+ └─────────────────────────────────────────────────────┘
+</code></pre>
+<p><strong>所以对国内开发者来说，结论很清晰</strong>：要做中文场景，从国产几家里挑——CosyVoice 2 是稳妥默认值，GPT-SoVITS 适合克隆，IndexTTS 适合内容创作，MegaTTS 适合长篇。要做海外朗读、浏览器扩展、嵌入式、电纸书这类场景，再加一块 Supertonic 进流水线。两边互补，不互斥。</p>
+<h2>五、本地部署四张关键牌：体积 / 启动 / RTF / 内存</h2>
+<p>讲完语种和场景，把视角拉回工程。Supertonic 3 在端侧的真实优势，不是任何一个单点指标特别夸张，而是它把「体积、启动、CPU 实时率、内存」这四件事一起压到普通笔电可承受的范围。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/supertonic-perf-bars.png" alt="本地部署四张关键牌：体积 启动 CPU 实时率 内存"></p>
+<p><strong>第一张牌：体积</strong>。公开 ONNX 资产约 99M，是 0.7B-2B 同类的 1/7 到 1/20。这个数字带来的实际差异是——Chrome 扩展可以把整个模型嵌进 manifest，电纸书可以装进内置存储，树莓派可以从 SD 卡冷启动。</p>
+<p><strong>第二张牌：启动 + 首字延迟</strong>。README 演示视频里 Chrome 扩展 TLDRL 整页朗读「在不到 1 秒内开口」，电纸书路径平均 RTF 0.3×。RTF 0.3× 的含义是合成速度是音频长度的约 3.3 倍——也就是说每秒可以生成约 3 秒可播放音频，跑在一台无网络的 Onyx Boox 上。</p>
+<p><strong>第三张牌：内存</strong>。论文里给出的 runtime footprint 数据是「CPU 跑得快，甚至比 A100 GPU 上跑的更大基线模型还少不少内存」。这条对嵌入式 / 边缘端尤其要命——树莓派 4B 内存最多 8 GB，电纸书更紧。99M 模型 + ONNX Runtime 的常驻内存比起 0.5B-2B 同类至少省一档。</p>
+<p><strong>第四张牌：部署形态</strong>。README 同时列了 11 种语言绑定（Python / Node.js / 浏览器 / Java / C++ / C# / Go / Swift / iOS / Rust / Flutter）。这意味着你不需要为了上 TTS 引一个新进程或起新服务——把它编译进你的 Rust / Go / Swift 应用，或者用 onnxruntime-web 加 WebGPU 在浏览器里直接跑。</p>
+<pre><code class="language-text">真实可跑场景（来自仓库 README 演示视频）
+ ┌──────────────────────────────────────────────────────┐
+ │ 树莓派        · 4B 上实时合成                       │
+ │ Onyx Boox Go 6 · 飞行模式 RTF 约 0.3×               │
+ │ Chrome 扩展    · 整页朗读 &lt; 1 秒首字                │
+ │ Transformers.js · WebGPU + WASM 浏览器路径          │
+ │ MNN 移植       · fp32 / fp16 / int8 量化            │
+ │ Pinokio 一键   · Mac / Windows / Linux 桌面包       │
+ └──────────────────────────────────────────────────────┘
+</code></pre>
+<p>最值得说一句的是 MNN 移植。<code>vra/supertonic-mnn</code> 是第三方做的基于阿里 MNN 推理框架的轻量版，提供 fp32 / fp16 / int8 三种精度，PyPI 上能直接装。MNN 在国内嵌入式圈是非常熟的名字——手机端、IoT 设备、车载场景都在用。这一块对国内开发者意味着：你完全可以走「MNN + Supertonic 3」这条路在国产芯片或边缘端跑英语 / 日语 / 韩语 TTS，不必非得用 ONNX Runtime。</p>
+<h2>六、国内开发者实操路径：怎么把 Supertonic 拉进自己流水线</h2>
+<p>讲到具体怎么用。结合国内网络环境和现实场景，给出三条由浅入深的路径。</p>
+<p><strong>路径一：用 hf-mirror 镜像 + ONNX Runtime，几分钟跑起来</strong></p>
+<p>模型托管在 Hugging Face，国内直连有时候慢。<code>hf-mirror.com</code> 这个老牌镜像现在仍然是默认的稳妥方案：</p>
+<pre><code class="language-bash"># 设置 hf-mirror 环境变量
+export HF_ENDPOINT=https://hf-mirror.com
+
+# 安装 PyPI 包
+pip install supertonic
+
+# Python 里调用，首次会自动通过 HF_ENDPOINT 拉模型
+python -c &quot;
+from supertonic import TTS
+tts = TTS(auto_download=True)
+style = tts.get_voice_style(voice_name=&#39;M1&#39;)
+wav, dur = tts.synthesize(
+    &#39;A gentle breeze moved through the open window.&#39;,
+    voice_style=style, lang=&#39;en&#39;)
+tts.save_audio(wav, &#39;output.wav&#39;)
+print(f&#39;生成 {dur:.2f} 秒音频&#39;)
+&quot;
+</code></pre>
+<p>这是最快的一条路。如果你之前用 hf-mirror 跑过 Llama / Qwen / CosyVoice，环境变量已经设好，直接 <code>pip install supertonic</code> 就行。</p>
+<p><strong>路径二：用 ModelScope（魔搭社区）做中转，确保稳定</strong></p>
+<p><code>Supertone/supertonic-3</code> 仓库的 ONNX 资产可以通过 <code>huggingface-cli download</code> 拉到本地后，再上传到自己的 ModelScope 空间或公司内网做二次分发。这套路径对企业内部部署、生产环境更稳：</p>
+<pre><code class="language-bash"># 通过 hf-mirror 拉完整资产到本地
+huggingface-cli download Supertone/supertonic-3 \
+  --local-dir ./assets --local-dir-use-symlinks False
+
+# 之后上传到 modelscope.cn 个人空间或公司私有 registry
+</code></pre>
+<p>ONNX 资产体积约 99M，下完一次本地或私有 registry 就能反复用。</p>
+<p><strong>路径三：直接走 MNN + supertonic-mnn 走端侧 / 国产芯片</strong></p>
+<p>如果你的目标是嵌入式或国产芯片（rk3588、晶心 / 华为昇腾边缘端、瑞芯微等），ONNX Runtime 在这些平台上的支持有时候不如 MNN 完整。第三方 <code>vra/supertonic-mnn</code> 项目已经做了 MNN 适配，PyPI 上叫 <code>supertonic-mnn</code>：</p>
+<pre><code class="language-bash">pip install supertonic-mnn
+# 第三方 README 给了 fp32 / fp16 / int8 三种精度的预编译模型
+</code></pre>
+<p>走这条路要做的事是：拿到 MNN 模型，写一段适配你目标硬件 NPU / GPU 的推理脚手架。瑞芯微 RK3588 / RK3576 这类国产 NPU 已经有 MNN 后端，能把 int8 模型推到端侧实时。</p>
+<p><strong>结合 OpenClaw / 自家应用的两个典型场景</strong>：</p>
+<p>第一个，<strong>英文 / 日文 / 韩文长文朗读插件</strong>。如果你已经在做 Chrome 扩展或者桌面应用，加一个「朗读这一页」按钮是最低成本的引入路径。前端走 <code>transformers.js</code> + WebGPU，纯浏览器侧跑 Supertonic 3，不发任何后端请求。Hugging Face 官方在线演示页面在 <code>webml-community/Supertonic-TTS-WebGPU</code> 这个 Space 上能直接 fork。</p>
+<p>第二个，<strong>多语种播客 / 视频配音流水线</strong>。如果你做内容创作工具，可以把流水线拆成：中文段走 CosyVoice 2 / IndexTTS，英文 / 日文 / 韩文段走 Supertonic 3，然后 ffmpeg 拼成完整音轨。这种「中文交国产、海外多语种交 Supertonic」的搭配，目前是开源圈成本最低、覆盖最全的本地方案。</p>
+<h2>七、再往后看：v3 之后这条线还能怎么走</h2>
+<p>最后讲一点这条路接下来可能的演化。Supertonic 团队从 v1 → v2 → v3 走了一年半，几个趋势已经能看出来：</p>
+<p><strong>第一个趋势是语种宽度还会涨</strong>。v1 单语、v2 五语种、v3 三十一语种——v3 没把中文加上，但社区里有针对中文 fine-tune 的 issue 已经在讨论。考虑到 Hybe 与中国市场的关系，下一个版本（v3.x 或 v4）补上中文不会让人意外。如果团队真的把中文加进去，本地 TTS 这条赛道格局会再调一次。</p>
+<p><strong>第二个趋势是部署形态还会更碎</strong>。README 已经列了 Voice Builder（用户上传几分钟语音生成「永久所有权」的端侧 TTS）这个产品线，背后逻辑是把 v3 这套架构变成 user-owned voice 的生成器。对国内开发者来说，自己 fine-tune 出一个特定音色的端侧模型路径会更明确。</p>
+<p><strong>第三个趋势是浏览器端会真正落地</strong>。Transformers.js + WebGPU + ONNX-Web 这三件事过去半年突飞猛进。99M 这个量级正好压在浏览器侧能完整加载、首字延迟可接受的甜区。下一年最可能爆发的桌面 AI 应用形态，就是「打开网页 = 启动一个完整的本地 AI 助手」，TTS 是其中刚需的一块。</p>
+<p>回到本文开头那个三件事的咬合：体积小 + 语言宽 + 端侧跑。Supertonic 3 这一周冲上 Trending 第九不是偶然，是社区已经等这套组合很久了。国内本地 TTS 圈这两年生态做得极厚——CosyVoice 2、GPT-SoVITS、IndexTTS、FishSpeech、MegaTTS、ChatTTS 几家把中文场景守得很稳。Supertonic 进来不冲突、不替换，反而把「中文交国产、海外多语种交它」这种组合方式从一个奢侈选项变成了开源默认值。这件事对国内开发者来说是好消息——你的下一个浏览器扩展、下一个电纸书 App、下一个多语种播客流水线，可选项又多了一种。</p>
+<hr>
+<h2>参考资料</h2>
+<ul>
+<li>Supertonic 3 主页：huggingface.co/Supertone/supertonic-3</li>
+<li>v3 在线 Demo：huggingface.co/spaces/Supertone/supertonic-3</li>
+<li>主架构论文：arxiv.org/abs/2503.23108 — SupertonicTTS: Towards Highly Efficient and Streamlined Text-to-Speech System</li>
+<li>LARoPE 论文（README BibTeX 标 kim2025larope）：Length-Aware Rotary Position Embedding for Text-Speech Alignment</li>
+<li>Hybe 收购 Supertone 公告：hybecorp.com（2023 年公告）</li>
+<li>国产对位：modelscope.cn/models/iic/CosyVoice2-0.5B · github.com/RVC-Boss/GPT-SoVITS · github.com/index-tts/index-tts · github.com/fishaudio/fish-speech · github.com/2noise/ChatTTS · github.com/bytedance/MegaTTS3</li>
+<li>MNN 移植：pypi.org/project/supertonic-mnn · github.com/vra/supertonic-mnn</li>
+<li>Transformers.js 集成：github.com/huggingface/transformers.js/pull/1459 · huggingface.co/spaces/webml-community/Supertonic-TTS-WebGPU</li>
+<li>国内镜像：hf-mirror.com · modelscope.cn</li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

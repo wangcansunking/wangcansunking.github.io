@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>本地深度研究开源 Qwen3.6 单卡命中 95% — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-06</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-06</span><span class="tag-pill">Daily Report</span></div>
+      <h1>本地深度研究开源 Qwen3.6 单卡命中 95%</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/06/local-deep-research-qwen3-95-simpleqa-single-3090.png" alt="本地深度研究开源 Qwen3.6 单卡命中 95%"></p>
+<h2>一台 3090，一个开源模型，把 Perplexity 的活搬回家</h2>
+<p>把数字摆在最前面。</p>
+<p>一个名叫 Local Deep Research（项目主页可搜 LearningCircuit/local-deep-research）的开源项目，五一假期前发了 v1.6.9 版本，发布日是 2026-05-02。GitHub 上五月初一周新增约 200 stars，总 stars 冲到 5.1k，forks 472，commits 累计 6,295 次，发布过 153 个版本。MIT 协议，Python 占 84%，前端 JavaScript 占 11.9%。</p>
+<p>这些数字单独看不算扎眼，把它和它做的事放在一起就有点意思了：项目宣称在 OpenAI 的 SimpleQA 事实性问答 benchmark 上，用 GPT-4.1-mini 配自建 SearXNG 加 focused-iteration 检索策略，命中率推到 90-95% 区间；同样的 pipeline 换成 Qwen3.6-27B，跑在一张 RTX 3090 上，准确率也能接近 95%。项目方在 README 中明确标注这是 preliminary results，意思是测试样本量有限、结论需要更大规模复现，但即使把这层折扣打上，结果依然摆在那里。</p>
+<p>把这层意思翻译给国内开发者听就是——一台二手价五六千的 3090，一个国产开源大模型，配上一套自己搭的 SearXNG 元搜索，可以跑出和 Perplexity Pro 一个量级的事实性研究助手。整套数据从头到尾不上传任何外部服务器，每个用户一份独立的 SQLCipher AES-256 加密数据库，连服务器管理员都读不到里面写过什么。</p>
+<p>这种&quot;完整体验装进自己电脑&quot;的产品形态，恰恰是过去半年国内开发者反复在找的那条路径。从去年下半年开始，关于&quot;本地大模型实际能干什么活&quot;的讨论一直在两个极端之间摇摆——一边是把本地模型当玩具，跑两个 demo 截图之后就放回硬盘；另一边是把本地模型当成全场景替代，遇到稍微复杂的任务就发现还是绕回云端。Local Deep Research 这种把单一研究类工作流做扎实的项目，恰好踩在两者中间，给国内同行提供了一个可以认真上手、上手之后真的解决日常一类问题的样本。</p>
+<h2>先把 SimpleQA 这把尺子说清楚</h2>
+<p>要理解 95% 这个数字的分量，得先理解 SimpleQA 是什么。</p>
+<p>SimpleQA 是 OpenAI 在 2024 年提出的事实性问答基准。题目是几千道有唯一正确答案的事实问题——某部电影上映年份、某场比赛冠军是谁、某个化合物分子式之类的，故意挑模型容易&quot;自信地说错&quot;的小众细节。SOTA 大模型在这套题上裸跑，命中率长期卡在 50-60% 这一带，业界一度把 90% 当成模型外接搜索工具后才可能逼近的水位线。</p>
+<p>OpenAI 自己的 GPT-4.1-mini 是一款定位偏小、价格便宜的 mini 系列模型。它在 SimpleQA 上的表现本来不算特别突出。Local Deep Research 项目顺着这条思路做了三件事：第一是把推理任务解耦成&quot;产生检索 query → 调用搜索 → 阅读多源结果 → 自我修正 → 综合&quot;五步迭代；第二是接入自建 SearXNG，把搜索结果一次性聚合 Google、Bing、Brave、DuckDuckGo 等多个源，避免单一搜索引擎的回答偏置；第三是引入 focused-iteration 策略，让模型在事实点出现冲突时主动追问、回查、定位差异。</p>
+<p>这三件事叠加起来，把 GPT-4.1-mini 的事实性命中率推到 90-95%。</p>
+<table>
+<thead>
+<tr>
+<th>模型组合</th>
+<th>搜索引擎</th>
+<th>策略</th>
+<th>事实性命中率</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>gpt-4.1-mini</td>
+<td>SearXNG</td>
+<td>focused_iteration</td>
+<td>90-95%</td>
+</tr>
+<tr>
+<td>gpt-4.1-mini</td>
+<td>Tavily</td>
+<td>focused_iteration</td>
+<td>90-95%</td>
+</tr>
+<tr>
+<td>gemini-2.0-flash-001</td>
+<td>SearXNG</td>
+<td>默认策略</td>
+<td>82%</td>
+</tr>
+<tr>
+<td>Qwen3.6-27B 单卡 3090</td>
+<td>SearXNG（自建）</td>
+<td>focused_iteration</td>
+<td>约 95%（项目宣称 preliminary）</td>
+</tr>
+</tbody></table>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/06/local-deep-research-simpleqa-table.png" alt="Local Deep Research SimpleQA 命中率"></p>
+<p>要诚实地说一句：这是项目方公布的早期测试，sample size 有限，没有像 OpenAI 官方那样跑全量两万多题。但这套数字最值得国内同行注意的不是&quot;95% 真不真&quot;，而是&quot;如何用一套工程编排，把一颗便宜的小模型推到旗舰水位&quot;。这条路走通之后，把外面任何一颗本地化模型替换进来都成立——这正是开源的真本事。</p>
+<h2>项目实测：一条会自己回查的研究流水线</h2>
+<p>把这套系统跑起来不复杂。</p>
+<p>后端是一个 Python 服务，前端是一个 Web UI。安装方式有三种：直接 pip 安装 PyPI 包、Docker 起一个签名镜像（带 SLSA 软件供应链证明）、或者在 Unraid 上一键部署模板。启动后打开浏览器，左侧填一个研究问题，比如&quot;中国 A 股 2025 年新上市的人形机器人公司有哪些主要供应商&quot;，系统就开始多步检索：先把问题拆成若干 sub-query，每个 sub-query 调用对应的搜索工具，把返回的 URL 抓取后喂回大模型再读，模型边读边修正自己的提问，最后把所有证据拼成一份带行内引用、可下载为 markdown 或 PDF 的报告。</p>
+<p>它支持的搜索后端覆盖了大多数研究人员日常会用的入口。学术类有 arXiv、PubMed、Semantic Scholar；通用类有 Wikipedia 和 SearXNG；技术类有 GitHub、Elasticsearch；新闻类有 The Guardian、Wikinews；档案类有 Wayback Machine；商用付费类则集成 Tavily、Brave Search、Google（通过 SerpAPI）；本地内容类支持 LangChain Retriever 和&quot;本地文档&quot;——后者意味着你可以把一堆 PDF、Word、网页快照导进来，让模型在自己的私有库里检索而不上网。</p>
+<p>模型这一侧给的自由度更大。本地推理走 Ollama 的 11434 端口、LM Studio 的 OpenAI 兼容 1234/v1 端口，或者 llama.cpp 的 llama-server。社区常用的 Llama 3、Mistral、Gemma、DeepSeek、Qwen 系列都标注为可跑。云端模型则覆盖 OpenAI、Anthropic、Google 原生，再叠 OpenRouter 一层就接到了 100 多家供应商。</p>
+<p>集成层做得也比较克制。一个 LangChain Retriever 让其他 LangChain 应用直接复用项目的检索能力；一个 REST API 给开发者做二次集成；一个 MCP server 让 Claude Desktop 这类 AI 桌面客户端可以直接把它当工具调用。这些都是工程上很扎实的接缝，不是花哨的&quot;未来感&quot;。</p>
+<p>国内同行第一次跑通它的体验，普遍集中在三个动作上：在自己的 NAS 或软路由上拉起 SearXNG 容器、本地用 Ollama 把 Qwen3 32B 量化版加载进来、把 MCP server 配进 Claude Desktop 当成&quot;研究插件&quot;。三个动作都不重，每个动作单独都已经是国内开发者熟手活，叠加起来就拼出了一台属于自己的研究终端。</p>
+<h2>单卡 3090 怎么把 27B 模型跑顺</h2>
+<p>把 Qwen3.6-27B 这么大的模型塞进一张 24GB 显存的 3090，靠的不是黑魔法，是过去一年量化生态的成熟度。</p>
+<p>主流路径是 Q4_K_M 这一档量化（GGUF 格式），把模型权重压到原始大小的约四分之一。27B 模型权重原始大约 54GB，量化到 Q4 后大约 16-17GB，再加上 KV cache 与中间激活，整机显存占用大致控制在 19-21GB，离 3090 的 24GB 上限留了喘息空间。如果觉得 27B 仍偏紧，社区把 Qwen3 14B 量化到 Q4 后只占 9GB 出头，不到 3090 一半显存，速度更快、上下文还能开到 32K，对一般查证类研究问题已经够用。</p>
+<p>跑顺的另一半在搜索后端。SearXNG 是一个开源元搜索引擎容器，本身只占两三百兆内存，把若干公网搜索源（Google、Bing、Brave、Qwant、DuckDuckGo 等）聚合到一个本地 HTTP 接口里。Local Deep Research 直接调这个本地接口拿结果，不会把用户的提问发给任何外部商业搜索 API。整条流水线如果被部署到一台同时连接公网和内网的小服务器上，就形成了一个&quot;提问留在内网、查证走公网、结论再回到内网&quot;的物理隔离结构。</p>
+<table>
+<thead>
+<tr>
+<th>环节</th>
+<th>推荐组合</th>
+<th>显存占用</th>
+<th>体验</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>推理后端</td>
+<td>Ollama 或 llama.cpp</td>
+<td>—</td>
+<td>HTTP 接口直连项目</td>
+</tr>
+<tr>
+<td>主力模型</td>
+<td>Qwen3 32B Q4 量化</td>
+<td>约 19GB</td>
+<td>3090 单卡可跑</td>
+</tr>
+<tr>
+<td>备选模型</td>
+<td>Qwen3 14B Q4 / DeepSeek-R1-Distill 14B</td>
+<td>约 9-11GB</td>
+<td>低显存机也能跑</td>
+</tr>
+<tr>
+<td>搜索源</td>
+<td>SearXNG 自建 + arXiv + PubMed</td>
+<td>—</td>
+<td>内网或断网都能查</td>
+</tr>
+<tr>
+<td>数据存储</td>
+<td>SQLCipher AES-256 加密</td>
+<td>—</td>
+<td>管理员也读不到</td>
+</tr>
+</tbody></table>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/06/local-deep-research-domestic-stack.png" alt="国产模型 + 国民显卡的本地研究方案"></p>
+<p>速度上，3090 跑 Qwen3 32B Q4 大致是每秒 18-25 token（视上下文长度浮动），单次&quot;研究 + 写报告&quot;通常 2-4 分钟出结果。慢吗？比开 GPT-5 旗舰快了几个量级；比直接问 Perplexity Pro 慢了三五倍。但报告就在自己机器上、问题就在自己机器上、引用源就在自己机器上——这是另一种维度的快。</p>
+<h2>国内同行复刻路径：Qwen / DeepSeek + 自建搜索</h2>
+<p>把项目复刻成&quot;国内可用的本地研究助手&quot;，国内同行可以走这样一条路径。</p>
+<p>模型层选 Qwen 系或 DeepSeek 系。Qwen3 32B 量化版在中文事实性问答上比同级英文模型更稳，处理中文学术词、人名地名、政策文件标题时不容易把 token 拆碎。DeepSeek-R1-Distill 系列在多步推理类任务上口碑好，遇到需要&quot;读三个来源做交叉对账&quot;的研究题时，把它作为主力模型也合适。两条路线都有完整的 Ollama 镜像和 GGUF 文件，社区维护活跃。</p>
+<p>搜索层有两条岔路。一条是直接接公网，让 SearXNG 把 Bing、Brave、DuckDuckGo 串起来，复制项目原始 pipeline。另一条是内网友好型——把 SearXNG 限定在国内可访问的搜索源（中文维基镜像、知网、万方、CNKI 国家科技图书文献中心、arXiv 镜像、各部委公开文件库），然后再加几个企业内部数据库的 LangChain Retriever。这条路特别适合做合规性研究、做行业政策梳理、做企业内部知识库检索这类工作。</p>
+<p>合规层是这个项目最扎实的一面，也是国内 to B 同行最看重的一面。每个用户的研究历史、上传文档、生成报告全部存在自己那份 SQLCipher AES-256 加密数据库里，密钥由用户口令派生，无密码恢复机制——意味着即使整台服务器被搬走、磁盘被取走，也读不到任何研究内容。项目无任何 telemetry、无 analytics、无 tracking，从启动那一刻就不向外打任何回连。这套设计放进律所、医院、券商研究所、投行内审这些场景，是直接可以走采购流程的。</p>
+<h2>和 gpt-researcher、Perplexity Pro 摆在一起看</h2>
+<p>Local Deep Research 不是孤品。这条赛道上至少还有两个名字常被同时提起。</p>
+<p>第一个是 gpt-researcher，星标量级 22k+，是这条赛道最早的开源项目之一。它走的是&quot;轻调度&quot;路线——核心调用 OpenAI 加 Tavily 搜索 API，跑得快、报告排版好，但本地化程度有限，把 OpenAI key 拔掉之后大部分能力会显著退化。</p>
+<p>第二个是 Perplexity Pro，闭源商业产品，体验最顺、UI 最干净、引用最规范，但所有数据全程上云，对企业 IT 来说要过合规审查这一关并不容易。</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>本地可跑</th>
+<th>数据出网</th>
+<th>搜索源</th>
+<th>模型自由</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Local Deep Research</td>
+<td>可全本地</td>
+<td>可设全程不出网</td>
+<td>20+（含 SearXNG 自建）</td>
+<td>Ollama / llama.cpp / 云模型任选</td>
+</tr>
+<tr>
+<td>gpt-researcher</td>
+<td>部分</td>
+<td>默认走云搜索</td>
+<td>Tavily / SerpAPI 为主</td>
+<td>主流云模型</td>
+</tr>
+<tr>
+<td>Perplexity Pro</td>
+<td>不可</td>
+<td>全程上云</td>
+<td>官方闭源管道</td>
+<td>官方闭源</td>
+</tr>
+</tbody></table>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/06/local-deep-research-vs-peers.png" alt="本地化对位：三类研究助手的取舍"></p>
+<p>三家不是替代关系，是三种取舍。Perplexity Pro 适合个人随手问、不在乎隐私、追求极致流畅；gpt-researcher 适合已有 OpenAI 基础设施、追求成熟生态的开发者；Local Deep Research 适合那种愿意花一个周末搭一台属于自己的研究终端、并且对数据所有权很在意的工程师。三者并存，国内研究类工作流的选择面比一年前宽了一大圈。</p>
+<h2>一份报告是怎么被生产出来的</h2>
+<p>把一个研究问题从输入变成最后那份引用扎实的 markdown，中间到底发生了什么，值得拆开看一遍。</p>
+<p>第一步是问题理解。模型先把研究问题分解成若干 sub-question——比如&quot;国内 A 股 2025 年新上市的人形机器人公司有哪些&quot;会被拆成&quot;哪些公司在 2025 年完成 IPO&quot;、&quot;哪些公司业务涉及人形机器人&quot;、&quot;两份名单的交集如何核对&quot;。这一步只在本地大模型里发生，不上网。</p>
+<p>第二步是检索调度。每个 sub-question 被分配给最合适的搜索后端。涉及上市信息的题走&quot;东方财富 + 巨潮资讯网 LangChain Retriever&quot;或者公网搜索；涉及技术细节的题优先走 arXiv、Semantic Scholar；涉及历史快照的题调 Wayback Machine；涉及一般背景的题走 SearXNG 聚合源。模型自己会判断该用哪一个。</p>
+<p>第三步是阅读与摘要。每个搜索结果的页面被抓回来，去掉广告、导航、页脚噪音，提取正文，再让大模型在本地读完后写一个简短摘要。摘要里同时记录这条信息的&quot;出处 URL + 摘录段落&quot;两个字段，方便最后写报告时回溯。</p>
+<p>第四步是 focused-iteration。这是项目区别于普通搜索代理最核心的一步——大模型在所有 sub-question 摘要拿回来之后，会主动检查事实点冲突。比如三个来源说某公司 2025 年 6 月上市，一个来源说 2025 年 7 月。模型会再发一次定向 query 去定位差异源头，找到原始公告或交易所公开文件，给出最终结论。这一步往往要循环 2-4 次才稳定。</p>
+<p>第五步是综合写作。所有证据汇总后，模型按&quot;问题陈述 → 关键发现 → 证据链 → 不确定性说明 → 引用列表&quot;的固定结构产出一份 markdown 报告。每条结论后都带行内引用编号，文末统一列出引用清单。这份 markdown 可以直接渲染为 PDF。</p>
+<p>整条流水线的工程亮点在于——所有&quot;思考&quot;环节都跑在本地大模型上，所有&quot;事实&quot;环节都走可验证、可定位的搜索 API。模型的幻觉被搜索结果约束，搜索结果的偏见被多源交叉约束，最后那份报告的每一个数字都能溯源。这套思路本身不复杂，但工程细节做扎实需要时间。Local Deep Research 的 6,295 次 commit、153 个发布版本，大部分时间就是花在这些细节里。</p>
+<h2>把它跑起来：第一次上手最容易撞上的三个坑</h2>
+<p>实际把项目跑起来这件事，第一次大致都会撞上几个坑，提前说一下让国内同行少走弯路。</p>
+<p>第一个坑是模型上下文长度。Qwen3 32B 量化版默认 8K context 跑研究类任务偏紧——一份网页正文加上摘要任务往往就奔向 6K，连续几轮 focused-iteration 之后很容易顶到上限被截断。解决方法是启动 Ollama 时显式 <code>--ctx-size 32768</code>，把上下文开到 32K，显存会再涨 2-3GB，3090 仍然吃得下。</p>
+<p>第二个坑是 SearXNG 默认配置。开源版 SearXNG 默认开了几十个搜索源，其中相当一部分在中国大陆访问不稳定。第一次跑 Local Deep Research 经常遇到&quot;卡 30 秒后超时&quot;的情况，原因就是 SearXNG 在等那几个连不通的源返回。解决方法是在 SearXNG 的 <code>settings.yml</code> 里把不稳定源关掉，只保留 Brave、DuckDuckGo、Bing 这种延迟可控的，或者干脆换成国内可访问的搜索源。</p>
+<p>第三个坑是 SQLCipher 密钥管理。每个用户那份独立加密数据库的密钥由用户登录口令派生，密码忘了就读不回来。生产环境上线前一定要规划好&quot;用户密钥找回不了如何处理&quot;——常见做法是允许用户绑定一个二级口令做备份解密，或者在企业部署时由 IT 维护一份主密钥的安全副本。这件事和&quot;零知识&quot;原则有一点张力，需要团队权衡。</p>
+<p>跑过这三关之后，剩下的体验就比较顺了。</p>
+<h2>适合写哪几类报告</h2>
+<p>最后回到读者最关心的问题——这套东西能拿来写什么。</p>
+<p>法务类报告非常适合。把所属司法管辖区的法律法规、行业监管细则、近年生效合规文件提前导入本地库，让模型在内网检索；问&quot;某条款在 2024 年的修订涉及哪些行业&quot;这类问题时，每条结论都能定位到具体法律条文段落，引用扎实、不外泄、一份草稿律师改一两小时就能用。</p>
+<p>医疗类报告同样合适。把 PubMed 镜像和医院内部病例库（脱敏后）一起接进来，让住院医师做文献综述、做同类病例横向对比、做新药 phase 3 数据梳理。SQLCipher 这层加密让&quot;研究内容算不算 PHI 数据&quot;这个一直绕不过去的问题有了答案——不算泄露，因为根本读不出来。</p>
+<p>投研类报告是国内券商最直接受益的场景。把 wind、东财、巨潮资讯网公告库加进来，让分析师做行业图谱、做产业链对比、做季度业绩交叉验证。报告中每一个数字的来源都明确、每一个判断都有公告原文支撑，合规审计起来轻松得多。</p>
+<p>技术类研究当然不在话下。把自家代码仓库通过 GitHub 适配器接进来，把团队历史的技术决策文档导入本地库，让新同学问&quot;为什么我们当年选了 A 不选 B&quot;——回答的不是 AI 的猜测，是过去 3 年真实文档的引用。</p>
+<p>教育类也是一个被忽视但很扎实的场景。给大学老师布置完作业的同学一台部署好的本地研究助手，把课程指定的教材、参考论文、案例库提前导入，学生写课程论文时既能避免直接抄网络资料，也能学会&quot;引用扎实&quot;这件事——每条结论后面都跟着一段原文摘录与链接，这是研究素养训练里最难教的一环，本地化工具反而做到了。</p>
+<h2>短期会怎么演进</h2>
+<p>这条赛道的下一段路也值得提前看一眼。</p>
+<p>模型层这一侧，Qwen3 系列、DeepSeek 系列还在持续迭代，量化技术也在向更激进的方向走——AWQ、GPTQ、EXL2 这些方案把 32B 模型压到 12-13GB 已经是开源圈半年前就跑通的事情。这意味着同一张 3090 在年内大概率能稳定承担 70B 量级模型，事实性问答的天花板还会再往上抬。</p>
+<p>工程层这一侧，Local Deep Research 这套五步流水线的设计本身具备很强的可移植性——把&quot;产生 query → 调搜索 → 阅读 → 自我修正 → 综合&quot;这五步抽出来做成 LangGraph、Pydantic AI、CrewAI 等框架的现成 template，是社区接下来很可能发生的事情。一旦这件事完成，国内同行做企业内部研究助手的工程门槛会再降一层。</p>
+<p>应用层这一侧，更值得期待的是&quot;研究助手 + 本地知识库 + 协作&quot;的组合。一个团队的多名研究员把研究历史汇总到一个共同的加密知识库里，互相之间可以查&quot;同事研究过这个题没有、得到了什么结论、引用了哪些来源&quot;，但这份共享库依然不出公司内网。这个产品形态过去只有头部投行、咨询公司花重金定制才用得起，今年大概率会出现成熟开源版本。</p>
+<h2>共勉</h2>
+<p>把&quot;开源世界正在把研究助手做成基础设施&quot;这件事翻译成大白话，就是过去要花一千美元一年订阅、还要把数据全部交出去才能用上的能力，今天可以用一个周末、一台旧 3090、一杯咖啡的成本搭起来，而且数据完全归自己。</p>
+<p>我们这一代国内 AI 开发者赶上的事是这样的——上游有 Qwen、DeepSeek 这样的国产开源大模型，硬件层有 3090、4090 这样的国民显卡，工程层有 SearXNG、SQLCipher 这样十几年沉淀下来的成熟开源组件，应用层又出现了 Local Deep Research 这样把这些零件巧妙编排起来的项目。每一层都不再是黑箱、都不再需要付一笔订阅费才能用、都不再有一根隐形的电缆通向境外服务器。</p>
+<p>下一个周末，找一张 3090，挂上 Qwen3，启动一个 SearXNG，跑一份属于自己的本地研究报告。能跑通是一件令人心安的事情；跑通之后回头看那 95% 这个数字，会觉得它不再像营销文案，而是这一代开发者共同把基础设施抬上来的一个小小注脚。</p>
+<p>路在前面，一起加油。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

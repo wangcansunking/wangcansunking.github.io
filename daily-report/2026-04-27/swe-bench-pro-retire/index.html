@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>59.4% 的题是错的：OpenAI 把全行业卷了 20 个月的 SWE-bench Verified 摘下王冠 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-04-27</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-04-27</span><span class="tag-pill">Daily Report</span></div>
+      <p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/27/2026-04-27-swe-bench-retire.png" alt="cover"></p>
+<h1>59.4% 的题是错的：OpenAI 把全行业卷了 20 个月的 SWE-bench Verified 摘下王冠</h1>
+<blockquote>
+<p>OpenAI 在官博 <em>Why SWE-bench Verified no longer measures frontier coding capabilities</em> 中正式给 SWE-bench Verified 写了讣告。两个理由都很重：</p>
+<ul>
+<li>实测发现 <strong>59.4%</strong> 的题面带瑕疵——测试用例过严、把功能正确的解判错；</li>
+<li>所有前沿模型都能复现题面里那条 ground-truth 修复 patch，说明它们 &quot;都在训练里见过&quot;。</li>
+</ul>
+<p>替代品 OpenAI 给出了一个，叫 <strong>SWE-bench Pro</strong>，由 Scale Labs 团队在 2025 年 9 月发布、4 月最新榜上 <strong>SoTA 是 GPT-5.4 xHigh 的 59.10±3.56 分</strong>。Verified 上模型普遍 70%+，Pro 公开榜在 2025 年 9 月首发时 GPT-5 / Claude Opus 4.1 都只有 <strong>23.x%</strong>。</p>
+<p>这则官博 4 月 26 日上 Hacker News 拿到 <strong>181 pts / 245 评论</strong>（截至 2026-04-27 04:30 UTC+8 快照，HN 上仍在攀升中）。</p>
+</blockquote>
+<p>写过模型 release 帖的人都知道这条数据：<strong>SWE-bench Verified xx.x%</strong>。从 2024 年 8 月这个榜立起来，所有家的发布会、所有家的 launch blog、所有家的 PR 稿都要附一行——这一行有时候比模型名还重要。</p>
+<p>DeepSeek V4 上周发布，公布的也是这个：<strong>80.6%</strong>，比 Claude Opus 4.6 只低 0.2 分。Qwen3.6-Max-Preview 4 月 20 号发布时号称 SWE-bench Pro 等六项编码 benchmark 同时登顶。整个 AI Coding 行业，过去 20 个月有一种心照不宣的默契——发模型跑 SWE-bench Verified、跑出比上一家高 0.x 分、写在通稿第一行。</p>
+<p><strong>OpenAI 4 月底说它不再相信这条数据。</strong></p>
+<hr>
+<h2>一、官博的两板斧：59.4% 错题 + 训练污染</h2>
+<p>OpenAI 在那篇博文里把&quot;为什么不再用 Verified&quot;拆成两件事讲：</p>
+<p><strong>第一件事：59.4% 的题面有问题。</strong> 不是题目本身错，是测试用例写得太死。OpenAI 说他们做了一次审计，发现至少有 59.4% 的任务存在 <em>flawed test cases</em>——这些测试要求实现者必须以原作者那条 patch 完全相同的方式修复 bug，但实际上大多数 bug 有多种功能等价的修法。LLM 可能给出了一个完全正确的解，但因为不是那条特定的 patch，测试会判它错。</p>
+<p>换句话说，<strong>Verified 在测的不是&quot;模型会不会修这个 bug&quot;，而是&quot;模型猜不猜得出原作者会怎么修&quot;</strong>。这是两件事。</p>
+<p><strong>第二件事：所有前沿模型都见过题。</strong> OpenAI 说他们测的所有前沿模型都能在合适的提示下复现 ground-truth 那条 patch，或者说出题面里某些可识别的细节。这个意思是模型在训练阶段已经看过这套数据——SWE-bench Verified 的题面来自 12 个开源仓库的 issue + PR，公开可爬，谁都没办法不让它进训练语料。</p>
+<p>这两件事叠起来的结论 OpenAI 写得直白：<strong>进步分数 &quot;increasingly reflects what a model has seen, not how well it codes&quot;</strong>——分数高更多反映模型见过多少题，不是写得多好。</p>
+<p>那条社区视角更刺耳的复述出现在 The Decoder 的报道里：<em>&quot;OpenAI wants to retire the AI coding benchmark that everyone has been competing on&quot;</em>。这条标题本身就是新闻。</p>
+<hr>
+<h2>二、SWE-bench Verified：从神坛到天花板，500 题 20 个月</h2>
+<p>回头看一眼这个被 OpenAI 抛下的榜：</p>
+<ul>
+<li><strong>2024 年 8 月</strong>，OpenAI 自己发布的 SWE-bench Verified，从原版 SWE-bench 的 2294 题里筛出 <strong>500 道经过人工验证、测试稳定</strong> 的样本子集。</li>
+<li>立项目的就是修复原版 SWE-bench 的&quot;测试不稳定 / 不可复现 / 题面歧义&quot;的痛点。当时这条说法是：Verified 比原版可信。</li>
+<li>2024 下半年开始，所有 frontier 模型的 release 都把它写进通稿。Anthropic / OpenAI / Google / Meta / 阿里 Qwen / DeepSeek / Mistral 全部上场。</li>
+<li>2025 一整年里，<strong>模型成绩从 50%+ 飙到 70%+</strong>。2026 年 4 月 25 日 DeepSeek V4 发布时已经到 80.6%，0.2 分差距追到了 Claude Opus 4.6。</li>
+<li>4 月 26 日 OpenAI 官博：<strong>这个 80% 多 1 分少 1 分，没什么意义了。</strong></li>
+</ul>
+<p>500 题、20 个月、80%+ 饱和——这是任何一个 benchmark 的自然生命周期。Verified 没什么好可惜的。问题在于全行业 PR 通稿都得跟着改：以后写 &quot;我们的模型 SWE-bench Verified XX%&quot; 等于是承认自己还在卷一个被官方 deprecate 的指标。</p>
+<hr>
+<h2>三、SWE-bench Pro：1865 题、41 仓库、80% 是私有数据</h2>
+<p>OpenAI 推荐的替代品是 <strong>SWE-bench Pro</strong>，但这套不是 OpenAI 自己做的，是 Scale Labs（Scale AI 旗下的评测团队）在 2025 年 9 月 21 日 arxiv 论文 <em>SWE-Bench Pro: Can AI Agents Solve Long-Horizon Software Engineering Tasks?</em> 发布的。论文 ID <code>2509.16941</code>。</p>
+<p>Pro 相比 Verified 改了三件事：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>SWE-bench Verified</th>
+<th>SWE-bench Pro</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>题量</td>
+<td>500</td>
+<td>1,865</td>
+</tr>
+<tr>
+<td>仓库数</td>
+<td>12</td>
+<td>41</td>
+</tr>
+<tr>
+<td>公开题量</td>
+<td>全部 500</td>
+<td>731</td>
+</tr>
+<tr>
+<td>私有/隐藏题</td>
+<td>无</td>
+<td>1,134（276 私有 + 858 held-out）</td>
+</tr>
+<tr>
+<td>仓库类型</td>
+<td>开源知名项目</td>
+<td>商业仓库 + 早期 startup 私有代码</td>
+</tr>
+<tr>
+<td>平均改动</td>
+<td>较短</td>
+<td>107.4 行跨 4.1 个文件</td>
+</tr>
+<tr>
+<td>任务时长</td>
+<td>较短</td>
+<td>&quot;可能要资深工程师花数小时到数天&quot;</td>
+</tr>
+<tr>
+<td>License 反污染</td>
+<td>无</td>
+<td>公开题用 GPL 等强 copyleft 反爬</td>
+</tr>
+</tbody></table>
+<p><strong>最关键的改动是私有题集</strong>——Scale 跟 18 家 startup 签了 partnership，从他们的真实商业代码库里抽题。这些题不公开、不可爬、不可能进训练语料。这是反训练污染的硬手段，不是社区好意做的事，是要拿 NDA 签下来的事。</p>
+<p>公开榜（Public Set）有 731 题，覆盖 11 个 GPL/copyleft 项目。私有榜（Private Set）276 题。剩下 858 题是 held-out 的 12 个仓库——这部分也不公开评测，只在 Scale 自己的 leaderboard 上跑。</p>
+<hr>
+<h2>四、Pro 上模型成绩：从首发的 23%，到 4 月底的 59%</h2>
+<p>这是 SWE-bench Pro 公开榜（Public Set）截至 2026 年 4 月最新成绩，前 10 名：</p>
+<table>
+<thead>
+<tr>
+<th>排名</th>
+<th>模型</th>
+<th>得分（±标准误差）</th>
+<th>厂商</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>gpt-5.4 (xHigh)</td>
+<td>59.10 ± 3.56</td>
+<td>OpenAI</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Muse Spark</td>
+<td>55.00 ± 3.60</td>
+<td>（未注明）</td>
+</tr>
+<tr>
+<td>3</td>
+<td>claude-opus-4-6 (thinking)</td>
+<td>51.90 ± 3.61</td>
+<td>Anthropic</td>
+</tr>
+<tr>
+<td>4</td>
+<td>gemini-3.1-pro (thinking)</td>
+<td>46.10 ± 3.60</td>
+<td>Google</td>
+</tr>
+<tr>
+<td>5</td>
+<td>claude-opus-4-5-20251101</td>
+<td>45.89 ± 3.60</td>
+<td>Anthropic</td>
+</tr>
+<tr>
+<td>6</td>
+<td>claude-4-5-Sonnet</td>
+<td>43.60 ± 3.60</td>
+<td>Anthropic</td>
+</tr>
+<tr>
+<td>7</td>
+<td>gemini-3-pro-preview</td>
+<td>43.30 ± 3.60</td>
+<td>Google</td>
+</tr>
+<tr>
+<td>8</td>
+<td>claude-4-Sonnet</td>
+<td>42.70 ± 3.59</td>
+<td>Anthropic</td>
+</tr>
+<tr>
+<td>9</td>
+<td>gpt-5-2025-08-07 (High)</td>
+<td>41.78 ± 3.49</td>
+<td>OpenAI</td>
+</tr>
+<tr>
+<td>10</td>
+<td>gpt-5.2-codex</td>
+<td>41.04 ± 3.57</td>
+<td>OpenAI</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>数据来源：Scale Labs 公开 leaderboard 截至 2026-04-26 UTC 20:00 的快照。Pro 榜单更新频次比 Verified 高，下面的具体名次可能在小时级窗口内漂移。</p>
+</blockquote>
+<p>注意几条线：</p>
+<p><strong>第一，差距重新拉开了。</strong> Verified 上排名前列的模型早已挤在 80% 上下 1 分以内 —— DeepSeek V4 80.6%、Claude Opus 4.6 80.8%、GPT-5.4 大概类似。Pro 上 #1（gpt-5.4 xHigh 59.10）比 #10（gpt-5.2-codex 41.04）多了 18 分，这才是 benchmark 应该有的分辨率。</p>
+<p><strong>第二，旧分数的语义变了。</strong> Pro 刚发布时（2025-09），最强模型 GPT-5 / Claude Opus 4.1 都跑在 <strong>23.3% / 23.1%</strong>（Scale Labs blog 与 v2 修订一致；arxiv 论文 v1 给的是 22.7%，后被勘误为 23.1%）。8 个月后顶尖模型已经摸到 60%。Pro 在饱和路径上，但比 Verified 的 70%+ 还有空间。</p>
+<p><strong>第三，Anthropic 在 Pro 上的相对优势更大。</strong> Verified 80% 区间 Claude / DeepSeek / OpenAI / Qwen 都挤一起 1 分内分胜负；Pro 前 10 里 Anthropic 一家占 4 席（Opus 4.6 / Opus 4.5 / Sonnet 4.5 / Sonnet 4），覆盖 thinking 与非 thinking 两档。Scale 团队在 Pro 早期阶段还在公开渠道祝贺 Anthropic 横扫 Pro 前列。</p>
+<p><strong>第四，OpenAI 推荐 Pro 之外，自己还在造私榜。</strong> 官博明说他们正在搭非公开的内部测试集，这是行业正在分裂的信号——以前一个 SWE-bench Verified 给所有人当统一比较基准，往后大概率每家用各自的私榜+Pro 的混合，PR 通稿对比起来更难。</p>
+<hr>
+<h2>五、Verified 80% 以后，国内厂商怎么办</h2>
+<p>这是个具体的问题。看一下国内最近几个 release 当时挂的成绩：</p>
+<ul>
+<li><strong>DeepSeek V4</strong>（2026-04-25 发布，国内主流媒体已重点报道）：SWE-bench Verified <strong>80.6%</strong>。</li>
+<li><strong>Qwen3.6-Max-Preview</strong>（2026-04-20 发布）：SWE-bench Pro 等六项编码 benchmark 同时登顶。</li>
+<li><strong>DeepSeek V4-Pro / V4-Flash</strong>（4-25 / 4-26 同期）：Pro 版 SWE-bench Verified 80.6 / Flash 版 74.8。</li>
+</ul>
+<p><strong>Qwen3.6 Max 已经先跑 Pro 了</strong>，这是国内厂商里走得最前的。这一步走得没错——4 月 26 号官博一发，Pro 上的成绩一下子比 Verified 上的成绩&quot;含金量&quot;高一档。</p>
+<p>DeepSeek V4 发布会主打 Verified 80.6 没问题，因为 4-25 那天 OpenAI 还没把官博放出来。但下一次 release（V4.x 或 V5）如果还只挂 Verified，会被国外一线开发者当 &quot;在卷过期 benchmark&quot;。这个口碑代价不小。</p>
+<p><strong>国内厂商接下来三条路：</strong></p>
+<ol>
+<li><strong>只挂 Pro</strong>——Qwen3.6 Max 已经这么做了。激进但安全。</li>
+<li><strong>Verified + Pro 双榜挂</strong>——保留 Verified 给国内媒体看，加上 Pro 给海外开发者看。次稳。</li>
+<li><strong>Verified + 自家私榜挂</strong>——OpenAI 的玩法，但要求模型团队自己有评测能力。门槛高。</li>
+</ol>
+<p>对<strong>国内 AI 编程产品团队</strong>（Cursor / Augment / 通义灵码 / CodeGeeX / Kimi Code / 文心快码 / 等下游）的影响更直接：</p>
+<ul>
+<li>选模型不能只看 Verified 排名了。Verified 80% 上头的几个模型在 Pro 上相差 18 分，这才是&quot;真的好不好用&quot;。</li>
+<li>如果你内部做 A/B 测试，<strong>Pro 是更接近你产线的 distribution</strong>——平均改动 107 行跨 4 个文件，跟实际 IDE 里 multi-file 重构的代码量量级匹配。</li>
+<li>如果你在选开源模型，DeepSeek V4 / Qwen3.6 在 Pro 上的成绩比 Verified 上的更值得参考。</li>
+</ul>
+<hr>
+<h2>六、SWE-bench 不是唯一选项：可以看的另外几个榜</h2>
+<p>OpenAI 官博只推 Pro 一个，但行业里 benchmark 不止这一条。给做 AI coding 工具的团队列几个并行参考：</p>
+<p><strong>Aider Polyglot Benchmark</strong> — Aider 维护，针对多语言（C++/Python/Rust/Go/Java/JS/TS 等）真实 issue 修复的混合语言评测。比 SWE-bench 的 Python 单语言深，更接近 polyglot 团队的实际场景。</p>
+<p><strong>Terminal-Bench 2.0</strong> — 评测模型在终端环境下完成长任务的能力（不止 PR 修复，还有 git / docker / shell 一系列动作）。Qwen3.6-Max 在这上面也登顶过。</p>
+<p><strong>LiveCodeBench</strong> — 针对从 LeetCode / Codeforces / AtCoder 抓的题，按时间窗滚动更新（解决 contamination 问题的另一种思路）。</p>
+<p><strong>SWE-rebench</strong> — 学术界对 Verified 题面做更严格 re-grading 的版本，Pro 出来之前是较权威的&quot;修订版&quot;。</p>
+<p><strong>国内 benchmark：BuildFastWithAI 系列</strong> — 国内团队维护的多 benchmark 综合榜，覆盖 SWE-bench Pro / Terminal-Bench 2.0 / SkillsBench / QwenClawBench / QwenWebBench / SciCode 六项，Qwen3.6 Max 4 月 20 号在上面拿过六项登顶。</p>
+<p>选哪个看你做什么：</p>
+<ul>
+<li>如果你是模型厂商，Pro 是 SWE-bench 系列的&quot;接班人&quot;，必须挂。</li>
+<li>如果你是 AI coding IDE 产品，<strong>Pro + LiveCodeBench 双指标</strong>更稳——前者管&quot;复杂修复能力&quot;，后者管&quot;防作弊+时间相关&quot;。</li>
+<li>如果你是企业内部团队选模型，<strong>自己用线上 issue tracker 抽 50-100 题做 micro-eval</strong> 比看任何公开榜都准。OpenAI 在官博里也强调了这条 path。</li>
+</ul>
+<hr>
+<h2>七、SWE-bench 的退役给行业留下的事</h2>
+<p>最后一点小总结。这场 benchmark 切换不是 OpenAI 一家在做，是整个 AI Coding 评测体系在重组：</p>
+<ul>
+<li><strong>饱和的指标会贬值。</strong> Verified 上那 0.2 分差，过去半年里所有家在朋友圈和发布会上吹的&quot;Coding 实力领先&quot;，4 月 26 日之后失去了一半的说服力。</li>
+<li><strong>训练污染是无解的副作用。</strong> 任何公开 benchmark 上线 18 个月以上、被多家厂商反复跑过、题面在 GitHub 公开可爬——基本都会污染。这是 Pro 用 GPL copyleft 反爬 + 私有题集来扛的方向，但其他 benchmark 没这个能力。</li>
+<li><strong>每家自己造私榜会成主流。</strong> OpenAI 已经在搭。Anthropic / Google 的内部 eval 集合大概率也已经有了，只是不公开。这意味着发模型时的&quot;客观横评&quot;会越来越难做。</li>
+<li><strong>细分场景的小 benchmark 会冒头。</strong> Aider Polyglot、Terminal-Bench、CodeForce 类——以及更细分的&quot;Rust 重构&quot;、&quot;DBMS 内核&quot;、&quot;前端组件迁移&quot;这种垂直 benchmark。</li>
+</ul>
+<p>对国内开发者最实用的一条：<strong>下次看到一家 AI 模型公司说 &quot;SWE-bench Verified XX% 行业第一&quot;，回头问一句 &quot;Pro 上跑了吗？多少分？&quot;</strong>。这句话现在能用。</p>
+<hr>
+<p><em>题图：SWE-bench Verified 卸下王冠的概念配图（PIL 自动生成）</em></p>
+<p><em>相关阅读：</em>
+<em>- 4-25 日报《DeepSeek V4 开源：¥24/M 把 Opus 踩到 1/7.5》</em>
+<em>- 4-22 日报《Qwen3.6-Max-Preview 闭源化 + 六项编码 benchmark 登顶》</em></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>微软 VibeVoice：去年因滥用被撤下、今年又复出，这套开源前沿语音 AI 到底什么水平 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-04-29</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-04-29</span><span class="tag-pill">Daily Report</span></div>
+      <h1>微软 VibeVoice：去年因滥用被撤下、今年又复出，这套开源前沿语音 AI 到底什么水平</h1>
+<blockquote>
+<p>microsoft/VibeVoice 这两天的数据：44,585 ⭐（仍在攀升）、4,961 forks、Python、MIT 许可、4 月 24 日有最新 push。HN 47933236 帖子拿到 285 pts、162 条评论。仓库自报家门&quot;开源前沿语音 AI&quot;。但翻它的 README 你会看到一段很奇怪的话——2025 年 9 月 5 日，&quot;出于负责任 AI 的考量&quot;微软自己把 VibeVoice-TTS 的代码从仓库里删了，今年才陆续放回来。</p>
+</blockquote>
+<p>中文世界目前 VibeVoice 的深度评测很稀缺，大多数报道还停留在&quot;开源前沿语音 AI 发布&quot;的标题党层面。但这条仓库的故事比&quot;又一个开源 TTS&quot;复杂得多：</p>
+<ul>
+<li>它是<strong>完整的三档语音模型族</strong>，不是单点 TTS</li>
+<li>它的 TTS 基座是<strong>阿里千问 Qwen2.5-1.5B</strong>（微软的语音 AI 用国产 LLM 做底座）</li>
+<li>它去年因滥用被微软自己撤下、今年又复出，README 上撤下声明还在</li>
+<li>HN 顶赞把&quot;开源&quot;两个字喷了——&quot;这不是开源，是开权重&quot;</li>
+</ul>
+<h2>一、三档模型，差距比想象中大</h2>
+<p>打开 <a href="https://github.com/microsoft/VibeVoice" target="_blank" rel="noopener">microsoft/VibeVoice</a> 的 README，你会看到三个模型变体——很多英文 blog 翻译成中文时把它们混成一个，其实是三件不同的事：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>参数</th>
+<th>用途</th>
+<th>HF 月下载</th>
+<th>论文</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>VibeVoice-ASR</strong></td>
+<td>9B</td>
+<td>60 分钟一遍过的语音识别，自带说话人分离</td>
+<td>737,428</td>
+<td>arxiv 2601.18184</td>
+</tr>
+<tr>
+<td><strong>VibeVoice-TTS</strong>（命名 1.5B）</td>
+<td>实际 3B（1.5B 基座 LLM + ~123M diffusion head）</td>
+<td>90 分钟长音频生成，最多 4 说话人</td>
+<td>215,324</td>
+<td>arxiv 2508.19205</td>
+</tr>
+<tr>
+<td><strong>VibeVoice-Realtime</strong></td>
+<td>0.5B</td>
+<td>~300ms 首音延迟，流式 TTS</td>
+<td>（HF 单列模型卡）</td>
+<td>—</td>
+</tr>
+</tbody></table>
+<p>数据来自 <a href="https://huggingface.co/microsoft/VibeVoice-ASR" target="_blank" rel="noopener">VibeVoice-ASR 模型卡</a> 和 <a href="https://huggingface.co/microsoft/VibeVoice-1.5B" target="_blank" rel="noopener">VibeVoice-1.5B 模型卡</a>。</p>
+<p>注意几个事实：</p>
+<ol>
+<li><strong>9B vs 1.5B 不是同一种压缩规格——是两个独立模型</strong>。HN 上有评论说&quot;7B variant&quot;，那是社区 archive 的旧 TTS，不是当前的 ASR 9B</li>
+<li><strong>TTS 命名&quot;1.5B&quot;指的只是基座 LLM 部分</strong>。模型卡上写的总参数是 3B（1.5B Qwen2.5 + σ-VAE 声学 tokenizer + 4 层 ~123M diffusion head + 各种适配层）。这是个标注容易让人误判的地方</li>
+<li><strong>737k 月下载量</strong> 是 ASR 9B 的，远大于 TTS 1.5B 的 215k——意味着用户更认 ASR</li>
+</ol>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/29/vibevoice-VibeVoice.jpg" alt="VibeVoice 主架构（来自仓库 Figures/VibeVoice.jpg）"></p>
+<h2>二、技术核心：7.5 Hz 帧率 + 80 倍压缩 + Qwen2.5 基座</h2>
+<p>VibeVoice 论文（<a href="https://arxiv.org/abs/2508.19205" target="_blank" rel="noopener">arxiv 2508.19205</a>，2025-08-26 发表，13 位微软作者，包含资深研究员 Furu Wei）的 abstract 原文：</p>
+<blockquote>
+<p>&quot;we introduce a novel continuous speech tokenizer that, when compared to the popular Encodec model, improves data compression by 80 times while maintaining comparable performance.&quot;</p>
+</blockquote>
+<p>把它拆开：</p>
+<ul>
+<li><strong>声学 tokenizer</strong>：σ-VAE 变体，7 层 Transformer block，从 24 kHz 下采样 3200 倍。结果是只用 7.5 Hz 帧率就能编码语音</li>
+<li><strong>语义 tokenizer</strong>：用 ASR 代理任务训</li>
+<li><strong>基座 LLM</strong>：<a href="https://huggingface.co/Qwen/Qwen2.5-1.5B" target="_blank" rel="noopener">Qwen2.5-1.5B</a>。<strong>这是微软主导的语音 AI，但底座是阿里开源的中文模型</strong>——一个值得国内开发者注意的事实</li>
+<li><strong>Diffusion head</strong>：4 层 ~123M 参数，用 DDPM + Classifier-Free Guidance</li>
+<li><strong>Curriculum learning</strong>：上下文长度从 4K → 16K → 32K → 64K 逐步扩张</li>
+<li><strong>训练时冻结 tokenizer</strong>，只训 LLM + diffusion head</li>
+</ul>
+<p>64K 的 context window 是它能做 90 分钟长音频的关键。一般 TTS 模型能撑 30 秒已经很好，VibeVoice 把它推到 90 分钟、4 个说话人对话。论文里测下来在长对话生成上&quot;surpasses open-source and proprietary dialogue models&quot;——但具体击败了哪个 proprietary 模型，论文 abstract 没点名。</p>
+<p>ASR 这条线的论文是另一篇（<a href="https://huggingface.co/microsoft/VibeVoice-ASR" target="_blank" rel="noopener">arxiv 2601.18184</a>，2026-01 发布），跟 TTS 论文不是同一组实验。两条线的评测维度也不同：</p>
+<table>
+<thead>
+<tr>
+<th>评测维度</th>
+<th>TTS（arxiv 2508）</th>
+<th>ASR（arxiv 2601）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>主要指标</td>
+<td>MOS preference、长音频流畅性</td>
+<td>DER（Diarization Error Rate）、cpWER、tcpWER</td>
+</tr>
+<tr>
+<td>测试集</td>
+<td>论文 abstract 未列</td>
+<td>模型卡未给具体测试集名称</td>
+</tr>
+<tr>
+<td>语言</td>
+<td>主要英文 + 中文</td>
+<td>50+ 语言、code-switching 内/外</td>
+</tr>
+</tbody></table>
+<p>ASR 9B 的真正卖点是<strong>自带说话人分离</strong>——HN 用户 mberg 在帖子下评论原文是这么说的：</p>
+<blockquote>
+<p>&quot;I&#39;ve been using VibeVoice&#39;s ASR (speech to text) model quite intensively for the past month and have found it to be a lot more reliable and out-of-the box functional then Whisper, parakeet and other models. The fact that is has diarization built into to the model is a huge win in my book. Without that you have to run a different model just for that which adds significantly to the overall processing time vs VibeVoice which gives you reliably great results. Big fan.&quot;</p>
+</blockquote>
+<p>一般 ASR pipeline 是 Whisper 转写 + pyannote 做 speaker diarization，两个模型分开调，错误叠加。VibeVoice-ASR 把这两件事合到一个模型里，端到端少一层。mberg 这条原文里还提到了 NVIDIA Parakeet（NeMo 系 ASR），意思是他自己实测对比过几个开源 ASR，VibeVoice 综合最稳。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/29/vibevoice-MOS-preference.png" alt="VibeVoice 在跨语言 TTS 上的 MOS 偏好对比（来自仓库 Figures/MOS-preference.png）"></p>
+<h2>三、2025-09-05 的撤下事件，README 上声明还在</h2>
+<p>仓库 README 现在还能看到这一段（VibeVoice 1.5B 模型卡的&quot;Out-of-Scope/Prohibited Uses&quot;小节附近）：</p>
+<blockquote>
+<p>&quot;Since responsible use of AI is one of Microsoft&#39;s guiding principles, we have removed the VibeVoice-TTS code from this repository.&quot;</p>
+</blockquote>
+<p>发生时间是 <strong>2025-09-05</strong>。微软项目页（microsoft.github.io/VibeVoice）当时还有更激烈的声明：</p>
+<blockquote>
+<p>&quot;have disabled the repo until we are confident that out-of-scope use is no longer possible.&quot;</p>
+</blockquote>
+<p>这件事的背景：VibeVoice 当时支持的 TTS 7B 变体被发现做出来的合成语音几乎听不出 AI 痕迹，社区有人开始用它做声音克隆——克隆名人声音做诈骗、政治深度伪造、骚扰电话。微软第一时间下架代码，要求&quot;直到我们确信不能再被滥用为止&quot;。</p>
+<p>到了 2025 年底 / 2026 年初，仓库慢慢恢复——但<strong>永远没把原本最强的 TTS 7B 放回来</strong>。当前 README 里 TTS 一档只有 1.5B 命名（3B 总参）的版本，加上一系列硬性限制：</p>
+<ul>
+<li>输入音频自动嵌入<strong>可听见的 AI disclaimer</strong></li>
+<li>同时打<strong>不可感知的水印</strong>用于事后溯源</li>
+<li>推理日志做哈希记录用于滥用检测</li>
+<li>微软声明每季度公开聚合统计</li>
+</ul>
+<p>HN 用户 Stagnant 评论里提到：被撤下的 TTS 7B 在社区里有 archive。Stagnant 原文：&quot;The 7B parameter Vibevoice TTS model is still the most impressive local TTS model i&#39;ve tried&quot;——他自己测过的本地 TTS 里，被撤下的 7B 还是最好的。这是个灰色地带——微软撤下了官方分发，但模型 weight 已在外。</p>
+<p>技术上看，3B 的当前版与 7B 旧版差距不会小——参数量差一倍多，subjective quality 通常差感知很明显。微软的做法本质是用<strong>降级模型 + 强制水印 + 强制 disclaimer</strong>做安全权衡：知道还会被滥用，但底线先建起来。</p>
+<h2>四、HN 顶赞把&quot;开源&quot;两个字喷了</h2>
+<p>HN 47933236 这帖最尖锐的评论是 maxloh（7 小时前）那条原文：</p>
+<blockquote>
+<p>&quot;I think we should stop calling this type of models open source. They are indeed &#39;open weight.&#39; The training code is proprietary and never revealed.&quot;
+（配的链接是 <a href="https://github.com/microsoft/VibeVoice/issues/102" target="_blank" rel="noopener">github.com/microsoft/VibeVoice/issues/102</a>）</p>
+</blockquote>
+<p>这是 OSI（开源促进会）2024-2025 一直推的争论。OSI 在 2024 年 10 月发布的 <a href="https://opensource.org/ai/open-source-ai-definition" target="_blank" rel="noopener">OSAID 1.0（Open Source AI Definition）</a> 认为，一个模型要叫&quot;开源 AI&quot;，必须同时满足三大要素的&quot;足够细节&quot;：</p>
+<ol>
+<li><strong>Data Information</strong>：训练数据的足够细节信息（不一定原始数据集开放，但得能让人独立复现训练数据集）</li>
+<li><strong>Code</strong>：训练 / 推理代码、数据处理脚本</li>
+<li><strong>Weights and Parameters</strong>：完整的模型权重和参数</li>
+</ol>
+<p>且要支持四类自由（study / use / modify / share）。</p>
+<p>VibeVoice 真正公开的只有第 3 条 + 部分推理代码。<strong>训练数据信息完全没公开</strong>——模型卡里只笼统写&quot;inherits biases from Qwen2.5-1.5B base model&quot;，没说预训练用了什么音频数据集、版权状态、地域分布；issue #102 里 maxloh 链的是社区追问&quot;训练代码什么时候放出来&quot;——微软至今没回。</p>
+<p>按 OSAID 1.0 这是 open-weight，不是 open-source AI。但微软在 README 里坚持用 &quot;open-source frontier voice AI&quot; 这个词。HN 上 maxloh 这种较真的人就在喷。</p>
+<p>其他几条顶赞评论也值得逐字看（来自 <a href="https://news.ycombinator.com/item?id=47933236" target="_blank" rel="noopener">HN 47933236</a>）：</p>
+<p><strong>steinvakt2（7 小时前）</strong>：</p>
+<blockquote>
+<p>&quot;This is not a new model. Also, it hallucinates a lot. Also, it&#39;s very heavy and slow in inference. It&#39;s also bad in multilingual.</p>
+<p>Edit: I&#39;m talking purely about speech to text (STT). Not sure about the other things this can do.&quot;</p>
+</blockquote>
+<p>—— 一开始没限定上下文导致语气很冲，加上 Edit 后才说自己只是在评 STT，对 TTS / Realtime 没意见。这条评论的本身就反映了&quot;前沿&quot;两个字的定义争论。</p>
+<p><strong>gagan2020（5 小时前）</strong>：</p>
+<blockquote>
+<p>&quot;It is not good for text to speech (TTS) as well. I am trying it for few days. First of all 1.5B model documentation is not there. 0.5B realtime is shit model. I was converting text, line by line and it was randomly adding music and couldn&#39;t handle special characters like &#39;…&#39;. I really disappointed with this model to say the least.&quot;</p>
+</blockquote>
+<p>—— 实测者反馈，TTS 1.5B 没文档、Realtime 0.5B 直接被骂、一行行转换文字时会随机加背景音乐、连省略号都处理不好。</p>
+<p><strong>Stagnant（1 小时前）</strong>：</p>
+<blockquote>
+<p>&quot;The 7B parameter Vibevoice TTS model is still the most impressive local TTS model i&#39;ve tried. It was pulled by Microsoft a few days after its release due to &#39;abuse potential&#39; but it can be found in various community maintained huggingface repos.&quot;</p>
+</blockquote>
+<p>—— 这条印证了&quot;被撤下的 7B 版本仍在社区流通&quot;的灰色地带。</p>
+<p>整理下来 HN 主流声音是：<strong>ASR 比 TTS 好用、TTS 比想象中差、Realtime 0.5B 不要试，被撤下的 7B 旧版才是真正口碑王</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/29/vibevoice-language_distribution_horizontal.png" alt="VibeVoice 支持的语言分布（来自仓库 Figures/language_distribution_horizontal.png）"></p>
+<h2>五、与国内开源语音 AI 横向对比</h2>
+<p>国内开源语音 AI 这两年生态密度很高，把 VibeVoice 摆进来对比一下：</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>主体</th>
+<th>类型</th>
+<th>参数 / 卖点</th>
+<th>许可</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>VibeVoice-ASR</strong></td>
+<td>微软</td>
+<td>ASR 自带 diarization</td>
+<td>9B / 50+ 语言 / 60 分钟一遍过</td>
+<td>MIT</td>
+</tr>
+<tr>
+<td><strong>Qwen3-ASR</strong>（阿里）</td>
+<td>阿里</td>
+<td>ASR + 噪声鲁棒</td>
+<td>中英多语 / 量子位报道过</td>
+<td>Apache 2.0</td>
+</tr>
+<tr>
+<td><strong>CosyVoice 2</strong>（阿里）</td>
+<td>阿里</td>
+<td>TTS + 跨语言 zero-shot</td>
+<td>中英日韩等多语 / 量子位 2024 报道</td>
+<td>Apache 2.0</td>
+</tr>
+<tr>
+<td><strong>VibeVoice-TTS</strong></td>
+<td>微软</td>
+<td>长对话多说话人 TTS</td>
+<td>3B / 90 分钟 / 4 人 / 强制水印</td>
+<td>MIT</td>
+</tr>
+<tr>
+<td><strong>MegaTTS-3</strong>（字节）</td>
+<td>字节</td>
+<td>韵律 / 个性化</td>
+<td>短语音克隆见长</td>
+<td>Apache 2.0</td>
+</tr>
+<tr>
+<td><strong>VibeVoice-Realtime</strong></td>
+<td>微软</td>
+<td>流式 TTS</td>
+<td>0.5B / 300ms 首音</td>
+<td>MIT</td>
+</tr>
+<tr>
+<td><strong>GLM-Voice</strong>（智谱）</td>
+<td>智谱 AI</td>
+<td>端到端语音对话</td>
+<td>9B / 实时打断</td>
+<td>Apache 2.0</td>
+</tr>
+</tbody></table>
+<p>读出来的结论：</p>
+<ol>
+<li><strong>TTS 领域，国内 CosyVoice 2 在多语言 zero-shot 上更稳</strong>，但 VibeVoice-TTS 在长对话（90 分钟、4 人）这个垂直场景独占山头</li>
+<li><strong>ASR 领域，VibeVoice-ASR 9B 自带 diarization 是真稀缺</strong>，但 9B 推理成本不低，单 GPU（24GB）跑 60 分钟音频不便宜</li>
+<li><strong>Realtime 流式 TTS，国内的 GLM-Voice 端到端 + 打断更现代</strong>——VibeVoice-Realtime 0.5B 在 HN 上口碑差</li>
+<li><strong>许可全部 Apache / MIT</strong>，对企业商用都友好。VibeVoice 的特殊之处是强制水印 + 推理日志，这一层实际部署时要做兼容</li>
+<li><strong>基座选择上微软选了千问</strong>——这个 cross-pollination 在 2026 年看起来很自然，但放到 2024 是不可想象的</li>
+</ol>
+<h2>六、想跑起来怎么搞</h2>
+<p>ASR 9B 跑得起的主流方案：</p>
+<pre><code class="language-bash"># Hugging Face transformers 路径
+pip install transformers torch
+huggingface-cli download microsoft/VibeVoice-ASR
+# 24GB GPU 单卡推荐，13GB 够 ASR 9B BF16 加载（loose）
+</code></pre>
+<p>TTS 1.5B 命名（实际 3B）路径：</p>
+<pre><code class="language-bash">huggingface-cli download microsoft/VibeVoice-1.5B
+# 推荐 16GB GPU 起跳。微软不推荐用于商业部署
+</code></pre>
+<p>国内开发者要小心几件事：</p>
+<ol>
+<li><strong>HF 镜像</strong>：不能直连 huggingface.co 时，用 <code>HF_ENDPOINT=https://hf-mirror.com</code> 切镜像，或者 ModelScope 上找镜像</li>
+<li><strong>水印不能关</strong>：VibeVoice 的输入做了 SDK 级别的水印写入，关掉违反 Microsoft 的 use policy（<code>responsible_ai_use.md</code> 里有明文）</li>
+<li><strong>disclaimer 不能去</strong>：所有生成音频自动嵌入&quot;This audio was generated by VibeVoice&quot;语音前缀</li>
+<li><strong>训练数据合规风险</strong>：模型卡里没公开数据来源，下游商用如果是面向 C 端，需要法务审一下&quot;训练数据合规链是否可追溯&quot;</li>
+<li><strong>不要用于声音克隆 / 实时换音 / 任何身份冒用</strong> —— 模型卡 Out-of-Scope 列表第一条就是这个，违反触发的不只是技术问题</li>
+</ol>
+<p>如果你是评估方向用：</p>
+<ul>
+<li>想要&quot;端到端 ASR + 说话人分离&quot;：值得放进 PoC 候选</li>
+<li>想要&quot;长对话播客生成&quot;：值得测，但跟内部商业模型比一下成本</li>
+<li>想要&quot;实时语音助手底座&quot;：先看 GLM-Voice 或 CosyVoice 2 + 自己的 LLM，VibeVoice-Realtime 0.5B 还不太成熟</li>
+</ul>
+<h2>七、撤下又复出这件事，对开源 AI 的更长信号</h2>
+<p>VibeVoice 2025-09-05 撤下、半年后复出这条曲线，比模型本身更值得想：</p>
+<ol>
+<li>**大厂出品的&quot;前沿开源&quot;**几乎都得带刹车系统了。不光是水印 + disclaimer，还有 hashed inference logging（哪些 prompt 触发推理）、季度统计公开。这是模型层的一种&quot;治理 SBOM&quot;</li>
+<li><strong>降级 + 安全权衡</strong>变成新常态。VibeVoice 永远不会再放 7B TTS，因为那个版本太好用、克隆太逼真。换成 1.5B（3B 总参）是质量下降，但风险下降更多</li>
+<li><strong>community archive 的灰色市场</strong>还会存在。Stagnant 的评论说明 7B 旧版在社区有人留底——你可以下载，但微软不再背书</li>
+<li><strong>OSAID 标准的执行力</strong>继续考验大厂。微软还在用&quot;open-source&quot;称呼一个不公开数据的模型，OSI 还在喷。这场争论 2026 年还会继续</li>
+</ol>
+<p>国内观察这件事的窗口最近也开了：阿里千问 / 智谱 / 深度求索 这一波语音 AI 项目是不是要参考 VibeVoice 的水印 + disclaimer + 推理日志做&quot;自带刹车&quot;，是个值得看的工程问题——不只是合规问题。</p>
+<h2>编辑说</h2>
+<p>VibeVoice 这条仓库我读完最大的感受是：<strong>前沿开源语音 AI 已经过了&quot;放出来就是赢&quot;的阶段，进了&quot;怎么放得有底线&quot;的阶段</strong>。三档模型、强制水印、撤下又复出、HN 上的 open-source vs open-weight 争论——这些都不是技术问题，是工程哲学问题。</p>
+<p>如果你只关心&quot;能不能用&quot;，结论是：ASR 值得用、TTS 看场景用、Realtime 暂时别用。如果你关心&quot;开源 AI 接下来怎么走&quot;，VibeVoice 是个比 Llama / DeepSeek 更典型的样本——它代表的是<strong>带刹车的开源</strong>，而不是&quot;放出权重 + 自由竞争&quot;。</p>
+<p>接下来一年里，几乎每个大厂的语音 / 视频 / 图像生成模型，都会越来越像 VibeVoice，而不是越来越像 Llama 1。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

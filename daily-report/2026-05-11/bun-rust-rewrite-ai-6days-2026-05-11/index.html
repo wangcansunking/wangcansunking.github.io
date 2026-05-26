@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 6 天把 Bun 翻成 Rust：96 万行能跑起来 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-11</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-11</span><span class="tag-pill">Daily Report</span></div>
+      <h1>AI 6 天把 Bun 翻成 Rust：96 万行能跑起来</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/bun-rust-rewrite-ai-6days-2026-05-11.png" alt="Bun 6 天 Zig 改写 Rust 封面"></p>
+<h2>一、Jarred Sumner 把数字摆上台面</h2>
+<p>5 月 9 日傍晚，Bun 作者 Jarred Sumner 在 X 上发了一条让 JS / Rust 圈同时炸出来的推：</p>
+<blockquote>
+<p>99.8% of bun&#39;s pre-existing test suite passes on Linux x64 glibc in the rust rewrite. — @jarredsumner（status/2053047748191232310）</p>
+</blockquote>
+<p>后面跟了一段补充：「这是一次 96 万行的重写，6 天搞完，要靠手敲是个庞大工作量。」HN 的 item 48073680 投递人 heldrida 把这条推贴上去后，24 小时内冲到 679 pts、652 条评论，稳稳压在头页第二位。同一周还有另一条同主题入口 item 48077231「Bun ported to Rust in 6 days」也涨到 101 pts。</p>
+<p>国内开发者群里被刷屏的事很多——同一周智谱 GLM-5.1 在 SWE-bench Pro 拿到 58.4%、千问 3.6-27B 在 SWE-Bench 摸到 77.2%、月之暗面 Kimi K2.6 跑通 INT4 native 256K 上下文。但 Bun 这条不太一样：它不是模型刷榜，是一次工程级别的「AI 把整个仓库换语言」实测，而且把 PORTING.md、分支、commit、PR、CI 全部公开给全网围观。</p>
+<p>让这件事更值得国内同行细看的还有一层背景：Anthropic 在 2025 年 12 月 2 日花了一笔（金额未公开）把 oven-sh/Bun 团队整体收编，原因是 Claude Code 自身就跑在 Bun 之上——「如果 Bun 出问题，Claude Code 跟着出问题」这条捆绑链直接写进了收购公告。换句话说，这次 96 万行重写既是 Bun 自家的工程探索，也是 Anthropic 在用自己的 AI 产品（Claude Code）改自己的核心依赖（Bun）的 dogfooding 直播。<strong>国内做 AI Coding 工具的厂家手上短期里没有这么扎实的「自家产品改自家依赖」素材可拿出来当案例</strong>——这是 Anthropic 这条路线难得的资源优势，不是简单的模型差距。</p>
+<p>另一头要把数据先放到桌面上：Bun 仓库当下 GitHub star 数是 89,837 颗（实测于 2026-05-10），fork 4,415，主语言标签仍然是 Zig，描述「Incredibly fast JavaScript runtime, bundler, test runner, and package manager – all in one」。<strong>主仓库还是 Zig</strong>，重写发生在 <code>claude/phase-a-port</code> 这条独立分支上，没有动 main。</p>
+<blockquote>
+<p><strong>本文要回答的事</strong>：96 万行这个数字怎么验、99.8% 通过到底什么口径、AI 工具到底用了什么、Zig / Rust 阵营怎么看、国产 AI Coding 工具今天能做到哪一档、国内开发者从这次实验里能拿走什么具体方法论。</p>
+</blockquote>
+<p>接下来不复述新闻，挑几个能 verbatim 抓到字面证据的点，把案子拆开看。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/bun-6days-timeline.png" alt="6 天 96 万行：Bun 的 AI 重写日历"></p>
+<h2>二、96 万行从哪来：分支 + commit 都能查</h2>
+<p>Jarred 自报「960,000 LOC」，但这数字不能光听他说。实测路径有两条：</p>
+<p>第一条，去 GitHub 跑一句 <code>gh api repos/oven-sh/bun/branches/claude/phase-a-port</code>。这个分支当下 HEAD 是 commit <code>114a982f13c1b2aee7784c5be774562e1a817f0d</code>，作者 Jarred Sumner，时间 2026-05-10 20:12:48 UTC。分支跟 main 的 compare 视图大到 GitHub 自己都拒绝渲染。Anthropic 自家 dev 媒体跑过一遍 <code>cloc</code>，数字落在「760K-960K LOC」区间，差距来自要不要把 vendored 代码、generated 文件、测试 fixture 算进去。<strong>不管怎么算，分支里 <code>.rs</code> 文件总行数都比 main 上 <code>.zig</code> 多出一个数量级</strong>。</p>
+<p>第二条，去 <a href="https://github.com/oven-sh/bun/blob/claude/phase-a-port/docs/PORTING.md" target="_blank" rel="noopener">docs/PORTING.md @ claude/phase-a-port</a> 看翻译规则本体——168,673 字节、约 300 条规则、覆盖 Zig 几乎所有惯用语到 Rust 的对译路径。<strong>这个文档本身就是一道证据</strong>：没有 96 万行级仓库的人不会需要写 168K 字节的翻译规则书。</p>
+<p>第三条侧证来自 Bun 团队的 PR 流水线。Anthropic 一篇 Bun 团队博文（5 月 9 日发的「Zig → Rust porting guide」拓展，转引可见 <a href="https://www.theregister.com/2026/05/05/bun_rust_port/" target="_blank" rel="noopener">The Register 2026-05-05</a>）描述的具体作业方式是：</p>
+<ul>
+<li>自动化 PR 全部由 <code>@robobun</code> 这个机器人账号发起；</li>
+<li>一审走 <code>@claude</code>（Claude Code 自家审 review agent）；</li>
+<li>二审走 <code>@coderabbitai</code>（社区 AI code review）；</li>
+<li>必须 Bun 团队人类成员合入，机器人没有 main 分支写权限。</li>
+</ul>
+<p>PR 单笔规模公开看到过 27,000 行往上——这在传统人工 review 流程里基本不可能流过，但它走的是「AI 写 + 双 AI 审 + 人定夺」三段流水线。</p>
+<table>
+<thead>
+<tr>
+<th>证据点</th>
+<th>字面来源</th>
+<th>怎么验</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>96 万行 Rust 改写</td>
+<td>Jarred Sumner X status/2053047748191232310</td>
+<td>看分支 + cloc 实测，760K-960K 区间，差异看是否含 vendor / generated</td>
+</tr>
+<tr>
+<td>6 天</td>
+<td>同上推文 verbatim「6 days」</td>
+<td>5/03 起念→5/09 公开倒推</td>
+</tr>
+<tr>
+<td>99.8% 测试通过</td>
+<td>同上推文 verbatim「99.8% of bun&#39;s pre-existing test suite passes on Linux x64 glibc」</td>
+<td>Bun 自家 7 万 + 用例，单平台</td>
+</tr>
+<tr>
+<td>PORTING.md</td>
+<td>github.com/oven-sh/bun/blob/claude/phase-a-port/docs/PORTING.md</td>
+<td>168,673 字节、约 300 条规则</td>
+</tr>
+<tr>
+<td>分支 HEAD commit</td>
+<td>gh api repos/oven-sh/bun/branches/claude/phase-a-port</td>
+<td>114a982f13c1b2aee7784c5be774562e1a817f0d，作者 Jarred，时间 2026-05-10 20:12:48 UTC</td>
+</tr>
+<tr>
+<td>双 AI 审核流水线</td>
+<td>The Register / DraganSr 转引 Bun 团队博客</td>
+<td>@robobun 出 PR、@claude + @coderabbitai 审、人合入</td>
+</tr>
+</tbody></table>
+<p>需要把话说在前面：6 天这个时间从 5/03 起念到 5/09 公开成果倒推，<strong>Jarred 也明确说「我们没承诺要彻底改写、整套代码很可能全扔掉」</strong>（HN item 48019226 verbatim：「There&#39;s a very high chance all this code gets thrown out completely. I&#39;m curious to see what a working version of this looks like, what it feels like, how it performs」）。这是工程探索，不是产线发版。</p>
+<h2>三、99.8% 这个数到底是什么口径</h2>
+<p>「99.8% 通过」很容易被截断成「Bun 已经基本搬到 Rust」。Jarred 的原话精确到字：「99.8% of bun&#39;s pre-existing test suite passes on Linux x64 glibc」。掰开看每一段：</p>
+<ul>
+<li><strong>bun&#39;s pre-existing test suite</strong>：Bun 自家的回归测试，不是 npm 兼容套件、不是 Node.js core test、不是 web platform tests；这一套测试规模在 7 万 + 用例量级，已经算很厚的一张安全网；</li>
+<li><strong>Linux x64 glibc</strong>：单平台单 libc。macOS arm64 / x64 / Windows / Linux musl / Linux arm64 全部不在这 99.8% 里；</li>
+<li><strong>passes</strong>：跑通即算 pass，不指性能持平、不指内存持平、不指 binary 大小持平。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/bun-rust-pass-rates.png" alt="Bun Rust 重写：分平台测试通过率"></p>
+<p>分平台真实状态从分支 commit 信息里就能挖出来。前面那条 commit 114a982f 的 message 写着：</p>
+<blockquote>
+<p>require-cache.test.ts on macOS-arm64: 76MB (threshold 64MB; Linux release-asan passed). … bundler_minify 32/0, splitting 22/0, edgecase 103/0, Windows cargo check 0 errors.</p>
+</blockquote>
+<p>翻译过来是：macOS arm64 上至少 require-cache 这条测试还在内存超阈（76 MB 比 64 MB 阈值高 12 MB）；Windows 端 <code>cargo check</code> 走通了 0 错（编译能过），但<strong>没说测试跑了</strong>。</p>
+<p>意思是：</p>
+<ul>
+<li>✅ Linux x64 glibc：测试 99.8% 通过、ASan 干净；</li>
+<li>⚠️ macOS arm64：仍在打内存补丁；</li>
+<li>⚠️ Windows x64：能编译、未跑测试；</li>
+<li>❓ Linux arm64 / musl、macOS x64：未在公开 commit 里看到状态。</li>
+</ul>
+<p>国内开发者里有人问：「那这就能 ship 了吗？」答案是不行——Bun 的目标用户里 macOS 笔记本占非常大比例，没把 macOS 跑通之前主分支不会切。<strong>99.8% 只代表 AI 把单平台单 libc 这一格填满了</strong>，不代表整张地图都涂上颜色。</p>
+<p>把 99.8% 压成「Bun 已经基本 Rust 化了」是把 fine print 抹掉的偷懒。Jarred 自己在 HN item 48019226 那条回 302 评论的帖子里也说过：「cargo check reported over 16,000 compiler errors when I wrote that message. It could not print a version number or run JavaScript.」——意思是他公开放风的早期那个版本编译报 16,000 错、版本号都打不出。</p>
+<p>为了把口径再讲透一层，下面这张表把容易被误解的几对说法摆一起：</p>
+<table>
+<thead>
+<tr>
+<th>容易误解的说法</th>
+<th>真实口径</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>「Bun 已经基本搬到 Rust 了」</td>
+<td>单一分支单一平台（Linux x64 glibc）单一测试套（Bun 自家测试）通过 99.8%；macOS / Windows / Linux musl / arm64 状态未达；主分支仍为 Zig</td>
+</tr>
+<tr>
+<td>「99.8% 通过 = 99.8% 行为等价」</td>
+<td>通过 = 跑过即可；性能、内存、binary 大小、并发模型等价性都未公开横评</td>
+</tr>
+<tr>
+<td>「AI 6 天独立完成」</td>
+<td>6 天从起念到公开里程碑、AI 大量出代码、但 PORTING.md（300 条人写规则）+ Bun 团队人工审 + @claude + @coderabbitai 全程参与</td>
+</tr>
+<tr>
+<td>「这就是 Bun 的下一版」</td>
+<td>Jarred 字面：「very high chance all this code gets thrown out completely」</td>
+</tr>
+<tr>
+<td>「Anthropic 让 Bun 改 Rust 是因为 Zig 不行了」</td>
+<td>Anthropic 自家工程栈以 Rust 为主，Claude 训练语料 Rust 多于 Zig；这是「让自家 AI 更顺手地维护 Bun」的工具链对齐，不是给 Zig 判刑</td>
+</tr>
+</tbody></table>
+<p>把这五条放在一起读，「99.8%」就能放回它原本的位置：一项<strong>单点工程证据</strong>，不是路线宣布。</p>
+<h2>四、AI 工具是 Claude Code，工作流是 PORTING.md</h2>
+<p>很多人猜「Sumner 用了什么神器」，其实公开材料摆得很明白——他用的就是 <a href="https://github.com/anthropics/claude-code" target="_blank" rel="noopener">Claude Code</a>（Anthropic 自家终端 AI Coding agent）。三条证据：</p>
+<ol>
+<li>仓库根目录有 <a href="https://github.com/oven-sh/bun/blob/main/CLAUDE.md" target="_blank" rel="noopener">CLAUDE.md</a>，这是 Claude Code 标准的项目级 prompt 配置文件；</li>
+<li>分支前缀就叫 <code>claude/</code>，整个 Bun 团队所有 AI 主导的 PR 都走这个命名空间；</li>
+<li>2025 年 12 月 2 日 Anthropic 收购 Bun（<a href="https://bun.com/blog/bun-joins-anthropic" target="_blank" rel="noopener">Bun 官方公告</a> + Anthropic 自家 <a href="https://www.anthropic.com/news/anthropic-acquires-bun-as-claude-code-reaches-usd1b-milestone" target="_blank" rel="noopener">news 页</a>），Claude Code 自身就是跑在 Bun 之上的——dogfooding 这件事被写进收购理由。</li>
+</ol>
+<p>工作流不是「把整个仓库塞给 AI、让它一口气输出」。PORTING.md 把它拆成 4 段流水线，<strong>这才是 96 万行能跑起来的关键</strong>：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/bun-rust-workflow.png" alt="AI 重写工作流：PORTING.md 怎么把 .zig 翻成 .rs"></p>
+<p>PORTING.md 节选（字面引用）：</p>
+<ul>
+<li>「Write the <code>.rs</code> in the same directory as the <code>.zig</code>, same basename」——同目录同名一对一翻；</li>
+<li>「Phase A is a draft <code>.rs</code> next to the <code>.zig</code> that captures the logic faithfully — it does not need to compile. Phase B makes it compile crate-by-crate」——A 期只翻不编译，B 期才按 crate 拆 Cargo.toml；</li>
+<li>「No tokio, rayon, hyper, async-trait, futures. No std::fs, std::net, std::process. Bun owns its event loop and syscalls」——禁用 Rust 全部主流 async 生态，因为 Bun 自有事件循环；</li>
+<li>「No async fn. Everything is callbacks + state machines, same as the Zig」——禁 <code>async fn</code>，保持 Zig 原结构；</li>
+<li>「Leave <code>// TODO(port): &lt;reason&gt;</code> for anything you can&#39;t translate confidently. Don&#39;t guess. Flagging is better than wrong code」——不会翻就标注，别瞎写；</li>
+<li>「Leave <code>// PERF(port): &lt;zig idiom&gt; — profile in Phase B</code>」——性能可疑处也打标，留给 B 期处理。</li>
+</ul>
+<p>300 条规则的核心目标只有一个：<strong>把 AI 的不确定性挪到可观测的标记上</strong>，不让它「装作懂」。这个工作流国内开发者今天就能拿走：建一份自己仓库的 PORTING.md（哪怕是 100 行），把翻译边界、禁用库、不确定时的 TODO 写法定下来，剩下的交给 AI agent 跑。</p>
+<p>用一张更具体的对照表展开 Phase A / Phase B 的分工：</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>输入</th>
+<th>输出</th>
+<th>工具角色</th>
+<th>失败可接受度</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Phase A 直翻</td>
+<td>一份 .zig 文件</td>
+<td>同目录同名 .rs 文件，结构 1:1 对齐</td>
+<td>AI 主写、PORTING.md 当 prompt 上下文</td>
+<td>不要求编译通过，可大量 TODO(port)</td>
+</tr>
+<tr>
+<td>Phase B 编译</td>
+<td>Phase A 输出</td>
+<td>按 area 拆出来的 Cargo.toml + 能 <code>cargo check</code> 通过的 crate</td>
+<td>AI 解编译错误 + 人审跨 crate 类型映射</td>
+<td>单 crate 必须 0 错</td>
+</tr>
+<tr>
+<td>Phase C 测试</td>
+<td>Phase B 输出</td>
+<td>bun 自家测试套件跑过</td>
+<td>AI 修小补丁、人定大架构问题</td>
+<td>Linux x64 glibc 已 99.8%，其他平台 in progress</td>
+</tr>
+<tr>
+<td>Phase D 性能</td>
+<td>Phase C 输出</td>
+<td>benchmark / 内存 / 启动时间数字</td>
+<td>未公开，留待写正式 blog</td>
+<td>未到</td>
+</tr>
+</tbody></table>
+<p>Bun 团队官方说会写一篇 blog 把 benchmark、内存使用、可维护性影响、整套作业方法详细发出来——这篇还没出，发出来之后会是 2026 年 AI Coding 工程化的一份关键文献，国内同行可以提前关注。</p>
+<h2>五、Zig 阵营 + Rust 阵营怎么看</h2>
+<p>Zig 这边没炸锅但表态明确。Andrew Kelley（Zig 创始人）和 Zig Software Foundation 的政策是「不接受 AI 生成代码进 upstream」——这不是新规，从 2024 年就立着。HN 顶赞里有人转述 Zig 团队评价：分支里这一摊改动里有非确定性行为（non-deterministic）、风格也不符合 upstream，merge 不进 zig 主仓——这并不是冲着 Bun 来，是 Zig 一向的工程审美。</p>
+<p>值得记一笔的是，Bun 一直是 Zig 这门年轻语言最大的旗舰用户之一：Bun 用 Zig 跑出 2.4× Node.js 启动速度、6-9× 包安装速度、近乎瞬时编译这些招牌数字，就是 Zig 在生产端最有说服力的实证。一旦 Bun 真的整体切到 Rust，Zig 在 JS 工具链领域少了一面最响的招牌——但它仍然有 ZF（Zig Foundation）自身的工具链、TigerBeetle 这种数据库实证，以及一批新兴系统编程项目跟进。<strong>Bun 走 Rust 不等于 Zig 不行，更接近于「Anthropic 自家工程栈以 Rust 为主，把 Bun 拉过来对齐」的内部工具链一致性选择</strong>——这是收购公司常见的标准动作。</p>
+<p>Rust 这边大部分讨论氛围是「带着审视的好奇」。HN 顶赞的 therealpygon 那条提了个挺关键的点：</p>
+<blockquote>
+<p>The rewrite succeeded due to 100% test coverage already in place in a really well defined system. — therealpygon</p>
+</blockquote>
+<p>旁边 eternal_braid 顺着加一句：</p>
+<blockquote>
+<p>You can instruct an LLM to improve the test coverage. — eternal_braid</p>
+</blockquote>
+<p>合起来读其实是一个完整的方法论：<strong>没厚测试网的项目，AI 整库重写跑不动；有厚测试网或者能让 AI 先把测试网补厚的项目，AI 重写才有抓手</strong>。Bun 自己的 7 万 + 测试就是那张兜底网，没有它 99.8% 这个数字根本验不出来。</p>
+<p>也有人保留意见。HN 顶赞 gobdovan 把这事拓展到老古董项目（比如 ngspice），说「modern affordances and better safety properties」对 X11 时代写就的工程意义比对 Bun 这种现代仓库还大。这条思路挺值得国内开发者借——很多公司内部那些 2010 年代写的 C++ / Java 老服务，比新写的 Rust 项目更需要 AI 来跑一次「换皮 + 修内存安全 + 补测试网」的整体改造。</p>
+<p>下面是 HN 顶赞里几条值得 verbatim 抓出来的同行观点，连同评者一起列：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/bun-hn-quotes.png" alt="HN 顶赞同行怎么说 · 6 条 verbatim 引语"></p>
+<ul>
+<li>legerdemain 转引 Jarred 自家话「This whole thread is an overreaction. 302 comments about code that does not work」——整条早期讨论都建立在「连版本号都打不出来的代码」上；</li>
+<li>therealpygon「The rewrite succeeded due to 100% test coverage already in place in a really well defined system」——把这次实验的真正成功因素归到测试网本身；</li>
+<li>eternal_braid「You can instruct an LLM to improve the test coverage」——补测试这件事本身就能交给 AI；</li>
+<li>gobdovan「modern affordances and better safety properties」——AI 整库重写真正的红利在那些「写得早 / 没人敢动 / 测试薄」的老仓库上。</li>
+</ul>
+<p>合起来读，社区给 AI 整库重写定了 3 条隐性前提：<strong>1）目标仓库测试网已经厚（或值得先把它补厚）；2）翻译规则书人手定（不是让 AI 自由发挥）；3）双 AI 审 + 人合入这一步不能省</strong>。三条少一条，96 万行那个数字撑不住。</p>
+<h2>六、国产 AI Coding 工具横评：今天能做到哪一档</h2>
+<p>国内同行最关心的问题：通义灵码、Trae、Qoder、CodeBuddy，今天能不能做这种活？答案要分技术能力和工程化两件事。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/bun-cn-ai-coding-vs.png" alt="国产 AI Coding 工具：能不能做 96 万行级跨语言改写？"></p>
+<p>技术上看，国产工具底座的模型（千问、豆包、混元、文心）这两年都在快速逼近，SWE-Bench / SWE-Bench Pro 上的差距已经从两个数量级压缩到 5-15 个百分点之内。但工程化案例上能让全网围观的「整库改造」级别 demo，至今仍集中在「函数级补全 / 单文件改 / 几百行 PR」这一档。截至 2026 年 5 月，公开能查到的国产 AI Coding 厂家公开案例里：</p>
+<ul>
+<li>阿里 <a href="https://lingma.aliyun.com/" target="_blank" rel="noopener">通义灵码</a>：旗舰版 100K 上下文，主推「智能编程 Agent」，公开 demo 多在多文件改造、单 PR ≤ 1K 行；</li>
+<li>字节 Trae：SOLO 自主模式 + 企业版 128K 上下文，公开 case 多在 web 全栈，跨语言重写未见公开；</li>
+<li>阿里 Qoder：128K 上下文、定位「专业 IDE」，深耕单语言场景优先；</li>
+<li>腾讯 CodeBuddy IDE：100K 上下文，多语言但深度有限；</li>
+<li>百度文心快码、华为 CodeArts Snap：函数级 / 行级补全为主。</li>
+</ul>
+<p>需要补一句重要的话：「<strong>没有公开案例不代表没在做</strong>」。国内大厂内部完全可能跑过类似规模的 AI 重写，只是没像 Bun 这样把分支、commit、PORTING.md 都开放在公网上。Bun 这次最特别的地方不是它会 AI 改写，是 Anthropic 把整个过程当 dogfood 直播给全网围观——这是产品策略选择，不是技术鸿沟。</p>
+<p>抛开公关不谈，国产工具有几个真实瓶颈：</p>
+<ol>
+<li><strong>跨语言数据不足</strong>：Zig → Rust 这种小众对译，模型训练语料天然偏少，国产模型在中文 / Java / Python / Go 主流量上更稳；像 Bun 这种「老语言不主流、新语言生态丰满」的不对称对译，国产模型短期里要补的训练样本量级不小；</li>
+<li><strong>上下文管理工具链</strong>：Bun 这次能跑，靠的是 PORTING.md + claude/ 分支命名 + @robobun PR + CLAUDE.md 项目记忆四件套同时上。国产工具里把这套配齐的产品还在路上——通义灵码已经接入了一部分项目记忆能力，Trae SOLO 模式自带 PR 自动化但缺翻译规则书载体，Qoder 的多文件 context 能力强但缺 review 流水线；</li>
+<li><strong>开源 dogfood 案例不足</strong>：Cursor 有 Vercel 自家做案例、Claude Code 有 Bun，国产工具至今缺一个能让全网围观的同档大型 OSS 改造案例。Datawhale、HelloAgents、AnythingLLM-zh 这些社区项目体量不小、活跃度也够，谁先来把整套流水线搭出来发到 HN，这条路就走通了。</li>
+</ol>
+<p>但这些都是工程化和品牌的差距，不是底座模型的差距。<strong>国内 AI Coding 同行手上的牌，从模型到 IDE 到 agent harness，2026 年比 2024 年厚太多</strong>——只是把这些牌打成 Bun 这种全网级公开案例的时间点还没到。</p>
+<p>值得提一句的是，国内 OSS 生态里其实已经有一些向「AI 主写 + 人审 + 大型重构」靠的项目雏形：通义千问 Code 那条线开始把重构 demo 往 GitHub 公开放、字节 Trae SOLO 模式公开过几次百级文件级别的整 repo 改造、华为 CodeArts 内部团队也跑过自家服务的 AI 改造。这些案例的体量目前比 Bun 小一两个数量级，但在国内开源圈完成「PORTING.md + AI 分支命名 + 双审流水线」一整套对齐之前，把动作做小、做稳、做透明，比急着追 96 万行那个数字更稳。</p>
+<h2>七、Anthropic 把 Bun 拉到 Rust 的更深动机</h2>
+<p>把动机层面再剥一层。表面上看「Anthropic 收购了 Bun，所以让 Bun 改 Rust」是个简单故事，但背后有几条具体的商业 / 工程逻辑值得国内同行借鉴。</p>
+<p>第一条，<strong>Claude Code 自己就是 Anthropic 现金牛</strong>。Anthropic 自家公告里写了：Claude Code 在收购 Bun 当周已经摸到了 10 亿美金的年化营收（annual run-rate revenue），从 2025 年 5 月公开发布以来，6 个月长成 Netflix、Spotify、Salesforce、L&#39;Oréal、KPMG 这一批头部企业的内部生产工具。<strong>给一个跑在 Bun 上的 10 亿级产品换地基，地基质量必须可控</strong>——继续用一门年轻语言意味着维护成本不可预测，切到 Rust + 大量 AI 辅助是「让维护成本与公司核心 AI 能力对齐」的工程对齐。</p>
+<p>第二条，<strong>Rust 训练语料更厚</strong>。Claude 这一代模型在 Rust 上的代码生成质量、错误诊断质量明显强于 Zig——这是公开 benchmark 和工程师圈口碑的共识。让自家 AI 维护自家依赖，选一门 AI 更顺手的语言天经地义。这一点对国内同行也成立：<strong>如果选下一代项目时模型 + 工具能力都倾向某一门语言，团队的工程一致性比小众语言带来的零星收益更值得追</strong>。</p>
+<p>第三条，<strong>rust-analyzer / cargo / crates.io 的工具链厚度</strong>。Zig 没有同档对位工具——这不是 Zig 写不出来，是社区时间不够。Anthropic 这种规模的 AI 公司，每多一秒在 IDE 工具链上的等待，乘以工程师人头都是真金白银。这条对国内大厂内部工具链选型同样适用。</p>
+<p>第四条最有意思，是 Jarred 在 X 上自报的另一句被反复引用的展望：</p>
+<blockquote>
+<p>I expect OSS to go the opposite direction: no human contribution allowed — implementation handled by LLMs rather than humans. — @jarredsumner</p>
+</blockquote>
+<p>这句话说的不是「人不再写代码」，而是**「核心 OSS 项目可能演化出一种新形态：人定规则、定测试、定方向，AI 负责落地实现」<strong>。Bun 的 PORTING.md + @robobun + @claude 流水线就是这种形态的早期试验。这条预测对错另说，但</strong>如果它成立，国内 OSS 维护者要补的功课就是把「项目记忆 + 翻译规则书 + 测试网 + AI 流水线」这一整套基础设施先建起来**——不然等浪头到了，连接这条新形态的接口都缺。</p>
+<p>四条加起来，Bun 这次实验不是孤立事件，是一个明确的商业 + 工程信号：<strong>头部 AI 公司开始把自己的 AI 产品当成自己工程团队的扩展，而不是只当成卖给客户的工具</strong>。这个转折点对国内 AI Coding 厂家的启示是同样的——什么时候开始把自家 AI 产品当成自家工程团队的扩展跑出真实大型案例，什么时候就拿到这场比赛的入场券。</p>
+<h2>八、能复用的 5 件具体事</h2>
+<p>抛开热度，这次实验真正可被国内同行直接拿走的工程方法论，按落地难度由易到难排：</p>
+<ol>
+<li><strong>写自己仓库的 PORTING.md / REFACTOR.md</strong>：哪怕只有 50 条规则、覆盖最常用的 10 个翻译模式，也比让 AI 凭空翻译强 10 倍。Bun 那份 168K 字节的能直接当模板抄。</li>
+<li><strong>建一个 <code>claude/</code> 或 <code>ai/</code> 分支命名空间</strong>：所有 AI 主写 PR 都走这个 prefix。这件事让 review 流程能区分「AI 出的活 vs 人出的活」，方便后期出问题精准回滚。</li>
+<li><strong>双 AI review + 人合入</strong>：<a href="https://www.coderabbit.ai/" target="_blank" rel="noopener">CodeRabbit</a> / Claude Code review / 通义灵码 review 至少配两家，结论不一致时强制人审。Bun 的 <code>@robobun + @claude + @coderabbitai</code> 是范式。</li>
+<li><strong>Phase A 直翻 + Phase B 编译，分两步走</strong>：先让 AI 把语义结构 1:1 搬过来（不要求编译），再 crate-by-crate / 模块-by-模块过编译器和测试。一口气做完容易把所有问题挤到一处难定位。</li>
+<li><strong><code>// TODO(port)</code> + <code>// PERF(port)</code> 双标记</strong>：让 AI 把不确定的、性能可疑的，全部用统一格式打标。后期 <code>grep TODO\(port\)</code> 一把就能拉出全部技术债清单。</li>
+</ol>
+<p>最后一点对很多国内项目最稳：<strong>先把测试网补厚再交给 AI 整库改</strong>。Bun 那张 7 万 + 用例的网是这次 99.8% 能验出来的根本——很多国内服务测试覆盖率长期挂在 30%-40%，这种状态下交给 AI 整库重写，跑出来的「绿色」未必有意义。让 AI 先帮自己补测试，本身就是一笔回报很大的投资。</p>
+<p>把这 5 件事的依赖关系画成一张落地路径，国内同行可以照着排队跑：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/bun-cn-6steps.png" alt="国内同行 AI 整库改造落地 6 步法"></p>
+<ul>
+<li><strong>第 0 步</strong>：跑 <code>gh api</code>、<code>cloc</code> 把仓库现状摸清楚，列出语言占比、模块边界、测试覆盖率底数；</li>
+<li><strong>第 1 步</strong>：花 1-2 周把核心模块的测试网补到 70% 以上覆盖率（这一步可以让 AI 帮忙生成测试，但 review 必须人审）；</li>
+<li><strong>第 2 步</strong>：写一份 50-200 行的 PORTING.md / REFACTOR.md，把翻译规则、禁用库、不确定时的 TODO 写法落定；</li>
+<li><strong>第 3 步</strong>：建 <code>ai/</code> 分支命名空间，所有 AI 主写 PR 都走这个 prefix；</li>
+<li><strong>第 4 步</strong>：选一个低风险模块（比如内部工具 / CLI / 非主链路服务）做 Phase A 直翻试点；</li>
+<li><strong>第 5 步</strong>：跑通 Phase A → Phase B → Phase C 整条流水线，把双 AI review 接进来；</li>
+<li><strong>第 6 步</strong>：把整套实验复盘写成 blog 公开发布——这一步在国内尤其值得做，目前中文圈缺的就是这种规模的真实工程素材。</li>
+</ul>
+<p>每一步都比直接「把整个 repo 扔给 AI」靠谱，<strong>也是 Anthropic 之所以能在 6 天内把这条路跑通的真实顺序</strong>——只是人家在收购前后已经把第 1-3 步铺了 5 年。</p>
+<h2>九、需要诚实承认的 4 个限制</h2>
+<p>把这次实验放到工程角度复盘，有几个限制必须明着说出来，不能用「99.8%」一笔盖过去：</p>
+<ol>
+<li><strong>单平台不等于全平台</strong>。Bun 的目标用户里 macOS 笔记本占非常大比例，没把 macOS arm64 跑通之前主分支不会切。当前 commit 还在打 macOS-arm64 上 require-cache 76 MB 内存超阈这种具体补丁。</li>
+<li><strong>测试通过不等于性能等价</strong>。Bun 招牌的 2.4× Node.js 启动速度、6-9× 包安装速度，靠的是 Zig 直接对裸内存 + 自定义事件循环。改到 Rust 之后这些数字会涨还是会降，目前没有公开 benchmark；Bun 团队答应的正式 blog 会带数字，但还没发。</li>
+<li><strong>AI 写不等于 AI 自治</strong>。PORTING.md 那 168K 字节 / 300 条规则是人手写的，分支命名空间、@robobun 的工作流、双 AI review 的接入都是人定。<strong>真正可怖的部分是这套人手定的脚手架，不是 AI 翻译动作本身</strong>——Bun 团队铺这套脚手架花的时间比 6 天多很多。</li>
+<li><strong>未必所有项目都该这么改</strong>。Bun 这种「测试网厚 + 团队懂两门语言 + 不缺 AI 工具预算」的项目是个理想样本。国内大量服务并不在这个分布里，盲跟可能踩坑——先把测试网补厚、把 PORTING.md 写出来、再选低风险模块试点，远比一上来就奔着「整库重写」目标稳。</li>
+</ol>
+<p>把这四条钉在桌面上，再去看 99.8% 这个数字，<strong>它就回到它该有的位置：一项扎实的工程实证，但不是路线宣言</strong>。</p>
+<h2>十、收一收</h2>
+<p>把这个案子收到一句话：<strong>Bun 这次不是「AI 替你写代码」的演示，是「AI 把整个仓库换语言」工程化的第一份公开实测</strong>。</p>
+<p>96 万行、6 天、99.8%、单平台——四个数字单独看都很扎眼，合起来读就是一句话：在测试网够厚、翻译规则够清、工作流够拆的前提下，AI 已经能扛起整库级别的力气活。Bun 团队还没承诺会切主线，但这条路被走通了。</p>
+<p>对国内同行还有一层更暖的解读。这次实验最值得记下来的不是哪家工具更强，而是：<strong>「整库换语言」这件之前要 5-10 个高级工程师跑半年的活，现在变成了「定规则、备测试、跑流水线、人审兜底」四件事，每一件都和今天国内主流 AI Coding 工具的能力区间贴得很近</strong>。换句话说，这是一道国内同行能照着跑的题，不是只能远观的展览品。</p>
+<p>接下来轮到国产开源项目里，谁先把自己的 PORTING.md 写出来、把分支命名空间和 PR 流水线搭起来——那一家就能拿到中文圈这一份案例的署名权。Bun 团队答应过的那篇正式 blog 一旦发布，会是 2026 年下半年 AI Coding 工程化讨论的核心读物之一；中文圈最需要的，是在那篇出来之前，自己先把「PORTING.md + AI 分支 + 双审流水线 + 测试网兜底」这一整套先跑过一遍，等 Anthropic 那篇正文落地的时候，能直接对着自己的实战经验比对每一条做法的可迁移性，而不是从头读起。</p>
+<p>更暖一点的话，写在最后：96 万行这个数字第一眼看会让一些同行心里一紧——「AI 都能干这种活了，那我手上的活会不会被替代？」。但把案子拆细之后看到的另一层是：<strong>真正撑住 96 万行的不是模型有多神，是 Bun 团队在更早些时候攒下来的测试网、规则书、命名规范、review 流水线</strong>。这些是工程审美和工程纪律的产物，不是模型 capability 直接给的。换句话说，模型越强，懂工程的人越值钱——因为只有懂工程的人能告诉模型该跑哪条流水线、该在哪里下断言、该让哪些 unsafe 块带 SAFETY 注释。</p>
+<p>国内同行最该干的事情不是焦虑会不会被替代，而是顺着这条线把「PORTING.md」「测试网」「分支命名」「双审流水线」这些不发声的工程能力补强。补完之后，今天的 AI Coding 工具就够用——真正缺的从来不是工具，是把工具用到工程深处的那份耐心和方法。</p>
+<p>最后再补一句给团队 leader 的话：6 天 96 万行是个好故事，但真正值得复制的是<strong>故事讲完之后那三个月</strong>——Bun 团队接下来会把 macOS / Windows / Linux musl / arm64 一格一格补完，会跑性能 / 内存 / binary 大小三组横评，会写正式 blog 把所有口径透出来。<strong>故事讲完后能不能继续做透 = 区分 demo 和工程的分水岭</strong>。国内同行如果要对标，把 6 天那个数字盯死没用，盯准接下来三个月 Bun 团队怎么收尾，反而能学到真东西。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

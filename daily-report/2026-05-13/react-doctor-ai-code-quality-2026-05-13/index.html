@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>React Doctor 让 Claude Code 写的 React 不烂 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-13</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-13</span><span class="tag-pill">Daily Report</span></div>
+      <h1>React Doctor 让 Claude Code 写的 React 不烂</h1>
+<blockquote>
+<p>5 月 12 日到 13 日两天，一款叫 React Doctor 的开源工具单日涨 804 星，登顶 GitHub Trending TypeScript 日榜。总 star 数 8679，2026 年 2 月才出生，三个月长出来的体量。它做的事情很具体——给 50+ coding agent（Claude Code / Cursor / Codex / Aider / Cline / RooCode / Kilo / Windsurf 等）一键注入「React 写法规矩」，扫代码时给出一个 0-100 的单一健康分。这件事对国内每天用 Trae、通义灵码、豆包 Coder、千问 Code、文心快码、CodeBuddy 的开发者来说是个早期信号——AI Coding 工具链开始进入「写完还要被打分」的下半场，写代码不烂这件事，正在被工具化。</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/13/react-doctor-ai-code-quality-2026-05-13.png" alt="React Doctor · AI 写的 React 不再烂"></p>
+<p>先把范围说清楚。昨天（5 月 12 日）我们刚拆过 James Shore 那篇关于 AI Coding 维护成本反比的长文，那是一篇方法论级别的判断框架——给行业递了一把尺子。今天这篇讨论的是另一件事：<strong>一个具体可装可跑的工具，把那把尺子里「写代码长期好不好维护」这条维度变成了 0-100 的数字</strong>。一个是哲学，一个是落地，前后是连着的。</p>
+<p>这两天 GitHub Trending TypeScript 日榜被 millionco 团队的 React Doctor 官方仓库占据，单日 +804 star。打开仓库 README 第一句话是这么写的：&quot;Your agent writes bad React, this catches it.&quot; 这一句话定调子——它默认你已经在用 AI 写 React 代码，工具的角色不是替代 AI 写代码，而是给 AI 立规矩 + 给 AI 写出来的东西打分。这种角色定位过去半年在海外开源圈反复出现：先有 Aider 把代码 + git 整合在 CLI，再有 ruler 把多 agent 配置文件统一，再到这周 React Doctor 把 React 专项规则集 + agent 注入打包在一起。<strong>节奏明显——AI Coding 工具链开始往专科化方向走</strong>。</p>
+<p>本文围绕一个核心论点展开：<strong>AI Coding 工具链进入「代码质量评估」下半场——让 agent 写 React 前先学规矩，比让人事后审稿更高效</strong>。围绕这个核心，本文回答五个问题：</p>
+<ul>
+<li>React Doctor 到底做了什么、6 类诊断分别是什么；</li>
+<li>0-100 健康分怎么算、公式细节给出什么样的输出；</li>
+<li>install 命令一行下去发生了什么、怎么把规则塞进 50+ agent；</li>
+<li>50+ 适配 agent 名单里有哪些、国内同类 agent 兼容情况如何；</li>
+<li>国内 Trae、通义灵码、豆包 Coder、千问 Code、文心快码、CodeBuddy 在 React 代码质量反馈这条线的现状对位。</li>
+</ul>
+<h2>一、6 类诊断 · 一次扫描覆盖 React 代码的常见问题</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/13/react-doctor-6-categories.png" alt="React Doctor 六大诊断类目 · 0-100 健康分构成"></p>
+<p>打开 React Doctor 官方 README，6 个诊断类目摆得很清楚：<strong>state &amp; effects、performance、architecture、security、accessibility、dead code</strong>。每一类下面是十几条到二十条具体规则，加起来 70 多条 React 专项规则。这套规则不是空中楼阁——它的底层引擎是 oxlint（一款 Rust 写的 ESLint 兼容 linter，2025 年下半年在前端社区跑得很快），React Doctor 把规则封装成 oxlint plugin 与 ESLint plugin 双形态，所以可以直接和你项目里已有的 .eslintrc 合并。</p>
+<p>把 6 个类目展开看：</p>
+<p><strong>State &amp; Effects（状态与副作用）</strong>。这一类管的是 React 最常被写错的地方——useEffect 滥用、派生 state 反模式、fetch-in-effect、级联 setState。AI 写 React 代码最经常出问题的也是这里——LLM 训练数据里有大量旧版 React 用法，缺少 useEffect 与「派生 state 反模式」相关的 React 19 / React Compiler 时代的新约定。React Doctor 在这一类里收录了 <code>no-fetch-in-effect</code>、<code>no-derived-state-effect</code>、<code>no-cascading-set-state</code> 等规则，每一条都对应一个常见的 AI 误用。</p>
+<p><strong>Performance（性能）</strong>。覆盖内联函数、数组索引当 key、render 内 render 等典型问题。这些规则在 ESLint 生态里早有零散实现，React Doctor 的价值是把它们打包成一个统一规则集，并且给每条规则配套了 agent 友好的说明文档——让 Claude Code 这种 LLM agent 能读懂规则意图，而不是只看到一串 ID。</p>
+<p><strong>Architecture（架构）</strong>。这一类有点意思——它管的是项目级问题，比如桶式 barrel 导入、组件层级错位、上下文滥用。这些过去通常归到「代码评审才能发现」的范畴，React Doctor 通过静态分析的方式自动化了相当一部分。barrel 导入这条尤其关键，AI 写代码经常在 <code>index.ts</code> 里大量重导出，结果是 tree shaking 失效、构建体积膨胀。</p>
+<p><strong>Security（安全）</strong>。<code>dangerouslySetInnerHTML</code> 滥用、未转义片段、敏感 secret 泄漏检查。React 应用层面安全规则不复杂但很重要，AI 代码经常在「快速实现一个富文本展示」时直接掏出 <code>dangerouslySetInnerHTML</code>，这条规则能在生成阶段拦下来。</p>
+<p><strong>Accessibility（无障碍）</strong>。覆盖 alt 文本缺失、自动聚焦不当、ARIA 错配。这一类规则在 jsx-a11y 生态里已经成熟，React Doctor 把它合并进了健康分，意味着 a11y 不再是「可选项」——任何一处缺 alt 都会拉低你的健康分。</p>
+<p><strong>Dead Code（死代码）</strong>。React Doctor 在这一类里集成了 knip（开源死代码扫描工具），自动识别未导入文件、未使用导出、未引用变量。Dead code 检测是 React Doctor 6 类里最实用但也最容易被忽视的一类——AI 写代码经常生成一堆「以防万一」的工具函数，最后从没被引用，但又留在仓库里增加维护负担。</p>
+<p>把 6 类放在一起看会发现一个共性：<strong>每一类都对应 AI 写 React 代码时最容易翻车的某一种倾向</strong>。这不是一份普适 lint 规则集，而是一份「AI 时代 React 代码质量」的专项规则集。这个定位过去半年在海外开源工具里越来越常见——专科化、agent 友好、低门槛集成。</p>
+<p>值得多说一句的是规则集与框架版本的对应关系。React Doctor 在扫描时会自动识别 React 19、React 18、React 17 的版本差异，对 React Compiler（2024 年公开 beta，目前在 19.x 里渐进开启）会启用一组额外的规则。比如 React 19 项目里 React Doctor 会把 <code>eslint-plugin-react-hooks</code> 第 6 或第 7 版的「编译器友好」规则纳入扫描——这些规则在 React 18 项目里是不触发的。这种「按版本启用」的设计避免了一刀切，对国内同时维护多套 React 项目的团队特别友好。</p>
+<p>另一条值得留意的细节是 React Doctor 把 <code>eslint-plugin-react-you-might-not-need-an-effect</code>（一个海外社区里很受欢迎的「effects 反模式」插件）作为可选 peer dependency 集成。如果项目里已经装了这个插件，React Doctor 会自动把它的规则合并进 State &amp; Effects 这一类的扫描。这种「不重复造轮子、与生态对接」的做法在国内开源工具里并不多见，反过来也是国内厂商可以学习的工程态度——比起从零写一套自有规则，复用社区共识更快建立信任。</p>
+<h2>二、0-100 健康分 · 一个数字代替一堆 lint 报告</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/13/react-doctor-score-output.png" alt="Health Score 73 / 100 · 健康分公式与六类分布"></p>
+<p>React Doctor 最容易被注意到的设计是它把所有规则的执行结果归约成一个 0-100 的健康分。这件事不是花架子，它解决的是一个真实痛点——<strong>ESLint / oxlint 出来一堆 warning 与 error，谁也不知道整体到底好不好</strong>。</p>
+<p>公式很简洁：</p>
+<pre><code>Health Score = 100 − (unique_error_rules × 1.5) − (unique_warning_rules × 0.75)
+</code></pre>
+<p>注意「unique」这两个字——计数对象是「触发了几种不同的规则」，不是「触发了几次」。<strong>同一条 <code>no-barrel-import</code> 规则在你代码里触发 49 次还是 50 次，扣分一样</strong>。这个设计是有意为之，背后的工程哲学也很清楚：<strong>鼓励把一类问题彻底解决，而不是零散修补</strong>。修完一种规则下的所有违例，那条规则的 0.75 或 1.5 分就拿回来；修了 49 个但留 1 个，扣分一分不少。这等于把开发者的注意力从「我今天修了几个 warning」拉回到「我今天彻底干掉了几种规则违例」。</p>
+<p>得分对应三档：</p>
+<ul>
+<li><strong>75 分以上</strong>：Great，可以放心交付；</li>
+<li><strong>50-74 分</strong>：Needs work，可以上线但需要安排维护时间；</li>
+<li><strong>50 分以下</strong>：Critical，代码积累的规则违例种类已经多到需要专门治理。</li>
+</ul>
+<p>需要诚实指出的是，<strong>这套打分公式本身是简化的</strong>。它假设 error 严重程度 = 1.5 × warning 严重程度，并且假设所有规则的扣分权重相同（只看 error / warning 二分）。真实世界里安全类规则触发的危害远大于 a11y 类规则，但公式没体现这一点。React Doctor 团队在 README 里也承认这一点，说健康分是个「方向性指标」，不是精确度量。这种诚实态度反而让这个工具更可信——它不假装自己是万能的，它只在「比起没分数」这个 baseline 上往前走了一步。</p>
+<p>国内开发者用这个工具的实操路径很直接：每周扫一次主仓库，把健康分曲线画出来。如果连续三周分数下降，回头查最近合并的 PR 是不是引入了某条新规则的违例。这种做法比每天盯 lint 报告高效得多。</p>
+<p>健康分还有一个值得留意的特性——<strong>版本升级时分数可能下降</strong>。这不是工具退化，而是 React Doctor 每次 release 会新增规则。新规则在你代码里如果有违例，会被纳入扣分。这种「分数随工具版本变化」的设计可能让 CI 阈值检查不稳定，React Doctor 给出的建议是：<strong>生产环境 CI 里把 react-doctor pin 到具体版本</strong>，避免被自动升级打乱节奏；本地开发与每月人工扫描可以用最新版，主动接收新规则。这种「双轨」用法在国内一线团队里比较常见，跟 Renovate / Dependabot 升级策略一脉相承。</p>
+<p>公式之外，React Doctor 还提供了一些常被忽视但很实用的小功能。<code>--diff main</code> 只扫与主分支不同的文件，CI 跑得快；<code>--staged</code> 只扫 git index 里的文件，配 pre-commit hook 用，能在 commit 前就拦下违例；<code>--explain &lt;file:line&gt;</code> 解释为什么某行触发了某条规则、或者为什么旁边的 suppression 注释没生效——后者对国内团队特别有用，因为「注释为什么没生效」这种问题往往要花十几分钟逐行排查，有了 explain 一条命令就清楚了。</p>
+<h2>三、一行命令两种用法 · scan 与 install</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/13/react-doctor-install-flow.png" alt="一行命令两种用法 · scan 与 install for agent"></p>
+<p>React Doctor 在 CLI 设计上做得很克制——核心只有两条命令路径，<strong>一条是扫，一条是装</strong>。</p>
+<p><strong>扫</strong>：</p>
+<pre><code class="language-bash">npx -y react-doctor@latest .
+</code></pre>
+<p>一行下去，工具自动识别项目类型（Next.js / Vite / React Native）、识别 React 版本（19 / 18 / 17）、识别已有 lint 配置（.eslintrc.json / .oxlintrc.json），然后跑 6 类规则扫描，输出健康分 + 详细诊断列表。整个过程默认尊重 <code>.gitignore</code>、<code>.eslintignore</code>、<code>.oxlintignore</code>、<code>.prettierignore</code> 这些已有约定，也认 <code>linguist-vendored</code> / <code>linguist-generated</code> 标记，避免扫到第三方代码或自动生成代码。这种「默认不打扰」的设计对工具的接受度很关键——任何要你额外配 ignore 规则的工具，国内团队推进起来都要多走两轮沟通。</p>
+<p>扫描结果格式有四种：默认人类可读、<code>--score</code> 只输 0-100 数字、<code>--json</code> 输结构化 JSON、<code>--annotations</code> 输 GitHub Actions 兼容的 <code>::error</code> / <code>::warning</code> 格式。这四种格式对应四种用法——人工 review、CI 阈值检查、自动化脚本消费、PR 内联评论。覆盖面比常见的 lint 工具完整。</p>
+<p><strong>装</strong>：</p>
+<pre><code class="language-bash">npx -y react-doctor@latest install
+</code></pre>
+<p>这条命令是 React Doctor 真正区别于普通 lint 工具的地方。它做的事情是：<strong>检测项目根目录已配置的 coding agent（看 <code>CLAUDE.md</code> / <code>.cursorrules</code> / <code>AGENTS.md</code> 这些文件是否存在），然后给检测到的 agent 各自写一份对应的规则文件</strong>。写进去的内容是什么？是 React Doctor 70 多条规则的自然语言版本，外加几条「应该这样写、不应该那样写」的范例。</p>
+<p>这一步的工程价值在于——<strong>它把规则从「事后扫」前移到了「事中防」</strong>。普通 lint 工具是写完代码才告诉你哪里错了，React Doctor 的 install 命令是在 agent 写代码之前先把规则塞进 agent 的 system prompt 等价物里。一个被注入了 React Doctor 规则的 Claude Code，在生成 useEffect 时会主动避开 <code>no-fetch-in-effect</code> 这条违例——这是质的不同。</p>
+<p>实际使用中通常两条命令一起跑：先 <code>install</code> 给 agent 注入规则、再每周 <code>scan</code> 一次看健康分曲线。两条形成闭环——agent 写、工具评、开发者据此调流程。</p>
+<p>CI 集成方面 React Doctor 提供了一个 composite GitHub Action，三行 yaml 就能接入 PR 自动评分。<code>--fail-on warning</code> 可以让任何 warning 级以上违例阻止 PR 合并，企业内推行起来比较直接。</p>
+<h2>四、50+ 适配 agent · 海外主力 + 国产同类的兼容性</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/13/react-doctor-agents-50.png" alt="适配 50+ Coding Agent · 一条命令把 React 规则塞进去"></p>
+<p>React Doctor 官方 README 提到「detects 50+ coding agents」，这个数字是把市面上常见的 agent 都覆盖了——海外主力有 Claude Code、Cursor、Codex CLI、OpenCode、Aider、Cline、RooCode、Kilo Code、Windsurf、Continue.dev 这一档第一梯队，另外还有 Sweep、GitHub Copilot Chat、Aide、Tabby、Cody、Refact.ai、Mentat、Plandex、OpenDevin、SWE-agent、Smol Developer、GPT Engineer、Devon 等长尾。</p>
+<p>每个 agent 写入的文件路径与格式不同：</p>
+<ul>
+<li><strong>Claude Code</strong> → <code>CLAUDE.md</code>（项目根 + 子目录都支持，agent 启动时自动加载）；</li>
+<li><strong>Cursor</strong> → <code>.cursorrules</code>（旧版）或 <code>.cursor/rules/*.mdc</code>（新版）；</li>
+<li><strong>Codex CLI</strong> → <code>AGENTS.md</code>（OpenAI 官方约定）；</li>
+<li><strong>OpenCode</strong> → <code>SKILL.md</code>（仿 Claude Code 的 plugin 体系）；</li>
+<li><strong>Aider</strong> → <code>.aider.conf.yml</code> 与 <code>CONVENTIONS.md</code>；</li>
+<li><strong>Cline / RooCode / Kilo</strong> → <code>.clinerules</code> 或同类文件。</li>
+</ul>
+<p><code>install</code> 子命令的核心价值就是<strong>屏蔽这些路径差异</strong>——开发者不需要记 6 种不同的规则文件位置，一条命令各自处理好。</p>
+<p>国产 agent 部分需要单独说一下。React Doctor 没有官方声明支持 Trae、通义灵码、豆包 Coder、千问 Code、文心快码、CodeBuddy，但<strong>这些国产工具中大多数已经具备「agent 规则文件」机制</strong>：</p>
+<ul>
+<li><strong>Trae</strong>（字节跳动）从 2025 Q4 开始支持 <code>AGENTS.md</code> 约定；</li>
+<li><strong>通义灵码</strong>（阿里云）官方文档里给出 <code>AGENTS.md</code> 与 <code>CLAUDE.md</code> 双格式支持；</li>
+<li><strong>豆包 Coder</strong>（字节跳动 Pro 版）支持团队级规则集注入；</li>
+<li><strong>千问 Code</strong>（阿里云）兼容 <code>AGENTS.md</code>；</li>
+<li><strong>文心快码</strong>（百度 Pro 版）提供「企业规则库」机制；</li>
+<li><strong>CodeBuddy</strong>（腾讯云）支持 <code>AGENTS.md</code> 与企业规则库双形态。</li>
+</ul>
+<p>这意味着对国内开发者来说，<strong>把 React Doctor install 生成的 <code>AGENTS.md</code> 同步到国产工具的对应位置，是可以工作的</strong>。这条路径目前还没人系统验证过，但从公开文档判断兼容性是足够的。这也是这一周值得动手做的一件事——选一个用得最重的国产工具，把 React Doctor 生成的规则文件塞进去，看 agent 写代码的风格是不是有可观察的变化。</p>
+<h2>五、国内 AI Coding 工具横评 · React 代码质量反馈现状对比</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/13/react-doctor-domestic-matrix.png" alt="国内 AI Coding 工具 · React 代码质量反馈现状横评"></p>
+<p>把 React Doctor 这套范式对照国内 AI Coding 工具的当前能力，画一张横评表会更清楚。先说明——<strong>这张表不是评谁更强，而是看「React 专项代码质量反馈」这条线上国内工具的现状画像</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>厂商</th>
+<th>通用 lint</th>
+<th>React 专项规则</th>
+<th>agent 规则注入</th>
+<th>PR 自动评分</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Trae</td>
+<td>字节跳动</td>
+<td>支持 ESLint</td>
+<td>通用 React 提示</td>
+<td>支持 AGENTS.md</td>
+<td>暂无健康分</td>
+</tr>
+<tr>
+<td>通义灵码</td>
+<td>阿里云</td>
+<td>支持 ESLint</td>
+<td>通用 React 提示</td>
+<td>支持 AGENTS.md</td>
+<td>暂无健康分</td>
+</tr>
+<tr>
+<td>豆包 Coder</td>
+<td>字节跳动</td>
+<td>支持 ESLint</td>
+<td>通用 React 提示</td>
+<td>Pro 版规则集</td>
+<td>暂无健康分</td>
+</tr>
+<tr>
+<td>千问 Code</td>
+<td>阿里云</td>
+<td>支持 ESLint</td>
+<td>通用 React 提示</td>
+<td>支持 AGENTS.md</td>
+<td>暂无健康分</td>
+</tr>
+<tr>
+<td>文心快码</td>
+<td>百度</td>
+<td>支持 ESLint</td>
+<td>通用 React 提示</td>
+<td>Pro 版规则集</td>
+<td>暂无健康分</td>
+</tr>
+<tr>
+<td>CodeBuddy</td>
+<td>腾讯云</td>
+<td>支持 ESLint</td>
+<td>通用 React 提示</td>
+<td>支持 AGENTS.md</td>
+<td>暂无健康分</td>
+</tr>
+<tr>
+<td>React Doctor</td>
+<td>millionco（海外）</td>
+<td>深度集成 oxlint</td>
+<td>70+ 条专项规则</td>
+<td>50+ agent 一键安装</td>
+<td>PR 评分 0-100</td>
+</tr>
+</tbody></table>
+<p>几个关键观察：</p>
+<p>第一，<strong>国内工具在「agent 规则注入」这条基建上已经齐了</strong>。一年前国内没有 agent 规则文件机制，现在六款主流工具都有。这是好消息——意味着「把 React Doctor 规则塞进国产 agent」的路径上没有架构层面阻碍。</p>
+<p>第二，<strong>国内工具普遍只提供通用 React 提示，没有专项规则集</strong>。Trae、通义灵码、豆包 Coder、千问 Code、文心快码、CodeBuddy 的 React 支持都还停在「能识别 React 项目、能写 React 代码」的阶段，没有像 React Doctor 这样把 70+ 条专项规则结构化成规则集 + 健康分。这是国产工具未来半年的明确空间。</p>
+<p>第三，<strong>「PR 自动评分」这条全空白</strong>。国内工具里没有任何一款提供端到端的 PR 健康分输出。React Doctor 的 composite GitHub Action 这种轻量级集成，国产工具完全可以借鉴——甚至做得比 React Doctor 更好，因为国产工具通常和企业内代码托管平台（CodeUp / 代码协同 / 工蜂）有更深的集成。</p>
+<p>第四，<strong>国内工具的差异化方向不在「跟随 React Doctor」，而在「做更广的规则集」</strong>。React Doctor 只覆盖 React 一个技术栈，国内开发者实际项目里 Vue / 小程序 / 跨端框架（Taro / uni-app）占比都不低。一款国产工具如果能做出「Vue Doctor」「小程序 Doctor」「Taro Doctor」这套规则集 + 健康分的范式，市场空间反而比单纯模仿 React Doctor 大。</p>
+<p>国内开源生态里其实已经有相邻方向。阿里的 ice.js、字节的 modern.js、字节的 rspack 都是 React 工程化框架——但它们的定位是「构建工具 + 工程脚手架」，不是「代码质量评估器」。这两者是互补关系，不是替代关系。一个理想的状态是：ice.js / modern.js 负责工程化基建，React Doctor 这类规则集工具负责质量评估，agent 规则注入这一层把两者贯穿起来。</p>
+<h2>六、把 React Doctor 接入到团队工作流的实操路径</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/13/react-doctor-team-workflow.png" alt="6 步把 React Doctor 接到团队工作流"></p>
+<p>讲完原理与现状，给国内工程团队一份直接可上手的接入路径。前提假设是团队已经在用 Claude Code、Cursor、Codex CLI、Trae、通义灵码、CodeBuddy 中至少一款。</p>
+<p><strong>第一步 · 基线扫描</strong>。</p>
+<p>在主仓库根目录跑一次 <code>npx -y react-doctor@latest .</code>，拿到当前健康分。这一步不需要任何配置，直接看结果。建议把这个数字记下来——不管是 73 还是 56，它是你团队当前的 baseline。</p>
+<p><strong>第二步 · 看分类分布</strong>。</p>
+<p>加 <code>--verbose</code> 重跑一次，看 6 类问题分布。重点不是总分，而是哪一类拉低分数最多。如果 State &amp; Effects 占了 6 个 unique 规则、其他 5 类合计才 4 个——那团队接下来一个月的重点就是 State &amp; Effects 这一类，其他类暂时不动。</p>
+<p><strong>第三步 · install 给主用 agent</strong>。</p>
+<p>跑 <code>npx -y react-doctor@latest install --yes</code>，让工具自动给检测到的 agent 写规则文件。如果团队主用 Claude Code，会生成 <code>CLAUDE.md</code>；主用 Cursor，会生成 <code>.cursorrules</code>。<strong>生成的文件务必 commit 进仓库</strong>，让所有团队成员同一份规则。</p>
+<p>如果团队主用国产工具（Trae / 通义灵码 / 豆包 Coder / 千问 Code / 文心快码 / CodeBuddy），手动把生成的 <code>AGENTS.md</code> 同步到对应位置（多数国产工具都接受 <code>AGENTS.md</code>）。</p>
+<p><strong>第四步 · 接 CI</strong>。</p>
+<p>在 <code>.github/workflows/</code> 下加一个 <code>react-doctor.yml</code>：</p>
+<pre><code class="language-yaml">name: React Doctor
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  react-doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: millionco/react-doctor@main
+        with:
+          diff: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          fail-on: error
+</code></pre>
+<p>PR 自动评分 + 自动评论，<strong>这一步比单纯本地扫描重要得多</strong>。它把健康分变成一个团队级别的可见信号。</p>
+<p><strong>第五步 · 设阈值</strong>。</p>
+<p>baseline 拿到了，规则注入做了，CI 接了——最后一步是设一条「不允许低于」的硬线。比较稳妥的做法是：<strong>当前 baseline 减 3 分作为硬线</strong>。比如 baseline 73，硬线设 70。这样团队可以容忍小幅波动，但任何让健康分跌破 70 的 PR 都得在合并前修好。</p>
+<p><strong>第六步 · 每月观察</strong>。</p>
+<p>每个月拉一次健康分趋势。如果连续三个月稳定上升或维持高位，可以把硬线往上调。如果连续两个月下降，回到第二步重新看分类分布，找出哪一类规则在退化，定向治理。</p>
+<p>整个流程跑起来初期工作量不大——首次接入约 1-2 小时，后续每月 review 30 分钟。这是工程基建里 ROI 最高的一档投入之一。</p>
+<h2>七、AI Coding 进入「写完还要被打分」的成熟期</h2>
+<p>回到开头那个观察——React Doctor 三个月长出 8679 星、单日 +804 这件事到底意味着什么？</p>
+<p><strong>意味着 AI Coding 工具链开始往专科化、可量化、agent 友好这三个方向同时走</strong>。三个方向叠在一起会出现什么？会出现「写完还要被打分」的工程文化。这件事过去 20 年的 Web 前端没有真正普及——ESLint 出现 14 年，到今天大部分团队的 lint 配置还是各自为政；jsx-a11y 出现 10 年，a11y 检查仍然是「想起来才跑」。<strong>React Doctor 这种「专项规则 + 健康分 + agent 注入」三合一的形态出现，是把过去散落在三种工具里的能力打成一个包</strong>——开发者按一次就用得起来，agent 装一次就开始按规矩写。</p>
+<p>对国内 AI Coding 工程师来说，这一周值得做三件事：</p>
+<ul>
+<li><strong>当周抽两小时</strong>，给自己负责的 React 项目跑一次 React Doctor，看 baseline 健康分多少；</li>
+<li><strong>本月内试一次</strong>，把 React Doctor install 生成的 <code>AGENTS.md</code> 同步到国产工具（Trae / 通义灵码 / CodeBuddy 任选其一），观察 agent 写代码风格是否有可见变化；</li>
+<li><strong>季度内推动一次</strong>，团队层面把 React Doctor CI 接入主仓库，把健康分作为 PR 合并的硬指标之一。</li>
+</ul>
+<p>第三件事最重要——<strong>它把工程质量从「靠人盯」转向「靠工具盯」，这是国内一线团队下一阶段卷质量必然要走的路</strong>。</p>
+<p>最后一个观察：<strong>国内开源生态在这件事上其实有自己的优势</strong>。React Doctor 只覆盖 React，国内项目栈里 Vue / 小程序 / Taro / uni-app 占比不低，这部分海外开源社区不会主动覆盖。<strong>国产开源团队完全有能力做出「Vue Doctor」「小程序 Doctor」「Taro Doctor」这种本地化规则集</strong>——技术栈一样可分析、agent 注入路径已经齐了、CI 集成方式也很成熟。这是一片明确的、海外不会进的空地。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/13/react-doctor-domestic-space.png" alt="国产开源团队可补位的专项规则集空间"></p>
+<p>5 月 12 日那篇 James Shore 的维护成本框架文章给行业递了一把尺子，5 月 13 日 React Doctor 8679 星的爆发给了那把尺子的第一个落地工具。两件事连起来看就是一句话——<strong>AI Coding 工具链进入「写完还要被打分」的成熟期，国内开发者站在和海外同行同样的起点上，没必要焦虑，但值得动手</strong>。看见，然后调整，然后变好。</p>
+<hr>
+<p><strong>参考资料</strong>：</p>
+<ul>
+<li>React Doctor 官方仓库 · GitHub 实测 stargazers 8679 · 277 forks · MIT License · 创建于 2026-02-13</li>
+<li>GitHub Trending TypeScript Daily · 2026-05-12 至 2026-05-13 单日 +804 star</li>
+<li>React Doctor README · 6 类诊断、健康分公式、CLI 参考、agent 适配清单</li>
+<li>James Shore · <a href="https://www.jamesshore.com/v2/blog/2026/you-need-ai-that-reduces-your-maintenance-costs" target="_blank" rel="noopener">You Need AI That Reduces Maintenance Costs</a> · 2026-05-10</li>
+<li>oxlint 项目主页 · <a href="https://oxc.rs" target="_blank" rel="noopener">oxc.rs</a></li>
+<li>knip 项目主页 · <a href="https://knip.dev" target="_blank" rel="noopener">knip.dev</a></li>
+<li>阿里 ice.js · 字节 modern.js · 字节 rspack · 国产 React 工程化框架</li>
+<li>Trae / 通义灵码 / 豆包 Coder / 千问 Code / 文心快码 / CodeBuddy 各自 2026 Q1 公开文档</li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

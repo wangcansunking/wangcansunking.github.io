@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>5090 跑 Qwen3-Coder 30B：五家推理引擎横评的真实账 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-25</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-25</span><span class="tag-pill">Daily Report</span></div>
+      <h1>5090 跑 Qwen3-Coder 30B：五家推理引擎横评的真实账</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/25/rtx-5090-qwen3-coder-five-engines-bakeoff-2026-05-25.png" alt="5090 跑 Qwen3-Coder 30B 封面"></p>
+<h2>30 秒速览</h2>
+<p>这周一把 RTX 5090 32GB 在国内开发者手里能跑出什么样的国产大模型，摊开看一遍。京东现货价从公版 24,399 元起步，技嘉超级雕 32GB 单卡到 32,834 元，常见的活动促销价 30,999 元，整机带笔记本国补价 22,999 元；4090 24GB 同期常见 1.5-1.8 万元，5090 的溢价主要兑换 32GB 显存 + 1,792 GB/s 带宽 + Blackwell 架构原生 fp4/fp8 加速这三件事。</p>
+<p>跑国产 coder 旗舰 Qwen3-Coder-30B-A3B-Instruct 时，五家推理引擎的真实成绩很有意思：CloudRift 团队在单张 5090 上用 vLLM 跑 AWQ 4-bit 量化版本，默认参数 8K 上下文 555.82 tok/s；调到 MCR=16、上下文 114K 后压出 <strong>1,157 tok/s</strong>，TTFT 956ms；同样配置下 SGLang 默认 207.93 tok/s，调到 MCR=28 拿到 898 tok/s。这条数据反过来对照 RTX 3090 的存量用户也成立——同款模型 GGUF Q4_K_M 在 3090 上 vLLM 报告 72 tok/s、Ollama 40 tok/s，5090 等于把单卡上的推理上限拔高了一个数量级。</p>
+<p>llama.cpp 这家在单用户场景反而比 vLLM 快 4.7%，但 16 并发起 vLLM 就会反超 23%；SGLang 在 RAG / 多 agent 共享上下文这一档比 vLLM 还能再快 29%；Ollama 用 CUDA 12.8 在双 5090 上跑 DeepSeek-v2 16B MoE，BDK Studios 团队报告 415 tok/s。把单卡 5090 + Qwen3-Coder 30B + vLLM 一年自费的电费 + 折旧，对照云端 DeepSeek V4-Flash 0.02 元 / 1M 缓存命中 + 1 元 / 1M 输入 + 2 元 / 1M 输出的官方价格，会发现两条曲线在月度 8-12 亿 token 这一档相交——这恰好是国内一线开发者用 Qoder CN / Trae / Qwen Code / Cursor 国内代理跑日常 coding 的真实消耗区间。</p>
+<p>下面这一篇把这五家推理引擎在国内开发者手里值什么、怎么选、能不能与国产模型 + 国产 IDE 串起来跑一份能照着抄的清单。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/25/five-engines-scenario-matrix.png" alt="五家推理引擎按任务场景的选型矩阵"></p>
+<h2>一、RTX 5090 在国内的四档现货分层</h2>
+<p>2025 年 1 月 RTX 5090 发布到现在，国内现货市场已经稳定走出四档价位，<strong>单卡溢价从去年 1 月初的 2-3 倍黄牛价回落到接近官方零售价</strong>。这四档真实成交价是这样的：</p>
+<table>
+<thead>
+<tr>
+<th>渠道 / 版本</th>
+<th>价格（人民币）</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>公版 / 京东自营 RTX 5090 32GB</td>
+<td>24,399 元起</td>
+<td>官方挂牌；常断货</td>
+</tr>
+<tr>
+<td>京东活动促销 RTX 5090/5090D 32GB</td>
+<td>30,999 元（活动）/ 41,999 元（原价）</td>
+<td>中关村在线 2026-05 行情</td>
+</tr>
+<tr>
+<td>技嘉超级雕 AORUS RTX 5090 32GB</td>
+<td>32,834 元</td>
+<td>京东优惠价 2026-05-24</td>
+</tr>
+<tr>
+<td>机械革命耀世 16 Ultra（5090 笔记本）</td>
+<td>22,999 元国补价</td>
+<td>整机版，35W 笔电封装</td>
+</tr>
+</tbody></table>
+<p>国补价 22,999 元的笔记本版本是过去一年最容易被国内一线开发者忽略的一档——5090 Laptop GPU 在功耗墙 175W 下虽然只能跑 16GB 显存版本（而不是桌面 32GB），但<strong>对单卡跑 Qwen3-Coder-30B-A3B 这种 MoE 模型来说，16GB GDDR7 + 笔记本随身这个组合恰好踩在很多 freelancer 的工程预算线上</strong>。桌面版整机一般再加 CPU + 主板 + 电源 + 机箱 + 散热，BDK Studios 的双 5090 工作站完整 BOM 大约 8,400 美元（约 60,000 元人民币），单 5090 整机配 9950X + 64GB DDR5 + 2TB NVMe 在国内可以做到 4.5-5 万元区间。</p>
+<p>把 5090 与同档进口卡和 4090 做个并排：</p>
+<table>
+<thead>
+<tr>
+<th>卡 / 显存</th>
+<th>厂商</th>
+<th>FP16 算力</th>
+<th>显存带宽</th>
+<th>显存</th>
+<th>TDP</th>
+<th>国内整卡参考价</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>RTX 5090 32GB</strong></td>
+<td>NVIDIA Blackwell</td>
+<td>105 TFLOPS（FP16 dense）</td>
+<td>1,792 GB/s</td>
+<td>32 GB GDDR7</td>
+<td>575 W</td>
+<td>2.44-3.28 万元</td>
+</tr>
+<tr>
+<td>RTX 4090 24GB</td>
+<td>NVIDIA Ada Lovelace</td>
+<td>82 TFLOPS</td>
+<td>1,008 GB/s</td>
+<td>24 GB GDDR6X</td>
+<td>450 W</td>
+<td>1.5-1.8 万元</td>
+</tr>
+<tr>
+<td>RTX 6000 Ada 48GB</td>
+<td>NVIDIA Ada（工作站）</td>
+<td>91 TFLOPS</td>
+<td>960 GB/s</td>
+<td>48 GB GDDR6 ECC</td>
+<td>300 W</td>
+<td>5.5-6.5 万元</td>
+</tr>
+<tr>
+<td>H20 96GB</td>
+<td>NVIDIA（对华专供）</td>
+<td>148 TFLOPS</td>
+<td>4,000 GB/s</td>
+<td>96 GB HBM3</td>
+<td>400 W</td>
+<td>11 万元</td>
+</tr>
+</tbody></table>
+<p>5090 对 4090 最实质的提升不在 FP16 算力（105 vs 82 TFLOPS 只多 28%），而在两件事：<strong>显存从 24GB 涨到 32GB</strong>，让 Qwen3-Coder-30B-A3B 这种 MoE 模型 AWQ 4-bit 量化（约 17GB）跑起来还有 15GB 余量给 KV cache；<strong>显存带宽从 1,008 GB/s 涨到 1,792 GB/s（+78%）</strong>，对自回归 decode 阶段 token 间延迟的影响远比 FP16 算力更直接。Blackwell 架构原生支持 fp4 / fp8 这条线，在 vLLM v0.7+ 走 NVFP4 路径时单卡吞吐再上一档；4090 这一代没有 fp4 硬件加速，跑 NVFP4 量化版本时需要 emulation，反而比 AWQ 4-bit 还慢。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/25/qwen3-coder-gh-card.png" alt="Qwen3-Coder GitHub repo OG card"></p>
+<h2>二、Qwen3-Coder-30B-A3B：5090 单卡刚好够跑的国产 coder 旗舰</h2>
+<p>Qwen3-Coder 是阿里千问团队 2026 年初放出的国产 coding 旗舰系列，覆盖 7B / 14B / 30B-A3B / 480B-A35B 四档；其中 <strong>30B-A3B 是 MoE 架构、总参 30B、激活 3B</strong>，恰好踩在单张 24-32GB 消费级卡能跑的甜点位上。AWQ 4-bit 量化版本权重约 17GB，FP8 量化版本约 30GB，BF16 原生约 60GB。对单卡 5090 32GB 用户来说，AWQ 4-bit 是最常见的部署选择，留出 15GB 给 KV cache，足够跑 128K 上下文。</p>
+<p>国内开发者下载这个模型最干净的三条路径是：</p>
+<ol>
+<li><strong>ModelScope 魔搭社区</strong>: <code>modelscope.cn/models/Qwen/Qwen3-Coder-30B-A3B-Instruct</code>，阿里官方维护，国内 CDN 带宽稳定 100MB/s 起</li>
+<li><strong>hf-mirror.com</strong>: HuggingFace 社区镜像，对照 <code>huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct-AWQ</code> 1:1 同步，国内访问无 GFW</li>
+<li><strong>千问官方仓库</strong>: <code>dashscope.aliyun.com/openvision/model/Qwen3-Coder</code>，需要阿里云账号但提供官方 sha256 校验</li>
+</ol>
+<p>权重文件下来之后，五家推理引擎的载入路径不一样，下文逐家拆开。先把 30B-A3B 在五家引擎上的实测吞吐摆出来——这一组数据来自 CloudRift 团队 2026 年初公开的优化文档，单卡 5090、AWQ 4-bit 量化、prompt 长度从 8K 到 114K 全开。</p>
+<table>
+<thead>
+<tr>
+<th>引擎 / 版本</th>
+<th>默认参数吞吐</th>
+<th>调优后吞吐</th>
+<th>TTFT（中位）</th>
+<th>上下文长度</th>
+<th>显存峰值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>vLLM v0.7+</strong></td>
+<td>555.82 tok/s</td>
+<td><strong>1,157 tok/s @ MCR=16</strong></td>
+<td>956 ms</td>
+<td>114,688 tok</td>
+<td>~28 GB</td>
+</tr>
+<tr>
+<td>SGLang v0.4+</td>
+<td>207.93 tok/s</td>
+<td>898 tok/s @ MCR=28</td>
+<td>2,800 ms</td>
+<td>32,768 tok</td>
+<td>~27 GB</td>
+</tr>
+<tr>
+<td>llama.cpp（最新主线）</td>
+<td>单用户略胜 vLLM 4.7%</td>
+<td>50+ tok/s 多用户</td>
+<td>&lt; 200 ms</td>
+<td>128K（ik_llama.cpp fork）</td>
+<td>18 GB</td>
+</tr>
+<tr>
+<td>Ollama（基于 llama.cpp）</td>
+<td>~40 tok/s 单用户</td>
+<td>单卡受限多并发</td>
+<td>&lt; 300 ms</td>
+<td>128K</td>
+<td>18 GB</td>
+</tr>
+<tr>
+<td>MLX-LM（Apple，对位参考）</td>
+<td>~58 tok/s（M4 Max 64GB）</td>
+<td>~60 tok/s</td>
+<td>&lt; 500 ms</td>
+<td>32K</td>
+<td>Apple Unified Memory</td>
+</tr>
+</tbody></table>
+<p>注一下：MLX 跑在 Apple M-series 上而不是 5090，把它放进表里是因为很多国内 1.5 万机用户其实在 5090 vs Mac M4 Max 之间做最终选择，MLX 那一行作为 5090 用户的旁支参考。RTX 3090 的存量用户跑同款模型走 vLLM 大约 72 tok/s、Ollama 40 tok/s，5090 在 vLLM 上把这条线拔高到 1,157 tok/s，等于换了一代卡之后整体 16 倍。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/25/vllm-project-gh-card.png" alt="vLLM 项目 GitHub OG card"></p>
+<h2>三、vLLM 在 5090 上压出 1,157 tok/s 的两道关键参数</h2>
+<p>vLLM 是 UC Berkeley Sky Computing Lab 2023 年开源的高吞吐推理引擎，<strong>PagedAttention</strong> 是这家最出名的技术细节——把 KV cache 切成固定大小的 page、动态分配，砍掉 60-80% 的内存浪费。在单张 5090 上跑 Qwen3-Coder-30B-A3B-Instruct-AWQ，CloudRift 团队的优化路径是这样：</p>
+<p>第一步，<strong>默认参数测出基线</strong>。直接拉起 <code>vllm/vllm-openai:latest</code> Docker 镜像，参数走默认（max_model_len=8192、gpu_memory_utilization=0.9），prompt 长度 8K，benchmark 测出 555.82 tok/s。这一档已经足够把 4090 + GGUF Q4_K_M Ollama 的 40 tok/s 拉到 13 倍。</p>
+<p>第二步，<strong>MCR 参数调到 16</strong>。MCR（Max Concurrent Requests）是 vLLM batch 调度的核心控制——把并发请求上限拉到 16 之后，PagedAttention 能把 5090 32GB 显存里剩余的 15GB 全部用来动态分配 KV page。同样 prompt 长度，吞吐从 555 涨到 1,157 tok/s，<strong>翻倍</strong>；TTFT（首 token 延迟）从 5.4 秒压到 956ms，<strong>首 token 体感从慢变成可用</strong>。</p>
+<p>第三步，<strong>上下文长度推到 114K</strong>。Qwen3-Coder-30B-A3B 原生支持 128K 上下文，vLLM 把 max_model_len 从 8K 推到 114,688 后，<strong>长上下文 prompt 处理仍然能维持在 1,450+ tok/s prefill 速度</strong>——这一档对跑长文档代码 review、整仓库扫描、agent 多轮上下文累积特别关键。</p>
+<p>这条优化路径对国内开发者最直接的启示是：5090 上跑 vLLM 不需要换驱动 / 编译自定义 kernel，<strong>默认 Docker 镜像 + 调 MCR 这两步就能压出 70% 的性能</strong>。CloudRift 官方在博客里给的命令大约是这样：</p>
+<pre><code class="language-bash">docker run --gpus all --rm -it -v ~/models:/models \
+  -p 8000:8000 vllm/vllm-openai:latest \
+  --model /models/Qwen3-Coder-30B-A3B-Instruct-AWQ \
+  --quantization awq \
+  --max-model-len 114688 \
+  --max-num-seqs 16 \
+  --gpu-memory-utilization 0.9
+</code></pre>
+<p>跑起来之后 vLLM 暴露的 8000 端口是标准 OpenAI 兼容的 <code>/v1/chat/completions</code>，可以直接接 Qwen Code、Trae、Cursor 国内代理、OpenClaw 等任何支持自定义 base_url 的国产 IDE / agent 框架。</p>
+<p>InsiderLLM 团队在另一份评测里给出过一句被很多人引用的话：「<strong>The common mistake is using Ollama for production APIs — it works, but vLLM will handle 4x the load on the same hardware.</strong>」翻成中文「常见错误是把 Ollama 当生产 API 用——能跑，但同样硬件下 vLLM 能扛 4 倍负载」。这条结论对个人开发者影响不大，但对 5-15 人小团队私有化部署是硬约束。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/25/sglang-project-gh-card.png" alt="SGLang 项目 GitHub OG card"></p>
+<h2>四、SGLang 的 207 vs 898：默认参数与调优后差着 4.3 倍</h2>
+<p>SGLang 由 LMSYS Org 团队主导，2024 年开源，是与 vLLM 并列的两大社区主流引擎之一。<strong>RadixAttention</strong> 是 SGLang 的招牌——基于 prefix 树共享 KV cache，对<strong>多 agent 共享系统 prompt、RAG 检索后接 LLM、长对话历史复用</strong>这一类场景特别擅长。CloudRift 在 5090 + Qwen3-Coder-30B-A3B-Instruct-AWQ 上做的对比是：</p>
+<ul>
+<li><strong>默认参数（MCR=8、上下文 8K）</strong>: SGLang 跑出 207.93 tok/s，对照同环境 vLLM 555.82 tok/s，<strong>vLLM 2.7 倍领先</strong></li>
+<li><strong>调优参数（MCR=28、上下文 32K）</strong>: SGLang 跑到 898 tok/s，TTFT 2.8 秒，<strong>vLLM 在 MCR=16 / 1,157 tok/s 仍然领先约 30%</strong></li>
+</ul>
+<p>这条对比读出来的意思不是「SGLang 比 vLLM 差」，而是<strong>SGLang 在不同场景下需要不同参数调优策略</strong>。同一份评测里另一档场景——把 16 个并发请求共享同一个 4K 系统 prompt（典型 RAG 或多 agent 场景），SGLang 比 vLLM 快 29%。这是 RadixAttention 把共享前缀的 KV cache 一次算多次用的真实收益。</p>
+<p>对国内 OpenClaw / 扣子 Coze / Cherry Studio / LobeChat 这类多 agent 编排框架的工程师，SGLang 在 5090 上的部署路径是：</p>
+<pre><code class="language-bash">docker run --gpus all --rm -it -v ~/models:/models \
+  -p 30000:30000 lmsysorg/sglang:latest \
+  python -m sglang.launch_server \
+  --model-path /models/Qwen3-Coder-30B-A3B-Instruct-AWQ \
+  --quantization awq \
+  --port 30000 \
+  --max-num-batched-tokens 32768 \
+  --enable-radix-cache
+</code></pre>
+<p><code>enable-radix-cache</code> 是 SGLang 多 agent 场景的核心开关，不开就退化成普通 batched inference；开了之后跑多 agent 编排 / RAG 流水线能拿到 29% 额外吞吐。SGLang 同样暴露 OpenAI 兼容协议，端口默认 30000，可以直接接进 OpenClaw 的 baseUrl 配置。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/25/llamacpp-gh-card.png" alt="llama.cpp GitHub OG card"></p>
+<h2>五、llama.cpp 与 Ollama：单用户场景被低估的 4.7%</h2>
+<p>llama.cpp 是 Georgi Gerganov 2023 年开源的 C++ 推理引擎，<strong>走的不是高并发路线</strong>——核心追求是单机 / 单用户 / 跨硬件（CPU / Apple / NVIDIA / AMD / Intel）的极致兼容性 + 极致单 stream 延迟。Ollama 是 llama.cpp 的官方推荐封装，用 Go 包了一层下载管理 + systemd service + 简化 CLI，本质还是 llama.cpp 的速度。</p>
+<p>InsiderLLM 在另一份评测里给出的数字很说明问题：<strong>「llama.cpp 4.7% faster」for 2K prompt + 256 token generation compared to vLLM。</strong> 这条结论里 vLLM 与 llama.cpp 在单用户 / 短 prompt / 短 generation 场景几乎打平，llama.cpp 略胜 4.7%——因为没有 batch 调度开销 / page 分配开销，单 stream 直跑反而最快。</p>
+<p>但只要并发数推到 16，vLLM 立刻反超 23%；到 32 并发，差距还会进一步拉大。<strong>Ollama 在自带 mmproj 视觉模型这一档目前对 Qwen3-Coder 系列支持不全</strong>，因此跑 Qwen3-Coder-30B-A3B 时大多数国内开发者会直接走 llama.cpp 主线或 Unsloth Studio，而不是 Ollama。</p>
+<p>BDK Studios 团队在双 5090 工作站上用 Ollama + CUDA 12.8 跑 DeepSeek-v2 16B MoE 的报告是 <strong>415 tok/s</strong>——这条数据可以反推 Ollama 在 5090 + 16B 级别 MoE 模型上的实战表现。作者原话「415 tokens per second means an AI model generates roughly 300 words per second. A full page of text in under two seconds.」翻成中文「每秒 415 token 等于一个 AI 模型每秒生成 300 词，一整页文本两秒以内出完」，是个对个人开发者特别直观的体感数字。</p>
+<p>llama.cpp 主线之外，<strong>ik_llama.cpp</strong> 这个社区 fork 在 5090 + 长上下文场景做得更激进。社区报告在 RTX 3090 上跑同款 30B-A3B 模型，10K 上下文 75 tok/s、120K 上下文 65 tok/s——<strong>核心做法是 expert offloading，把 MoE 的稀疏专家 FFN 留在系统 RAM，密集层留在 GPU</strong>。对 5090 32GB 用户来说，这一档不太需要 expert offloading；但对手上还是 3090 / 4070 Ti 16GB 这一档存量卡的用户，ik_llama.cpp fork 是单卡跑 30B-A3B 的唯一可行路径。</p>
+<h2>六、MLX 是 Mac M4 Max 用户的旁支参考</h2>
+<p>MLX 是 Apple 2023 年底开源的统一内存推理框架，<strong>只跑在 Apple Silicon 上</strong>（M1 / M2 / M3 / M4 系列）。把它放进 5090 横评里是因为很多国内 1.5-3.5 万机预算的用户在最终选型时会在「单 5090 + 9950X 整机」与「Mac M4 Max 64GB MacBook Pro」之间纠结。两条路径的最大差异是：</p>
+<ul>
+<li><strong>5090 整机 + vLLM</strong>: 单卡 Qwen3-Coder-30B-A3B 跑出 1,157 tok/s 调优后吞吐，128K 上下文，<strong>多用户多 agent 并发友好</strong>；噪音 / 功耗 / 体积 / 不可移动</li>
+<li><strong>Mac M4 Max 64GB + MLX</strong>: 同款模型跑出 58-60 tok/s 单用户吞吐，32K 上下文，<strong>单用户 / 静音 / 续航 / 可移动</strong></li>
+</ul>
+<p>这两条路径的 tok/s 数字差着接近 20 倍，但对很多在咖啡馆 / 家里 / 出差路上 coding 的个人开发者，Mac M4 Max 反而是更现实的选择——5090 单卡空载功耗 100W、满载 575W，对家用插座 16A 单相电是临界负载。对 5-15 人小团队私有化部署，5090 + vLLM 是首选；对 freelancer / 个人开发者，Mac M4 Max + MLX 仍然站得住脚。</p>
+<h2>七、五家引擎的选型矩阵：按任务而不是按 KPI</h2>
+<p>把这五家引擎按四档真实使用场景做个映射，比单纯比 tok/s 更有用：</p>
+<table>
+<thead>
+<tr>
+<th>任务场景</th>
+<th>推荐引擎</th>
+<th>关键参数</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单用户 coding 助手（短 prompt 短输出）</td>
+<td><strong>llama.cpp / Ollama</strong></td>
+<td>默认</td>
+<td>vLLM 比它慢 4.7%，但默认起更省事</td>
+</tr>
+<tr>
+<td>单用户长上下文（整仓库代码 review）</td>
+<td><strong>vLLM</strong></td>
+<td>max-model-len 114688 + MCR=16</td>
+<td>1,157 tok/s + 956ms TTFT 是上限</td>
+</tr>
+<tr>
+<td>5-15 并发 API 服务（小团队私有化）</td>
+<td><strong>vLLM</strong></td>
+<td>MCR=16 + AWQ 量化</td>
+<td>比 llama.cpp 多扛 4 倍负载</td>
+</tr>
+<tr>
+<td>多 agent 共享系统 prompt（RAG / 编排）</td>
+<td><strong>SGLang</strong></td>
+<td>enable-radix-cache + MCR=28</td>
+<td>比 vLLM 还快 29%</td>
+</tr>
+<tr>
+<td>长上下文 + 单 8GB-16GB 显存</td>
+<td><strong>ik_llama.cpp</strong></td>
+<td>expert offloading</td>
+<td>给 3090 / 4070 Ti 用户留的路</td>
+</tr>
+<tr>
+<td>Apple Silicon Mac 用户</td>
+<td><strong>MLX-LM</strong></td>
+<td>默认</td>
+<td>与 5090 不在同一硬件路径</td>
+</tr>
+</tbody></table>
+<p>这张表的核心 thesis 是：<strong>没有一家推理引擎全方位领先</strong>——vLLM 在高并发、SGLang 在共享上下文、llama.cpp 在单用户极致延迟、Ollama 在易用、MLX 在 Apple 平台、ik_llama.cpp 在低显存长上下文，各自占一个生态位。把任务摆清楚之后再选引擎，比盲目跟一家更现实。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/25/five-engines-throughput-comparison.png" alt="五家推理引擎在 5090 上的吞吐对比"></p>
+<h2>八、5090 自费整机 vs 云端 API 的回本曲线</h2>
+<p>一张 5090 整机（5090 + 9950X + 64GB DDR5 + 2TB NVMe + 850W 电源）按当前国内现货价 4.5 万元算，按 3 年折旧，<strong>月均硬件成本 1,250 元</strong>。叠加满载平均 400W × 24 × 30 × 0.5 元/kWh = 144 元/月电费（实际多数时间是 idle 100W，实际电费约 50-80 元/月）。本地推理一年纯硬件 + 电费成本约 1.7 万元。</p>
+<p>同期国内云端国产模型官方价格表（2026-05 实查）是这样：</p>
+<table>
+<thead>
+<tr>
+<th>厂商 / 模型</th>
+<th>输入 / 1M tok</th>
+<th>输出 / 1M tok</th>
+<th>缓存命中 / 1M tok</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>DeepSeek V4-Flash</strong></td>
+<td>1 元</td>
+<td>2 元</td>
+<td>0.02 元</td>
+</tr>
+<tr>
+<td>DeepSeek V4-Pro（限时至 5-31）</td>
+<td>3 元</td>
+<td>6 元</td>
+<td>0.025 元</td>
+</tr>
+<tr>
+<td>DeepSeek V4-Pro（6-1 后永久）</td>
+<td>0.75 元</td>
+<td>1.5 元</td>
+<td>—</td>
+</tr>
+<tr>
+<td>智谱 GLM-4.6（按量）</td>
+<td>5 元（含输出）</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>智谱 GLM Coding Plan Lite</td>
+<td>49 元 / 月 套餐</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>智谱 GLM Coding Plan Pro</td>
+<td>149 元 / 月 套餐</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Kimi K2.5（美元）</td>
+<td>¥4.3 元</td>
+<td>¥18 元</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Kimi K2.6（美元）</td>
+<td>¥6.8 元</td>
+<td>¥28.6 元</td>
+<td>¥1.15 元</td>
+</tr>
+</tbody></table>
+<p>按一个日均 1500 万 input + 300 万 output token 的活跃 coding 开发者来算（约日均 4-6 小时高强度对话 + 半自动 coding），一个月消耗约 4.5 亿 input + 9000 万 output。</p>
+<ul>
+<li><strong>走 DeepSeek V4-Flash 全云端</strong>：4.5 亿 × 1 元 + 9000 万 × 2 元 = 450 + 180 = <strong>630 元 / 月</strong>（不含缓存命中折扣，实际能再压 30-50%）</li>
+<li><strong>走智谱 GLM Coding Plan Pro 套餐</strong>：<strong>149 元 / 月</strong>（带 token 配额上限）</li>
+<li><strong>走 5090 自费整机</strong>：硬件折旧 1,250 元 + 电费 50-80 元 = <strong>1,300-1,330 元 / 月</strong></li>
+</ul>
+<p>这条对照表读出的真实结论是：<strong>云端 API 在 2026-05 这一档价格下，几乎对所有个人开发者的日常使用都比本地 5090 自费便宜</strong>。本地 5090 这条路真正合理的场景是三类：(a) 隐私敏感任务（不能把代码 / 数据传出本机的合规要求）；(b) 多 agent 工作流的高频内部调用（pre-built workflow 每天上亿 token，缓存命中也压不下来）；(c) 配合云端做混合路由的本地兜底（敏感任务走本地，长上下文 / 高质量任务走云端）。</p>
+<p>混合路由这条路径在另一篇专题《OpenClaw 混合路由：本地千问 + 云端 DeepSeek 的 80/20 真账》里会拆开讲，本篇不展开。</p>
+<h2>九、Qwen Code 与 Trae 接 5090 vLLM 后端的两条干净路径</h2>
+<p>5090 + vLLM 跑起来之后，国内开发者最关心的下一步是「能不能接进我每天用的 IDE」。截至 2026-05-25 实查，国产 IDE 里支持自定义 OpenAI 兼容 base_url 的只有两家：Qwen Code v0.16.1 与 Trae v3.3.51。通义灵码 / Qoder CN / 文心快码 仍然是白名单服务商模式，本地后端进不去。</p>
+<p><strong>Qwen Code 接 5090 vLLM</strong>（编辑 <code>~/.qwen/settings.json</code>）：</p>
+<pre><code class="language-json">{
+  &quot;modelProviders&quot;: {
+    &quot;openai&quot;: [
+      {
+        &quot;id&quot;: &quot;qwen3-coder-30b-local&quot;,
+        &quot;name&quot;: &quot;Qwen3-Coder 30B (5090 vLLM)&quot;,
+        &quot;envKey&quot;: &quot;VLLM_LOCAL_KEY&quot;,
+        &quot;baseUrl&quot;: &quot;http://localhost:8000/v1&quot;
+      }
+    ]
+  }
+}
+</code></pre>
+<p><code>envKey</code> 不强制——vLLM 默认不校验 API key，但建议设个虚假值如 <code>dummy</code> 走 envKey 流程。Qwen Code 是阿里官方维护、CLI + IDE 双形态、约 24,600 stars；同款配置可以同时挂多个 modelProvider，本地 5090 + 云端 DeepSeek V4-Flash 一起切，按任务自由选。</p>
+<p><strong>Trae 接 5090 vLLM</strong>（Settings → Models → Custom Model）：</p>
+<ul>
+<li>Provider: <code>OpenAI Compatible</code></li>
+<li>Base URL: <code>http://localhost:8000/v1</code>（<strong>必须带 <code>/v1</code> 后缀</strong>，这是社区踩了很多次的坑）</li>
+<li>API Key: <code>dummy</code>（任意非空字符串）</li>
+<li>Model: <code>Qwen3-Coder-30B-A3B-Instruct-AWQ</code></li>
+</ul>
+<p>Trae 这条路径要注意：<strong>v3.3.50 之前的版本 Custom Model 入口隐藏在 settings 深层；v3.3.51（2026-04-21）官方静默上线了一级入口</strong>。社区 issue #1872 在 2026-12-07 提出后没正式关闭，但功能已经在。</p>
+<p>Trae / Qwen Code 之外，OpenClaw 这种自托管 AI 助手 gateway 也支持把 5090 vLLM 当作 <code>OpenAI-Compatible</code> provider 注册，再通过 OpenClaw 的 baseUrl 把所有支持 OpenClaw 协议的下游 client（包括移动端、Slack、Telegram）统一接到本地 5090。</p>
+<h2>收尾</h2>
+<p>把整张图收回来看：RTX 5090 32GB 在 2026-05 的国内开发者手里，已经不再是「能不能买到」的问题，而是「值不值得为单卡跑国产 coder 模型自费」的问题。<strong>Qwen3-Coder-30B-A3B 单卡 5090 + vLLM 调优后 1,157 tok/s</strong> 这条数据，把 4090 时代「跑得动但不流畅」的体验拉到了「比云端响应更快 + 长上下文还能稳」的档位。同期国产模型云端 API 价格（DeepSeek V4-Flash 1 元 / 1M、智谱 GLM Coding Plan 149 元 / 月）持续下探，让本地 5090 这条路在纯成本维度对绝大多数个人开发者不划算；但隐私敏感任务、agent 高频内调、混合路由本地兜底这三类场景，5090 + vLLM 仍然是最干净的路径。</p>
+<p>五家推理引擎各占一个生态位的格局也越来越清楚：<strong>vLLM 在 5090 上压出 1,157 tok/s 上限是高并发与长上下文的最优解；SGLang 在多 agent 共享前缀场景下再领先 29%；llama.cpp 在单用户极致延迟上保留 4.7% 优势；Ollama 是最易用的本地后端封装；MLX 是 Mac 平台另一条独立路径</strong>。国产 IDE 这一侧，Qwen Code 与 Trae 已经把&quot;本地 5090 + 国产模型 + 国产 IDE&quot;这条完整链路接通；Qoder CN / 通义灵码 / 文心快码什么时候开放本地 endpoint 仍是未解。这盘棋已经稳稳走到下半场，国内一线开发者真正需要做的不是再纠结买不买卡，而是把任务摊开、按场景挑引擎，让 5090 的 32GB 显存 + 1,792 GB/s 带宽真正用到刀刃上。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

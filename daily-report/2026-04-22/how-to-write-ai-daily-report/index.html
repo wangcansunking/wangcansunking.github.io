@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>怎么用 Claude Code 每天自动写一份 AI 日报 · 工程手册 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-04-22</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-04-22</span><span class="tag-pill">Daily Report</span></div>
+      <h1>怎么用 Claude Code 每天自动写一份 AI 日报 · 工程手册</h1>
+<blockquote>
+<p>这不是&quot;用 AI 写作&quot;的鸡汤文。这是一份<strong>工程手册</strong>——讲清楚我怎么用 Claude Code + 飞书 + GitHub，每天 8 点自动生成一份 5000-15000 字的 AI 日报，包括信息采集、图片本地化、Writer Agent 润色、5 路质量审核、飞书发布、IM 通知、以及随附一份 5 分钟阅读的微信公众号版。</p>
+<p>最近更新：2026-04-22 · 双版本输出 + 表格转图 + 封面像素词边界修复</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/22/how-to-write-cover.png" alt="每天自动写一份 AI 日报 · 工程手册"></p>
+<hr>
+<h2>一、为什么要做</h2>
+<p>AI 领域每天的信息量是指数级的：arXiv 每天几十篇论文，GitHub 每天多个项目爆款，X/Twitter 大佬随时甩观点。手动追 = 累死；RSS = 浅；别人写的日报 = 没你想要的角度。</p>
+<p>我要的是：<strong>每天早上 8 点，一份结构清晰、有深度、有图、有明确判断、有行动建议的 AI 日报，自动出现在飞书群里。同一份内容，顺带一份 5 分钟阅读的微信公众号版，让非工程师朋友也能看。</strong></p>
+<p>这套方案已稳定跑了两周，日均生成 8-12KB markdown + 6-9 张图 + 飞书富文本 + IM 通知。下面把架构、每个关键部件、坑、复现步骤一次讲透。</p>
+<hr>
+<h2>二、技术栈总览</h2>
+<pre><code>┌──────────────────────────────────────────────────────────────┐
+│  systemd timer （每日 08:03）                                │
+│       │                                                      │
+│       ▼                                                      │
+│  scripts/generate-daily-report.sh                            │
+│       │                                                      │
+│       ▼                                                      │
+│  Claude Code CLI  →  SKILL.md 加载                           │
+│       │                                                      │
+│       ├─► WebSearch / WebFetch / gh CLI （信息源采集）       │
+│       ├─► 图片下载 → daily-report-images repo （git push）   │
+│       ├─► scripts/generate-cover.py （Azure gpt-image-1.5）  │
+│       ├─► Writer Agent （subagent · 单次润色 pass）          │
+│       ├─► 5 审核 Agent 并行                                  │
+│       │     真实性 · 图片 · 可读性 · 有效性 · 去重          │
+│       ├─► reports/YYYY-MM/YYYY-MM-DD.md （git commit）       │
+│       ├─► docx_builtin_import（飞书 MCP）→ 云文档            │
+│       └─► im_v1_message_create（飞书 MCP）→ IM 通知          │
+│                                                              │
+│  【双版本扩展】                                              │
+│       └─► wechat-article skill 触发                          │
+│             ├─► 压缩到 2500-3500 字                          │
+│             ├─► scripts/generate-table-image.py （表格转图） │
+│             ├─► 4 精简审核 Agent                             │
+│             └─► 飞书 + IM（公众号版入口）                    │
+└──────────────────────────────────────────────────────────────┘
+</code></pre>
+<p><strong>三个 GitHub 仓库：</strong></p>
+<ol>
+<li><code>daily-report</code> — 主仓，脚本 + 报告 + skill 镜像</li>
+<li><code>daily-report-images</code> — 图床，所有封面/配图/表格图都落到这里</li>
+<li><code>.claude/skills/</code> — 全局 skill（不进 git，但 daily-report/docs/ 有镜像）</li>
+</ol>
+<p><strong>外部依赖：</strong></p>
+<ul>
+<li>Azure OpenAI（gpt-image-1.5 生成封面 · gpt-image-2 未来可升级）</li>
+<li>飞书开放 API（docx / im 接口，通过 lark-mcp）</li>
+<li>GitHub（raw.githubusercontent.com 做图床）</li>
+</ul>
+<hr>
+<h2>三、关键部件逐个讲</h2>
+<h3>3.1 SKILL 三件套 · 分层解耦的写作体系</h3>
+<p>这套系统用了 <strong>3 个 skill 分层组合</strong>，而不是把所有规则塞进一个巨型 SKILL.md：</p>
+<pre><code>┌──────────────────────────────────────────────────────────┐
+│  writing （底座 · 通用文风）                             │
+│   - 钩子前置 / 数据优先 / 禁用词 / 短段节奏              │
+│   - Writer Agent 8 条规则 + 硬约束                       │
+│   - 数据真实性 / 链接验证 / 图片本地化 / 中英双语        │
+└─────────┬───────────────────────────┬────────────────────┘
+          │ 继承                      │ 继承
+          ▼                           ▼
+┌─────────────────────┐      ┌────────────────────────────┐
+│ ai-daily-report     │      │ wechat-article             │
+│  AI 日报专项        │      │  公众号文章专项            │
+│ - 信息源 / KOL      │      │ - 2500-3500 字 / 5 分钟读  │
+│ - 9 区块结构        │      │ - 表格转图（禁 md table）  │
+│ - 7 天去重          │      │ - 图片密度 300-500 字一张  │
+│ - 5 审核 Agent      │      │ - 发布会全场覆盖规则       │
+│ - 13 步执行流       │      │ - 精简 4 审核 Agent        │
+│ - 双版本输出联动    │      │ - mdnice 手动搬运流程      │
+└─────────────────────┘      └────────────────────────────┘
+</code></pre>
+<p><strong>为什么这么分？</strong></p>
+<ul>
+<li>通用规则（比如&quot;别写&#39;重磅&#39;&#39;颠覆&#39;&quot;）只在一处维护，避免 3 个 skill 同步改</li>
+<li>添加第 4 种场景（如&quot;年终总结&quot;&quot;招股书解读&quot;）只要新写一个 domain skill 继承 writing 即可</li>
+<li>Claude 加载时可以精准匹配——看到&quot;生成日报&quot;加载 writing + ai-daily-report；看到&quot;公众号文章&quot;加载 writing + wechat-article；看到&quot;写一篇产品评测&quot;直接走 writing 单独用</li>
+</ul>
+<p><strong>三个 skill 都是带 frontmatter 的 markdown</strong>：</p>
+<pre><code class="language-markdown">---
+name: writing
+description: Foundation skill for Chinese prose quality...
+---
+
+# 正文内容（Claude 会当成系统提示读取）
+</code></pre>
+<p>文件位置：</p>
+<ul>
+<li><code>~/.claude/skills/writing/SKILL.md</code>（底座）</li>
+<li><code>~/.claude/skills/ai-daily-report/SKILL.md</code>（日报）</li>
+<li><code>~/.claude/skills/wechat-article/SKILL.md</code>（公众号）</li>
+</ul>
+<p>仓内镜像（版本控制用）：</p>
+<ul>
+<li><code>docs/writing-skill.md</code></li>
+<li><code>docs/ai-daily-report-skill.md</code></li>
+<li><code>docs/wechat-article-skill.md</code></li>
+</ul>
+<p><strong>关键设计原则</strong>（踩了很多坑总结出来的）：</p>
+<ol>
+<li><strong>触发词写足</strong>：<code>description</code> 里穷举所有可能的触发短语，Claude 才能在模糊指令下主动 invoke</li>
+<li><strong>硬性约束用粗体 + 明确数字</strong>：不要&quot;建议&quot;和&quot;尽量&quot;，要&quot;<strong>必须</strong>&quot;和&quot;<strong>字数 5000-15000</strong>&quot;</li>
+<li><strong>执行流程步骤化</strong>：用 numbered list 给明确步骤，Claude 会按序执行</li>
+<li><strong>审核 Agent 用代码块写 prompt</strong>：方便 copy-paste，也避免 Claude 临场自己编 prompt</li>
+<li><strong>底座 + domain 分开</strong>：通用规则（writing）和领域特有规则（daily-report / wechat-article）不要混在一起写</li>
+</ol>
+<h3>3.2 信息源采集 · WebSearch + WebFetch + gh CLI</h3>
+<p>SKILL.md 里定义了三梯队信息源，第一梯队是必查的：</p>
+<ul>
+<li>GitHub Trending（Python/TypeScript/Rust/Go 各看一遍）</li>
+<li>arXiv cs.AI/cs.CL/cs.CV</li>
+<li>HuggingFace 模型发布 / Spaces</li>
+<li>Twitter/X（AI KOL 清单）</li>
+</ul>
+<p><strong>关键实战技巧：搜索结果的 URL ≠ 可访问的 URL</strong>。搜索引擎会返回已删除或移动的页面。所以 SKILL.md 里强制要求：</p>
+<pre><code>- 所有 GitHub 链接：`gh api repos/{owner}/{repo}` 验证 200
+- 其他 URL：WebFetch 验证
+- 无法验证不收录
+</code></pre>
+<p>宁可不放链接，也不放 404 链接。</p>
+<h3>3.3 图片本地化 · 硬规则</h3>
+<p><strong>项目硬规则</strong>：<em>所有图片 MUST 下载到 daily-report-images 仓 · 禁止外链</em>。</p>
+<p>为什么：外部 CDN（比如 <code>images.fonearena.com</code>、<code>img1.mydrivers.com</code>）6 个月内挂掉概率 &gt;70%。读者 6 个月后打开一个全是裂图的&quot;历史日报&quot;比不给看还糟。</p>
+<p>实现方式：</p>
+<pre><code class="language-bash"># 每采集一条新闻，同步执行：
+curl -sL -A &quot;Mozilla/5.0&quot; --max-time 30 \
+  -o ~/repos/daily-report-images/content/YYYY-MM/descriptive-name.png \
+  &quot;$og_image_url&quot;
+
+# 全部采集完 commit + push
+cd ~/repos/daily-report-images &amp;&amp; git add content/ &amp;&amp; git commit -m &quot;content: ...&quot; &amp;&amp; git push
+
+# Markdown 中用 raw URL 引用
+![描述](https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/YYYY-MM/name.png)
+</code></pre>
+<h3>3.4 封面生成 · Azure gpt-image-1.5 + PIL 词边界</h3>
+<p>封面要求：<strong>与头条主题呼应 + 带日期日期 weekday + 标题不截断英文词</strong>。</p>
+<p>脚本：<code>scripts/generate-cover.py</code>。核心逻辑：</p>
+<ol>
+<li>Azure OpenAI 生成 1536×1024 背景（prompt 限定 no text）</li>
+<li>PIL 叠加：品牌&quot;◆ AI 日报&quot;、日期、标题</li>
+<li><strong>字体大小 64→56→48→40 自动缩小</strong>，直到标题能在 ≤2 行内装下</li>
+<li><strong>英文词 / 版本号 / 连字符 token 整体保留</strong>，不能从中间切（比如 &quot;Cursor&quot; 不能切成 &quot;Cur&quot; + &quot;sor&quot;）</li>
+</ol>
+<p>调用：</p>
+<pre><code class="language-bash">python3 scripts/generate-cover.py \
+  --headline &quot;马斯克 600 亿美金锁死 Cursor&quot; \
+  --date &quot;2026-04-22&quot; --weekday &quot;星期三&quot; --tag &quot;投融资&quot; \
+  --concept &quot;A rocket launching with code streaming, tech merger concept&quot;
+</code></pre>
+<p>四种风格按日期轮换：flat / isometric / doodle / pixel。style 每 4 天循环一次，避免视觉疲劳。</p>
+<h3>3.5 Writer Agent · 一次润色 pass（关键魔法）</h3>
+<p>这一步是日报从&quot;信息堆砌&quot;变&quot;可读作品&quot;的转折点。Writer Agent 的职责（写在 SKILL.md）：</p>
+<ul>
+<li><strong>钩子前置</strong>：头条前 3 句就点出&quot;为什么最重要&quot;</li>
+<li><strong>数据优先</strong>：新闻开头第一句出数字，再解释</li>
+<li><strong>长段拆短</strong>：超过 3 句必拆</li>
+<li><strong>去 AI 腔 + 禁用&quot;一句话总结：&quot;模板</strong>：替换&quot;值得关注&quot;&quot;备受瞩目&quot;等套话；任何&quot;<strong>一句话总结：XXX</strong>&quot;前缀一律删——核心判断要么写进小标题，要么用引用块、金句收尾</li>
+<li><strong>编辑说落到行动</strong>：不做空泛总结，给&quot;今天/本周做什么&quot;</li>
+<li><strong>标题重写</strong>：头条/要闻 ≤20 字，带数字或冲突钩子</li>
+</ul>
+<p><strong>硬约束（违反即作废）</strong>：所有数字、引语、链接、图片 URL、日期、公司名严禁改动。Writer 只能改表达方式。</p>
+<p>启动方式：</p>
+<pre><code>Agent({
+  description: &quot;Writer 润色&quot;,
+  prompt: &quot;读取 reports/YYYY-MM/YYYY-MM-DD.md。按以下原则整篇重写：(1) 头条前 3 句有钩子 (2) 数字先于解释 (3) 去 AI 腔/套话，严禁「一句话总结：XXX」模板 (4) 单段 ≤3 句、单句 ≤40 字 (5) 编辑说落行动 (6) 标题 ≤20 字含钩子。硬约束：事实/数字/引语/链接严禁改动。直接用 Edit 工具原地修改。&quot;
+})
+</code></pre>
+<h3>3.6 五路审核 Agent · 并行跑</h3>
+<p>Writer Agent 完事后，5 个审核 Agent 同时发动：</p>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>查什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>真实性</td>
+<td>GitHub 链接 <code>gh api</code> 验证、星数差异 &gt;20% 标记、融资数据交叉验证</td>
+</tr>
+<tr>
+<td>图片</td>
+<td>所有 URL 200、来源标注完整、头条必须有图</td>
+</tr>
+<tr>
+<td>可读性</td>
+<td>字数 5000-15000、单条快讯 ≤60 字、禁用词</td>
+</tr>
+<tr>
+<td>有效性</td>
+<td>新闻在 24-48 小时内、来源可信</td>
+</tr>
+<tr>
+<td>去重</td>
+<td>区块间 ≤2 次、跨 7 天去重、Trending 项目连续上榜去重</td>
+</tr>
+</tbody></table>
+<p><strong>全部 ✅/⚠️ 才能发布</strong>，❌ 必须修复后重审。</p>
+<h3>3.7 飞书发布 · 两条路径</h3>
+<p><strong>路径 A（默认）· <code>docx_builtin_import</code></strong></p>
+<p>直接把 markdown 扔给 <code>mcp__lark-mcp__docx_builtin_import</code>，拿回 token + URL。简单快。</p>
+<p><strong>路径 B（fallback）· Block API in-place</strong></p>
+<p>问题：<code>docx_builtin_import</code> 对大 markdown（&gt;15KB）偶发&quot;Document import failed, please try again later&quot;。已知坑。</p>
+<p>解决：<em>先 import 一个两行空壳拿 doc_id，再用 Block API 往里灌块</em>。</p>
+<pre><code class="language-python">from scripts.md_to_feishu_blocks import convert
+blocks = convert(md)
+
+# 1. list + 2. batchDelete 全部 existing children
+# 3. 按 50 个/批 create
+for i in range(0, len(blocks), 50):
+    batch = blocks[i:i+50]
+    post(f&quot;{API}/docx/v1/documents/{DOC_ID}/blocks/{DOC_ID}/children?document_revision_id=-1&quot;,
+         {&quot;children&quot;: batch, &quot;index&quot;: i}, token)
+</code></pre>
+<p>这套 flow 实现在 <code>scripts/sync-skill-to-feishu.py</code>，可复用到任意 markdown → 飞书原地更新场景。SKILL.md 本身也是这么同步到飞书 spec 文档的。</p>
+<h3>3.8 IM 通知 · 交互卡片 + 富文本兜底</h3>
+<p><code>im_v1_message_create</code> + <code>msg_type: &quot;interactive&quot;</code> 可以发带按钮的卡片。坑：某些 emoji 组合会触发 Feishu 校验失败（<code>invalid message content</code>），这时换成 <code>msg_type: &quot;post&quot;</code> 富文本格式能绕过。</p>
+<pre><code class="language-json">{
+  &quot;receive_id&quot;: &quot;oc_xxx&quot;,
+  &quot;msg_type&quot;: &quot;post&quot;,
+  &quot;content&quot;: &quot;{\&quot;zh_cn\&quot;:{\&quot;title\&quot;:\&quot;...\&quot;,\&quot;content\&quot;:[[{\&quot;tag\&quot;:\&quot;text\&quot;,\&quot;text\&quot;:\&quot;...\&quot;}],[{\&quot;tag\&quot;:\&quot;a\&quot;,\&quot;href\&quot;:\&quot;https://...\&quot;,\&quot;text\&quot;:\&quot;阅读完整文档\&quot;}]]}}&quot;
+}
+</code></pre>
+<hr>
+<h2>四、双版本输出（日报 + 公众号）</h2>
+<p>最新加的玩法。日常的 ai-daily-report skill 跑完后，自动触发 wechat-article skill 做一份<strong>压缩版</strong>给微信公众号用。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>ai-daily-report</th>
+<th>wechat-article</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>主题</td>
+<td>全领域综合日报</td>
+<td>单一主题专题文</td>
+</tr>
+<tr>
+<td>字数</td>
+<td>5000-15000</td>
+<td>2500-3500</td>
+</tr>
+<tr>
+<td>阅读时长</td>
+<td>10-15 分钟</td>
+<td>5 分钟</td>
+</tr>
+<tr>
+<td>表格</td>
+<td>markdown 表格 OK</td>
+<td>必须转图（<code>generate-table-image.py</code>）</td>
+</tr>
+<tr>
+<td>语气</td>
+<td>中立 + 明确判断</td>
+<td>有态度 + 推荐必须明确</td>
+</tr>
+<tr>
+<td>图片</td>
+<td>5+ 张</td>
+<td>6-10 张（含表格图）</td>
+</tr>
+<tr>
+<td>审核 Agent</td>
+<td>完整 5 个</td>
+<td>精简 4 个</td>
+</tr>
+</tbody></table>
+<p><strong>为什么表格要转图</strong>：微信公众号对 markdown table 渲染极差（字挤成一团、列对不齐），转成图就不会有这些问题。而且公众号读者习惯在手机上读，图比表格更友好。</p>
+<p><code>scripts/generate-table-image.py</code> 用 PIL 渲染干净表格：标题 + 列头 + 斑马纹 + 获胜列高亮 + 圆角边框 + WenQuanYi 中文字体。产出 1536×N 的 PNG，直接粘进公众号编辑器。</p>
+<p>示例：</p>
+<pre><code class="language-bash">python3 scripts/generate-table-image.py \
+  --title &quot;OPPO vs REDMI 核心规格&quot; \
+  --subtitle &quot;2026 国产旗舰两极&quot; \
+  --columns &quot;核心规格,Find X9 Ultra,K90 Max&quot; \
+  --rows &quot;起售价|7499 起|3499 起&quot; \
+         &quot;SoC|骁龙 8 至尊版 Gen5|天玑 9500 + D2&quot; \
+         ... \
+  --output content/2026-04/oppo-vs-redmi-specs.png
+</code></pre>
+<hr>
+<h2>五、定时调度 · systemd timer</h2>
+<p>因为 Linux 没 crontab 或用户嫌 cron 语法难读，我用 systemd user timer：</p>
+<p><code>~/.config/systemd/user/ai-daily-report.service</code>：</p>
+<pre><code class="language-ini">[Unit]
+Description=AI Daily Report Generator
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/can-u-claw/repos/daily-report
+ExecStart=/bin/bash scripts/generate-daily-report.sh
+StandardOutput=append:%h/repos/daily-report/logs/cron.log
+StandardError=append:%h/repos/daily-report/logs/cron.log
+</code></pre>
+<p><code>~/.config/systemd/user/ai-daily-report.timer</code>：</p>
+<pre><code class="language-ini">[Unit]
+Description=Trigger AI Daily Report at 08:03
+
+[Timer]
+OnCalendar=*-*-* 08:03:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+</code></pre>
+<p>启用：</p>
+<pre><code class="language-bash">systemctl --user enable --now ai-daily-report.timer
+systemctl --user status ai-daily-report.timer
+</code></pre>
+<p>日志在 <code>logs/cron.log</code>，每天 08:03 自动跑，失败自动重试 3 次（<code>generate-daily-report.sh</code> 内部循环）。</p>
+<hr>
+<h2>六、复现步骤（给想自己搭一份的人）</h2>
+<p><strong>Step 1 · 准备账号 + token</strong></p>
+<ul>
+<li>GitHub：两个仓 <code>daily-report</code> + <code>daily-report-images</code>（公开，用 raw.githubusercontent.com 做图床）</li>
+<li>飞书：注册开发者应用，拿 <code>app_id</code> + <code>app_secret</code>，开通 docx / im / drive 权限</li>
+<li>Azure OpenAI：拿一个 gpt-image-1.5 部署的 endpoint + key</li>
+<li>Claude Code：安装 + Max 订阅（能跑长任务）</li>
+<li>lark-mcp：配置到 <code>~/.claude.json</code> 的 MCP servers</li>
+</ul>
+<p><strong>Step 2 · 克隆仓库骨架</strong></p>
+<pre><code class="language-bash">git clone git@github.com:wangcansunking/daily-report.git
+git clone git@github.com:wangcansunking/daily-report-images.git
+</code></pre>
+<p><strong>Step 3 · 创建 <code>.env</code></strong></p>
+<pre><code>AZURE_OPENAI_IMAGE_ENDPOINT=https://xxx.cognitiveservices.azure.com/openai/deployments/gpt-image-1.5/images/generations?api-version=2024-02-01
+AZURE_OPENAI_IMAGE_API_KEY=...
+IMAGE_REPO_PATH=/home/you/repos/daily-report-images
+IMAGE_REPO_BASE_URL=https://raw.githubusercontent.com/yourname/daily-report-images/master
+</code></pre>
+<p><strong>Step 4 · 复制 SKILL.md 到全局 skill</strong></p>
+<pre><code class="language-bash">mkdir -p ~/.claude/skills/ai-daily-report
+cp docs/ai-daily-report-skill.md ~/.claude/skills/ai-daily-report/SKILL.md
+</code></pre>
+<p>可选：同样复制 <code>wechat-article</code> skill。</p>
+<p><strong>Step 5 · 首次手动跑一次</strong></p>
+<pre><code class="language-bash">claude
+# 在 Claude Code 里说：
+&gt; 生成今天的 AI 日报
+</code></pre>
+<p>Claude 会自动 invoke skill → 执行全流程。首次通常会遇到几个小问题（比如没权限、token 过期等），修复后以后就稳定了。</p>
+<p><strong>Step 6 · 开定时</strong></p>
+<pre><code class="language-bash">cp scripts/ai-daily-report.service ~/.config/systemd/user/
+cp scripts/ai-daily-report.timer ~/.config/systemd/user/
+systemctl --user enable --now ai-daily-report.timer
+</code></pre>
+<hr>
+<h2>七、常见坑</h2>
+<ul>
+<li><strong>SKILL.md 改完忘了同步飞书 spec</strong>：用 <code>scripts/sync-skill-to-feishu.py</code>（内部走 Block API list → batchDelete → create in batches of 50）。</li>
+<li><strong>封面字被截断</strong>：已修复。<code>generate-cover.py</code> 用像素宽度测量 + 词边界保护 + 字号自动缩小。任何英文词不会从中间切。</li>
+<li><strong>Feishu <code>docx_builtin_import</code> 对大 markdown 失败</strong>：用&quot;空壳 + Block API 填充&quot;的 fallback。</li>
+<li><strong>Ollama 默认拉低量化</strong>：与本文无关但相关——<code>ollama pull qwen3.6:35b-a3b</code> 默认给你 Q2/Q3，显式指定 <code>q4_K_M</code> 或 <code>q5_K_M</code>。</li>
+<li><strong>图片外链会挂</strong>：硬性规则，所有图片 MUST 走 daily-report-images。发现外链 → 审核 Agent 的&quot;图片&quot;那条会 ❌。</li>
+<li><strong>Writer Agent 改事实</strong>：硬约束&quot;数字 / 引语 / 链接严禁改动&quot;。抽查几次，Writer 偶尔会违反；发现就在 prompt 里加更严格限制。</li>
+</ul>
+<hr>
+<h2>八、关于内容质量的几条死规矩</h2>
+<ol>
+<li><strong>宁可少放链接，不放 404 链接</strong>——读者点开一个 404 比不看更差</li>
+<li><strong>不要&quot;值得关注&quot;&quot;重磅&quot;等空套话</strong>——具体判断或不说</li>
+<li><strong>编辑说必须落到行动</strong>——&quot;今天 / 本周你应该做什么&quot;三选一明确</li>
+<li><strong>不骑墙</strong>——对每件事表明立场，哪怕可能错</li>
+<li><strong>数字先于解释</strong>——先出 600 亿 / 58.6 分 / 4 小时破纪录，再说为什么</li>
+</ol>
+<hr>
+<h2>九、下一步</h2>
+<ul>
+<li><input disabled="" type="checkbox"> 公众号版自动上传到 mdnice → 复制到微信后台（目前需手动搬）</li>
+<li><input disabled="" type="checkbox"> 封面升级到 gpt-image-2（2K 原生 + 文字渲染大幅改善）</li>
+<li><input disabled="" type="checkbox"> 增加&quot;数据真实性&quot;第二层校验：关键数字让另一个 LLM 独立 fact-check 一次</li>
+<li><input disabled="" type="checkbox"> 支持多语言（英文 / 日文版本）</li>
+<li><input disabled="" type="checkbox"> 周度/月度自动归档索引</li>
+</ul>
+<hr>
+<h2>十、参考资料</h2>
+<ul>
+<li><strong>Claude Code 文档</strong>：<a href="https://code.claude.com/docs/en" target="_blank" rel="noopener">code.claude.com</a></li>
+<li><strong>飞书开放平台</strong>：<a href="https://open.feishu.cn" target="_blank" rel="noopener">open.feishu.cn</a></li>
+<li><strong>mdnice 公众号编辑器</strong>：<a href="https://mdnice.com" target="_blank" rel="noopener">mdnice.com</a></li>
+<li><strong>Anthropic Skills 介绍</strong>：<a href="https://www.anthropic.com/engineering/skills" target="_blank" rel="noopener">anthropic.com/engineering/skills</a></li>
+</ul>
+<hr>
+<p><em>Last updated: 2026-04-22 · 本文本身就是用这套系统里的 Writer Agent 润色过的。</em></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

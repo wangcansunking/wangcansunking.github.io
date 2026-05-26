@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>腾讯 Agent Memory 开源：长任务 Token 砍 61%，国产 Agent 中间件挤进牌桌 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-15</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-15</span><span class="tag-pill">Daily Report</span></div>
+      <h1>腾讯 Agent Memory 开源：长任务 Token 砍 61%，国产 Agent 中间件挤进牌桌</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/tencent-agent-memory-opensource-2026-05-15.png" alt="国产 Agent 记忆中间件挤进牌桌主图"></p>
+<h2>一句话先把数字摆桌上：61.38% / 51.52% / 48→76</h2>
+<p>腾讯云数据库团队 5 月 14 日把 <strong>TencentDB Agent Memory</strong> 推到 GitHub Tencent 顶层组织。README 给的硬数据写得相当直接：连续长会话场景下，WideSearch 任务里 Token 用量从 <strong>221.31M</strong> 砍到 <strong>85.64M</strong>，相对降幅 <strong>61.38%</strong>；同一组实验里长任务完成率从 <strong>33%</strong> 提到 <strong>50%</strong>，相对提升 <strong>51.52%</strong>。换到 SWE-bench 代码修复场景，Token 用量 <strong>3474.1M → 2375.4M</strong>、降 <strong>33.09%</strong>，完成率 <strong>58.4% → 64.2%</strong>、涨 <strong>9.93%</strong>。再换到 AA-LCR 长文档推理，Token <strong>112.0M → 77.3M</strong>、降 <strong>30.98%</strong>，完成率 <strong>44.0% → 47.5%</strong>、涨 <strong>7.95%</strong>。长期个性化记忆的 PersonaMem 评测，准确率从 <strong>48%</strong> 拉到 <strong>76%</strong>。</p>
+<p>这一组数字之所以值得拿出来认真讲，不是因为「腾讯开源了一个东西」这件事本身——这件事每个月都有。值得讲的是这组数字第一次让国产团队在 Agent 记忆中间件这条赛道上，给出了和海外 mem0、Letta、Zep、LangMem 同口径的工程化对比，而且不是用演示视频糊一下，是把评测、Token 绝对值、基线、相对降幅全部摆明。截稿时仓库 <strong>737 stars / 42 forks</strong>（2026-05-14），TypeScript 主语言，MIT 协议（README badge 口径），默认本地 <strong>SQLite + sqlite-vec</strong> 起步，可选切到腾讯云向量库 TCVDB。</p>
+<p>媒体侧今天主要在传两个角度：量子位头条侧重「Token 降 61%」的成本节省口径，IT 之家给的是「腾讯云数据库团队新作」的厂商信号。这两个角度都对，但都没把这件事在国产 Agent 中间件赛道里的位置说清楚。这一篇做的事情就是把这个位置补上。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/tencent-agent-memory-pyramid.png" alt="腾讯 Agent Memory 四层金字塔 + Mermaid 任务画布架构示意"></p>
+<h2>拆开看：短期工具日志压缩 + 长期个性化分层，两件事一并打包</h2>
+<p>把这次开源的东西拆成两件独立的事看会清晰很多。</p>
+<p><strong>第一件事是短期工具记忆，核心组件叫 Mermaid 任务画布。</strong> 一个 Agent 在跑长任务的时候，最大的 Token 消耗者不是模型自己想出来的那几句话，而是工具调用回来的中间日志——网页搜索的结果列表、代码修改前后的 diff、报错栈、长 JSON 返回。这些东西如果原样塞回上下文窗口里，几十轮对话下来很快就把窗口耗光。腾讯的做法是把这一坨原始日志全文卸到外部文件（<code>refs/*.md</code>），上下文里只留一张 Mermaid 语法画的任务流程图。这张图带 <code>node_id</code> 标注，Agent 推理的时候只需读这张图，要查具体日志再按 <code>node_id</code> grep 反查。</p>
+<p>为什么用 Mermaid 而不是 JSON 或纯文本？README 里给出的解释是：Mermaid 语法对 LLM 解析友好（毕竟 GitHub Markdown 标准语法，训练语料里见过太多），同时对人类阅读也友好，等于一种「LLM 和工程师都看得懂的中间表示」。这点对国内开发者特别友好——本地化部署的时候不需要专门做调试 UI，cat 一下画布文件就能看清楚 Agent 现在在哪一步。</p>
+<p><strong>第二件事是长期个性化记忆，做成 L0-L3 四层金字塔。</strong> 这一层处理的是跨会话的用户偏好、SOP、项目背景。传统记忆方案普遍把跨会话内容打成碎片塞进向量库，召回的时候在一堆没有上下文的片段里盲搜。腾讯方案反过来：原始对话留在 <strong>L0 Conversation</strong> 层数据库里全文备查；<strong>L1 Atom</strong> 抽出原子事实；<strong>L2 Scenario</strong> 把对话切成有上下文的场景块；<strong>L3 Persona</strong> 凝结成用户画像。日常对话直接命中 L3，需要细节时再按指针下钻到 L1 或 L0。</p>
+<p>这种「上层留结构、下层留证据」的做法不是新概念，mem0 / Zep / Letta 都在做类似的事情。但腾讯方案的差异点是把 L0-L3 这条长期链路和短期 Mermaid 画布显式拼到了一起：长任务里短期画布顶上去，跨会话时长期金字塔顶上去，两条路径都用 <code>node_id</code> 作为统一指针，下钻到 L0 完整对话或 <code>refs/</code> 原始日志做最终校验。</p>
+<pre><code class="language-mermaid">graph LR
+    Log[&quot;工具日志&lt;br/&gt;几十万 Token&quot;] --&gt;|&quot;全文卸载&quot;| FS[(&quot;refs/*.md&lt;br/&gt;外部文件&quot;)]
+    Log --&gt;|&quot;提取关系&quot;| MMD[&quot;Mermaid 画布&lt;br/&gt;node_id 索引&quot;]
+    MMD --&gt;|&quot;轻量注入&quot;| Agent((&quot;Agent 上下文&lt;br/&gt;几百 Token&quot;))
+    Agent -. &quot;按 node_id 反查&quot; .-&gt; FS
+</code></pre>
+<p>这段 Mermaid 直接取自项目 README，原始符号未做改写。下游接收的开发者复用进自己的 Agent runtime 时，等于直接用这张图当协议。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/tencent-agent-memory-token-cut.png" alt="Token 用量大幅下降同时长任务完成率反向上升"></p>
+<h2>三个评测一齐摆，验证「省 Token 不掉性能」</h2>
+<p>很多 Agent 记忆方案吃过的亏是：Token 是省下来了，但任务完成率也跟着掉。腾讯这一组数据反过来——Token 越省、完成率反而越高。这一点必须把三个评测单独看，不能合一个平均值，因为不同任务受益面完全不同。</p>
+<table>
+<thead>
+<tr>
+<th>评测项目</th>
+<th>任务类型</th>
+<th>Token 用量（基线 → 接入插件）</th>
+<th>Token 相对降幅</th>
+<th>完成率（基线 → 接入插件）</th>
+<th>完成率相对提升</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>WideSearch</td>
+<td>网页搜索长任务</td>
+<td>221.31M → 85.64M</td>
+<td>−61.38%</td>
+<td>33% → 50%</td>
+<td>+51.52%</td>
+</tr>
+<tr>
+<td>SWE-bench</td>
+<td>代码修复长任务</td>
+<td>3474.1M → 2375.4M</td>
+<td>−33.09%</td>
+<td>58.4% → 64.2%</td>
+<td>+9.93%</td>
+</tr>
+<tr>
+<td>AA-LCR</td>
+<td>复杂长文档推理</td>
+<td>112.0M → 77.3M</td>
+<td>−30.98%</td>
+<td>44.0% → 47.5%</td>
+<td>+7.95%</td>
+</tr>
+<tr>
+<td>PersonaMem</td>
+<td>跨会话个性化准确率</td>
+<td>—</td>
+<td>—</td>
+<td>48% → 76%</td>
+<td>+59%</td>
+</tr>
+</tbody></table>
+<p>README 里特地标了一句：<strong>这些数字都来自连续长会话场景，不是单轮</strong>。比如 SWE-bench 跑的是每个 session 连续做 50 道任务，专门模拟真实长任务里上下文累积的压力。这个补充比单看数字更值得注意——很多记忆插件的对比是单轮拼接，长任务里上下文堆起来之后效果会塌方，腾讯这一组是直接在压力场景下对比，可信度比单轮高一档。</p>
+<p>数据呈现侧也得说一下口径冲突。量子位文章里给出的口径是 <strong>Token 降低 61%、33%、31%</strong>，README 里精确数字是 <strong>61.38%、33.09%、30.98%</strong>。两个口径不矛盾，量子位是约整到整数。我们这一篇坚持用 README 精确字符串，避免后续被读者复核时出现「你这数字哪来的」的尴尬。完成率口径量子位写的是「成功率最高 52% 相对提升」，README 给的是 <strong>51.52%</strong>，同理是约整。</p>
+<p>对国内开发者更直观的算法：<strong>长任务里 Token 用量降一半多，意味着同样的预算可以多跑一倍长的任务，或者同样长度的任务可以省一半的钱</strong>。WideSearch 那一组 221.31M 降到 85.64M，按主流模型每百万 Token 几美元算，单个长任务能省下的钱足够覆盖一台本地推理机的电费。</p>
+<h2>五家横评：腾讯方案补的是「短期工具日志压缩」这一格</h2>
+<p>要把腾讯这次开源的位置摆准，得跟海外几家成熟方案放一起看。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/tencent-agent-memory-peer-matrix.png" alt="Agent 记忆中间件五家对比矩阵"></p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>长期记忆分层</th>
+<th>短期记忆画布</th>
+<th>默认本地存储</th>
+<th>主要语言</th>
+<th>协议</th>
+<th>上游 Agent 框架</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>TencentDB Agent Memory</td>
+<td>L0-L3 四层</td>
+<td>Mermaid 任务画布</td>
+<td>SQLite + sqlite-vec</td>
+<td>TypeScript</td>
+<td>MIT</td>
+<td>OpenClaw / Hermes</td>
+</tr>
+<tr>
+<td>mem0</td>
+<td>Atom / Episode 双层</td>
+<td>○ 无</td>
+<td>本地或云</td>
+<td>Python</td>
+<td>Apache-2.0</td>
+<td>LangChain / 任意</td>
+</tr>
+<tr>
+<td>Zep</td>
+<td>Memory Graph</td>
+<td>○ 无</td>
+<td>PostgreSQL + Graphiti</td>
+<td>Python</td>
+<td>Apache-2.0</td>
+<td>任意</td>
+</tr>
+<tr>
+<td>Letta（前身 MemGPT）</td>
+<td>Core / Archival 双层</td>
+<td>○ 无</td>
+<td>PostgreSQL / SQLite</td>
+<td>Python</td>
+<td>Apache-2.0</td>
+<td>自建 Agent 框架</td>
+</tr>
+<tr>
+<td>LangMem</td>
+<td>Tools-as-Memory</td>
+<td>○ 无</td>
+<td>依赖 LangGraph 后端</td>
+<td>Python</td>
+<td>MIT</td>
+<td>LangChain / LangGraph</td>
+</tr>
+</tbody></table>
+<p>五家共识那一条很明确：<strong>长期记忆要分层、要可下钻、要白盒可查</strong>。mem0 用 Atom / Episode 双层，Letta 用 Core / Archival 双层，Zep 用 Memory Graph，腾讯 Agent Memory 用 L0-L3 四层。技术路径各有侧重，但「不能再用一坨向量糊脸」这条已经是行业共识。</p>
+<p>差异点出在第二格——<strong>短期工具日志压缩</strong>。mem0、Letta、Zep、LangMem 这四家都没把「工具调用日志符号化」做成专门的能力层，它们更关注跨会话的用户偏好抽取。腾讯方案把短期长任务这一段单独切出来用 Mermaid 画布解决，是这一周新增的能力格子。这件事对国内做长任务 Agent（深度研究、企业 SOP 自动化、代码修复）的团队特别实用，因为短期长任务里 Token 失控是当前最头疼的问题之一。</p>
+<p>语言生态侧也得注意：四家海外方案全是 Python，腾讯方案用 TypeScript 写。这意味着如果你在用 Node.js 栈搭 Agent runtime，腾讯方案是少见的可以直接 npm install 就用上的同语言原生方案，不需要再用 Python sidecar 桥接。</p>
+<p>存储侧默认 <strong>SQLite + sqlite-vec</strong> 这一点也得专门提一下。国内开发者过去接 mem0 / Zep / Letta 经常卡在 PostgreSQL 部署上——单机起一个 PG + pgvector 不算难，但和企业现有 IT 栈打通是真累。腾讯方案直接用 SQLite 起步，单文件数据库放本地或挂 NAS 都行，演示和小团队生产环境部署的门槛被压到最低。需要更强的混合检索（BM25 + 向量）时，可选切到腾讯云向量库 TCVDB，这是商业化变现路径但完全可选，不影响开源版本的可用性。</p>
+<h2>国内开发者本地接入：从 Qwen / Kimi 起步的最短路径</h2>
+<p>把这件事翻译到国内开发者每天的工作流里，最短路径长这样。</p>
+<p><strong>情况一：你已经有 OpenClaw 装机，想把记忆能力加进去。</strong></p>
+<p>OpenClaw 是国内开发者社区里用得最多的本地 Agent runtime 之一。腾讯方案对 OpenClaw 做了官方 plugin 适配，安装命令直接给出来：</p>
+<pre><code class="language-bash">openclaw plugins install @tencentdb-agent-memory/memory-tencentdb
+openclaw gateway restart
+</code></pre>
+<p>启用只需要在 <code>~/.openclaw/openclaw.json</code> 里加一句 <code>&quot;memory-tencentdb&quot;: { &quot;enabled&quot;: true }</code>，剩下的对话捕获、记忆抽取、场景聚合、画像生成、下一轮召回 OpenClaw 网关会自动接管。本地 Qwen3-Coder / Qwen3-Max / Kimi K2 当后端模型都能跑，记忆模块只负责上下文整理这一段，不挑模型。</p>
+<p>如果要打开短期 Token 压缩（OpenClaw ≥ 2026.3.13 + 插件 ≥ 0.3.4），还需要在 <code>openclaw.json</code> 里加：</p>
+<pre><code class="language-json">&quot;plugins&quot;: {
+  &quot;slots&quot;: {
+    &quot;contextEngine&quot;: &quot;openclaw-context-offload&quot;
+  }
+}
+</code></pre>
+<p>然后跑一次 README 里给的 patch 脚本 <code>bash scripts/openclaw-after-tool-call-messages.patch.sh</code>，把 OpenClaw 的 <code>after-tool-call</code> 消息钩子打上。这个脚本每次 OpenClaw 升级需要重跑一次。</p>
+<p><strong>情况二：你在用 Hermes Agent，想加记忆层。</strong></p>
+<p>Hermes 是 Nous Research 出的开源 Agent gateway，海外社区用得多，国内有一部分团队在跑。腾讯方案对 Hermes 提供 Docker 一行起命令（README 第二节有完整命令），同样支持上述配置。</p>
+<p><strong>情况三：你在自建 Agent runtime，想直接调插件 API。</strong></p>
+<p>这种情况下推荐先把 README 的演示视频看完（OpenClaw × Agent Memory 一段、Hermes × Agent Memory 一段），看清楚画布生成和召回的时序，再决定自己 runtime 里把记忆挂在哪一层。腾讯没有正式 SDK 文档（截稿时），但 README 给的 npm 包名是 <code>@tencentdb-agent-memory/memory-tencentdb</code>，TypeScript 类型定义可直接 inspect。</p>
+<p><strong>模型端建议组合：</strong></p>
+<ul>
+<li><strong>本地 Qwen3-Coder 30B-A3B（24GB 显存起步）</strong> + 腾讯 Agent Memory + OpenClaw — 长任务代码修复 / SOP 自动化的最短路径</li>
+<li><strong>Kimi K2（千万级长上下文）</strong> + 腾讯 Agent Memory + Hermes — 长文档研究 + 跨会话个性化的组合</li>
+<li><strong>本地 DeepSeek-V3.x 或 Qwen3-Max（200B+ 级别，需多卡）</strong> + 腾讯 Agent Memory + OpenClaw — 企业内重型 Agent 场景</li>
+</ul>
+<p>三种组合的共性是 Token 计费压力都不小。腾讯方案这一刀切下来，刚好砍在国内开发者最痛的成本结构上。</p>
+<h2>本周国产 Agent 中间件集中亮牌：阿里悟空 + 腾讯 Memory 一组叙事（横评视角）</h2>
+<p>把昨天和今天的事情接起来看，这一周国产 Agent 中间件的密集度很值得记一笔。</p>
+<p>昨天我们写过阿里通义实验室把「悟空」Agent 中间件放量开源的事——那一篇着重讲悟空的多智能体编排和工具路由能力。今天腾讯云数据库团队接力，把 Agent Memory 推到 Tencent 顶层开源组织。两件事拼起来看，国产 Agent 中间件这周一次性把「编排层」和「记忆层」两个关键基础设施补齐：</p>
+<ul>
+<li><strong>阿里悟空</strong> 解决「一组 Agent 怎么协同把活分下去」</li>
+<li><strong>腾讯 Agent Memory</strong> 解决「单个 Agent 在长任务里怎么记住该记住的、忘掉该忘掉的」</li>
+</ul>
+<p>这两件事过去都是海外项目占着位置——编排层是 LangGraph / AutoGen / CrewAI，记忆层是 mem0 / Letta / Zep。这一周国产团队第一次把两个层都补出对应位置，而且都拿出了具体的工程化数据，不是演示视频糊。</p>
+<p>从工程链路完整度看，今天这一篇拼图意义比单看「Token 降 61%」要大。Agent 中间件这条赛道国内过去一直是「能跑就行」，今天开始有了「能跑得稳」的版本——README 把评测、基线、绝对 Token、相对降幅、长会话场景全部摆明，这种透明度本身就是一种工程成熟度的信号。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/tencent-readme-logo.png" alt="腾讯 Agent Memory 项目 README 头图"></p>
+<h2>工程师视角的三条直接判断</h2>
+<p>判断一：<strong>短期任务记忆这一格今天被腾讯占走了。</strong> 海外四家方案目前没有一个把工具日志符号化做成产品级能力，腾讯用 Mermaid 画布抢到这个生态位。后续半年里如果其他记忆中间件项目要补这一格，大概率会参考腾讯这套画布协议。</p>
+<p>判断二：<strong>默认 SQLite + 本地起步这件事，对国内中小团队是真利好。</strong> 不用先架 PostgreSQL 集群，单文件起步，演示当天就能跑通，等真要上量再决定切 TCVDB 还是自建向量库。这条降低门槛的设计是国内开发者最容易理解的工程友好度。</p>
+<p>判断三：<strong>TypeScript 原生这一点会被 Node.js 栈团队感谢一年。</strong> 国内做前端 + Agent 融合的团队一直在 mem0 / Letta 的 Python sidecar 上吃苦。同语言原生的记忆中间件加进来，路径直接缩短一段，调用栈也少一层。</p>
+<h2>收口：信号已经摆出来了</h2>
+<p>回到开头那组数字：61.38% / 51.52% / 48 → 76。这一周国产 Agent 中间件赛道把短期编排（悟空）和短期 + 长期记忆（腾讯 Agent Memory）两个关键层一次性补齐。每一项都拿出了和海外同档方案直接对照的工程数据。</p>
+<p>对国内做 Agent 的开发者来说，这是一组温暖的信号——做 Agent 不再只能靠串 LangChain + 海外向量库 + 自己写 hack 把状态塞进 prompt 来过日子。本地 Qwen / Kimi / DeepSeek 当大脑、国产编排中间件当神经系统、国产记忆中间件当海马体，全栈跑国产栈这件事今天比上周更可信了一档。</p>
+<p>底盘搭好的速度，远比想象的要快。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

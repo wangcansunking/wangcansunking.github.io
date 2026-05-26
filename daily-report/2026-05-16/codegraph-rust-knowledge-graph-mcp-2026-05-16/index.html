@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code 终于看得懂大仓库：CodeGraph 上场 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-16</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-16</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Claude Code 终于看得懂大仓库：CodeGraph 上场</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/codegraph-rust-mcp-2026-05-16.png" alt="CodeGraph Rust 代码知识图谱 MCP 封面"></p>
+<p>8 个月时间，单作者，一个 GitHub 主页除了这个项目什么都没有的 Finland 开发者 Jakedismo，安安静静把一个 Rust workspace 写到了 12 个 crate、15 个安装脚本变体、<code>schema/</code> 下面同时维护关系型与图数据库两套 SurrealQL schema 的体量。这个仓 <strong>681 stars / 63 forks / 32 open issues / MIT OR Apache-2.0 双协议</strong>，createdAt 是 2025-09-12，pushed_at 还停在 2025-12-20——也就是说，这是个已经成型但还没进入营销推广期的项目。</p>
+<p>但它解决的问题，是国内每个天天用 Claude Code、Cursor、Cline、千问 Code、通义灵码 的开发者每天都在撞墙的事——大 monorepo 上的代码理解。</p>
+<blockquote>
+<p><strong>本文要回答四件事</strong>：(1) 在 ruflo / jcode / GitNexus 这堆 Rust + 代码 + agent 项目里，CodeGraph 到底站在哪个生态位、补的是哪块拼图；(2) 它的工程取舍——SurrealDB + HNSW + tree-sitter + Rig agent + 4 agentic 工具——每一步换成别的方案会差多少；(3) 国内开发者用 Claude Code / Cursor / Cline 接 CodeGraph，本地 Ollama 后端 + Jina embedding 怎么搭，省下多少 token 是真省；(4) 这种&quot;Rust 单作者写 MCP 服务器&quot;的小项目密度本周第几次冒头，说明 AI Coding 生态正在往哪走。</p>
+</blockquote>
+<h2>一、不是又一个 Rust agent，是补齐了一块特定形状的拼图</h2>
+<p>先把这一周看到的&quot;Rust 单作者 coding 项目&quot;放在一张地图上看。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/codegraph-stars-chart.png" alt="Rust 代码图谱 / Agent Harness 类项目 star 横评"></p>
+<p>近两周连续命中的同段位项目，技术站位差异其实非常大：</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>主语言</th>
+<th>类型</th>
+<th>star</th>
+<th>我对它的判断</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ruvnet ruflo</td>
+<td>TypeScript</td>
+<td>多代理编排平台</td>
+<td>51,485</td>
+<td>把 Claude Code 当后端跑 swarm</td>
+</tr>
+<tr>
+<td>abhigyanpatwari GitNexus</td>
+<td>TypeScript</td>
+<td>浏览器内代码图谱</td>
+<td>38,507</td>
+<td>客户端、零服务器、demo 友好</td>
+</tr>
+<tr>
+<td>1jehuang jcode</td>
+<td>Rust</td>
+<td>通用 coding agent harness</td>
+<td>6,164</td>
+<td>替代 Claude Code 的 TUI 容器</td>
+</tr>
+<tr>
+<td>Hmbown DeepSeek-TUI</td>
+<td>Rust</td>
+<td>单模型 TUI 客户端</td>
+<td>（前文已写）</td>
+<td>单后端、对话风格</td>
+</tr>
+<tr>
+<td><strong>Jakedismo codegraph-rust</strong></td>
+<td><strong>Rust</strong></td>
+<td><strong>代码图谱 MCP 服务器</strong></td>
+<td><strong>681</strong></td>
+<td><strong>把代码理解外置成工具</strong></td>
+</tr>
+<tr>
+<td>suatkocar codegraph 同名</td>
+<td>Rust</td>
+<td>32 语言 44 工具版</td>
+<td>3</td>
+<td>早期实验，类目相同</td>
+</tr>
+</tbody></table>
+<p>放在一起一看，CodeGraph 的位置就清楚了。它不和 ruflo 比&quot;我能编排多少 agent&quot;，也不和 jcode 比&quot;我做不做 TUI 容器&quot;，更不是 GitNexus 那种&quot;丢进浏览器看图&quot;的 demo 工具。它的核心命题是：<strong>把代码理解这件事从 LLM 的 context window 里拿出来，外置成 MCP 服务器，让 Claude Code / Cursor / Cline 通过 4 个工具调用获得结构化答案而不是一堆 grep 结果</strong>。</p>
+<p>这是个特别窄但特别硬的子赛道。窄到什么程度？拿 <code>gh search repos &quot;codegraph rust&quot;</code> 的结果说话——除了主仓和它的 fork，整个 GitHub 上只有一个 suatkocar/codegraph 是同形态项目，3 stars。窄到 Hacker News 上没有任何一条单独讨论 CodeGraph 的帖子，最相关的几条是 vexp.dev 和 code-review-graph 的低赞 Show HN，2-3 points 就停了。</p>
+<p>但 681 stars 在 8 个月里、4-12 月推送停滞了 5 个月的状态下还能持续增长，说明真有一批开发者发现&quot;我要的就是这个形状的东西&quot;。</p>
+<h2>二、4 个 agentic 工具：从 grep 结果到结构化答案的跳变</h2>
+<p>CodeGraph 没有遵循&quot;MCP 服务器就暴露一堆细粒度工具&quot;的常规打法。它 README 第二节明确写：<strong>4 个 consolidated agentic tools</strong>——<code>agentic_context</code> / <code>agentic_impact</code> / <code>agentic_architecture</code> / <code>agentic_quality</code>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/codegraph-tool-flow.png" alt="codegraph tool flow：agentic_impact 一次调用 vs 传统 grep+RAG 多次往返"></p>
+<p>工具的职责分工 README 写得很清楚：</p>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>职责</th>
+<th>focus 参数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>agentic_context</code></td>
+<td>搜索代码、构建综合语境、回答语义问题</td>
+<td>search / builder / question</td>
+</tr>
+<tr>
+<td><code>agentic_impact</code></td>
+<td>依赖链 / 调用链 / 改一个东西会牵动什么</td>
+<td>dependencies / call_chain</td>
+</tr>
+<tr>
+<td><code>agentic_architecture</code></td>
+<td>系统结构 / API 表面 / 架构模式</td>
+<td>structure / api_surface</td>
+</tr>
+<tr>
+<td><code>agentic_quality</code></td>
+<td>复杂度热点 / 耦合度 / 重构优先级</td>
+<td>complexity / coupling / hotspots</td>
+</tr>
+</tbody></table>
+<p>这种&quot;少而抽象&quot;的工具设计在 MCP 生态里其实是反潮流的。MCP marketplace 上常见的代码理解 MCP 服务器，动辄暴露 20-40 个工具，每个对应一个具体的图操作（找定义、找引用、找调用方、找子类、找 import……）。CodeGraph 把这些全部塞进了 4 个工具的内部，通过 <code>focus</code> 参数微调。</p>
+<p>README 的解释是：<strong>LLM 选工具是有 context 成本的</strong>。给它 40 个工具看，描述加起来就要烧掉两三千 token，模型还容易选错；给它 4 个工具看，描述精简、语义清晰、模型一次就能挑对。这套设计在 README 后面那段「与 GPT-5.1 / Claude / Grok-4 三档上下文窗口适配」的代码里能看得更清楚——CodeGraph 自己根据 <code>CODEGRAPH_CONTEXT_WINDOW</code> 环境变量动态调整内部步数上限（小模型 ≤ 3 步，200K 模型 ≤ 6 步，2M Grok 给到 8 步），把&quot;决定走几步&quot;这件事也外置成服务器配置而不是塞给 LLM。</p>
+<p>更值得关注的是工具内部的&quot;分层思考&quot;。README 写得明确：当 <code>CODEGRAPH_AGENT_ARCHITECTURE=rig</code>（默认），不同工具走不同推理策略：</p>
+<ul>
+<li><strong>LATS 树搜索</strong>：用在 <code>agentic_architecture(structure)</code> / <code>agentic_quality</code> / <code>agentic_context(question)</code>——需要多路径探索的复杂任务。</li>
+<li><strong>ReAct 直线推理</strong>：用在 <code>agentic_context(search/builder)</code> / <code>agentic_impact</code> / <code>agentic_architecture(api_surface)</code>——直接 lookup 类的任务。</li>
+<li><strong>Reflexion 自动回滚</strong>：主策略失败时自动接管，分析错因后用更精炼的 plan 重试。</li>
+</ul>
+<p>也就是说，开发者那一端看到的是 4 个工具，里面其实是 LATS / ReAct / Reflexion 三套不同推理框架按需切换。这种&quot;工具抽象&quot;对调用方（Claude Code / Cursor）来说是巨大解放——它们只需要决定&quot;我要查影响范围&quot;，不需要决定&quot;我要走树搜索还是直线推理&quot;。</p>
+<h2>三、SurrealDB + HNSW 是关键选择，混合搜索是 7:3 的明确配比</h2>
+<p>把代码理解外置成服务器，存储层和检索层是绕不开的硬骨头。CodeGraph 给的答案不太常见——<strong>SurrealDB</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/codegraph-surrealdb-hero.jpg" alt="SurrealDB 与 HNSW 向量索引（来源：surrealdb.com 官方）"></p>
+<p>SurrealDB 是 Rust 写的多模数据库——同时支持文档、图、键值、向量四种范式，2024 年 1.0 GA。CodeGraph 选它有几个具体理由能从代码里读出来：</p>
+<p>第一，<strong>HNSW 向量索引原生支持</strong>。<code>schema/codegraph_graph_experimental.surql</code> 这个文件 README 明确说&quot;为多种 embedding 维度（384-4096）定义 HNSW 索引，方便切换 embedding 模型而不需要重做 DB&quot;。意思是——你今天用 Qwen3-embedding-0.6B 的 1024 维，明天换成 Jina v4 的 2048 维，schema 已经把不同维度的 HNSW 桶预备好了，不需要数据迁移。</p>
+<p>第二，<strong>图 + 向量 + 文档在同一个引擎里</strong>。CodeGraph 要查的东西包含：节点（AST + FastML 解析出的代码单元）、边（calls / imports / defines / uses / flows_to / mutates / returns）、chunks 和它们的 embeddings、Markdown 文档节点（README / docs / <code>.surql</code> schema 的反向链接）。换成其他方案要么得拼 Neo4j + Pinecone 两套，要么得在 PostgreSQL + pgvector 上手写图遍历，要么得用 SQLite + sqlite-vec 受限于单机。SurrealDB 一个引擎全包。</p>
+<p>第三，<strong>SurrealQL 内置图函数可以放在数据库里跑</strong>。README 列出来的 <code>fn::semantic_search_nodes_via_chunks</code> / <code>fn::semantic_search_chunks_with_context</code> / <code>fn::get_transitive_dependencies</code> / <code>fn::trace_call_chain</code> / <code>fn::calculate_coupling_metrics</code> 全部是数据库端函数。这意味着 Rust 那一层只需要拼参数 + 调用，复杂的图遍历逻辑由 SurrealDB 自己优化执行——避免了&quot;把全图捞回应用层再遍历&quot;这种典型反模式。</p>
+<p>混合搜索的 7:3 配比是写在 README 里的硬数字：</p>
+<pre><code>70% 向量相似度（语义理解）
+30% 词法搜索（精确匹配）
++ 图遍历（关系与上下文）
++ 可选 reranker（跨编码器精度）
+</code></pre>
+<p>这个比例值得展开说——业界关于&quot;vector vs lexical&quot;的论战从 2023 年吵到现在，大多数 RAG 系统的做法是「先 BM25 召回 top-100，再 vector rerank top-10」。CodeGraph 反过来：以 vector 为主、lexical 辅助。原因写在 README 例子里：&quot;你搜 <code>login logic</code> 应该找到 <code>handleUserAuth</code>（语义命中）；你搜 <code>handleUserAuth</code> 也要能精确找到它（lexical 命中）。&quot;对代码这种&quot;名字承载语义&quot;的语料，70:30 比例确实比通用文档场景的 50:50 更合理。</p>
+<h2>四、Provider 矩阵：embedding 和推理都可以全本地</h2>
+<p>国内开发者拿到一个海外开源项目最关心的两件事：依赖云 API 吗？能不能本地跑？CodeGraph 在这点上做得格外干净。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/codegraph-provider-matrix.png" alt="codegraph provider matrix：3 档索引 + Embedding/推理/DB 三层 + 国内三档搭配"></p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>可选 provider</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Embedding（384-4096 维任选）</td>
+<td>Ollama / LM Studio / ONNX Runtime（全本地） · OpenAI / Jina AI（云端）</td>
+</tr>
+<tr>
+<td>LLM（agentic 推理）</td>
+<td>Ollama / LM Studio（本地） · Anthropic Claude / OpenAI / xAI Grok / OpenAI Compliant（云端）</td>
+</tr>
+<tr>
+<td>数据库</td>
+<td>SurrealDB 本地实例 / SurrealDB Cloud 免费档</td>
+</tr>
+<tr>
+<td>图谱 schema</td>
+<td>关系型 vanilla schema / 实验性图数据库 schema 二选一</td>
+</tr>
+</tbody></table>
+<p><code>~/.codegraph/config.toml</code> 示例配置长这样：</p>
+<pre><code class="language-toml">[embedding]
+provider = &quot;ollama&quot;
+model = &quot;qwen3-embedding:0.6b&quot;
+dimension = 1024
+
+[llm]
+provider = &quot;anthropic&quot;
+model = &quot;claude-sonnet-4&quot;
+
+[database.surrealdb]
+connection = &quot;ws://localhost:3004&quot;
+namespace = &quot;ouroboros&quot;
+database = &quot;codegraph&quot;
+</code></pre>
+<p>把这套配置翻译成国内开发者熟悉的搭配：</p>
+<ul>
+<li><strong>完全离线版</strong>：embedding 用 Ollama 跑国产 <code>qwen3-embedding-0.6b</code>，推理用 Ollama 跑 <code>qwen3-coder-30b</code> 或本地 DeepSeek-V3-Lite，SurrealDB 本机 file:// 协议持久化。代码不离开本机，适合外包公司、金融政企、合规敏感场景。</li>
+<li><strong>本地推理 + 云端 embedding</strong>：embedding 用 Jina AI 免费档（README 直接给了 Jina 入口链接），推理走 Anthropic Claude 或本地 Qwen3-Coder。embedding 数据量小、隐私敏感度低（只是向量），推理走云端拿质量。</li>
+<li><strong>全云端版</strong>：embedding 用 OpenAI text-embedding-3-large，推理用 Claude Sonnet 4 / GPT-5.1 / Grok-4，SurrealDB 走免费云端档。最省心，但每个月会有几十到几百块美元的账单。</li>
+</ul>
+<p>对照 CodeGraph 的 Cargo workspace 也能看出工程化做得很整齐——<code>feature</code> flags 分了 7 套预设：<code>mcp-minimal</code> / <code>mcp-lmstudio</code> / <code>local-stack</code> / <code>cloud-enabled</code> / <code>full</code> 等等。每个 feature 控制一组 crate 编译，意思是&quot;你只用 Ollama + Anthropic，就别把 OpenAI 那堆代码编进来&quot;。Rust 这种&quot;零成本抽象&quot;在这种插件式 provider 架构上特别合适，最终二进制只带你启用的那部分依赖。</p>
+<h2>五、Tier-Aware：根据你的模型自动调整行为</h2>
+<p>CodeGraph 里有一个特别少见的设计——<code>CODEGRAPH_CONTEXT_WINDOW</code> 环境变量。</p>
+<table>
+<thead>
+<tr>
+<th>你的模型上下文</th>
+<th>CodeGraph 的行为</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>&lt; 50K token</td>
+<td>简洁 prompt，工具内部最多 3 步</td>
+</tr>
+<tr>
+<td>50K-150K</td>
+<td>均衡分析，最多 5 步</td>
+</tr>
+<tr>
+<td>150K-500K</td>
+<td>详细探索，最多 6 步</td>
+</tr>
+<tr>
+<td>&gt; 500K（Grok-4 等 2M 上下文）</td>
+<td>全面分析，最多 8 步</td>
+</tr>
+</tbody></table>
+<p>硬上限：<strong>最多 8 步（环境变量覆盖最多 10 步）</strong>，防止失控的工具调用烧爆 context 或者烧穿钱包。</p>
+<p>这个设计的意义在哪？同一个工具调用 <code>agentic_impact({&quot;query&quot;: &quot;UserService&quot;})</code>：</p>
+<ul>
+<li>跑在本地 Qwen3-Coder-30B（32K context）上：会用简洁 prompt，最多 3 步内部推理，返回精炼的依赖图。</li>
+<li>跑在 Claude Sonnet 4（200K context）上：会用详细 prompt，最多 6 步，返回扩展的依赖图 + 调用链 + 耦合度。</li>
+<li>跑在 Grok-4-Fast（2M context）上：会用最详细的 prompt，最多 8 步，返回完整的依赖图 + 多路径分析。</li>
+</ul>
+<p>也就是说，<strong>同一个 codegraph-rust 二进制，跑在 32K 模型和 2M 模型上行为是不一样的</strong>。这是为代码 agent 服务器单独做的&quot;自适应&quot;，省去开发者根据模型手动调参数的成本。</p>
+<p>配套的&quot;上下文溢出保护&quot;也很务实——每个工具返回结果有自动截断（默认 <code>context_window × 2 bytes</code> 上限），累积上下文有总量护栏（80% × 4 × context_window），超过就 fail-fast 而不是返回 6M token 把模型撑死。CodeGraph 自述：&quot;没有这些护栏，一次大 monorepo 的 <code>agentic_impact</code> 查询可能返回 6M+ token——远超大多数模型上限，导致昂贵的失败。&quot;这种细节是写过 RAG 系统的人才会想到加的。</p>
+<h2>六、和 GitNexus / jcode / DeepSeek-TUI 的精确对位</h2>
+<p>近两周连续命中的&quot;Rust + 代码 + agent&quot; 类项目里，CodeGraph 是第四个。这里把 4 家的分工说清楚，避免读者觉得&quot;又是同一类东西&quot;。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>CodeGraph (Jakedismo)</th>
+<th>GitNexus (abhigyanpatwari)</th>
+<th>jcode (1jehuang)</th>
+<th>DeepSeek-TUI (Hmbown)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>主语言</td>
+<td>Rust</td>
+<td>TypeScript</td>
+<td>Rust</td>
+<td>Rust</td>
+</tr>
+<tr>
+<td>部署形态</td>
+<td>MCP 服务器（stdio/HTTP）</td>
+<td>浏览器内运行</td>
+<td>TUI 容器</td>
+<td>TUI 客户端</td>
+</tr>
+<tr>
+<td>服务对象</td>
+<td>Claude Code/Cursor/Cline</td>
+<td>个人开发者 demo</td>
+<td>写代码本身</td>
+<td>单模型对话</td>
+</tr>
+<tr>
+<td>图谱构建</td>
+<td>tree-sitter + LSP + 14 lang</td>
+<td>tree-sitter 浏览器版</td>
+<td>不构建</td>
+<td>不构建</td>
+</tr>
+<tr>
+<td>存储</td>
+<td>SurrealDB + HNSW</td>
+<td>内存 + 浏览器 IndexedDB</td>
+<td>文件系统</td>
+<td>无持久化</td>
+</tr>
+<tr>
+<td>工具粒度</td>
+<td>4 个 agentic 工具</td>
+<td>内嵌 chat UI</td>
+<td>通用 agent harness</td>
+<td>对话窗口</td>
+</tr>
+<tr>
+<td>Provider</td>
+<td>Ollama/Jina/OpenAI 全套</td>
+<td>主要 OpenAI 兼容</td>
+<td>主要 Anthropic</td>
+<td>DeepSeek</td>
+</tr>
+<tr>
+<td>协议</td>
+<td>MIT OR Apache-2.0</td>
+<td>MIT</td>
+<td>MIT</td>
+<td>MIT</td>
+</tr>
+<tr>
+<td>适合场景</td>
+<td>大 monorepo 给 agent 用</td>
+<td>单仓代码可视化</td>
+<td>替代 Claude Code</td>
+<td>国内单后端代码对话</td>
+</tr>
+<tr>
+<td>star（5/16）</td>
+<td>681</td>
+<td>38,507</td>
+<td>6,164</td>
+<td>已写专文</td>
+</tr>
+</tbody></table>
+<p>差异看清楚了：<strong>CodeGraph 不是 GitNexus 的 Rust 版本</strong>——GitNexus 是给人看的（浏览器内交互图谱），CodeGraph 是给 agent 用的（MCP 工具调用）。<strong>CodeGraph 也不是 jcode 的图谱版本</strong>——jcode 是替你跑 agent 循环，CodeGraph 是给 agent 提供&quot;理解代码&quot;这个能力。这四家其实凑齐了 AI Coding 工具链的四个不同位置。</p>
+<p>更值得注意的是，前文我把 GitNexus（4-29 写过）定为&quot;客户端代码图谱&quot;路线，CodeGraph 是&quot;服务器端代码图谱&quot;路线。两条线的工程取舍完全不同：</p>
+<ul>
+<li>GitNexus 选 TypeScript + 浏览器，意味着 demo 门槛极低（拖一个 ZIP 文件进去就跑），但被浏览器内存上限锁死，跑不了 monorepo。</li>
+<li>CodeGraph 选 Rust + 本机服务器 + SurrealDB，意味着启动成本高（要装 surreal、要 apply schema、要跑 daemon），但可以处理 100 万行级别的代码库且永久持久化。</li>
+</ul>
+<p>国内开发者实测时该选哪条？看你的代码规模和接入方式。要做&quot;个人作品集 demo&quot;用 GitNexus 五分钟跑起来；要做&quot;团队 monorepo + Claude Code 接入&quot;用 CodeGraph 一次部署长期用。</p>
+<h2>七、从客户端配置到索引：实际接入路径</h2>
+<p>接 CodeGraph 的 MCP 配置在 README 里写得很清楚：</p>
+<pre><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;codegraph&quot;: {
+      &quot;command&quot;: &quot;/full/path/to/codegraph&quot;,
+      &quot;args&quot;: [&quot;start&quot;, &quot;stdio&quot;, &quot;--watch&quot;]
+    }
+  }
+}
+</code></pre>
+<p>把这段塞进各家的 MCP 配置位置：</p>
+<table>
+<thead>
+<tr>
+<th>客户端</th>
+<th>MCP 配置位置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Claude Code（本机版）</td>
+<td><code>~/.config/claude-code/mcp.json</code></td>
+</tr>
+<tr>
+<td>Cursor</td>
+<td>Settings → MCP → 添加自定义服务器</td>
+</tr>
+<tr>
+<td>Cline（VS Code 插件）</td>
+<td><code>.cline/mcp_settings.json</code></td>
+</tr>
+<tr>
+<td>通义灵码</td>
+<td>当前 MCP 接入仍在内测，可走 dashscope function calling 间接调用</td>
+</tr>
+<tr>
+<td>千问 Code（dashscope 开放平台）</td>
+<td>通过 function calling 暴露 4 个工具</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td><code>.openclaw/mcp.json</code>（按 OpenClaw 文档）</td>
+</tr>
+</tbody></table>
+<p>接入之后，索引一遍代码库是必须的一步：</p>
+<pre><code class="language-bash">codegraph index /path/to/project -r -l rust,typescript,python --index-tier balanced
+</code></pre>
+<p>README 写得很明确——索引分三档：</p>
+<ul>
+<li><code>fast</code>：只建 AST 节点和核心边，不跑 LSP，存储最省，索引最快。</li>
+<li><code>balanced</code>：加上 LSP 符号、文档/合约节点、模块链接。<strong>这是大多数场景的推荐档</strong>。</li>
+<li><code>full</code>：所有分析器 + LSP definitions + dataflow + 架构信号，最准但最重。</li>
+</ul>
+<p>国内开发者上手实测时容易踩的两个坑：</p>
+<p>第一坑是 <strong>LSP 工具链没装</strong>。<code>balanced</code> / <code>full</code> 档要求各语言的 LSP 在 PATH 里：Rust 要 <code>rust-analyzer</code>，TS/JS 要 <code>typescript-language-server</code>，Python 要 <code>pyright-langserver</code>，Go 要 <code>gopls</code>。README 明确说&quot;索引会 fail fast 如果工具缺失&quot;。第二坑是 <code>rust-analyzer</code> 是 rustup shim 而不是真实二进制（用户装了 rustup 但没装 toolchain 的 rust-analyzer 组件），表现是报错 <code>Unknown binary &#39;rust-analyzer&#39; in official toolchain</code>，解决办法 <code>brew install rust-analyzer</code> 或者 <code>rustup component add rust-analyzer</code>。</p>
+<h2>八、单作者 Rust × MCP 服务器：生态信号</h2>
+<p>近两周连续命中四个&quot;Rust 单作者 coding 项目&quot;是个统计学上不能再忽略的信号。把信号读清楚：</p>
+<table>
+<thead>
+<tr>
+<th>时间点</th>
+<th>项目</th>
+<th>子类</th>
+<th>共同特征</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>5/3</td>
+<td>ruvnet ruflo</td>
+<td>多 agent 编排</td>
+<td>TypeScript，但生态归类近似</td>
+</tr>
+<tr>
+<td>5/4</td>
+<td>1jehuang jcode</td>
+<td>Coding agent harness</td>
+<td>Rust，单作者，TUI 容器</td>
+</tr>
+<tr>
+<td>5/15</td>
+<td>Hmbown DeepSeek-TUI</td>
+<td>单模型 TUI 客户端</td>
+<td>Rust，单作者，本地优先</td>
+</tr>
+<tr>
+<td>5/16</td>
+<td>Jakedismo codegraph-rust</td>
+<td>代码图谱 MCP 服务器</td>
+<td>Rust，单作者，本地优先</td>
+</tr>
+</tbody></table>
+<p>四个项目子类完全不同（编排 / harness / TUI / 图谱），但共同骨架是：</p>
+<ul>
+<li><strong>单作者</strong>，没有公司背景，没有 VC backing；</li>
+<li><strong>Rust 主语言</strong>，二进制可分发、零依赖运行时；</li>
+<li><strong>本地优先</strong>，全套 provider 矩阵都支持纯本地 stack；</li>
+<li><strong>MIT / Apache 友好协议</strong>，不阻挡商用；</li>
+<li><strong>生态位精准</strong>，每家只补一项，不做大而全。</li>
+</ul>
+<p>这种密度说明：AI Coding 这个赛道正在进入一个&quot;乐高化&quot;阶段——大公司不再是唯一玩家，单作者用 Rust 在小窗口里把一件事做透就能积累用户。其中代码图谱这块尤其值得国内关注：它是把 Claude Code / Cursor / 千问 Code 等 agent 客户端做到&quot;懂你的项目&quot;的必经一步，谁先把这件事做到工业级、谁就掌握了下一代 AI Coding 的基础设施层。</p>
+<p>国内已经有 36氪、量子位、机器之心在追这个赛道的大事件（DeepSeek-V4、Qwen3-Coder、千问 Code 开源、通义灵码免费），但对&quot;小型 MCP 服务器 + 代码图谱&quot;这种基础工具的关注还不密集。等到国内开发者发现 Claude Code 接上代码图谱之后大 monorepo 的体验是另一回事时，这类工具的扩散会比想象中快。</p>
+<h2>九、回到那 681 stars：为什么这个项目值得放在收藏夹里</h2>
+<p>把全文的论点收拢成一句话：<strong>CodeGraph 不是又一个 Rust agent harness，它是&quot;把代码理解外置成 MCP 工具&quot;这条子赛道里第一个把工程做到产品级的 Rust 实现</strong>。</p>
+<p>它的核心价值不是 681 stars 这个数字，也不是 4 个 agentic 工具的命名好听。它真正的价值在三个地方：</p>
+<p>第一，<strong>把 LLM context 压力转给服务器</strong>。普通 grep+RAG 一次问题要烧十几万 token 在&quot;读文件、拼依赖图&quot;上；CodeGraph 一次工具调用把这些工作甩给 SurrealDB + tree-sitter + LSP，LLM 那一端只看到结构化答案。对 Claude Code Pro 用户来说，这意味着同样的月费能干更多活。对国内本地推理 Qwen3-Coder / DeepSeek-V3-Lite 用户来说，这意味着小 context window 模型也能处理大 monorepo。</p>
+<p>第二，<strong>让&quot;自己写 MCP 服务器&quot;这件事降本</strong>。Cargo workspace 拆得很整齐，每个 crate 职责明确：<code>codegraph-core</code> 通用类型 / <code>codegraph-vector</code> 向量索引 / <code>codegraph-parser</code> AST 解析 / <code>codegraph-graph</code> 图操作 / <code>codegraph-mcp-server</code> MCP 协议层。想做自己的代码 MCP 服务器、想给 CodeGraph 加一种语言、想换 provider，工程上的切入点都很清楚。</p>
+<p>第三，<strong>示范了一条小团队也能走通的&quot;基础工具&quot;路线</strong>。不需要拉 1000 万融资、不需要做大模型、不需要做完整 Agent 框架——找一个特别窄但特别硬的点（代码图谱 + MCP 服务器），用 Rust 把它做透、用本地优先吸引隐私敏感用户、用 4 个抽象工具简化调用方心智。这条路线对国内独立开发者、小团队 CTO、Indie hacker 是很有借鉴价值的。</p>
+<p>把 681 stars 放进收藏夹的那一天，你看到的不只是一个 Rust 项目，是 AI Coding 工具链下一阶段的拼图形状。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

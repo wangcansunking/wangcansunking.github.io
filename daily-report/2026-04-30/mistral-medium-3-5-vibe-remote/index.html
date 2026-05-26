@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code 的开源对手来了：Mistral — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-04-30</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-04-30</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Claude Code 的开源对手来了：Mistral</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/30/mistral-medium-3-5-vibe-remote.png" alt="Mistral Medium 3.5 + Vibe Remote Agents 主视觉"></p>
+<blockquote>
+<p>4 月 29 日，法国公司 Mistral AI 一口气发了三件事：旗舰融合模型 <strong>Medium 3.5</strong>（128B Dense、256K 上下文、Modified MIT 开源权重），云端异步编程代理 <strong>Vibe Remote Agents</strong>，以及 Le Chat 里专攻多工具复杂任务的 <strong>Work mode</strong>。SWE-Bench Verified 77.6%、τ³-Telecom 91.4——这是 Mistral 这次唯一公布的两个 agentic benchmark 数字。API 计费 $1.5/$7.5 per million tokens，自托管最少 4 GPU。</p>
+</blockquote>
+<p>这三件事其实分别打三个不同战场。模型一档 Mistral 选了一条少有人走的路——<strong>dense 而非 MoE</strong>；coding agent 整体搬上云，和 Codex、Claude Code 不一样的是<strong>长任务并行</strong>默认开；Le Chat 加了 Work mode，一次串起邮件 / 日历 / Slack / Jira。</p>
+<p><strong>国内开发者最快路径</strong>：OpenRouter 注册账号 + 支付宝充值 + Vibe CLI 配 OpenRouter endpoint，半小时跑通。具体配置参数见 §七。</p>
+<h2>一、Medium 3.5 模型本身：把 instruct / reasoning / coding 合并成一套权重</h2>
+<p>先看 <a href="https://mistral.ai/news/vibe-remote-agents-mistral-medium-3-5" target="_blank" rel="noopener">Mistral 官方公告</a> 上的硬数据：</p>
+<ul>
+<li><strong>架构</strong>：Dense 128B 参数（不是 MoE）</li>
+<li><strong>上下文长度</strong>：256K tokens</li>
+<li><strong>多模态输入</strong>：text + image → text 输出，vision encoder 从头训练以适配可变图像尺寸</li>
+<li><strong>推理力度可配</strong>：<code>reasoning_effort</code> 字段支持 <code>none</code> / <code>high</code> 两档，按请求切换</li>
+<li><strong>多语言</strong>：英 / 法 / 西 / 德 / 意 / 葡 / 荷 / 中 / 日 / 韩 / 阿</li>
+<li><strong>License</strong>：Modified MIT，<strong>对大营收企业有例外条款</strong></li>
+</ul>
+<p>⚠️ 这里有一处和第三方报道的冲突。<code>thecodersblog</code> 写 Medium 3.5 的上下文是 128K，<a href="https://huggingface.co/mistralai/Mistral-Medium-3.5-128B" target="_blank" rel="noopener">官方 HuggingFace 模型卡</a> 写 256K——以官方为准。</p>
+<p>&quot;flagship merged model&quot; 是 Mistral 自己的定位词。意思是这一条权重把指令遵循、推理、编程三种能力合并训出来，不再像 Codestral / Devstral / Magistral 系列拆成独立家族。这是这次发布的一个明显信号——Mistral 觉得把能力分家训练的 ROI 没有合并训练高。</p>
+<p>EAGLE 推测解码版本 <a href="https://huggingface.co/mistralai/Mistral-Medium-3.5-128B-EAGLE" target="_blank" rel="noopener"><code>mistralai/Mistral-Medium-3.5-128B-EAGLE</code></a> 同步发了。EAGLE 是用 draft 模型做 speculative decoding 的工程套路，能把推理吞吐提 2-3 倍，对自托管推理服务尤其值钱。</p>
+<h2>二、Benchmark：只公布两个数字这件事本身</h2>
+<p>Mistral 这次只公布了两个 agentic benchmark：</p>
+<table>
+<thead>
+<tr>
+<th>Benchmark</th>
+<th>Medium 3.5</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SWE-Bench Verified</td>
+<td><strong>77.6%</strong></td>
+<td>真实 GitHub PR 修复率，代理任务标杆</td>
+</tr>
+<tr>
+<td>τ³-Telecom</td>
+<td><strong>91.4</strong></td>
+<td>tau-bench 系列电信领域多轮工具调用基准</td>
+</tr>
+</tbody></table>
+<p>77.6 这条，把它和近期同档同代模型对比一下：</p>
+<ul>
+<li>DeepSeek V4 系列：80%+ 段位（<a href="https://www.buildfastwithai.com/blogs/deepseek-v4-pro-review-2026" target="_blank" rel="noopener">buildfastwithai 评测</a>）</li>
+<li>千问 Qwen 3.6-27B：HN 用户 YetAnotherNick 直接对位 —— &quot;It has similar SWE bench score to qwen 3.6 27b&quot;（也就是 77 分附近）</li>
+<li>千问 Qwen 3.6 35B-A3B MoE：HN 用户 ksubedi 评估&quot;在所有指标上都更好且占用是这一档的零头&quot;</li>
+<li>MiniMax M2.5：商业 API 路径，社区估算 80% 段位（具体数字以官方公告为准）</li>
+<li>Mistral Medium 3.5：77.6%（官方公布）</li>
+</ul>
+<p>Medium 3.5 卡在和 Qwen 3.6-27B 同位，比 DeepSeek V4 系列略低。Mistral 自己在公告里只敢说&quot;ahead of Devstral 2 and models like Qwen3.5 397B A17B&quot;——选了一个上一代的对照基线。</p>
+<p>只发两个数字这件事在 <a href="https://news.ycombinator.com/item?id=47949642" target="_blank" rel="noopener">HN 47949642</a> 直接被点出来了。HN 用户 <strong>YetAnotherNick</strong> 原话：</p>
+<blockquote>
+<p>&quot;It has similar SWE bench score to qwen 3.6 27b[1]. No one is comparing it to frontier.
+[1]: There is no other common benchmark in the blog.&quot;</p>
+</blockquote>
+<p>另一位用户 <strong>ksubedi</strong> 给得更狠：</p>
+<blockquote>
+<p>&quot;Let&#39;s not forget Qwen 35B A3B MoE. It gets better performance than this in all the metrics for a fraction of the memory / compute footprint.
+Sad to see all the non Chinese open source models being at least one generation behind.&quot;</p>
+</blockquote>
+<p>这条评论指向一个事实——2026 年这一轮开源模型迭代里，<strong>中国团队（DeepSeek / Qwen / MiniMax）已经把性能/成本比拉到了西方同行不容易追上的水平</strong>。MMLU / HumanEval / GPQA / 中文能力等常见数字 Mistral 这次都没发。</p>
+<p>但反过来，<strong>Medium 3.5 仍然有它的价值锚点</strong>——HN 用户 <strong>simjnd</strong> 的客观评估：</p>
+<blockquote>
+<p>&quot;I&#39;m not sure what people are on in the comments. It doesn&#39;t beat the other models, but it sure competes despite its size.&quot;</p>
+</blockquote>
+<blockquote>
+<p>&quot;GLM 5.1 is an excellent model, but even at Q4 you&#39;re looking at ~400GB. Kimi K2.5 is really good too, and at Q4 quantization you&#39;re looking at almost ~600GB. This model? You can run it at Q4 with 70GB of VRAM.&quot;</p>
+</blockquote>
+<p>128B Dense 是一个比 DeepSeek V4 671B、Kimi K2 1T、千问 3.6 Max 都小的尺寸，加上 Modified MIT 开源权重，<strong>自托管和私有化部署的门槛低出一档</strong>。这是它的竞争生态位。</p>
+<h2>三、价格：$1.5 进、$7.5 出，4 GPU 起跑</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>数字</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>API input</td>
+<td><strong>$1.5 / M tokens</strong></td>
+</tr>
+<tr>
+<td>API output</td>
+<td><strong>$7.5 / M tokens</strong></td>
+</tr>
+<tr>
+<td>Le Chat Pro 月费</td>
+<td>以 <a href="https://mistral.ai/pricing" target="_blank" rel="noopener">mistral.ai/pricing</a> 实时定价为准</td>
+</tr>
+<tr>
+<td>Self-host 最低配置</td>
+<td>4 GPU（官方未指定型号；Docker 镜像 tags 包含 H100 / H200 / B200 / B300）</td>
+</tr>
+<tr>
+<td>HuggingFace 权重</td>
+<td>fp8 原生约 128GB（128B × 1 byte），社区 Q4 量化版约 70GB（HN simjnd 实测）；<a href="https://ollama.com/library/mistral-medium-3.5" target="_blank" rel="noopener">Ollama mistral-medium-3.5</a> 默认拉取 80GB</td>
+</tr>
+<tr>
+<td>vLLM 推荐</td>
+<td><code>--tensor-parallel-size 8</code>（HF 模型卡）</td>
+</tr>
+</tbody></table>
+<p>$1.5 / $7.5 这一档放进 2026-04 的开源旗舰价格带：</p>
+<ul>
+<li>DeepSeek V4 输出：人民币 24 元 / M（折合约 $3.3 / M）</li>
+<li>Qwen3.5 Max：阿里云 list price 输出约 $1.6 / M</li>
+<li>Mistral Medium 3.5：$7.5 / M</li>
+</ul>
+<p><strong>Mistral 的输出端不便宜</strong>。但若把&quot;4 GPU 即可自托管 + 权重开源&quot;作为加分项算，对很多既想用大模型又怕数据外传的企业，它能落地的形态比 DeepSeek V4 671B 多一档。</p>
+<p>实际本地推理速度，<a href="https://news.ycombinator.com/item?id=47949642" target="_blank" rel="noopener">HN 47949642</a> 上几位用户给了具体数字：</p>
+<ul>
+<li>HN 用户 <strong>simjnd</strong> 实测：&quot;This model? You can run it at Q4 with 70GB of VRAM.&quot;（70GB Q4 是 Mistral Medium 3.5 自身的量化版门槛）</li>
+<li>HN 用户 <strong>UncleOxidant</strong> 在 AMD Strix Halo 平台实测约 3 tokens/s——他指出 unified memory 机器有 VRAM 但带宽对 dense 模型不够</li>
+<li>HN 用户 <strong>freakynit</strong> 推算苹果 M3 Ultra 的理论上限：&quot;M3 ultra has 819GB/s unified memory bandwidth. That means theoretical max tokem rate is 819/128 =~ 6.39 t/s.&quot;（128B fp8 时的天花板）</li>
+<li>8×H100 vLLM TP：吞吐百倍以上，但需要服务器级硬件</li>
+</ul>
+<p>128B Dense 的 ceiling 摆在那里，它<strong>不是设计给 MacBook 跑的</strong>。MoE 那一档（DeepSeek V4 / Qwen 3.6 35B-A3B）在 Mac 上的性价比依然更高，这点要承认。</p>
+<h2>四、Vibe Remote Agents：把 coding agent 真正搬上云</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/30/mistral-medium-3-5-vibe-cli.png" alt="Vibe Remote Agents 工作流（来自 Mistral 官方公告）"></p>
+<p>Vibe 这条产品线的时间线：</p>
+<ul>
+<li><strong>2025 年末</strong>：<a href="https://github.com/mistralai/mistral-vibe" target="_blank" rel="noopener">mistralai/mistral-vibe</a> 仓库首发 Vibe 1.0</li>
+<li><strong>2026 年早期</strong>：<a href="https://mistral.ai/news/mistral-vibe-2-0" target="_blank" rel="noopener">Vibe 2.0</a>，基于 Devstral 2 的 terminal-native coding agent</li>
+<li><strong>2026-04-29</strong>：Vibe 2.9.2 + Remote Agents（GitHub Releases），默认模型切到 Medium 3.5</li>
+</ul>
+<p>Remote 在这次的具体含义，<a href="https://mistral.ai/news/vibe-remote-agents-mistral-medium-3-5" target="_blank" rel="noopener">官方公告</a> 写得很直接：</p>
+<blockquote>
+<p>&quot;coding sessions can work through long tasks while you&#39;re away. Many can run in parallel. Each coding session runs in an isolated sandbox, including broad edits and installs.&quot;</p>
+</blockquote>
+<p>把它翻译成国内开发者熟悉的话——<strong>每个会话跑在云上的隔离 sandbox 里，并行运行，长任务自动跑完后开 GitHub PR + 通知用户</strong>。这跟 Codex Cloud / Cursor Background Agents / Claude Code Cloud 的产品形态对齐，但 Mistral 的差异点在两处：</p>
+<ol>
+<li><p><strong>本地 → 云的&quot;teleport&quot;</strong>：Vibe CLI 的本地会话可以一键托管到云。官方原文：</p>
+<blockquote>
+<p>&quot;Ongoing local CLI sessions can be teleported up to the cloud when you want to leave them running, with session history, task state, and approvals carrying across.&quot;</p>
+</blockquote>
+</li>
+<li><p><strong>集成清单走的是企业向</strong>：GitHub（PR / code）、Linear / Jira（issues）、Sentry（incidents）、Slack / Teams（通知）。比单纯接 GitHub PR 多了 incident / issue 这一层。</p>
+</li>
+</ol>
+<p>启动一个普通 Vibe 会话的命令本身很朴素：</p>
+<pre><code class="language-bash">vibe &quot;Refactor the main function in cli/main.py to be more modular.&quot;
+</code></pre>
+<p>非交互模式：</p>
+<pre><code class="language-bash">vibe --prompt &quot;Add unit tests for billing module&quot; \
+     --max-turns 30 \
+     --max-price 2.0
+</code></pre>
+<p>续接最近会话用 <code>vibe --continue</code>，按 ID 续接用 <code>vibe --resume &lt;session-id&gt;</code>。</p>
+<p>⚠️ &quot;把本地会话 teleport 到云&quot; 的具体 CLI flag（是 <code>--remote</code> 还是 <code>vibe spawn</code>？）官方公告页没有明文，需要读 <a href="https://docs.mistral.ai/mistral-vibe/introduction" target="_blank" rel="noopener">docs.mistral.ai/mistral-vibe/</a> 落实。第一周用的人可以自己测一下，文档可能也会在接下来几天补全。</p>
+<h2>五、subagent / skill 不是 YAML，也不是 npm</h2>
+<p>跟 Claude Code 一对比就能看出 Vibe 的工程口味：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Vibe</th>
+<th>Claude Code</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>安装方式</td>
+<td><code>pip install mistral-vibe</code> 或 <code>uv tool install mistral-vibe</code> 或 <code>curl install.sh</code></td>
+<td><code>npm install -g @anthropic-ai/claude-code</code></td>
+</tr>
+<tr>
+<td>Subagent 配置</td>
+<td><strong>TOML</strong>，存于 <code>~/.vibe/agents/</code></td>
+<td>YAML frontmatter</td>
+</tr>
+<tr>
+<td>Skill 定义</td>
+<td><strong>Markdown + YAML frontmatter</strong>（文件 <code>SKILL.md</code>）</td>
+<td>Markdown + YAML frontmatter（同名同结构）</td>
+</tr>
+<tr>
+<td>Hooks（Pre/Post tool use）</td>
+<td>⚠️ 官方文档没明确提，用 <code>safety</code> + <code>enabled_tools</code> 替代</td>
+<td>完整 lifecycle hooks</td>
+</tr>
+<tr>
+<td>中断后继续</td>
+<td><code>--continue</code> / <code>--resume &lt;id&gt;</code></td>
+<td><code>claude --resume</code></td>
+</tr>
+</tbody></table>
+<p>Vibe 是 Python 生态，这个细节很重要——<strong>国内 npm 镜像不好用的开发者，pip 走清华 / 阿里源比 npm 走淘宝镜像更稳定</strong>，相当于一种意外的国内友好。</p>
+<p>一个最简 subagent TOML：</p>
+<pre><code class="language-toml">display_name = &quot;Research&quot;
+description = &quot;Read-only subagent for research tasks&quot;
+safety = &quot;safe&quot;
+agent_type = &quot;subagent&quot;
+enabled_tools = [&quot;grep&quot;, &quot;read_file&quot;]
+</code></pre>
+<p>放进 <code>~/.vibe/agents/research.toml</code>，主 agent 就能 <code>delegate to research</code>。Skill 那一侧用熟悉的 Markdown：</p>
+<pre><code class="language-yaml">---
+name: code-review
+description: Perform automated code reviews
+allowed-tools:
+  - read_file
+  - grep
+  - ask_user_question
+---
+
+# Code Review Skill
+
+When invoked, scan the diff in the current branch...
+</code></pre>
+<p>格式取舍上，Mistral 的判断是：<strong>配置文件用 TOML（受 Rust / Cargo 影响），知识/流程用 Markdown</strong>。比起 Claude Code 全部 YAML，Vibe 的工程口味更&quot;程序员日常&quot;一点。Hooks 缺位是它最明显的功能差距——如果你的工作流里依赖 PreToolUse 拦危险命令、PostToolUse 校验输出，Vibe 当前还做不了。</p>
+<h2>六、Le Chat Work mode：把多工具串成一次请求</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/30/mistral-medium-3-5-le-chat-work.png" alt="Le Chat Work mode 跨工具示意"></p>
+<p>Le Chat 的 Work mode 是这次发布的第三件事。Mistral 官方原文：</p>
+<blockquote>
+<p>&quot;Work mode is a powerful new agentic mode for complex tasks in Le Chat, powered by a new harness and Mistral Medium 3.5.&quot;</p>
+</blockquote>
+<p>具体能做的事，按它的 demo 描述：</p>
+<ul>
+<li>跨工具一次跑完——邮件 + 日历 + Slack 在一个 prompt 里完成</li>
+<li>收件箱 triage + 草稿</li>
+<li>在 Jira / Linear 自动开 issue</li>
+<li>每个 tool call + 推理过程对用户可见</li>
+<li>敏感动作（发消息 / 写文档 / 改数据）需要用户显式批准</li>
+<li>connectors 默认全开，不像普通 Chat 要手动选</li>
+</ul>
+<p>入口仅限 Pro / Team / Enterprise 计划。免费用户暂时拿不到这个能力。</p>
+<p>把 Vibe Remote Agents 和 Le Chat Work mode 放在一起看，Mistral 的 thesis 是：<strong>模型权重一个家族（Medium 3.5），但形态分两条路出去——Vibe 服务程序员的 long-running 编码任务，Work mode 服务办公场景的跨工具工作流</strong>。这两条路上的 connectors / tool list / 安全审批策略不重叠。</p>
+<h2>七、国内开发者的最快上手路径</h2>
+<p><strong>场景 A · 试用 / 评估期</strong></p>
+<p>最便宜的方式是 OpenRouter 走 API：</p>
+<ol>
+<li>注册 <a href="https://openrouter.ai/" target="_blank" rel="noopener">OpenRouter</a></li>
+<li>按 <a href="https://zhuanlan.zhihu.com/p/1898753591528908109" target="_blank" rel="noopener">知乎 OpenRouter 充值教程</a> 用支付宝充 10 美元</li>
+<li>在 OpenRouter 的 model 列表选 <code>mistralai/mistral-medium-3.5-128b</code></li>
+<li>拿到 API key 后，在任何支持 OpenAI 协议的客户端（包括 Cursor / Cline / Aider）配上去</li>
+<li>不动 Mistral 官网账号，绕开海外信用卡 / 银联问题</li>
+</ol>
+<p><strong>场景 B · 跑 Vibe CLI 完整体验</strong></p>
+<pre><code class="language-bash"># 国内 pip 走清华镜像
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple mistral-vibe
+
+# 配置走 OpenRouter
+mkdir -p ~/.vibe
+cat &gt; ~/.vibe/config.toml &lt;&lt;&#39;EOF&#39;
+[provider]
+api_base = &quot;https://openrouter.ai/api/v1&quot;
+api_key = &quot;your-openrouter-key&quot;
+model = &quot;mistralai/mistral-medium-3.5-128b&quot;
+EOF
+
+# 启动
+vibe &quot;Add unit tests for the billing module&quot;
+</code></pre>
+<p>⚠️ Vibe CLI 的 OpenRouter 兼容性<strong>官方 docs 没明确背书</strong>，第一次跑不通就直接走 Mistral 官方 API + 海外信用卡，或换 Aider / Continue 这类成熟客户端。</p>
+<p><strong>场景 C · 本地权重自托管</strong></p>
+<ul>
+<li>单卡：80GB fp8 权重，最低需要 RTX 6000 Ada / H100 80GB / Mac Studio M3 Ultra 128GB</li>
+<li>服务器：8×H100 80GB 用 vLLM <code>--tensor-parallel-size 8</code></li>
+<li>HF 权重国内拉取走 <a href="https://hf-mirror.com/" target="_blank" rel="noopener">hf-mirror.com</a> 或 <a href="https://www.modelscope.cn/" target="_blank" rel="noopener">ModelScope</a> 镜像</li>
+<li>Ollama 一行：<code>ollama pull mistral-medium-3.5:128b</code>，80GB 拉不动就先试 Q4 社区量化版</li>
+</ul>
+<p><strong>场景 D · 产品里集成</strong></p>
+<p>Mistral La Plateforme + NVIDIA NIM 是企业向部署路径，但前者付款、合规、出海数据落地都要走海外流程。如果是国内业务，<strong>优先方向应当是用 Medium 3.5 的开源权重在国内云（阿里云 GN8 / 腾讯云 HCC / 火山引擎 GA1）上自建推理服务</strong>——这条路上数据不出境、计费走人民币、增值税发票合规。</p>
+<h2>八、与国产开源旗舰的位置</h2>
+<p>把 Medium 3.5 放回 2026-04 这一波模型迭代的位置图：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>参数</th>
+<th>架构</th>
+<th>开源</th>
+<th>SWE-Bench</th>
+<th>API 输出价</th>
+<th>自托管门槛</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Mistral Medium 3.5</td>
+<td>128B</td>
+<td>Dense</td>
+<td>Modified MIT</td>
+<td>77.6%</td>
+<td>$7.5 / M</td>
+<td>4 GPU</td>
+</tr>
+<tr>
+<td>DeepSeek V4-Pro</td>
+<td>671B</td>
+<td>MoE</td>
+<td>Modified MIT</td>
+<td>80.6%</td>
+<td>~$3.3 / M</td>
+<td>16 GPU+</td>
+</tr>
+<tr>
+<td>DeepSeek V4-Flash</td>
+<td>~80B</td>
+<td>MoE</td>
+<td>Modified MIT</td>
+<td>79.0%</td>
+<td>~$1 / M</td>
+<td>单卡可跑</td>
+</tr>
+<tr>
+<td>Qwen 3.6-27B</td>
+<td>27B</td>
+<td>Dense</td>
+<td>Apache-2.0</td>
+<td>77.2%</td>
+<td>阿里云 list ~$1.5 / M</td>
+<td>单卡</td>
+</tr>
+<tr>
+<td>Qwen 3.6 35B-A3B</td>
+<td>35B (3B 激活)</td>
+<td>MoE</td>
+<td>Apache-2.0</td>
+<td>80%+</td>
+<td>类似</td>
+<td>单卡</td>
+</tr>
+<tr>
+<td>MiniMax M2.5</td>
+<td>未公开</td>
+<td>未公开</td>
+<td>部分开源</td>
+<td>80.2%</td>
+<td>商业 API</td>
+<td>—</td>
+</tr>
+</tbody></table>
+<p><strong>Medium 3.5 在这张表里的位置</strong>：</p>
+<ul>
+<li>性能跟 Qwen 3.6-27B 平分秋色，比 DeepSeek V4 / Qwen 35B-A3B 落后一档</li>
+<li>部署门槛比 DeepSeek V4-Pro 低，比 Qwen 3.6-27B 高</li>
+<li>API 价格在国际市场属正常，但在国内开发者视角下输出价偏高</li>
+<li>真正差异化的是 <strong>Vibe Remote Agents 这条工程产品线</strong>——国产模型目前还没有同等成熟的&quot;模型 + CLI + Le Chat Work mode 三位一体&quot;产品组合</li>
+</ul>
+<p>ksubedi 那条 HN 评论的另一面，是中国模型团队的工程红利现在已经传导到全球开源排行榜的头部。Mistral 这次的 Medium 3.5 没有正面追上中国对手的性能曲线，但它把能跑的事情往应用层（Vibe Remote / Work mode）推得更远。这条产品逻辑，国产模型团队接下来很可能会跟。</p>
+<h2>九、值得做的几件事</h2>
+<p>如果你是国内 AI Coding 开发者，建议把今天的注意力分到这几个点：</p>
+<ol>
+<li><strong>测一次 Medium 3.5 的中文能力</strong>——Mistral 这次没公布中文 benchmark，社区的真实手感更可信。OpenRouter 上跑几道文档摘要 / 代码注释，对比 Qwen 3.6-27B 的输出</li>
+<li><strong>把 Vibe 加进你的工具试用清单</strong>——不是替换，是看看 TOML subagent + Markdown skill 的组合在实战里手感如何，这套形态比 Claude Code 的 YAML 全家桶更轻</li>
+<li><strong>跟踪 OpenRouter / 国产云对 Medium 3.5 的接入进度</strong>——通常海外旗舰开源后 1-3 周内国产云会跟进</li>
+<li><strong>保持对 ACP / Vibe / Codex CLI 三种 agent 工程范式的横向比较</strong>——同一个任务（修一个 PR）跑三个 agent，看谁的工具调用次数少、改动质量高、回滚方便，这种实测比官方 benchmark 更有说服力</li>
+</ol>
+<p>中国 AI 工程师这一年的工作面其实很完整：自家模型已经能在 SWE-Bench 80% 段稳定输出，海外旗舰开源后能用 OpenRouter / 自托管两条路并行用上。Mistral Medium 3.5 不是来抢饭碗的，它是又一块能拼进开发者工具链的拼图。</p>
+<p>看见拼图慢慢满，比看到一两个新闻头条更让人踏实。下一块拼图，可能就是国产团队下周要发的东西。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chrome 推浏览器原生大模型，Mozilla 反对 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-01</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-01</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Chrome 推浏览器原生大模型，Mozilla 反对</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/01/mozilla-vs-chrome.png" alt="Mozilla 反对 Chrome Prompt API"></p>
+<blockquote>
+<p>488 票、195 条评论。Hacker News 头版 4 月 30 日把 Mozilla 反对 Chrome Prompt API 顶到了第一位，48 小时仍没掉下首页。</p>
+</blockquote>
+<h2>一句代码就能调起浏览器里的大模型</h2>
+<p>Chrome 的 Prompt API 把 Gemini Nano 直接塞进了浏览器。前端只要写：</p>
+<pre><code class="language-javascript">const session = await LanguageModel.create();
+const result = await session.prompt(&#39;给我写一首小诗。&#39;);
+console.log(result);
+
+const stream = session.promptStreaming(&#39;再来一首长一点的。&#39;);
+for await (const chunk of stream) {
+  console.log(chunk);
+}
+</code></pre>
+<p>不用 API key、不用付费、不联网，整个推理跑在用户本地，模型 22GB 装在硬盘里，启动需要 16GB 内存或 4GB 显存。Chrome 138 起进入 Origin Trial 灰度，Edge 也跟着接入了 Phi-4-mini。</p>
+<p>提案出自 Google 内部的 explainer 仓库 <code>explainers-by-googlers/prompt-api</code>，正在 W3C 的 Web Machine Learning Community Group 里走标准流程。Blink 已经发出 intent-to-prototype 和 intent-to-ship。</p>
+<p>理论上，这是浏览器历史上离&quot;网页 = 智能体宿主&quot;最近的一步。一行 <code>await LanguageModel.create()</code> 替代了 OpenAI、Anthropic、千问的 SDK；一行 <code>session.prompt()</code> 替代了 fetch + auth + 流式解析的全部胶水代码。</p>
+<p>但 Mozilla 不打算让它过。</p>
+<h2>Mozilla 的三条反对意见，一条比一条具体</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/01/mozilla-three-objections.png" alt="Mozilla 三条核心反对意见"></p>
+<p>Mozilla 在 standards-positions 仓库 issue #1213 把这条提案标为 <code>position: negative</code>。最新一次表态是 4 月 29 日，由前 Chrome 团队工程师、现为 Mozilla 撰写标准评估的 Jake Archibald 写下。</p>
+<p><strong>第一条：模型耦合，标准会绕着 Gemini 的脾气长。</strong></p>
+<p>Jake 举了个亲手踩坑的例子。他给家里的智能音箱写过一段系统提示，让 Gemini Nano 用英式英语播报。Gemini 第一版输出是非常美式的英语；他在系统提示里加了一句&quot;用英式英语&quot;，结果模型给了一个浓重伦敦口音的拙劣模仿（&quot;a&#39;waight guv&#39;nor apples and pears&quot;）；他不得不再加一句&quot;克制一点，正常英国人讲话&quot;，才拿到能用的输出。</p>
+<p>这套提示是为 Gemini 这一版的脾气调出来的。换 Phi-4-mini，调出来的修补可能完全是反向的。Jake 写：「这会让我们不知不觉滑回 2000 年代初的浏览器分支判断——模型版本检测、模型黑名单、blocklist」。最具体的代码片段是：</p>
+<pre><code class="language-javascript">const model = await LanguageModel.create();
+const modelType = await model.prompt(
+  &#39;give a single string representing your LLM ID, name, version, and company of origin. Only return that string&#39;
+);
+// &#39;gpt-3.5-turbo-0613, Gemma, 2024-02-29, Google DeepMind&#39;
+</code></pre>
+<p>只要开发者敢写这段嗅探代码，Web 就会出现&quot;为 Gemini Nano 写的网站&quot;和&quot;在 Firefox 上跑不好的网站&quot;。</p>
+<p><strong>第二条：中立性缺失，浏览器 API 第一次绑了一份厂商使用政策。</strong></p>
+<p>Chrome 官方文档明确写：开发者使用 Prompt API 之前需要 acknowledge <code>Google 生成式 AI 使用政策</code>。这份政策有两条超出法律的条款：</p>
+<ul>
+<li>不得生成或传播性暗示内容。</li>
+<li>不得用于误导性活动，包括传播与&quot;政府或民主程序&quot;相关的误导信息。</li>
+</ul>
+<p>Jake 的反问是：如果一个<strong>网站读者</strong>点击「总结评论」，本地模型给出的总结违反了这份政策，Google 会找谁？读者？写这条评论的网友？建网站的开发者？</p>
+<p>一个浏览器内置 Web API 第一次带上&quot;使用条款&quot;，并且条款的内容超出法律本身——HN 评论里的 Wowfunhappy 把这件事直接称为「completely insane」、「a violation of free expression principles」。</p>
+<p><strong>第三条：「web 开发者强烈支持」的依据，撑不起这句话。</strong></p>
+<p>Chrome 提交给 blink-dev 的 intent-to-ship 里写：&quot;web 开发者反馈：Strongly positive&quot;。Jake 顺着脚注一路点过去，看到的依据是：一个 GitHub issue 里两条正面评论、一条 X 上的推文、一篇博客（已经 404）、一篇还在的技术博客、一份样本量未公开的 Google 内部调研。</p>
+<p>「强烈支持」的实证基础，是这五条材料。</p>
+<h2>HN 488 票的真实声音</h2>
+<p>HN 47959463 这条贴在 4 月 30 日 7:43 UTC 提交，48 小时拿了 488 票、195 条评论，至今稳定在首页前列。把楼里几条最有信息量的留言原貌摘下来：</p>
+<p><strong>OuterVale</strong>：「Extremely glad to see Mozilla taking a stance here.」</p>
+<p><strong>fg137</strong>（票数较高）：「如果除了 Chrome 没有其它浏览器支持这个 API，背后又只有 Google 自家私有模型——这就是 Google 在用市场支配地位推一个糟糕的方案。我们见过太多次了，FLoC、隐私沙盒、Topics API、Web Environment Integrity……Google 一直在用主导地位推那种只对自己有利、对用户和其他浏览器都有害的东西。」</p>
+<p><strong>moron4hire</strong>：「Web API 应该是那些<strong>让网页应用变得可能</strong>的东西。我们不需要浏览器有 Prompt API 来让网页角落里多出一个 chatbot——前端自己已经很擅长把网站做烂了，不缺浏览器帮忙。」</p>
+<p><strong>varun_ch</strong>（建设性意见）：「也许浏览器厂商可以约定一组<strong>标准模型</strong>——开源、版本固定、跨浏览器权重一致，像 CSS 命名色或网络安全字体那样。开发者依赖标准模型，要更强模型就让用户自己装、或者厂商自己 CDN 分发。」</p>
+<p><strong>RByers</strong>（Chromium API Owner、签署了 Prompt API 上线决议）：「我承认我和 Mozilla 的担忧高度共鸣。但我倾向于走鼓励试错、从错误里学习、相互竞争的路线，而不是因为&#39;可能出错&#39;就提前停下。如果以后真的看到其它浏览器为了兼容 Chrome 模型的怪癖去打补丁，我会用我在 Chromium 的影响力<strong>修掉那些怪癖、宁可破坏依赖站点</strong>——就像当年 Mobile GMail 误用了 WebKit 的 border-image bug、Firefox 担心要跟着抄，我们最后改了 Chrome、推了 GMail 自己更新。」</p>
+<p><strong>othermaciej</strong>（来自 WebKit 阵营）回了一句很重的话：「『等出问题再说』只在&#39;问题事后能修&#39;的前提下成立。如果伤害一旦造成就修不回来，那就值得提前防。请具体说说：如果网站真的为某一版 Gemini Nano 锁死了系统提示，你打算怎么办？下架这个特性？故意破坏旧提示？随机轮换模型？把模型权重做成开放标准？」</p>
+<p>这条提问 RByers 至今没给出确定答复，只说「会推动破坏怪癖」。</p>
+<p><strong>chadbrewbaker</strong> 给出了第三条路：「我想要的不是 Prompt API，是更简洁的 Lynx 模式聊天和更细粒度的 robots.txt——让 agent 能轻量浏览，不必下载渲染整页 JavaScript。Hermes Agent 配 Qwen3.6 已经能做我大部分自动化工作。」</p>
+<p>楼里反复出现 Qwen3.6 的名字。在国外开发者实际工作流里，国产开源模型已经是默认选项之一。</p>
+<h2>Mozilla 不只是反对，自己还做了另一条路</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/01/prompt-api-vs-webnn-comparison.png" alt="Prompt API 与 WebNN 的对照"></p>
+<p>Mozilla 反对 Prompt API 时，端出了自己的方案——Firefox 133 起，浏览器内置了一套基于 ONNX 运行时和 Transformers.js 的本地推理基础设施，最先用在了 PDF 自动写 alt 文本上。Firefox 134 之后，Mozilla 在 nightly 频道开放 <code>browser.trial.ml</code>，让 web 扩展可以加载开发者自选的开源模型，模型来源是 Hugging Face 的 Mozilla / Xenova 组织。</p>
+<p>模型不绑定。开发者要 Qwen 用 Qwen，要 Mistral 用 Mistral，要自训练小模型也行。模型文件用 IndexedDB 跨域共享缓存，推理跑在隔离进程里。</p>
+<p>更底层一点，W3C Web Machine Learning Working Group 还在推 WebNN——一组直接暴露神经网络张量算子的 API，由 Anssi Kostiainen 主席、Dominique Hazaël-Massieux 协调。WebNN 不绑模型、不绑提示，开发者自己组装算子、自己加载权重，由浏览器把推理调度到 GPU 或 NPU 上。WebNN 走的是 Candidate Recommendation 阶段，更接近&quot;传统 W3C 标准&quot;那种厚重、谨慎的过程。</p>
+<p>Prompt API、Firefox 扩展路径、WebNN——这是浏览器内置 AI 的三条路线。前者把模型权重和提示约定都打包进浏览器，后两者只暴露能力、把选择权留给开发者。</p>
+<h2>国内开发者今天能做什么</h2>
+<p>回到我们自己的工位上。同一个事情，国内 Web 平台已经有一套自己的答案。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/01/china-browser-ai-landscape.png" alt="国内浏览器与 Web 平台的 AI 入口对照"></p>
+<p><strong>夸克浏览器</strong>走的是另一种思路：AI 入口长在搜索框和侧边栏里，背后接阿里通义系列模型，2025 年 3 月升级为「AI 超级框」。用户在地址栏直接问问题，浏览器调用云端大模型整合搜索结果。这是产品级 AI，不是 Web API——前端开发者拿不到 <code>window.LanguageModel</code> 这样的入口。</p>
+<p><strong>微信小程序</strong>反而是国内最接近 Prompt API 形态的平台。基础库 3.7.1 起，开发者可以在小程序里直接写：</p>
+<pre><code class="language-javascript">const model = wx.cloud.extend.AI.createModel(&#39;deepseek&#39;);
+// 配置系统提示词
+const res = await model.streamText({
+  data: { messages: [{ role: &#39;user&#39;, content: &#39;帮我总结这段评论&#39; }] }
+});
+</code></pre>
+<p>模型基座是 DeepSeek 或腾讯混元，认证、加密、流式传输由小程序运行时统一处理，前端不需要服务端中转。这套接口在 W3C 那边没有对应物——它是腾讯定义、腾讯运行的&quot;小程序内置 AI 标准&quot;，覆盖的设备数量远超 Chrome Prompt API 灰度通道。</p>
+<p><strong>微信公众平台</strong>的后台编辑器也内嵌了 AI 助手，混元为底，用来辅助公众号作者改稿、扩写、润色。</p>
+<p><strong>国产 Chromium 衍生浏览器</strong>——夸克、UC、QQ、360、猎豹这条线，目前没有任何一家把 Prompt API 搬过去。原因不复杂：Gemini Nano 模型不开源、商用条款绑死，国内浏览器要做端侧大模型，更现实的选择是阿里 Qwen3.6、深度求索 DeepSeek-V3.5、智谱 GLM-4.6 的端侧蒸馏版。</p>
+<p><strong>前端今天能落地的端侧 AI 路径</strong>有这么几条，从轻到重：</p>
+<ol>
+<li><strong>WebLLM / Transformers.js</strong>：纯 JavaScript 在浏览器里跑量化后的开源小模型，权重几百 MB 到几 GB，不依赖任何浏览器 API；</li>
+<li><strong>Vercel AI SDK + 服务端代理</strong>：前端只发 fetch，模型推理在服务端，模型可以是 Qwen、DeepSeek、Claude、GPT-5 任何一个，迁移成本最低；</li>
+<li><strong>WebGPU + ONNX Runtime Web</strong>：自己上 ONNX 模型，调度走 WebGPU，对设备能力评估最精细；</li>
+<li><strong>微信小程序 wx.cloud.extend.AI</strong>：如果场景在小程序生态里，这是路径最短的方案。</li>
+</ol>
+<p>Chrome Prompt API 想做的事情，这四条路径都覆盖了——只是没有那种&quot;一行 <code>await LanguageModel.create()</code>&quot;的简洁感。Mozilla 反对的核心，本质上是在追问：为了那一行简洁，值不值得把模型选择权、使用条款、版本节奏全交给一家厂商。</p>
+<h2>标准博弈不是新鲜事</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/01/web-standards-history.png" alt="Web 标准博弈历史 · Chrome 单边推进的提案命运"></p>
+<p>Web 历史上类似的拐点出现过好几次。Chrome 主推、Mozilla 拒签的提案有过一长串：联邦学习广告投放（FLoC）、Topics API、Web Environment Integrity、Web Bluetooth、Web Serial、Web USB……每一次的争论结构都很像——Chrome 拿着多数市场份额先发制人发 intent-to-ship，Mozilla 和苹果（WebKit）在标准位置上写下反对，社区分裂成三种意见：跟 Chrome 走、坚持等共识、彻底跳出 Web 平台用别的方案。</p>
+<p>最后的结果通常有三种：</p>
+<ol>
+<li>Chrome 一意孤行落地，Mozilla 苹果不实现，开发者按 user agent 分支（FLoC 这条线最后退缩成 Topics API，Mozilla 至今不实现）；</li>
+<li>Chrome 面对压力收缩范围，重谈标准（Web Environment Integrity 提案被搁置）；</li>
+<li>三家最终对齐版本（Web Components、Service Worker 是这种命运的代表）。</li>
+</ol>
+<p>Prompt API 现在的位置很接近第一种。Chrome 138 已经发到稳定版的 Origin Trial，Edge 已经接入，国内 Chromium 衍生浏览器有时间观察。RByers 的&quot;试错论&quot;和 Mozilla 的&quot;防患论&quot;之间，理论上还有 W3C Web Machine Learning Community Group 这个谈判桌，但话语权严重不对等——Chrome 的市场份额在国内桌面 60% 以上、移动端通过 WebView 影响接近 100%。</p>
+<p>值得乐观的一面是：浏览器历史上每一次激烈博弈都让 Web 平台更稳——FLoC 之争让广告隐私模型迭代了一轮，Web USB 之争把权限模型整体抬高了一层。Prompt API 这一次至少把「浏览器内置 AI 应不应该绑模型」「厂商使用条款能不能写进 Web API」这两个问题，公开地放到了所有开发者面前。提问被听见，本身就是健康的信号。</p>
+<p>也值得提一句，HN 楼里有两位老 Chrome 工程师亲自下场表态——RByers 是 Chromium API Owner、签了 Prompt API 上线决议，jaffathecake（Jake Archibald）这次站在 Mozilla 一侧公开列出反对依据。两人都在 Chrome 工作过十年以上，今天就同一个 API 的去向给出方向相反的判断。Web 平台从来不是某一家公司说了算的——这是它一直能稳下来的底层原因。</p>
+<h2>给国内前端的几条建议</h2>
+<p><strong>第一</strong>，今天写产品不要赌 Prompt API。它的灰度状态和模型耦合风险，让任何依赖它的产品形态都要做好&quot;未来 12 个月可能 API 改名、模型换底、条款收紧&quot;三种心理准备。微信小程序的 <code>wx.cloud.extend.AI</code> 反而比它稳——平台自己运营、长期承诺更明确。</p>
+<p><strong>第二</strong>，要做端侧 AI 的网页，优先 WebLLM 或 Transformers.js + ONNX，模型选 Qwen3.6 或 DeepSeek-V3.5 的端侧版本。这两条路线不依赖任何浏览器 API，跑得开 Chrome、跑得开 Firefox、跑得开国产 Chromium 衍生，还跑得开 Safari。</p>
+<p><strong>第三</strong>，关注 W3C Web Machine Learning Community Group 的 issue 列表，特别是 <a href="https://github.com/webmachinelearning/proposals/issues/9" target="_blank" rel="noopener">#9 共享模型存储提案</a>。Mozilla 主推的 web extension 路径，是目前最有可能在 Firefox / Chrome / Safari 三家之间达成共识的版本。</p>
+<p><strong>第四</strong>，如果你是浏览器扩展开发者，Firefox <code>browser.trial.ml</code> 已经在 nightly 频道开放，模型选择权完全在你手里。这是一条今天就能动手、不绑厂商的路。</p>
+<p><strong>第五</strong>，做 agent 类产品的同行，可以重点看 chadbrewbaker 在 HN 里提的&quot;Lynx 模式 + 细粒度 robots&quot;思路。让 agent 拿到的网页是 token-friendly 的精简结构，而不是完整渲染——这条工程方向，国内已经有团队（智谱 AutoGLM、商汤 SenseAgent、字节 Coze）在用类似的页面理解中间层来落地。Prompt API 替代不了这个层级的工作，反而 WebNN 这种&quot;低层算子开放&quot;路线可以帮上忙。</p>
+<p><strong>第六</strong>，国内桌面浏览器（夸克、UC、QQ、360）目前还没明确表态。如果你给这些团队做合作或评测，可以提前给出建议——优先实现 WebNN 候选标准 + 通过扩展 / SDK 支持开发者自选模型，比直接复刻 Prompt API 更稳。Qwen3.6、DeepSeek-V3.5、GLM-4.6 的端侧蒸馏版已经在 Hugging Face 上提供，国内浏览器自己做端侧大模型 API，比依赖 Gemini Nano 的处境主动得多。</p>
+<p>Chrome 想做的事情值得做。但浏览器内置 AI 的正确打开方式，应该是——模型可换、条款不绑、版本透明、权重共享。Mozilla 那条反对意见把这四条要求摆上了桌。我们这一代前端开发者很幸运，能在标准成型之前就把所有路线都看一遍——选哪条路，决定权第一次真正在我们手里。</p>
+<hr>
+<p><strong>参考来源</strong></p>
+<ul>
+<li>Mozilla standards-positions issue #1213：<a href="https://github.com/mozilla/standards-positions/issues/1213" target="_blank" rel="noopener">https://github.com/mozilla/standards-positions/issues/1213</a></li>
+<li>HN 47959463 讨论楼：<a href="https://news.ycombinator.com/item?id=47959463" target="_blank" rel="noopener">https://news.ycombinator.com/item?id=47959463</a></li>
+<li>Chrome Prompt API 官方文档：<a href="https://developer.chrome.com/docs/ai/prompt-api" target="_blank" rel="noopener">https://developer.chrome.com/docs/ai/prompt-api</a></li>
+<li>Prompt API 在 Chromestatus 的状态页：<a href="https://chromestatus.com/feature/5134603979063296" target="_blank" rel="noopener">https://chromestatus.com/feature/5134603979063296</a></li>
+<li>W3C Web Machine Learning Working Group：<a href="https://www.w3.org/groups/wg/webmachinelearning" target="_blank" rel="noopener">https://www.w3.org/groups/wg/webmachinelearning</a></li>
+<li>Mozilla 端侧推理博客：<a href="https://blog.mozilla.org/en/firefox/firefox-ai/running-inference-in-web-extensions/" target="_blank" rel="noopener">https://blog.mozilla.org/en/firefox/firefox-ai/running-inference-in-web-extensions/</a></li>
+<li>微信小程序 AI 推理 SDK：<a href="https://developers.weixin.qq.com/miniprogram/dev/framework/open-ability/inference/tutorial.html" target="_blank" rel="noopener">https://developers.weixin.qq.com/miniprogram/dev/framework/open-ability/inference/tutorial.html</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

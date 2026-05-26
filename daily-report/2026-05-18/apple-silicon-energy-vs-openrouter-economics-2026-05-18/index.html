@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>M5 Max 跑本地大模型比云 API 贵 3 倍 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-18</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-18</span><span class="tag-pill">Daily Report</span></div>
+      <h1>M5 Max 跑本地大模型比云 API 贵 3 倍</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/18/apple-silicon-energy-vs-openrouter-economics-2026-05-18.png" alt="M5 Max 跑本地大模型 vs OpenRouter API 成本算账封面"></p>
+<p>5 月 17 日凌晨，William Angel 在个人博客发了一篇硬核算账帖《Offline LLM Energy Use》。这篇帖子在 HN 当天冲到首页，拿到 249 赞、213 条讨论，是这周本地大模型话题里最热的一帖。结论挑衅但直白——一台 4,299 美元的 M5 Max 64GB MacBook Pro 跑 Gemma 4 31B，单百万 token 折算 1.61 到 4.79 美元；同款模型在 OpenRouter 上只要 0.38 到 0.50 美元，<strong>而且快 3 到 7 倍</strong>。本地大模型的隐私、离线、合规优势，在数字上要付大约 3 倍溢价加 3 到 7 倍延迟代价。</p>
+<p>这条结论刺到了 HN 不少人。最高票评论 bastawhiz 反驳的核心是「这台机器不是为了推理买的」，第二票 applfanboysbgon 强调「你买的同时还得到一台完整电脑」，第三票 dijit 提到「云端 API 现在便宜是因为投资人的钱还没烧完」。三条都是真问题。但把这些角度全部叠加之后，Angel 的硬数字仍然站得住——它是一份「<strong>算不算得过来</strong>」的工程账，不是「应不应该装」的伦理账。</p>
+<p>我们 5 月 15 日写过 M5 Max 本地跑 Qwen3-Coder 79 tokens/秒 「<strong>能跑得动</strong>」、5 月 16 日写过 4090 单卡 Q4 量化 「<strong>能跑得动</strong>」。今天这一篇做完全不同的视角：<strong>算不算得过来</strong>。把这套硬算账法套到国内——0.5 元一度的电价、DeepSeek V4 中转 API、千问 阿里百炼 API、二手 4090、Mac Studio M3 Ultra——结论比海外原版更扭曲：<strong>国内开发者掏自家钱跑本地大模型，单百万 token 实际成本最低落到 2.8 元，最高拉到 33 元；同档云 API 稳定在 3.5 元上下</strong>。本地大模型的「隐私 / 离线 / 合规」三大非数字溢价，在国内场景下要么必须，要么不值。</p>
+<p>下面这套算账，先复盘 Angel 原版的美国数字，再用国内的电价、汇率、API 价、二手卡价重做一遍，最后把「该不该上本地大模型」拆成一张四象限决策表。文中所有硬件价格、API 中转价、电价数字都来自当天可查的源，电价取 2025 年居民电价中位 0.5 元一度。</p>
+<h2>一、美国原版算账：M5 Max 4,299 美元买的不是推理机</h2>
+<p>Angel 的算账框架很干净——把一台开发机的本地推理总成本拆成两块：<strong>硬件折旧</strong>加上<strong>电费</strong>。两块数字都摊到每小时上，再除以这台机器每小时能吐出的 token 数，就得到「单百万 token 实际成本」。这个口径和云 API 的「按 token 收费」完全可比。</p>
+<h3>硬件折旧</h3>
+<p>M5 Max 16 英寸 MacBook Pro 64GB 配置，官网标价 4,299 美元。Angel 给了三档折旧方案：</p>
+<table>
+<thead>
+<tr>
+<th>折旧年限</th>
+<th>年折旧</th>
+<th>每小时折旧</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>3 年（专业用户高强度更换）</td>
+<td>1,433 美元</td>
+<td>0.164 美元</td>
+</tr>
+<tr>
+<td>5 年（典型办公本生命周期）</td>
+<td>860 美元</td>
+<td>0.098 美元</td>
+</tr>
+<tr>
+<td>10 年（最大化使用）</td>
+<td>430 美元</td>
+<td>0.049 美元</td>
+</tr>
+</tbody></table>
+<p>3 年和 10 年差出 3.3 倍——折旧年限这一个变量，对最终成本的影响比电费大得多。</p>
+<h3>电费</h3>
+<p>M5 Max 满载功耗 50 到 100 瓦。Angel 取的电价是北弗吉尼亚 0.18 到 0.20 美元一度（美国数据中心走廊电价，比全美居民均价 0.173 美元略高）。算下来：</p>
+<ul>
+<li>满载每小时电费：0.009 到 0.018 美元</li>
+<li>满载一整天 24 小时不停跑：约 0.48 美元</li>
+</ul>
+<p>48 美分一天的电费几乎可以忽略——一杯星巴克的钱够跑半个月。<strong>这一头的关键发现是「电费不是成本主项」</strong>，主项是硬件折旧。</p>
+<h3>吞吐</h3>
+<p>M5 Max 跑 Gemma 4 31B 的实测吞吐范围是 10 到 40 tokens/秒（取决于量化精度、上下文长度、prompt 处理 vs 生成阶段）。一小时能吐出的 token 数：</p>
+<ul>
+<li>10 tok/s 时：3.6 万 token/小时</li>
+<li>40 tok/s 时：14.4 万 token/小时</li>
+</ul>
+<p>24 小时不停：86 万到 346 万 token/天。</p>
+<h3>单百万 token 成本</h3>
+<p>把三块数字拼起来——硬件折旧加电费除以 token 吞吐：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>单百万 token 成本</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>乐观（40 tok/s · 10 年折旧）</td>
+<td><strong>0.40 美元</strong></td>
+</tr>
+<tr>
+<td>乐观（40 tok/s · 3 年折旧）</td>
+<td>1.20 美元</td>
+</tr>
+<tr>
+<td>悲观（10 tok/s · 10 年折旧）</td>
+<td>1.60 美元</td>
+</tr>
+<tr>
+<td>悲观（10 tok/s · 3 年折旧）</td>
+<td><strong>4.79 美元</strong></td>
+</tr>
+</tbody></table>
+<p>OpenRouter 上同款 Gemma 4 31B 模型的定价是 0.38 到 0.50 美元一百万 token。最贴脸的对比是 Angel 自己在 HN 评论里给的——「<strong>即使最乐观地往下取整，也是每百万 token 0.40 美元，OpenRouter 同款模型 0.38 美元</strong>」。</p>
+<h3>速度差</h3>
+<p>更扎心的是速度。OpenRouter 上 Gemma 4 31B 推理速度 60 到 70 tokens/秒；M5 Max 本地 10 到 40 tokens/秒。云端是本地的 1.5 到 7 倍。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/18/apple-silicon-energy-speed-compare.png" alt="本地大模型 vs 云 API · 单流推理速度对照"></p>
+<p>这个对比刺到 HN 里很多人。但要承认的是——云端推理批处理共享 H100 / B200 集群，硬件本身就是 M5 Max 性价比的另一个维度。Angel 的论点不是「Mac 慢，所以本地大模型没意义」，而是「<strong>这两个数字摆出来，本地大模型只能靠非数字优势赢</strong>」。</p>
+<h3>员工时薪那一笔账</h3>
+<p>帖子最后一段做了一个更扎心的横向折算——「<strong>对于配工作笔记本的员工，他/她的薪资成本会是其本地能产生 token 成本的 1000 倍左右</strong>」。换算成具体场景：一个年薪 15 万美元的工程师，每小时人力成本约 75 美元；同一小时里他的开发机能产生的 token 价值在 0.05 到 0.15 美元之间。<strong>人力成本是 token 成本的约 1,000 倍</strong>。</p>
+<p>这一句不是说「token 没价值」，而是在提醒——「<strong>别为了省 token 费拖慢工程师</strong>」。本地推理慢 3 到 7 倍这件事，在薪资折算面前是非常昂贵的浪费。</p>
+<h2>二、HN 213 条讨论的三种反驳</h2>
+<p>Angel 这篇帖在 HN 没有被一边倒接受，213 条讨论里有三条最高赞反驳必须正面回应——它们都是真问题。</p>
+<h3>反驳一：你不是为了推理买的这台机器</h3>
+<p>最高赞 bastawhiz 的核心是：「<strong>Apple Silicon 是快，但你只能拿到 10 到 40 tokens/秒。它不是为这个干的</strong>」。把一台通用笔记本和专门做推理的云端 H100 集群比单价 token 成本，等于把一辆家用车和滴滴出租比每公里运营成本——结论必然偏向后者，但你买家用车从来不是冲着「每公里运营成本」去的。</p>
+<p>这个反驳成立，但它修正的是<strong>口径</strong>而不是<strong>结论</strong>。把笔记本成本只摊给「实际跑推理那部分时间」，结论会好看一些——一天跑 4 小时推理而不是 24 小时，折旧那部分按比例砍掉 5/6，单百万 token 成本能压到 0.27 到 0.80 美元。但即便如此，它仍然没法明显比 OpenRouter 便宜。<strong>Angel 的核心结论稳得住：本地大模型在纯数字上不占优</strong>。</p>
+<h3>反驳二：你同时还得到一台电脑</h3>
+<p>第二高赞 applfanboysbgon 说：「<strong>这个分析把整台笔记本都算进成本，忽略了你拿到的是一台能正常工作的电脑。还得到隐私、不被审查、模型可控</strong>」。</p>
+<p>这条更精确——它指出本地大模型的真正价值不在「单 token 单价」里。Angel 自己也写到这一层：「<strong>Local inference is slower than cloud inference. But it gives you control</strong>」。隐私、离线、合规、模型可控——这些是<strong>非数字溢价</strong>，不会出现在 OpenRouter 的价目表上。</p>
+<p>后面我们专门用一节量化这些非数字溢价值多少钱。</p>
+<h3>反驳三：云端便宜是因为风投钱还没烧完</h3>
+<p>第三高赞 dijit 说：「<strong>当前的 API 定价反映的是没烧完的投资人钱，不是可持续均衡价</strong>」。</p>
+<p>这条最难判断。事实陈述是对的——OpenAI、Anthropic 都还在烧钱，OpenRouter 转售的 Gemma 4 31B 也是亏损或微利。但要据此推论「未来 OpenRouter 价格会涨 3 到 5 倍」目前没有硬证据：第一，开源模型推理的硬件已经在快速摊薄成本（H100 → H200 → B200 三代单 token 成本每代都降）；第二，国内 DeepSeek、阿里、字节这些有自家算力的供应商打底，OpenRouter 涨价同时国内还有低价替代源。<strong>「云 API 长期会贵」是合理担忧，但不是已经发生的事实</strong>——本地大模型可以作为「<strong>对冲未来涨价</strong>」的备份策略，不必现在就主力依赖。</p>
+<p>把三条反驳叠加之后再看 Angel 的结论：<strong>「本地大模型在纯数字上输 3 倍 + 速度上输 3 到 7 倍」这个事实陈述站得住；它的应用范围是「该不该装」而不是「能不能装」</strong>。</p>
+<h2>三、国内重算：电价 ¥0.5 + 国产 API ¥3.5 + 二手 4090</h2>
+<p>Angel 的框架可以直接套到国内，但每一项数字都要换：电价从 0.18 美元/度换成居民阶梯电价 0.5 元/度（按 7 元一美元约 0.07 美元/度，<strong>比美国便宜约 60%</strong>）、机器价从 4,299 美元美版 M5 Max 换成国行价或同档替代、对照 API 从 OpenRouter Gemma 换成 DeepSeek V4 中转和阿里百炼千问。</p>
+<h3>国内三档自建机器的折旧档</h3>
+<table>
+<thead>
+<tr>
+<th>机器</th>
+<th>国内售价</th>
+<th>满载功耗</th>
+<th>24h 跑满电费/年</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>M5 Max 64GB（美版国内代购）</td>
+<td>约 3.2 万元</td>
+<td>50-100 W</td>
+<td>约 220 元</td>
+</tr>
+<tr>
+<td>Mac Studio M3 Ultra 128GB（国行）</td>
+<td>约 4.5 万元</td>
+<td>60-140 W</td>
+<td>约 280 元</td>
+</tr>
+<tr>
+<td>RTX 4090 24GB（二手国内）+ 主机</td>
+<td>约 1.8 万元</td>
+<td>300-450 W</td>
+<td>约 1,000 元</td>
+</tr>
+</tbody></table>
+<p>三机器的功耗差异巨大——4090 是 M5 Max 的 4 到 5 倍，电费在国内自建里第一次成了非可忽略项。但即便如此，4090 24 小时不停跑一年电费 1,000 元也只占机器价的 5%，远比折旧小。</p>
+<h3>国内对照云 API 的真实价</h3>
+<p>国内主流大模型 API 都比 OpenRouter 同档还便宜：</p>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>价格（输出 token）</th>
+<th>折算 ¥/百万 token</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>DeepSeek V4 官方 API</td>
+<td>¥0.5/百万 输入 + ¥3-4/百万 输出</td>
+<td>综合约 ¥3.5</td>
+</tr>
+<tr>
+<td>阿里百炼 Qwen3-Max</td>
+<td>约 ¥5/百万 输出</td>
+<td>综合约 ¥5.0</td>
+</tr>
+<tr>
+<td>Qwen3-Coder 阿里百炼</td>
+<td>约 ¥4/百万 输出</td>
+<td>综合约 ¥4.5</td>
+</tr>
+<tr>
+<td>OpenRouter Gemma 4 31B</td>
+<td>$0.50/百万 输出</td>
+<td>约 ¥3.5</td>
+</tr>
+<tr>
+<td>OpenRouter DeepSeek 中转</td>
+<td>$0.30-0.80/百万</td>
+<td>约 ¥2.5-5.5</td>
+</tr>
+</tbody></table>
+<p>国内开发者掏 API 的钱比海外平均低 30% 到 40%——DeepSeek V4 输入价压到 ¥0.5/百万、输出 ¥3-4/百万这一档，已经是全球范围内同性能模型的最低价。</p>
+<h3>把三机器的本地推理成本重算</h3>
+<p>吞吐口径全部按 10 tokens/秒（保守）到 40 tokens/秒（乐观）取，折旧按 3 年（高强度专业）到 10 年（极限拉长）取。所有数字按 7 元一美元换算到人民币：</p>
+<table>
+<thead>
+<tr>
+<th>机器 + 工况</th>
+<th>单百万 token 实际成本</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>M5 Max 64GB · 10 tok/s · 3 年折旧 · 24h</td>
+<td><strong>¥33.5</strong></td>
+</tr>
+<tr>
+<td>M5 Max 64GB · 40 tok/s · 3 年折旧 · 24h</td>
+<td>¥8.4</td>
+</tr>
+<tr>
+<td>M5 Max 64GB · 10 tok/s · 10 年折旧 · 24h</td>
+<td>¥11.2</td>
+</tr>
+<tr>
+<td>M5 Max 64GB · 40 tok/s · 10 年折旧 · 24h</td>
+<td><strong>¥2.8</strong></td>
+</tr>
+<tr>
+<td>Mac Studio M3 Ultra 128GB · 25 tok/s · 5 年折旧 · 24h</td>
+<td>¥9.5</td>
+</tr>
+<tr>
+<td>RTX 4090 24GB · 30 tok/s · 3 年折旧 · 24h</td>
+<td>¥12.0</td>
+</tr>
+</tbody></table>
+<p>参照线放在右边对比：<strong>DeepSeek V4 API ¥3.5/百万 token，阿里百炼 Qwen3-Coder ¥4.5/百万 token</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/18/apple-silicon-energy-china-recompute.png" alt="国内电价 × 国产 API 重算的单百万 token 成本对比柱状图"></p>
+<p>结论挑衅但清晰：<strong>国内自建本地大模型在最理想工况下（40 tok/s + 10 年折旧 + 24h 跑满）才能压到云 API 同档线下面（¥2.8 vs ¥3.5）；任何不是&quot;最理想&quot;的工况下，本地至少贵 2 到 10 倍</strong>。</p>
+<h3>这背后的物理直觉</h3>
+<p>为什么国内本地的劣势比美国版还大？三条机制：</p>
+<ul>
+<li><strong>电价低不抵机器贵</strong>：国内电价比美国便宜 60%，但 M5 Max 代购加价让机器价比美版贵 25%，Mac Studio 国行更贵</li>
+<li><strong>国内 API 价低</strong>：DeepSeek V4 把全球同档输出价压到 0.5 美元一百万 token 以下，比 OpenRouter 还低 30%</li>
+<li><strong>吞吐没本质区别</strong>：M5 Max 跑 Gemma 4 31B 10 到 40 tok/s 是芯片决定的，国内国外一样</li>
+</ul>
+<p>三条合起来——<strong>国内开发者在纯数字上更应该用 API 而不是本地大模型</strong>，除非你为了那些非数字溢价。</p>
+<h2>四、折旧年限是本地大模型的唯一胜负手</h2>
+<p>把三种机器都收齐，再变化折旧年限，能看到一条非常关键的曲线：<strong>本地大模型成本对折旧年限的敏感度远大于对电费、对吞吐的敏感度</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/18/apple-silicon-energy-depreciation-curve.png" alt="M5 Max 不同折旧年限下的本地推理成本曲线"></p>
+<p>10 tokens/秒保守工况下，折旧从 3 年拉到 10 年，单百万 token 成本从 ¥33.5 压到 ¥11.2——降了 66%。40 tokens/秒乐观工况下，同样从 3 年到 10 年，从 ¥8.4 压到 ¥2.8——降了同样的比例。</p>
+<p>这条曲线说明一件事：<strong>愿意把开发机用满 10 年（不升级、不换代）的开发者，本地大模型才真的算得过来</strong>。但 10 年是一个非常激进的假设——M5 Max 跑到 2036 年那时候，模型已经迭代十几代、量化方法天翻地覆、卡早就贬值掉。对绝大多数追新硬件的开发者来说，3 到 5 年是更现实的折旧年限。</p>
+<p><strong>3 年折旧 + 中位工况（20 tok/s）的本地成本是 ¥12 到 ¥15 一百万 token——是 DeepSeek V4 API 的 3.5 到 4 倍</strong>。</p>
+<h2>五、本地大模型的非数字溢价值多少钱</h2>
+<p>Angel 算账的局限在哪？他没给「<strong>隐私 / 离线 / 合规</strong>」这三块非数字溢价定价。但这三块对国内开发者尤其值钱——往下分项看。</p>
+<h3>5.1 隐私 / 数据不出本机</h3>
+<p>哪些场景必须隐私：</p>
+<ul>
+<li><strong>公司内部代码不能出网</strong>——任何上市公司、金融、医疗、政府供应商，代码经过外网算 API 是合规事件</li>
+<li><strong>客户数据二次开发</strong>——客户在合同里禁止数据外传，云端 API 自动违约</li>
+<li><strong>个人敏感信息处理</strong>——日记、病历、私人通信，外发风险无法承受</li>
+<li><strong>未公开商业策略</strong>——竞品分析、产品规划，prompt 里全是公司机密</li>
+</ul>
+<p>这一块对国内开发者尤其敏感。<strong>等保 2.0、数据安全法、个人信息保护法</strong>三层合规对「数据出网」的认定越来越严，金融业、医疗业、央国企的数据外发审批流程长到无法走通。本地大模型这时候不是「贵 3 倍」的问题，而是「<strong>唯一可选项</strong>」。</p>
+<h3>5.2 离线 / 网络不依赖</h3>
+<p>哪些场景必须离线：</p>
+<ul>
+<li><strong>出差路上</strong>——飞机上、高铁信号差、跨国时差时段，云 API 不可用或延迟极高</li>
+<li><strong>客户内网部署</strong>——客户机房无外网，所有计算必须在内网完成</li>
+<li><strong>断网应急</strong>——本地有完整工作流，云端宕机不影响生产</li>
+</ul>
+<p>国内开发者面对的一个特殊场景：<strong>跨境网络的不稳定性</strong>。OpenAI、Anthropic、Google 的 API 在国内只能走中转，中转节点本身也是单点。本地大模型在这一层不只是「快」，是「<strong>可用性更高</strong>」。</p>
+<h3>5.3 模型可控 / 不被审查</h3>
+<p>哪些场景必须可控：</p>
+<ul>
+<li><strong>跑非商用 / 非主流模型</strong>——研究用未对齐模型、跑社区微调版、用早期开源版做基线对比</li>
+<li><strong>跑自家微调模型</strong>——LoRA 微调出来的私有版本不能放云端</li>
+<li><strong>跑长上下文 / 大 batch</strong>——云端 API 对单次 token 上限有硬封顶，本地可以塞 1M context</li>
+</ul>
+<h3>这三块溢价值多少钱</h3>
+<p>把这三块溢价折算成「<strong>愿意为隐私 / 离线 / 可控多付多少倍 token 价</strong>」，参考网络安全行业的成熟定价：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>溢价倍数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>普通个人开发（隐私可选）</td>
+<td>1×（不付隐私溢价）</td>
+</tr>
+<tr>
+<td>公司一般业务（轻合规）</td>
+<td>2-3×（隐私值 2-3 倍 token 价）</td>
+</tr>
+<tr>
+<td>金融 / 医疗（强合规）</td>
+<td>5-10×</td>
+</tr>
+<tr>
+<td>国防 / 军工 / 央企关键业务</td>
+<td>∞（数据完全不能出网）</td>
+</tr>
+</tbody></table>
+<p>在「公司一般业务」这一档，本地大模型的 3 倍数字劣势刚好被隐私溢价覆盖——<strong>¥12 本地 vs ¥3.5 云 API，差距是 3.4 倍，等价于隐私值 2.4 倍 token 价</strong>。在金融、医疗这一档，本地大模型的劣势完全不在数字层面。</p>
+<p>但要诚实承认：<strong>对个人开发者（无强合规要求）来说，本地大模型在国内当前数字面上确实输给云 API</strong>。</p>
+<h2>六、四象限决策：你该选本地还是云 API</h2>
+<p>把所有维度收成一张二维决策图——X 轴是隐私 / 离线需求强度，Y 轴是单百万 token 实际成本。六个对照点全部摆上去：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/18/apple-silicon-energy-quadrant.png" alt="本地大模型 vs 云 API · 隐私强度 × 单价四象限"></p>
+<p>四象限对应四种决策：</p>
+<h3>象限一：低隐私需求 + 低成本预算 → 云 API 主场</h3>
+<p>普通开发者、个人项目、调试用 prompt，没有强合规约束，对成本敏感。<strong>DeepSeek V4 API + OpenRouter 是最优解</strong>。¥3.5/百万 token 的价格在全球范围内已经是地板。本地大模型在这一档没有任何优势，除非你已经有了一台开发机愿意闲时跑跑。</p>
+<h3>象限二：低隐私需求 + 高成本可承受 → 云 API + 商用版本</h3>
+<p>企业级订阅、大客户专属池子、买套餐确保 SLA。Anthropic Claude / OpenAI GPT 商用版、阿里百炼企业账户。本地大模型仍然不是首选——但可以作为<strong>应急备份</strong>（万一 API 中断、万一长上下文超限）。</p>
+<h3>象限三：高隐私需求 + 高成本可承受 → 本地大模型最佳折旧档</h3>
+<p>金融、医疗、央国企、政府供应商、商业秘密敏感行业。<strong>Mac Studio M3 Ultra 128GB + Qwen3-Coder 30B + 10 年折旧</strong>是这一档的甜点位——¥9.5/百万 token 比云 API 贵 2.7 倍，但隐私溢价远超这个差距。一次性 4.5 万元硬件投入，5 到 10 年回本，是合理的安全成本。</p>
+<h3>象限四：高隐私需求 + 低成本预算 → 折衷方案</h3>
+<p>个人开发者要做私有项目、不想 prompt 上云、又不愿意花 4 万买 Mac Studio。<strong>M5 Max 64GB + 3 年折旧 + 40 tok/s 高强度使用</strong> = ¥8.4/百万 token。比云 API 贵 2.4 倍，但代价能承受。注意一定要把机器用满——闲置着只跑推理几小时一天，单价会涨 5 倍。</p>
+<h2>七、结论：算清账才有真正的选型自由</h2>
+<p>Angel 这篇文章在 HN 拿到 249 赞不是因为他下了道德判决——「本地大模型不值得」，而是因为他<strong>第一个把算账逻辑摆得这么清楚</strong>。国内社区里类似的算账帖也有不少，但大多停留在「跑得动 / 跑不动」「快不快」的体感层面，很少有人把折旧、电费、吞吐、API 价四个维度全部摊到一张表上做硬对比。</p>
+<p>把这套硬算账法套到国内，结论挑衅但温和：</p>
+<ul>
+<li><strong>个人开发 + 无合规约束</strong>：云 API 是性价比最优；DeepSeek V4 + OpenRouter 双源够用</li>
+<li><strong>公司业务 + 中合规</strong>：本地大模型贵 2 到 3 倍，但隐私溢价覆盖；优先 Mac Studio M3 Ultra 长折旧</li>
+<li><strong>强合规行业</strong>：本地大模型是唯一可选项；折旧年限不再是问题，合规本身就是价值</li>
+<li><strong>算账时别忘了</strong>：人力成本是 token 成本的 1,000 倍，<strong>别为了省 token 费拖慢工程师 3 到 7 倍</strong></li>
+</ul>
+<p>我们国内的 AI 开发者其实在一个非常幸运的位置——<strong>全球最便宜的 API 一档（DeepSeek、千问）就在自家</strong>、<strong>全球最便宜的二手卡（4090、5090）也在自家</strong>、<strong>全球最稠密的本地大模型社区（r/LocalLLaMA 之外，知乎和 B 站的实测帖也很多）也在自家</strong>。云 API 和本地大模型这两条路在中国都比海外更通畅、更便宜，谁占谁的份额取决于场景而不是品味。</p>
+<p>最后留一笔账给读者自己算：<strong>你愿意为隐私付多少倍 token 溢价？</strong> 这个数字算出来，你的本地大模型 vs 云 API 的选型就有答案了。</p>
+<hr>
+<p>参考资料：</p>
+<ul>
+<li>William Angel, <em>Offline LLM Energy Use</em>, 2026-05-17：<a href="https://www.williamangel.net/blog/2026/05/17/offline-llm-energy-use.html" target="_blank" rel="noopener">https://www.williamangel.net/blog/2026/05/17/offline-llm-energy-use.html</a></li>
+<li>Hacker News 讨论（249 赞 / 213 条评论）：<a href="https://news.ycombinator.com/item?id=48168198" target="_blank" rel="noopener">https://news.ycombinator.com/item?id=48168198</a></li>
+<li>OpenRouter 模型定价（Gemma 4 31B）：<a href="https://openrouter.ai/models" target="_blank" rel="noopener">https://openrouter.ai/models</a></li>
+<li>DeepSeek V4 官方 API 定价：<a href="https://platform.deepseek.com/pricing" target="_blank" rel="noopener">https://platform.deepseek.com/pricing</a></li>
+<li>阿里百炼 Qwen3-Max / Qwen3-Coder API 定价：<a href="https://help.aliyun.com/zh/dashscope/developer-reference/api-details" target="_blank" rel="noopener">https://help.aliyun.com/zh/dashscope/developer-reference/api-details</a></li>
+<li>国家电网居民阶梯电价 2025 年标准（约 0.49-0.61 元一度）：<a href="http://www.sgcc.com.cn/" target="_blank" rel="noopener">http://www.sgcc.com.cn/</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

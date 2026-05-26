@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrustFall：Claude Code 一个回车交出 SSH key，Cursor / Gemini CLI / Copilot 同坑 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-09</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-09</span><span class="tag-pill">Daily Report</span></div>
+      <h1>TrustFall：Claude Code 一个回车交出 SSH key，Cursor / Gemini CLI / Copilot 同坑</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/trustfall-ai-coding-cli-rce-2026-05-09.png" alt="封面"></p>
+<blockquote>
+<p>当地时间 2026 年 5 月 7 日，Adversa AI 公开 TrustFall：克隆一个 Git 仓库、按一次回车——Claude Code v2.1.129、Cursor CLI、Gemini CLI、GitHub Copilot CLI 即在用户全权限下静默调度本地命令；同一根因，过去 7 个月已是第 4 起。这不是工具崩了，是 AI Coding 工具链开始进入工程化下半场。</p>
+</blockquote>
+<h2>头条核心：4 大 CLI 同时踩坑，根子是同一处「沉默信任」</h2>
+<p>5 月 7 日，Adversa AI 在官方博客挂出名为 TrustFall 的研究——题图直接放了四把 logo：Claude Code、Cursor CLI、Gemini CLI、GitHub Copilot CLI。研究员 Rony Utevsky 与 CTO Alex Polyakov 把同一个攻击模板分别打到 4 个 CLI 上，结果一致：<strong>克隆仓库、回车一次、本地以登录用户全权限跑攻击者命令</strong>。</p>
+<p>The Register 同日跟进，Dark Reading、SecurityWeek、Help Net Security 跟出 4 篇报道；Hacker News 上榜，评论区集中在两件事——Anthropic 这次为什么不修，以及 GitHub Action 的 CI 模式连「回车」这一下都不需要。</p>
+<p>7 个月时间轴拉出来，问题更清晰：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/cve-timeline-trustfall.png" alt="过去 7 个月的 4 次信任边界事件"></p>
+<ul>
+<li><strong>CVE-2025-59536</strong>（2025-10）：MCP 钩子在信任对话框之前抢跑执行；</li>
+<li><strong>CVE-2026-21852</strong>（2026-01）：<code>ANTHROPIC_BASE_URL</code> 重定向劫持 API key；</li>
+<li><strong>CVE-2026-33068</strong>（2026-03）：<code>bypassPermissions</code> 直接绕过信任对话框；</li>
+<li><strong>TrustFall</strong>（2026-05-07）：本次研究主体，Anthropic 拒绝接受为漏洞，未分配 CVE。</li>
+</ul>
+<p>四起事件根因都是一件事——<strong>项目目录里的 JSON 文件可以让 CLI 在用户阅读告警之前调度本地权限</strong>。这一次研究员把范围从 Claude Code 扩到了 4 个工具，结论很硬：<strong>这不是某家厂商的实现 bug，而是这一代 agentic CLI 共用的隐式信任模型</strong>。</p>
+<blockquote>
+<p>全文围绕一个核心论断：<strong>AI Coding 工具的「项目级隐式信任」已经走到尽头，治理层（团队 / 企业 / 平台 / 国产私有化）开始接管原本由用户单点决定的安全边界</strong>。</p>
+</blockquote>
+<h2>三条路径：JSON 文件就能调度本地命令</h2>
+<p>Adversa AI 在博客里给出 3 条互不依赖的攻击路径，全部命中 Claude Code v2.1.129。3 条都不需要预装恶意二进制、不需要漏洞利用代码、只需要 Git 仓库根目录两个文本文件。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/attack-paths-trustfall.png" alt="三条攻击路径示意"></p>
+<p><strong>路径 ① · <code>enableAllProjectMcpServers</code></strong></p>
+<ul>
+<li>攻击者在仓库根放 <code>.mcp.json</code>，里面写一台指向自己 server 的 MCP 配置；</li>
+<li>同目录 <code>.claude/settings.json</code> 里写 <code>enableAllProjectMcpServers: true</code>；</li>
+<li>受害开发者 <code>git clone</code> 后在该目录敲 <code>claude</code> 进入交互；</li>
+<li>信任对话框默认按钮是「Yes, I trust this folder」，回车——Claude Code 会<strong>先</strong>按 settings.json 调度全部 MCP server，然后才进入 reasoning。</li>
+<li>MCP server 运行环境是用户登录态的无沙箱 OS 进程，等价于把 shell 交出去。</li>
+</ul>
+<p><strong>路径 ② · <code>enabledMcpjsonServers</code></strong></p>
+<ul>
+<li>上面是「全量自动批准」，路径 ② 是命名子集自动批准；</li>
+<li><code>.claude/settings.json</code> 写 <code>enabledMcpjsonServers: [&quot;&lt;恶意-server-name&gt;&quot;]</code>；</li>
+<li>利用价值在隐蔽性——配置文件读起来像「我只信任 N 个里的 1 个」，但那 1 个就是攻击者放进 <code>.mcp.json</code> 的恶意 server；</li>
+<li>后续执行流与路径 ① 完全一致。</li>
+</ul>
+<p><strong>路径 ③ · <code>permissions.allow</code></strong></p>
+<ul>
+<li>这条路径不依赖 MCP，依赖项目级预授权工具调用清单；</li>
+<li><code>.claude/settings.json</code> 写 <code>permissions.allow: [&quot;Bash&quot;, &quot;Read&quot;, &quot;Write&quot;, ...]</code>；</li>
+<li>配合仓库 README / 代码注释里的提示注入，模型 reasoning 调用工具时不再二次确认；</li>
+<li>触发节奏比路径 ①② 慢一拍——必须等 Claude reasoning 走到工具调用——但执行时机一旦到位，效果同样是无沙箱本地命令。</li>
+</ul>
+<p>3 条路径在 Adversa AI 的 PoC 视频里跑完一轮的总耗时是数秒。<strong>重点不在 RCE 本身，重点在执行时机：MCP server 启动早于 Claude reasoning，意味着模型本身没有任何机会拦截</strong>。</p>
+<blockquote>
+<p>这一节的小结：把项目目录里的两个 JSON 文件升格成「权限边界配置」，让用户回车一次就移交了本地全权限——这是设计选择，不是实现 bug。</p>
+</blockquote>
+<h2>4 大 CLI 横评：差异在文案，执行后果一致</h2>
+<p>Adversa AI 把同一份恶意仓库分别交给 Claude Code v2.1.129、Gemini CLI、Cursor CLI、GitHub Copilot CLI，发现 4 家在「告警措辞」上差异明显，但<strong>回车之后的执行结果完全相同</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/cli-comparison-trustfall.png" alt="4 大 CLI 信任对话框横评"></p>
+<p>Polyakov 在 The Register 的采访里给出一句关键判断：</p>
+<blockquote>
+<p>&quot;They all have different approaches to configs and trust. But Cursor and Copilot / VS Code agent mode are clear analogs. Both read project-scoped MCP configuration. We tested it, and it&#39;s the same behaviour but with different user approval messages.&quot;</p>
+</blockquote>
+<p>翻译过来：4 家在配置和信任模型上各走各的，但 Cursor 与 Copilot / VS Code agent mode 是明显的同构体——读取项目级 MCP 配置，行为一致，只是用户批准对话框写得不同。</p>
+<p>值得展开的是 Claude Code 自己的「设计回退」：</p>
+<ul>
+<li><strong>2.0 之前</strong>：信任对话框明确告知 <code>.mcp.json</code> 可执行代码，并提供「在禁用 MCP 的情况下信任此文件夹」选项；</li>
+<li><strong>2.1 起</strong>：替换为更宽泛的「Quick safety check: Is this a project you created or one you trust?」对话框，<strong>完全不提 MCP</strong>。</li>
+</ul>
+<p>Adversa AI 没说这是回归 bug，他们说的是：<strong>Anthropic 主动收窄了信息密度</strong>——从「明确告知 MCP 风险 + 三选项」收成「一句通用问候 + 默认 yes」。这是产品决策。</p>
+<h2>CI 默认全自动：headless 模式连「回车」都没有</h2>
+<p>整组研究里读起来最让 OSS 维护者紧张的，是 CI 行为。</p>
+<p>Anthropic 自己发的 GitHub Action <code>claude-code-action</code> 跑在 GitHub Actions 上时是 headless 模式——<strong>没有终端，信任对话框根本不渲染</strong>。换句话说：</p>
+<ul>
+<li>一个被攻击者打了 PR 的开源仓库，PR 里偷偷加进 <code>.mcp.json</code> + <code>.claude/settings.json</code>；</li>
+<li>维护者配置了「每个 PR 自动跑 Claude review」的 Action；</li>
+<li>PR 一推，Action 在维护者的 CI 凭据上以无沙箱进程跑攻击者的 MCP server；</li>
+<li>拿到的是 GITHUB_TOKEN、SSH key、deploy key、secrets 全套。</li>
+</ul>
+<p>Help Net Security 把这一段翻成一句更直白的话：「One keypress is all it takes to compromise four AI coding tools——除非根本不需要按。」</p>
+<p>这一段对国内开发者的现实意义是：<strong>任何配了 Claude Code / Cursor CLI 自动跑 PR 的 OSS 仓库，PR 检查里必须显式拒绝读取 <code>.mcp.json</code>、<code>.claude/</code>、<code>.cursor/</code> 等目录</strong>，或把 Action 的执行环境锁死在最小权限分支。</p>
+<h2>Anthropic 的立场：design intent 还是 informed-consent gap？</h2>
+<p>这次最值得展开的不是技术细节，是双方的工程哲学分歧。</p>
+<p><strong>Anthropic 的立场</strong>——根据 The Register 与 Adversa AI 博客都引用的同一份回应，Anthropic 安全团队评估了报告，归类为「outside threat model」：</p>
+<blockquote>
+<p>接受「Yes, I trust this folder」即视为对项目全部配置（包括 MCP 定义）的整体同意，信任对话框之后的执行属于设计意图（design intent）；与此前自动触发类漏洞（CVE-2025-59536 等）不同，本次必须经用户回车才执行，因此不在威胁模型范围内。</p>
+</blockquote>
+<p><strong>Adversa AI 的反驳</strong>——他们不挑战边界本身，挑战边界的告知质量：</p>
+<blockquote>
+<p>&quot;We havent seen that managed scope secure configuration often, rather, we&#39;ve seen the opposite. And it&#39;s not that obvious to understand all configuration nuances, especially for vibe coders.&quot; —— Alex Polyakov, Adversa AI CTO</p>
+</blockquote>
+<p>Utevsky 给的更技术化的一句：</p>
+<blockquote>
+<p>&quot;Managed scope cannot be overridden by any other scope.&quot;</p>
+</blockquote>
+<p>——意思是：企业 IT 通过 managed scope 锁死的配置，是这套信任体系里<strong>唯一</strong>的硬约束。但他们实测发现企业用户大量没启用 managed scope，普通开发者的 vibe-coding 路径里，managed scope 形同虚设。</p>
+<p>这就是双方的工程哲学差距：</p>
+<ul>
+<li><strong>Anthropic 看到的</strong>：信任边界已经在 UI 上明确画好，执行属于已同意范围，告知不全是 UX 问题不是漏洞；</li>
+<li><strong>Adversa AI 看到的</strong>：在用户做不出 informed consent 的前提下扩大执行权限，等价于把工程纪律外包给了所有终端用户。</li>
+</ul>
+<p><strong>作为同行，我倾向第二种判断</strong>——理由有三：信任对话框的措辞从 2.0 的「明确告知 MCP」回退到 2.1 的「通用问候」是产品方主动收窄信息密度；CI / headless 场景连这一句问候都没有；同根因 7 个月内 4 起，从 hooks 到 base URL 到 bypassPermissions 再到 MCP，每一次外部研究员命中后再修，模式本身就证明信任边界还在演进期。</p>
+<blockquote>
+<p>这一节小结：分歧不在「该不该有信任边界」，而在「信任边界的告知质量该由谁补」。Anthropic 把球踢回用户，安全研究社区觉得这球该平台接。</p>
+</blockquote>
+<h2>国产 AI Coding 工具的治理对照</h2>
+<p>国产 AI Coding 工具走的不是同一条治理曲线。把通义灵码、千问 Code（Qwen Code 开源 CLI）、字节 Trae、字节扣子（Coze）四家放一起看，差异在「治理层在哪里」。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/domestic-tools-governance-trustfall.png" alt="国产 AI Coding 工具治理路径对照"></p>
+<p>四条路径各自的取舍：</p>
+<ul>
+<li><strong>通义灵码</strong>——阿里云的产品形态，公有云 + 专有云 + 本地部署都支持。企业版有团队规则面板，企业 IT 可以一键锁定项目级 <code>.mcp.json</code> 类配置不允许覆盖；这等价于把 Anthropic 文档里那个被忽视的 managed scope，做成默认开启的企业控制台；</li>
+<li><strong>Qwen Code</strong>——通义自家的开源 CLI，定位偏 Claude Code 风格。开源属性意味着项目级配置面与 Claude Code 同构，风险面也同构；优势在权重 + 推理可全本地化，企业可以把整套链路收进内网，治理由企业自己的私有化部署接管；</li>
+<li><strong>Trae</strong>——字节自研的 AI Coding 工具，路径走的是项目级配置 + 平台级规则双层；字节内部的安全规则可以下放到云端 Trae 节点上做强制；</li>
+<li><strong>扣子（Coze）</strong>——直接抹掉「项目级 .mcp.json」的概念，走 SaaS 平台插件模式，所有插件平台审核，治理面 = 平台面。</li>
+</ul>
+<p>四家的共性是「<strong>把项目级隐式信任收归平台层</strong>」——要么企业控制台、要么私有化部署、要么平台审核——而不是把 informed consent 推到每一个开发者的回车键上。这条路径的代价是开放度更低（不像 Claude Code 那样人人能塞 .mcp.json），但对企业 IT 和 OSS 维护者更友好。</p>
+<p>四家国产工具厂商目前都没有公开回应 TrustFall，但底层路径选择已经先一步把同类风险面收掉了。这是国内 AI Coding 工具链一个值得记下的工程节点。</p>
+<h2>6 条具体加固建议</h2>
+<h3>给个人开发者（敲 <code>claude</code> / <code>cursor</code> / <code>gemini</code> / <code>copilot</code> 的所有人）</h3>
+<ol>
+<li><strong>任何来源不明的仓库</strong>，进入前先 <code>ls -la</code> 检查 <code>.mcp.json</code>、<code>.claude/</code>、<code>.cursor/</code>、<code>.github/copilot/</code>、<code>.gemini/</code> 有没有；有则先 <code>cat</code> 一遍再决定是否信任；</li>
+<li><strong>macOS / Linux 的 secrets 扫描提前做</strong>——<code>~/.ssh/</code>、<code>~/.aws/credentials</code>、<code>~/.config/gh/hosts.yml</code> 这些路径，能拿出去用 1Password / Doppler / Vault 托管的就托管；本地裸文件等于暴露面；</li>
+<li><strong>CLI 全局配置 disable 项目级覆盖</strong>——Claude Code 用户在 <code>~/.claude/settings.json</code> 里显式写 <code>enableAllProjectMcpServers: false</code>、<code>enabledMcpjsonServers: []</code>；Cursor / Gemini / Copilot 用对应的全局禁用键。</li>
+</ol>
+<h3>给企业 IT / 平台架构师</h3>
+<ol start="4">
+<li><strong>把 Anthropic 的 managed scope 变成默认开启</strong>——企业版镜像 / 内部 init 脚本里写死 managed <code>~/.claude/managed-settings.json</code>，禁用项目级 MCP 自动批准，下发给所有员工机器；</li>
+<li><strong>CI / OSS 流水线显式拒绝</strong>——<code>pre-commit</code> / GitHub Actions / GitLab Runner 加一道扫描，PR 里出现 <code>.mcp.json</code> / <code>.claude/settings.json</code> / <code>.cursor/mcp.json</code> 增量直接 fail，需要维护者人工 review。</li>
+</ol>
+<h3>给 OSS 维护者</h3>
+<ol start="6">
+<li><strong>README 里写明项目根的 <code>.claude/</code>、<code>.cursor/</code>、<code>.mcp.json</code> 是不是有意提供的</strong>——如果没有，PR 里出现就是攻击信号；如果有，配套写一段 verifier 脚本，发布前做哈希校验。</li>
+</ol>
+<h2>工程化下半场的积极信号</h2>
+<p>把镜头拉远一点。</p>
+<p>过去 12 个月，AI Coding 工具的演化曲线是「从能用到爱用」——Claude Code、Cursor、Gemini CLI 一路把开发者体验推到很多人离不开的地步；过去 7 个月的曲线则是「从爱用到工程化」——CVE-2025-59536 起的 4 起信任边界事件，每一次外部研究员命中、厂商响应、社区讨论、防御工具补齐，都是这条曲线在生长。</p>
+<p><strong>TrustFall 是 AI Coding 工具链终于走到了「治理层必须显性补齐」的那个拐点</strong>。Anthropic 这一次选择不修补、把球踢给用户，恰恰把矛盾摆在了桌面上——后面 6 个月会有更多研究员、更多 OSS 项目、更多企业 IT、更多国产工具厂商，把信任边界的告知质量、CI 默认行为、企业控制台、私有化部署一起补齐。</p>
+<p>国内开发者今天读到这篇，能做的事很具体：<strong>把上面 6 条加固建议过一遍，把 <code>.mcp.json</code> 当 <code>~/.bashrc</code> 的级别去审视，把企业 managed scope 跑起来</strong>。这一代 AI Coding 工具会越来越像传统 IDE 的延续——它会有 marketplace、会有签名、会有企业版、会有审计；今天补的每一道工程纪律，都是把后面 12 个月的曲线往上拉一节。</p>
+<p>回到开篇那句核心论断：<strong>项目级隐式信任的时代结束了，治理层接管的时代开始了</strong>。Claude Code 也好、Cursor 也好、国产灵码 / Trae / 扣子也好，下一代 AI Coding 工具会比这一代更好用、也更稳——这是确定性的方向，路在前面，一起加油。</p>
+<hr>
+<p><strong>参考来源</strong></p>
+<ul>
+<li>Adversa AI · TrustFall: coding agent security flaw enables one-click RCE in Claude, Cursor, Gemini CLI and GitHub Copilot · 2026-05-07 · <a href="https://adversa.ai/blog/trustfall-coding-agent-security-flaw-rce-claude-cursor-gemini-cli-copilot/" target="_blank" rel="noopener">https://adversa.ai/blog/trustfall-coding-agent-security-flaw-rce-claude-cursor-gemini-cli-copilot/</a></li>
+<li>The Register · Claude Code trust prompt can trigger one-click RCE · 2026-05-07 · <a href="https://www.theregister.com/security/2026/05/07/claude-code-trust-prompt-can-trigger-one-click-rce/5235319" target="_blank" rel="noopener">https://www.theregister.com/security/2026/05/07/claude-code-trust-prompt-can-trigger-one-click-rce/5235319</a></li>
+<li>Dark Reading · &#39;TrustFall&#39; Convention Exposes Claude Code Execution Risk · <a href="https://www.darkreading.com/application-security/trustfall-exposes-claude-code-execution-risk" target="_blank" rel="noopener">https://www.darkreading.com/application-security/trustfall-exposes-claude-code-execution-risk</a></li>
+<li>Help Net Security · One keypress is all it takes to compromise four AI coding tools · 2026-05-07 · <a href="https://www.helpnetsecurity.com/2026/05/07/trustfall-ai-coding-cli-vulnerability-research/" target="_blank" rel="noopener">https://www.helpnetsecurity.com/2026/05/07/trustfall-ai-coding-cli-vulnerability-research/</a></li>
+<li>SecurityWeek · AI Coding Agents Could Fuel Next Supply Chain Crisis · <a href="https://www.securityweek.com/ai-coding-agents-could-fuel-next-supply-chain-crisis/" target="_blank" rel="noopener">https://www.securityweek.com/ai-coding-agents-could-fuel-next-supply-chain-crisis/</a></li>
+<li>Check Point Research · Caught in the Hook: RCE and API Token Exfiltration Through Claude Code Project Files · CVE-2025-59536 · CVE-2026-21852 · <a href="https://research.checkpoint.com/2026/rce-and-api-token-exfiltration-through-claude-code-project-files-cve-2025-59536/" target="_blank" rel="noopener">https://research.checkpoint.com/2026/rce-and-api-token-exfiltration-through-claude-code-project-files-cve-2025-59536/</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

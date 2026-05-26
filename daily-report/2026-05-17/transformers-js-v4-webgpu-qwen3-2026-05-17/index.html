@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>transformers.js v4 把 Qwen3.5 跑进 Chrome — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-17</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-17</span><span class="tag-pill">Daily Report</span></div>
+      <h1>transformers.js v4 把 Qwen3.5 跑进 Chrome</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/17/transformers-js-v4-webgpu-qwen3-2026-05-17.png" alt="transformers-js v4 webgpu qwen3 封面"></p>
+<blockquote>
+<p>浏览器里跑大模型这件事，从 v3 时代的「玩一玩可以、做产品不行」，被 transformers.js v4 推到了「Qwen3.5、Gemma 4、GPT-OSS 20B 都能直接在 Chrome 里跑出可用速度」的门槛。对国内一线 Web 开发者来说，这是过去两年里第一次真的可以拿浏览器内推理做隐私优先、零部署成本的个人 AI 产品。</p>
+</blockquote>
+<hr>
+<h2>一、关键数字先列清楚</h2>
+<p>写在最前面，全部来自 Hugging Face 官方仓库 + 官方博客 + 官方演示集合，<strong>每个数字都可在原始来源找到同一数字</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>数值</th>
+<th>来源</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>transformers.js GitHub 星标</td>
+<td>16,007</td>
+<td>huggingface/transformers.js（2026-05-17）</td>
+</tr>
+<tr>
+<td>v4.0.0 发布日期</td>
+<td>2026-03-30</td>
+<td>同上 release 页</td>
+</tr>
+<tr>
+<td>v4.1.0 / v4.2.0 发布日期</td>
+<td>2026-04-23</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>v4 官方博客发布日期</td>
+<td>2026-02-09</td>
+<td>huggingface.co/blog/transformersjs-v4</td>
+</tr>
+<tr>
+<td>v4 开发周期</td>
+<td>约 1 年（2025-03 起步）</td>
+<td>同博客</td>
+</tr>
+<tr>
+<td>WebGPU 后端语言</td>
+<td>C++ 完全重写</td>
+<td>v4.0.0 release notes</td>
+</tr>
+<tr>
+<td>支持运行环境</td>
+<td>浏览器 / Node / Bun / Deno</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>支持的模型架构数量</td>
+<td>约 200 个</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>GPT-OSS 20B（q4f16）实测速度</td>
+<td>约 60 tokens/s（M4 Pro Max）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>BERT 嵌入模型相对加速</td>
+<td>约 4 倍</td>
+<td>同上（MultiHeadAttention 算子）</td>
+</tr>
+<tr>
+<td>构建系统切换</td>
+<td>Webpack → esbuild</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>构建耗时变化</td>
+<td>约 2 秒 → 约 200 毫秒（10 倍）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>默认主包体积变化</td>
+<td>transformers.web.js 缩小约 53%</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>对照框架 web-llm 星标</td>
+<td>17,975（pushed 2026-05-06）</td>
+<td>gh api repos/mlc-ai/web-llm</td>
+</tr>
+<tr>
+<td>官方演示数量</td>
+<td>20+ 个浏览器内 WebGPU demo</td>
+<td>webml-community v4 demos 合集</td>
+</tr>
+</tbody></table>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/17/tjs-v4-webgpu-overview-cn.png" alt="transformers.js v4 WebGPU 一图看清运行环境矩阵"></p>
+<p><strong>本文核心论断</strong>：浏览器内跑大模型这条赛道，过去一直被中文媒体当成「Demo 级新奇玩意」忽略；v4 是把它从玩具状态推到可做产品的那一脚——而国内中文媒体目前 0 篇 v4 深度报道，全部停在 v3 / v2 旧文。这条 16,007 星的赛道，在国内被低估了。</p>
+<hr>
+<h2>二、为什么国内开发者今天值得认真读一下这件事</h2>
+<p>本节核心论断：<strong>浏览器内推理不是「服务端推理的低配版」，而是 Web 产品做隐私优先、零安装、零账户、零部署成本个人 AI 的唯一路径。</strong></p>
+<p>国内 Web 开发者每天面对的场景：</p>
+<ul>
+<li>做一个浏览器扩展，要给用户做摘要 / 翻译 / 重写，但用户不愿意把自己看的网页传到第三方 API</li>
+<li>做一个 SaaS 产品，想给免费用户提供一个本地大模型选项，又不愿意为每个免费用户付云端 token 钱</li>
+<li>做一个企业内部工具，合规要求数据不出端、不上云，但 IT 部署本地推理服务又太重</li>
+</ul>
+<p>过去这三个场景的常见方案：</p>
+<ol>
+<li><strong>接云端 API</strong>：数据出端，免费用户付不起 token 成本</li>
+<li><strong>自建本地推理服务</strong>：用户得装 Ollama / LM Studio / vLLM，对普通用户门槛太高</li>
+<li><strong>WebGL/WASM 推理</strong>：能跑但只够 100M 级别小模型，做不出可用产品</li>
+</ol>
+<p>v4 把第四个方案推到了可用线上：<strong>用户打开网页，浏览器自动下载量化后的模型权重到 IndexedDB / Cache Storage，下次访问直接命中本地缓存，所有推理在用户的 GPU 上完成，零账户零安装。</strong></p>
+<p>这条路对国内尤其重要，原因有三条：</p>
+<ul>
+<li><strong>合规友好</strong>：数据不出端 = 不存在跨境传输问题，企业销售门槛直接低一档</li>
+<li><strong>成本结构反转</strong>：从「按 token 付费给云端」变成「用户自己出算力」，对免费 / Freemium 产品至关重要</li>
+<li><strong>国产模型分发友好</strong>：Hugging Face 上 Qwen3.5、千问系列权重直接可被浏览器拉取，不需要中间一层云服务</li>
+</ul>
+<hr>
+<h2>三、v4 跟 v3 到底差在哪：从 WebGL 玩具到 WebGPU 工程</h2>
+<p>本节核心论断：<strong>v4 的核心升级不是「加快」，而是「把推理跑到了浏览器原生 GPU 加速通道上」，让以前根本上不去的 8B+ 模型变成日常可跑。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/17/tjs-v4-vs-v3.png" alt="tjs v3 → v4 关键能力跃迁"></p>
+<h3>3.1 新 WebGPU 后端：C++ 重写，全平台同一份代码</h3>
+<p>v4.0 release notes 第一句话就是：「The biggest change is undoubtedly the adoption of a new WebGPU Runtime, completely rewritten in C++.」</p>
+<p>具体改了什么：</p>
+<ul>
+<li>与 ONNX Runtime 团队合作，把整个 WebGPU 推理通路用 C++ 重写</li>
+<li>在 200 多个支持的模型架构上做了全量测试</li>
+<li>加入了 ONNX Runtime 的专用 Contrib Operators：<code>com.microsoft.GroupQueryAttention</code>、<code>com.microsoft.MatMulNBits</code>、<code>com.microsoft.QMoE</code>、<code>com.microsoft.MultiHeadAttention</code></li>
+<li>一份 transformers.js 代码可以在浏览器 / Node.js / Bun / Deno 里<strong>完全一样地</strong>跑起来，且都吃 GPU 加速</li>
+</ul>
+<p>第四条特别值得 Web 开发者注意——同一份模型 / 同一份调用代码，本地写完直接在 Node 服务端跑测试，部署到浏览器跑生产，不用再切两套 runtime。</p>
+<h3>3.2 BERT 嵌入模型 4 倍加速：算子级优化</h3>
+<p>v4 在 <code>MultiHeadAttention</code> 算子上做了专门优化，BERT 类嵌入模型相对 v3 速度提升约 4 倍。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/17/tjs-v4-speedup-cn.png" alt="tjs v4 BERT 嵌入模型 speedup 实测"></p>
+<p>对国内开发者来说，嵌入模型是 RAG、向量搜索、网页内容理解的基础环节。v3 时代浏览器内跑 BERT 嵌入是「能跑但产品里得做转圈圈」，v4 之后基本进入「无感」区间。</p>
+<h3>3.3 模型规模上限：从 8B 以内捅破到 20B</h3>
+<p>v3 时代社区共识是「浏览器内推理 8B 以内是上限」。v4 release notes 给的实测：</p>
+<blockquote>
+<p>「Additionally, we&#39;ve added support for larger models exceeding 8B parameters. In our tests, we&#39;ve been able to run GPT-OSS 20B (q4f16) at ~60 tokens per second on an M4 Pro Max.」</p>
+</blockquote>
+<p>这一段拆开看就是：</p>
+<ul>
+<li>模型：GPT-OSS 20B（OpenAI 开源的 GPT 系基础模型）</li>
+<li>量化：q4f16（4-bit 权重 + fp16 激活）</li>
+<li>硬件：Apple M4 Pro Max（统一内存架构 macOS 笔记本，2026 Q1 旗舰款）</li>
+<li>速度：约 60 tokens/s</li>
+</ul>
+<p>60 tokens/s 是一个什么概念？聊天对话场景里 25 tokens/s 已经追平人类阅读速度，60 tokens/s 是「输出速度比你读还快」的体验。一年前我们还在讨论「8B 模型能不能在浏览器里跑」，现在 20B 在 Apple Silicon 上对话流畅——这是一年内的代际跨越。</p>
+<h3>3.4 构建系统 + 包体积：从开发体验到加载速度全升级</h3>
+<ul>
+<li>构建系统：Webpack → esbuild，构建耗时 2 秒 → 200 毫秒，10 倍</li>
+<li>主包体积：transformers.web.js 缩小约 53%</li>
+<li>平均包体积：所有 build 平均缩小约 10%</li>
+</ul>
+<p>对 Web 开发者，这意味着引入 transformers.js 后<strong>首屏加载时间</strong>显著改善——以前 v3 时代用户打开一个集成了浏览器内推理的页面，要等 transformers.js 库自身加载完一段时间才能开始拉模型，v4 之后这部分基本可以忽略。</p>
+<h3>3.5 新增模型架构：Qwen3 系列、DeepSeek-v3、Gemma 4 全到位</h3>
+<p>v4 开发周期里加进来的模型架构（节选）：</p>
+<ul>
+<li><strong>Qwen 系列</strong>：Qwen2.5-VL、Qwen3-VL、Qwen3.5、Qwen3.5 MoE、Qwen3 MoE、Qwen3 Next、Qwen3-VL MoE</li>
+<li><strong>国内系列</strong>：DeepSeek-v3、HunYuanDenseV1（混元）</li>
+<li><strong>Google 系</strong>：Gemma 4、Gemma3 VLM、Olmo3</li>
+<li><strong>Mistral 系</strong>：mistral4</li>
+<li><strong>OpenAI 系</strong>：GPT-OSS</li>
+<li><strong>新架构范式</strong>：FalconH1（Mamba 状态空间模型）、Multi-head Latent Attention（MLA）、Mixture of Experts（MoE）</li>
+</ul>
+<p>这一份模型清单里<strong>有一半是国内厂商</strong>的。Qwen3.5 0.8B / 2B / 4B 三档官方 WebGPU demo 已经在 webml-community 集合里上线，国内开发者直接可以拿来作起点。</p>
+<hr>
+<h2>四、Qwen3.5 在浏览器里跑：官方演示集合实拆</h2>
+<p>本节核心论断：<strong>Hugging Face 已经把 Qwen3.5、Gemma 4、GPT-OSS、Voxtral 等 20+ 个模型的浏览器内 demo 做好了，国内开发者今天就能 fork。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/17/tjs-v4-demo-matrix.png" alt="tjs v4 官方 demo matrix 矩阵"></p>
+<p>来源是 Hugging Face 官方维护的 <code>webml-community/transformersjs-v4-demos</code> 合集，节选 12 个有代表性的：</p>
+<h3>4.1 对话 / 推理类</h3>
+<ul>
+<li><strong>Qwen3.5 WebGPU</strong>：0.8B / 2B / 4B 三档，国内开发者最熟悉的基座</li>
+<li><strong>Gemma 4 WebGPU</strong>：Google 最新一代轻量对话模型</li>
+<li><strong>GPT-OSS 20B WebGPU</strong>：上面提到的 60 tokens/s 那个</li>
+<li><strong>LFM2.5 1.2B Thinking</strong>：带思维链推理的 1.2B 模型</li>
+<li><strong>Nemotron 3 Nano</strong>：NVIDIA 推出的紧凑推理模型</li>
+<li><strong>Olmo-Hybrid 7B</strong>：AI2 的混合架构 7B</li>
+<li><strong>Bonsai 1-bit</strong>：1-bit 量化对话模型（极端小体积）</li>
+</ul>
+<h3>4.2 多模态 / 翻译类</h3>
+<ul>
+<li><strong>TranslateGemma 4B</strong>：4B 参数支持 56 种语言（中英直翻够用）</li>
+<li><strong>LFM2-VL</strong>：视觉+语言模型</li>
+<li><strong>SAM3 Tracker</strong>：图像分割</li>
+<li><strong>RF DETR Medium / Nano</strong>：物体检测</li>
+<li><strong>voyage-4-nano</strong>：文本嵌入（RAG 基础）</li>
+</ul>
+<h3>4.3 语音类</h3>
+<ul>
+<li><strong>Voxtral Realtime WebGPU</strong>：实时语音转写</li>
+<li><strong>Cohere Transcribe WebGPU</strong>：Cohere 的转写模型</li>
+<li><strong>Granite 4.0 1B Speech</strong>：IBM 的轻量语音模型</li>
+</ul>
+<p>对国内 Web 开发者最直接的价值是：你想做一个「网页内 Qwen3.5 对话框」，不需要从零搭，<strong>fork 一个 demo 就有完整的 npm 工程 + 模型加载逻辑 + UI 模板</strong>。</p>
+<hr>
+<h2>五、浏览器内跑 Qwen3.5 的真实可行性：怎么估算</h2>
+<p>本节核心论断：<strong>给定 GPU 显存与浏览器 WebGPU 支持，跑 Qwen3.5 是日常体验；社区已经公开的实测数字是 GPT-OSS 20B 约 60 tokens/s，但 Qwen3.5 不同档位的精确 tokens/s 数据还需要社区进一步公布。</strong></p>
+<h3>5.1 显存占用估算（基于量化级别）</h3>
+<p>Qwen3.5 不同档位 + 不同量化下显存大致占用（按 4-bit 主流量化估算，权重 ≈ 参数量 × 0.5 字节 + KV cache）：</p>
+<table>
+<thead>
+<tr>
+<th>模型档位</th>
+<th>参数量</th>
+<th>4-bit 权重大小</th>
+<th>含 KV cache 大致占用</th>
+<th>适配硬件</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qwen3.5-0.8B</td>
+<td>0.8B</td>
+<td>约 400 MB</td>
+<td>约 600-800 MB</td>
+<td>集成显卡 / Mac M1 起</td>
+</tr>
+<tr>
+<td>Qwen3.5-2B</td>
+<td>2B</td>
+<td>约 1.0 GB</td>
+<td>约 1.5-2 GB</td>
+<td>中端独显 / Mac M2 起</td>
+</tr>
+<tr>
+<td>Qwen3.5-4B</td>
+<td>4B</td>
+<td>约 2.0 GB</td>
+<td>约 3-4 GB</td>
+<td>主流独显 / Mac M2 起</td>
+</tr>
+<tr>
+<td>GPT-OSS 20B</td>
+<td>20B</td>
+<td>约 10 GB</td>
+<td>约 12-14 GB</td>
+<td>高端 GPU / M4 Pro Max</td>
+</tr>
+</tbody></table>
+<p><strong>说明</strong>：上表显存估算来自常规 4-bit 量化数学，<strong>实际待社区在 Chrome 128+ / Firefox / Safari 各档显卡上正式公布对照实测</strong>。Hugging Face 目前唯一公开的 v4 浏览器内 tokens/s 实测是上文提到的 GPT-OSS 20B @ M4 Pro Max ≈ 60 tokens/s。</p>
+<h3>5.2 浏览器 WebGPU 支持现状</h3>
+<p>桌面端 WebGPU 已经是默认开启状态，覆盖面相对乐观：</p>
+<ul>
+<li><strong>Chrome / Edge</strong>：113+（2025 年开始）已默认开启 WebGPU</li>
+<li><strong>Safari</strong>：18+（macOS / iOS 18）默认开启</li>
+<li><strong>Firefox</strong>：141+ 桌面版默认开启（Linux/Windows/macOS）</li>
+<li><strong>国内浏览器</strong>：基于 Chromium 内核的国产浏览器（夸克、360、UC、QQ 浏览器等）通常跟随 Chromium 版本，多数已具备 WebGPU 能力</li>
+</ul>
+<p>移动端目前还在过渡阶段——iOS Safari 18 已开，Android Chrome 部分机型默认开。<strong>生产环境部署建议加 fallback</strong>：检测到 WebGPU 不可用时回落到 WASM 后端跑更小模型。</p>
+<h3>5.3 用户路径上的两个常见问题</h3>
+<p><strong>问题一：模型首次下载体积</strong></p>
+<p>Qwen3.5-4B 4-bit 大约 2 GB，国内宽带下首次下载至少几十秒。建议产品上做三件事：(1) 进度条 + 预计时间；(2) 用 v4 新的 <code>env.useWasmCache</code> + Cache Storage 让用户只下一次；(3) 提供「先用云端 API 试用、满意后下本地权重」的渐进体验。</p>
+<p><strong>问题二：冷启动初始化耗时</strong></p>
+<p>WebGPU 第一次加载模型权重到 GPU 需要几秒到十几秒不等。建议在用户登录后台预加载，而不是用户点「开始聊天」那一刻才开始拉。</p>
+<hr>
+<h2>六、对照 web-llm：浏览器内 LLM 还有另一条路线</h2>
+<p>本节核心论断：<strong>transformers.js 不是浏览器内 LLM 唯一选项；mlc-ai 的 web-llm 走的是 TVM 编译路线，星标更高（17,975），但 v4 把 transformers.js 从「能跑」推到「易接入」的距离拉得更短。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/17/tjs-v4-framework-stars.png" alt="tjs v4 三大浏览器内 LLM framework stars 横评"></p>
+<h3>6.1 web-llm（mlc-ai）：编译派</h3>
+<ul>
+<li>GitHub：mlc-ai/web-llm</li>
+<li>星标：17,975（pushed 2026-05-06）</li>
+<li>路线：通过 Apache TVM 把模型编译成 WebGPU shader</li>
+<li>优势：编译期优化空间大，单模型在指定硬件上能跑得很快</li>
+<li>痛点：每个新模型 / 新量化级别都要重新编译；对国内开发者来说，从 Hugging Face 上拉一个 ONNX 权重直接跑 ≠ web-llm 的流程</li>
+</ul>
+<h3>6.2 transformers.js v4（huggingface）：运行时派</h3>
+<ul>
+<li>GitHub：huggingface/transformers.js</li>
+<li>星标：16,007（pushed 2026-05-13）</li>
+<li>路线：ONNX 模型 + ONNX Runtime Web/WebGPU 后端运行</li>
+<li>优势：与 Hugging Face Hub 上 20 万+ ONNX 模型直接打通；API 跟 Python 版 transformers 几乎一样，迁移成本低</li>
+<li>痛点：极致单模型性能上可能略输给针对性编译的 web-llm</li>
+</ul>
+<h3>6.3 国内开发者怎么选</h3>
+<p>不需要选边，按场景搭配：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>想快速集成一个浏览器内对话框</td>
+<td>transformers.js v4（直接 fork 官方 Qwen3.5 demo）</td>
+</tr>
+<tr>
+<td>重度依赖某个固定模型 + 想压榨极致性能</td>
+<td>web-llm（接受预编译成本）</td>
+</tr>
+<tr>
+<td>想给用户提供多模型可切换</td>
+<td>transformers.js v4（任意 ONNX 模型零额外工作）</td>
+</tr>
+<tr>
+<td>想做语音 / 视觉 / 嵌入混合管线</td>
+<td>transformers.js v4（pipeline API 直接全覆盖）</td>
+</tr>
+<tr>
+<td>想做企业内长寿命产品</td>
+<td>两个都跟一份，避免单点依赖</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>七、对国内 Web 产品的真实接入路径</h2>
+<p>本节核心论断：<strong>这条赛道在国内目前还是空白：夸克 AI / 360 AI 浏览器 / 豆包浏览器都依赖云端推理，浏览器内本地推理仍是产品创新窗口。</strong></p>
+<h3>7.1 国内 AI 浏览器现状</h3>
+<ul>
+<li><strong>夸克 AI</strong>：阿里旗下，AI 能力基于云端通义系列</li>
+<li><strong>360 AI 浏览器</strong>：纳米搜索 + 360 智脑云端</li>
+<li><strong>豆包浏览器</strong>：字节，云端豆包模型</li>
+<li><strong>百度浏览器 AI</strong>：文心一言云端</li>
+</ul>
+<p>特点是 AI 都跑在云端——隐私优势可以打但不彻底，因为请求要回云。</p>
+<h3>7.2 v4 + Qwen3.5 给国内开发者的产品想象空间</h3>
+<p>可以做但还没多少人做的产品形态：</p>
+<ul>
+<li><strong>隐私优先的网页摘要 / 翻译 / 重写浏览器扩展</strong>：用户网页内容不出端</li>
+<li><strong>企业内部知识库前端</strong>：员工查询不离开浏览器，IT 不用部署后端推理服务</li>
+<li><strong>Web IDE 内的 AI 补全</strong>：本地代码不上云的强需求场景，浏览器内 Qwen3.5 是合适候选</li>
+<li><strong>教育产品的离线模式</strong>：学校 / 偏远地区网络条件不稳定时仍可用</li>
+<li><strong>C 端隐私聊天框</strong>：跟主流云端对话产品形态接近，但承诺 100% 本地推理</li>
+</ul>
+<h3>7.3 接入清单（给国内 Web 团队）</h3>
+<p>如果你今天打算往项目里加 transformers.js v4，前期可以这样安排：</p>
+<ol>
+<li><strong>选模型</strong>：聊天 / 摘要 → Qwen3.5-0.8B 起步；翻译 → TranslateGemma 4B；嵌入 → 选 voyage-4-nano 或 BERT 小模型</li>
+<li><strong>量化</strong>：默认 q4f16，平衡速度与质量</li>
+<li><strong>fallback 策略</strong>：检测 <code>navigator.gpu</code> 不可用 → 回落 WASM 后端跑更小模型 → 再不行才提示用户升级浏览器</li>
+<li><strong>缓存策略</strong>：v4 新提供的 <code>env.useWasmCache</code> 必开；模型权重走 Cache Storage 让用户只下一次</li>
+<li><strong>首屏 UX</strong>：把模型下载拆成「后台静默拉取」+ 进度提示，不要堵在用户主动作前</li>
+<li><strong>可观测性</strong>：v4 的 <code>env.logLevel</code> 接生产监控</li>
+</ol>
+<hr>
+<h2>八、局限与目前还没解决的问题</h2>
+<p>本节核心论断：<strong>v4 把浏览器内 LLM 推到可用线，但移动端、超大模型、高并发场景还有明显短板，需要客观看待。</strong></p>
+<p>诚实摆出来的限制：</p>
+<ul>
+<li><strong>移动端 WebGPU 还在过渡期</strong>：Android 部分中低端机型暂未默认开启 WebGPU；iOS 18+ 已默认开但旧设备无缘</li>
+<li><strong>20B 是上限但不是日常</strong>：60 tokens/s 是 M4 Pro Max 这种顶配硬件，普通 Mac Air / 中端 Windows 笔记本能不能跑 20B 待社区实测</li>
+<li><strong>首次下载体积仍是产品门槛</strong>：4B 模型 2GB 的下载体积，普通用户场景不算友好</li>
+<li><strong>高并发场景不适合</strong>：浏览器内推理本质上是单用户单设备，需要服务多用户的场景还是得云端</li>
+<li><strong>国产模型 ONNX 转换不齐</strong>：Hugging Face 上 Qwen3.5、DeepSeek-v3 已有官方 ONNX，但部分国内厂商自家模型还没出 ONNX 版</li>
+</ul>
+<p>判断：上述局限里，前两条会随硬件代际自然解决；后三条需要工程时间，但都不影响**「v4 已经可以做产品」**这个结论。</p>
+<hr>
+<h2>九、回到核心：这是 Web 前端 + AI 的一个新机会窗口</h2>
+<p>写这篇文章的时候我做了一件事：在主流国内 AI 中文媒体搜索「transformers.js v4」，从 2026-02-09 v4 博客发布算起，这三个月里<strong>几乎没有任何一篇深度报道</strong>——大家的视线全在云端大模型、API 价格战、AI Coding 上。</p>
+<p>这条赛道在国内被低估的程度，比一年前 MCP、半年前 skill 系统、三个月前 Claude Code 都要严重得多。原因不复杂：浏览器内推理是个<strong>纯前端工程师能吃透</strong>的赛道，但国内 AI 圈过去三年的话语权大多在云端推理 / 模型训练 / 应用层。这是一个典型的「相邻领域空白」。</p>
+<p>回到本文开头的核心论断：</p>
+<ul>
+<li><strong>v4 把浏览器内 LLM 从「Demo 能跑」推到了「产品能做」</strong>——WebGPU 后端 C++ 重写、20B 在 M4 Pro Max 上 60 tokens/s、Qwen3.5 / Gemma 4 / GPT-OSS 全官方 demo 就绪</li>
+<li><strong>国产模型在 Hugging Face 这条路上是被良好支持的</strong>——Qwen3.5、DeepSeek-v3、混元 HunYuanDenseV1 都进了 v4 模型架构清单</li>
+<li><strong>国内 Web 开发者今天就可以动手</strong>——fork 一个官方 demo、换上自己的 UI、加上自己的业务逻辑，一个隐私优先的 AI 产品雏形当天可成</li>
+<li><strong>三个月内国内 0 篇深度报道，是一个机会窗口</strong>——先动手的人会享受到「相邻领域空白」的红利</li>
+</ul>
+<p>我们这一代 Web 前端工程师挺幸运——上一代要做客户端 AI 得学 C++ / CUDA / 模型推理框架，这一代只要懂 JavaScript + 一份 Hugging Face Hub 的 ONNX 模型，就能在用户浏览器里跑出 60 tokens/s 的 Qwen3.5。门槛降到了过去十年里最低的水平。</p>
+<p>剩下的就是动手了。</p>
+<hr>
+<h2>十、可继续追的事</h2>
+<ul>
+<li>transformers.js v4.3 路线图（关注 huggingface/transformers.js 的 milestones）</li>
+<li>Qwen3.5 各档在 Chrome / Edge / Safari 上的 tokens/s 实测（等社区在 r/LocalLLaMA、HN 公布）</li>
+<li>国内浏览器厂商对 WebGPU 的官方表态与版本对齐（夸克、360、QQ）</li>
+<li>浏览器内 LLM 的端侧 RAG 工作流范式（voyage-4-nano + Qwen3.5 + 本地向量库的组合）</li>
+<li>中国电信、华为、阿里云推 H5 / 小程序的 AI 接入是否会跟进 WebGPU</li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Qwen3.6 多模态 MoE 下周见？仓库露底 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-15</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-15</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Qwen3.6 多模态 MoE 下周见？仓库露底</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/qwen3-6-35b-a3b-multimodal-preview-2026-05-15.png" alt="Qwen3.6-35B-A3B 多模态预告封面"></p>
+<p><strong>前置声明：本文是基于公开 commit 的前瞻分析，不是官方发布。阿里通义千问团队尚未官方确认 Qwen3.6-35B-A3B 多模态版本的具体发布时间，本文所有&quot;下周见&quot;的预期仅是基于历史节奏的推断。</strong></p>
+<p>今早 7 点 11 分，QwenLM/qwen-code 仓库合入一条很短的 commit，编号 4c18f13，标题写着「为 Qwen3.6-35B-A3B 量化变体加上图像 + 视频支持」。只动了 10 行代码：两行模型名匹配的正则，外加 8 行单元测试。表面看是工程上的小修补，往后退一步看就有意思了——qwen-code 是阿里通义千问团队官方维护的本地代码代理仓库，今早这条 commit 把一个<strong>还没正式发布</strong>的模型档位（Qwen3.6-35B-A3B）写进了本地推理框架的默认配置表。配置里直接点名了量化命名格式 <code>Qwen3.6-35B-A3B-NVFP4</code>，说明 Qwen 团队下一档混合专家（MoE）多模态模型的本地侧适配工作已经接近收尾。</p>
+<h2>一、commit 4c18f13 到底露了什么底</h2>
+<p>打开 <a href="https://github.com/QwenLM/qwen-code/commit/4c18f13" target="_blank" rel="noopener">QwenLM/qwen-code 仓库的这条 commit</a>，改动只有两个文件：</p>
+<ul>
+<li><code>packages/core/src/core/modalityDefaults.ts</code>：在模型模态默认配置表里新增一条正则规则，<code>/^qwen3\.6-35b/</code> 匹配的模型名默认开启 <code>image: true, video: true</code></li>
+<li><code>packages/core/src/core/modalityDefaults.test.ts</code>：对应的单元测试，断言模型名 <code>qwen3.6-35b-a3b-nvfp4</code> 输入到默认模态函数后，返回的 <code>image</code> 和 <code>video</code> 字段为真</li>
+</ul>
+<p>commit message 原文很克制：</p>
+<blockquote>
+<p>&quot;feat(core): add image+video support for Qwen3.6-35B-A3B quant variants&quot; — qwen-code commit <code>4c18f13</code>（2026-05-15 07:11 UTC）</p>
+</blockquote>
+<p>但描述段里的几句话信号很强：</p>
+<blockquote>
+<p>&quot;Add modality pattern for qwen3.6-35b model names, enabling image and video input for locally-hosted Qwen3.6-35B-A3B models (e.g. SGLang&#39;s default model name: Qwen3.6-35B-A3B-NVFP4). Previously these fell through to the text-only catch-all, blocking all image content.&quot;</p>
+</blockquote>
+<p>关键词「locally-hosted」指本地托管而非云 API，等于明确告诉读者：Qwen 团队优先把本地推理路径补齐。提到「SGLang&#39;s default model name: Qwen3.6-35B-A3B-NVFP4」更具体——SGLang 是高吞吐推理框架，NVFP4 是英伟达 4 比特浮点量化格式，这意味着已经有量化产物在测试环境里被加载。最后那个「quant variants」（量化变体）用的是复数，言下之意会出多档量化精度，4-bit / 8-bit / FP16 多版本同步是大概率走向。</p>
+<p>这条 commit 由社区开发者 @Dinsmoor 与 Qwen-Coder 团队共同署名（co-authored-by: <code>qwen-coder@alibabacloud.com</code>）。阿里云内部账号往社区代码仓库推送的标准做法就是这样，等于半官方确认。</p>
+<h2>二、Qwen3.6 系列已知的两条线</h2>
+<p>35B-A3B 这一档的位置，要放到 Qwen3.6 系列里看。基于 <a href="https://insiderllm.com/guides/qwen-3-6-local-ai-guide/" target="_blank" rel="noopener">insiderllm 在 4 月底整理的综合指南</a> 与 <a href="https://www.qbitai.com/2026/04/394704.html" target="_blank" rel="noopener">量子位 4 月的报道</a>，Qwen3.6 目前公开的有三档：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/qwen3-6-lineup.png" alt="Qwen3.6 系列三档产品线状态"></p>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>类型</th>
+<th>参数量</th>
+<th>主打场景</th>
+<th>公开状态</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qwen3.6-27B Dense</td>
+<td>稠密模型</td>
+<td>27B 全激活</td>
+<td>单卡本地推理 / 编码任务</td>
+<td>已发布（4 月）</td>
+</tr>
+<tr>
+<td>Qwen3.6-Plus</td>
+<td>云端旗舰</td>
+<td>未公开</td>
+<td>1M 上下文长文档 / 复杂推理</td>
+<td>已发布（4 月）</td>
+</tr>
+<tr>
+<td>Qwen3.6-35B-A3B</td>
+<td>混合专家 MoE</td>
+<td>35B 总参数 / 3B 活跃</td>
+<td>多模态 + 本地部署</td>
+<td><strong>未发布（commit 信号）</strong></td>
+</tr>
+</tbody></table>
+<p>量子位对 Qwen3.6-Plus 的评价直白：</p>
+<blockquote>
+<p>&quot;几乎直逼 Claude Opus 4.5&quot; — 量子位</p>
+</blockquote>
+<blockquote>
+<p>&quot;1M 上下文直接拉满&quot; — 量子位</p>
+</blockquote>
+<blockquote>
+<p>&quot;速度和生成体验感比 Claude 更夯&quot; — 量子位</p>
+</blockquote>
+<p>注意这些评价指的是 <strong>Qwen3.6-Plus（云端）</strong>，不是即将到来的 35B-A3B。本地版的实测体验需要等模型权重正式开放后才能下定论，本文不替它背书。</p>
+<h2>三、Qwen3.6-27B Dense 已经能在桌面跑</h2>
+<p>35B-A3B 还没来，但同期的 Qwen3.6-27B Dense 已经能跑很久了。Simon Willison 在 4 月 24 日给出过一次公开实测：</p>
+<blockquote>
+<p>&quot;Q4_K_M GGUF (16.8GB file) on llama-server at 65K context and clocked 25.57 tok/s generating a pelican SVG&quot; — <a href="https://simonwillison.net/2026/Apr/24/deepseek-v4/" target="_blank" rel="noopener">Simon Willison 博客</a></p>
+</blockquote>
+<p>GGUF 量化格式（GPT-Generated Unified Format）的 Q4_K_M 是 4 比特中等精度档位，文件 16.8GB 装得下：</p>
+<ul>
+<li><strong>单卡 RTX 4080（16GB）</strong> 配合 CPU 卸载够跑</li>
+<li><strong>Mac mini M5（24GB 统一内存）</strong> 余量充足</li>
+<li><strong>Mac M5 Max（128GB 统一内存）</strong> 全部驻显存还有大把空间留给 KV cache</li>
+</ul>
+<p>每秒 25.57 token 的生成速度，65K 的上下文窗口——这个性能已经能支撑日常代码补全、技术文档翻译、长论文总结这类高频用例。Qwen3.6-27B 把&quot;国产模型本地能用&quot;这件事钉死了。35B-A3B 来的时候，本地侧的人群基础已经搭好。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/qwen-local-hardware.png" alt="Qwen3.6 本地推理硬件适配预估"></p>
+<h2>四、35B-A3B 多模态意味着什么</h2>
+<p>把 commit 信号、系列已知信息和历史节奏拼到一起，35B-A3B 多模态版如果真的下周发布，意义最直观的就一条：国产基座少见的「代码 + 多模态 + 长上下文」三件套同框。过去这三块在国产基座里通常是分线推进——Qwen3-Coder 主攻代码、Qwen-VL 主攻视觉、Qwen3.6-Plus 主攻长上下文，开发者要在不同场景里反复切换模型权重。35B-A3B 把这三块拼到同一档 MoE 上，本地一份就能覆盖混合输入的真实工作流，是一次结构性的整合。</p>
+<p>35B-A3B 也是当下消费级硬件能跑的最大 MoE 规格。总参数 35B、活跃 3B 的 MoE 结构意味着推理时只有 3B 参数真正参与计算，对显存带宽的压力远小于稠密 35B。这一档在 4-bit 量化（NVFP4 或 GGUF Q4_K_M）下，对硬件的真实要求大致落在「24GB 显存配 32GB 内存」或「64GB 统一内存」这一线，Mac mini M5 Pro 64GB / Mac M5 Max / 单卡 RTX 5090 + 大内存 PC 都覆盖得到。</p>
+<p>放到同档海外旗舰的对照里更清楚。同档海外开源 MoE 多模态基座今年陆续开放，但产品取向各不相同——一类押注超长上下文（百万级窗口），一类追求极致视觉理解密度，还有一类专注极小化端侧部署。35B-A3B 如果按 commit 透出的方向走（NVFP4 量化、本地 SGLang 适配、图像与视频输入并行），更像是在做&quot;中等规格、多模态完备、本地框架原生支持&quot;这条路线，首要约束是「在自家开发机上完整跑起来」。这恰好是国内开发者社区呼声最大、海外社区也长期缺位的那个空白点。</p>
+<h2>五、国内开发者在等待期可以做什么</h2>
+<p>commit 给的信号是「框架适配就绪」，不是「模型权重发布」。从历史节奏看，Qwen 团队 commit 露底到正式发布平均 7-14 天——上次 Qwen3-Coder 的发布节奏也是先在 qwen-code 仓库做模型名注册、再过一周左右上 ModelScope 与 HuggingFace。等待期可以把准备工作做扎实：</p>
+<ul>
+<li><strong>硬件侧</strong>：手头是 Mac mini 24GB 用户，看看是否需要升级到 64GB Pro 档位以预留 KV cache 空间；M5 Max 128GB 用户可以提前装好 SGLang 与 llama.cpp 双套环境</li>
+<li><strong>软件侧</strong>：升级 qwen-code 到最新版（截至 2026-05-15 是 v0.15.12-preview，预计 35B-A3B 多模态会在 v0.16 release 一并打通），跟踪仓库 release 页面</li>
+<li><strong>量化产物</strong>：留意 ModelScope 与 HuggingFace 上的 GGUF 社区量化（Unsloth / Bartowski 等社区贡献者通常会在官方权重开放后 24 小时内提供 Q4_K_M / Q5_K_M / Q8_0 全档量化）</li>
+<li><strong>多模态输入接口</strong>：提前熟悉 qwen-code 现有的图像与视频输入 API（modalityDefaults 配置表的其它模型条目都能跑通，先用 Qwen-VL 系列做接口磨合）</li>
+</ul>
+<h2>结尾：保持期待，不预设结论</h2>
+<p>一条 10 行的 commit 不是新闻发布会。它说明 Qwen 团队把多模态 + MoE + 本地部署这条产品线的工程准备工作做到了哪一步，仅此而已。<strong>Qwen3.6-35B-A3B 多模态版本还没正式发布、官方还没给出明确时间表、本地实测的真实体感也还没人能拿出来。</strong> 下周一到下周三，三件事值得盯——qwen-code 仓库的 v0.16 release 进度、ModelScope 上 Qwen3.6 系列的新模型卡、阿里通义千问公众号的更新。这三项里只要落地两项，多模态版的正式发布就基本到了眼前。在那之前，把硬件和工具链准备好，比反复猜测发布日期更有用。</p>
+<hr>
+<h2>参考资料</h2>
+<ul>
+<li>qwen-code commit 4c18f13（image+video for Qwen3.6-35B-A3B）：<a href="https://github.com/QwenLM/qwen-code/commit/4c18f13" target="_blank" rel="noopener">https://github.com/QwenLM/qwen-code/commit/4c18f13</a></li>
+<li>QwenLM/qwen-code 仓库：<a href="https://github.com/QwenLM/qwen-code" target="_blank" rel="noopener">https://github.com/QwenLM/qwen-code</a></li>
+<li>QwenLM/Qwen3-Coder 模型仓库：<a href="https://github.com/QwenLM/Qwen3-Coder" target="_blank" rel="noopener">https://github.com/QwenLM/Qwen3-Coder</a></li>
+<li>insiderllm Qwen3.6 综合指南：<a href="https://insiderllm.com/guides/qwen-3-6-local-ai-guide/" target="_blank" rel="noopener">https://insiderllm.com/guides/qwen-3-6-local-ai-guide/</a></li>
+<li>量子位 Qwen3.6-Plus 报道：<a href="https://www.qbitai.com/2026/04/394704.html" target="_blank" rel="noopener">https://www.qbitai.com/2026/04/394704.html</a></li>
+<li>Simon Willison Qwen3.6-27B 本地实测：<a href="https://simonwillison.net/2026/Apr/24/deepseek-v4/" target="_blank" rel="noopener">https://simonwillison.net/2026/Apr/24/deepseek-v4/</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

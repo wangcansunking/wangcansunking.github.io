@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HuggingFace 开源了一个&quot;AI ML 实习生&quot;，底座是 Claude Opus 4.6 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-04-24</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-04-24</span><span class="tag-pill">Daily Report</span></div>
+      <h1>HuggingFace 开源了一个&quot;AI ML 实习生&quot;，底座是 Claude Opus 4.6</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/24/ml-intern-github-og.png" alt="ml-intern 封面"></p>
+<blockquote>
+<p><strong>4,155 stars、十几个工具、300 iterations 上限、默认 context 跑到 ~90% 自动压缩——ml-intern 是一个能读 paper、跑训练、push 到 HF Hub 的开源 AI ML 工程师。</strong> 但打开代码你会发现两件事：它的默认大脑是 <strong>Claude Opus 4.6</strong>（走 AWS Bedrock），不是 HF 自家的 Llama 或 Qwen；而且——<strong>没有 LICENSE 文件、没有 demo video、没有公开 benchmark</strong>。HN 上发了两次都是 3 赞 0 评论。这篇把这个项目值得用的地方和不值得被骗的地方，全部讲一遍。</p>
+</blockquote>
+<hr>
+<h2>默认配置里写着 Claude Opus 4.6，不是 Llama / Qwen</h2>
+<p><code>huggingface/ml-intern</code> 的仓库描述写得很漂亮：</p>
+<blockquote>
+<p>&quot;🤗 ml-intern: an open-source ML engineer that reads papers, trains models, and ships ML models&quot;</p>
+</blockquote>
+<p>但打开配置文件 <code>configs/main_agent_config.json</code>，默认模型是：</p>
+<pre><code>bedrock/us.anthropic.claude-opus-4-6-v1
+</code></pre>
+<p>也就是说，你 <code>ml-intern &quot;fine-tune a llama model&quot;</code> 回车之后，背后干活的是<strong>跑在 AWS Bedrock 上的 Claude Opus 4.6</strong>。支持的其他 backbone 也全部是 Claude——<code>anthropic/claude-opus-4-6</code>、<code>anthropic/claude-sonnet-4-5-20250929</code>，直连 Anthropic API。</p>
+<p>这件事不影响 ml-intern 的价值，但它决定了项目真正的定位——<strong>开源的是 agent 编排层、工具生态、HF 深度集成；模型层仍然是闭源的商业 API。</strong> 后面很多判断都从这里推出来。</p>
+<h3>代码里的品牌 vs 实现：smolagents 皮下的 codex + Claude Code</h3>
+<p>翻 <code>frontend/public/</code> 目录会看到 <code>smolagents.webp</code>——HF 自家 smolagents 的 logo。但翻 <code>agent_loop.py</code> 源码，实际底层用的是 <strong>LiteLLM</strong> 直连模型，<strong>完全没 import smolagents</strong>。工具路由器（<code>ToolRouter</code>）、research 子 agent、doom-loop 检测等现代 agent 框架该有的件数都齐了，但每一件都是自己手写的——这是一个<strong>披着 smolagents 品牌、内部按 2026 年主流 agent 架构自己造一遍的项目</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/24/ml-intern-smolagents-logo.webp" alt="ml-intern smolagents 品牌"></p>
+<p>官方 blog 的原话更克制：<strong>&quot;This code was co-authored with Claude (Anthropic)&quot;</strong>——这段代码是和 Claude 合写的。意思是作者自己也承认 Claude 在主力参与 ml-intern 的开发过程，而不只是 runtime 的 backbone。</p>
+<hr>
+<h2>官方唯一的实验：给 ml-intern 出入职 take-home</h2>
+<p>唯一一篇官方 blog（<code>huggingface.co/blog/cmpatino/ml-intern-takehome</code>）里，HF 让 ml-intern 做了一件真人实习生才做的事——<strong>入职 take-home 考试</strong>。</p>
+<p>题目：Best-of-N weighted selection on MATH-500（20 道题）</p>
+<p>结果：</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>准确率</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Greedy (N=1)</td>
+<td>45% (9/20)</td>
+</tr>
+<tr>
+<td>Majority Vote (N=16)</td>
+<td>60% (12/20)</td>
+</tr>
+<tr>
+<td>Standard Best-of-N (N=16)</td>
+<td>55% (11/20)</td>
+</tr>
+<tr>
+<td><strong>Weighted Best-of-N (N=16)</strong></td>
+<td><strong>65% (13/20)</strong></td>
+</tr>
+</tbody></table>
+<p>用的是 <code>Qwen/Qwen2.5-1.5B-Instruct</code> 当生成器、<code>Skywork/Skywork-o1-Open-PRM-Qwen-2.5-1.5B</code> 当 process reward model，跑在 T4 GPU 上。Weighted Best-of-N 比 greedy baseline 多做对 4 道题，零损失（没有比 greedy 更差的情况）。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/24/ml-intern-accuracy-comparison.png" alt="ml-intern 准确率对比"></p>
+<p>方法上引用了 DeepMind paper 2408.03314 和 Math-Shepherd 2312.08935——这两篇是这两年 inference-time compute 方向最经典的两篇。ml-intern 能自己把它们找出来、读懂、实现 PRM 加权投票逻辑、跑 16 次 rollout、生成分析图表、写 blog post。</p>
+<p>Blog 作者 cmpatino 也很坦诚地加了一段：</p>
+<blockquote>
+<p>&quot;Claude-assisted areas: Pipeline structure, Skywork PRM model loading, weighted voting implementation, plotting code.&quot;</p>
+</blockquote>
+<p>Claude 协助的部分：pipeline 结构、Skywork PRM 加载、加权投票实现、绘图代码。潜台词是——<strong>他承认 65% 里有相当一部分功劳是 Claude 的</strong>。</p>
+<p>但这件事的意义不在&quot;是不是 Claude 帮的&quot;，而在于：<strong>这个 agent 框架能把任务从&quot;读两篇 paper&quot;跑到&quot;生成一份能发 blog 的实验报告&quot;全流程跑完</strong>。要理解为什么值得看，得翻它装了什么工具。</p>
+<hr>
+<h2>18 个工具里，3 条设计值得抄</h2>
+<p><code>agent/tools/</code> 目录下有 18 个 Python 文件，一个文件一个工具。按&quot;设计值得偷&quot;的顺序挑 3 条讲。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/24/ml-intern-accuracy-vs-n.png" alt="ml-intern 准确率 vs N"></p>
+<h3>设计一：Literature-first——先爬引文图再写代码</h3>
+<p><code>papers_tool.py</code> 是入口。能力：</p>
+<ul>
+<li><code>trending</code> — 抓 HuggingFace Daily Papers</li>
+<li><code>search</code> — arxiv 全文搜索</li>
+<li><code>read_paper</code> — 读 paper 全文（抓 arxiv HTML + ar5iv）</li>
+<li><code>citation_graph</code> — 递归抓引文网络</li>
+<li><code>snippet_search</code> — paper 内语义搜索</li>
+<li><code>recommend</code> — 推荐相关工作</li>
+</ul>
+<p>System prompt 里有一条硬规则：</p>
+<blockquote>
+<p>&quot;crawl citation graphs to find recent downstream work&quot;</p>
+</blockquote>
+<p>在做任何 ML 任务之前，先递归爬引文图找下游工作。这和传统 AutoML（Auto-sklearn、H2O）的路子完全不一样——那些框架从&quot;数据集+目标&quot;开始，ml-intern 从&quot;paper+方法&quot;开始。</p>
+<p>对工程师的启发：<strong>把 literature-first 做成 agent 默认行为</strong>，值得其他 AI coding 工具抄。Claude Code 今天默认从 codebase 开始读，Cursor 默认从编辑器里的代码开始读——但对于&quot;研究型任务&quot;（prototype 新模型、尝试新算法），<strong>应该先让 agent 去读最近 6 个月相关 paper</strong>。</p>
+<h3>设计二：Sandbox-first——先在 cpu-basic 跑通再上 a100x8</h3>
+<p><code>sandbox_tool.py</code> 默认在 HF Spaces 起一个 cpu-basic 的容器，让 agent 在沙箱里跑 bash、read、write、edit。只有测试通过的代码才会被提交进 HF Jobs 跑真正的训练。</p>
+<p>这个设计解决一个现实问题——<strong>agent 第一次写的 training script 七成都跑不起来</strong>。如果每次错误都触发一次 a100x8 job 重启（HF Jobs 最贵档 $9/h），一轮调试烧掉的钱比训练本身还多。</p>
+<p>Sandbox + Job 分离的做法：</p>
+<ul>
+<li><strong>本地沙箱</strong>：agent 改完代码就 <code>python -m train.py --dry_run</code> 跑一遍，错了当场改</li>
+<li><strong>HF Job</strong>：只在沙箱 dry-run 通过后才提交大 GPU 训练</li>
+</ul>
+<p>这种&quot;先廉价环境验证，再昂贵环境执行&quot;的范式，在 AI coding agent 里还没成为默认。ml-intern 把它做成硬约束，是个正确判断。</p>
+<h3>设计三：Doom Loop——主动打断 agent 的无限循环</h3>
+<p><code>agent/core/doom_loop.py</code> 是一个 meta 工具，专门检测 agent 自己是不是卡在循环里。源码顶部自己写的定位是：<strong>&quot;Doom-loop detection for repeated tool call patterns. Detects when the agent is stuck calling the same tools repeatedly&quot;</strong> —— 监控最近 N 步的 tool call pattern，如果重复率超阈值（比如连续 3 次调同一个工具读同一个文件），就主动注入一段纠正 prompt，强制 agent 换策略。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/24/ml-intern-per-problem-analysis.png" alt="ml-intern 单题分析"></p>
+<p>在 300 iterations 上限、context 压缩和 sub-agent 隔离并行工作的长任务场景下，<strong>防止 agent 陷入无限循环比想象中重要</strong>。Aider、Cursor 目前在这方面的防御比较薄；ml-intern 把它做成一等公民，值得学。</p>
+<h3>还有 15 个工具不展开讲</h3>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>干什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>jobs_tool.py</code></td>
+<td>HF Jobs API 调度，14 种 GPU 选（t4-small 到 a100x8、l40s）</td>
+</tr>
+<tr>
+<td><code>dataset_tools.py</code></td>
+<td>读/验证 HF 数据集 schema</td>
+</tr>
+<tr>
+<td><code>docs_tools.py</code></td>
+<td>Whoosh 全文搜 HF/Gradio 文档</td>
+</tr>
+<tr>
+<td><code>github_find_examples.py</code></td>
+<td>GitHub 搜参考实现</td>
+</tr>
+<tr>
+<td><code>plan_tool.py</code></td>
+<td>3+ 步任务强制跟踪 plan</td>
+</tr>
+<tr>
+<td>...</td>
+<td>...</td>
+</tr>
+</tbody></table>
+<p>全部挂在 <code>fastmcp&gt;=3.2.0</code> 协议上。这意味着——<strong>理论上，任何支持 MCP 的 agent（Claude Code、Cursor、OpenCode）都能借用 ml-intern 的工具箱</strong>。</p>
+<hr>
+<h2>上手：三把 API key + Python ≥3.11</h2>
+<p>跑起来需要什么：</p>
+<ol>
+<li><strong>Anthropic API key</strong>（或 AWS Bedrock 访问）——默认 backbone</li>
+<li><strong>HuggingFace token</strong>——用 HF Jobs、datasets、Hub</li>
+<li><strong>GitHub PAT</strong>——让 agent 搜 GitHub 代码</li>
+</ol>
+<p>三样缺一不可。Python 版本要求 ≥3.11。</p>
+<h3>安装</h3>
+<p>拉下 <code>huggingface/ml-intern</code> 仓库后：</p>
+<pre><code class="language-bash">cd ml-intern
+uv sync
+uv tool install -e .
+</code></pre>
+<p>（官方推荐 <code>uv</code>，不是 pip。）</p>
+<h3>配 <code>.env</code></h3>
+<pre><code class="language-bash">ANTHROPIC_API_KEY=&lt;your-key&gt;
+HF_TOKEN=&lt;your-hf-token&gt;
+GITHUB_TOKEN=&lt;your-github-pat&gt;
+HF_BILL_TO=your-hf-org   # 可选：指定 HF Jobs 账单归属到哪个组织
+</code></pre>
+<h3>交互 vs Headless 两种用法</h3>
+<p><strong>交互模式</strong>（边对话边确认）：</p>
+<pre><code class="language-bash">ml-intern
+</code></pre>
+<p><strong>Headless 模式</strong>（无人值守，丢一个任务就走）：</p>
+<pre><code class="language-bash">ml-intern &quot;fine-tune llama-3.2-1b on wikitext for 1 epoch and push to hub&quot;
+</code></pre>
+<p>常用参数：</p>
+<pre><code class="language-bash">ml-intern --model anthropic/claude-opus-4-6 &quot;your prompt&quot;
+ml-intern --max-iterations 100 &quot;your prompt&quot;
+ml-intern --no-stream &quot;your prompt&quot;
+</code></pre>
+<h3>默认的几条硬约束要知道</h3>
+<ul>
+<li><strong>主 agent context 压缩比例</strong>：跑到模型 context 上限的 ~90% 触发自动压缩（<code>_COMPACT_THRESHOLD_RATIO = 0.9</code>）</li>
+<li><strong>单任务最大迭代</strong>：300 次</li>
+<li><strong>Research 子 agent 独立上限</strong>：170k tokens 警告、190k tokens 硬停</li>
+</ul>
+<p>主 agent 跑到 context ~90% 会自动压缩，跑到 300 轮不结束会强停。Research 子 agent 有独立的更紧的 170k/190k 上限，避免子 agent 烧掉主 agent 的配额。默认值对大部分 ML 任务够用，但要让它做超长研究（比如跑 3 天 benchmark 对比），需要改 config。</p>
+<hr>
+<h2>四个容易被忽略的坑</h2>
+<p>不吹这个项目，说几个<strong>真实但容易被忽略的问题</strong>。</p>
+<h3>坑一：仓库发布 6 个月仍然没有 LICENSE 文件</h3>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/24/ml-intern-prm-score-distribution.png" alt="ml-intern PRM 评分分布"></p>
+<p>这是个 HuggingFace 官方项目，发布 6 个月了，<strong>仓库根目录没有 LICENSE 文件</strong>。Issue #41 一直 open 在请求官方加 license。</p>
+<p>这意味着什么？<strong>企业用户原则上不能合法使用</strong>。没有任何 license 授权修改、分发、商用这份代码。个人 side project 玩玩没问题，但带商业色彩的场景（在公司内部跑、打包卖给客户）都有法律风险。<strong>LICENSE 文件出来之前，企业先别碰</strong>。</p>
+<h3>坑二：没有公开 benchmark，只有 20 道题的 take-home</h3>
+<p>Issue #84 的原文提问——&quot;Right now, it&#39;s unclear if the agent is actually improving models or just running pipelines.&quot;<strong>目前还不清楚这个 agent 是真的在帮你把模型训得更好，还是只是在跑 pipeline。</strong></p>
+<p>官方 blog 里那个 MATH-500 实验只是 20 道题的 take-home，不是系统 benchmark。没有 MMLU/GSM8K/HumanEval 之类的对比数据。没有&quot;ml-intern 训出的模型 vs 人类 ML 工程师训出的模型&quot;的横评。</p>
+<p>翻译：<strong>&quot;它真的能产出比人好的模型&quot;这件事，还没有证据</strong>。</p>
+<h3>坑三：没有 demo video，也没有截图</h3>
+<p>仓库 <code>frontend/public/</code> 里只有 smolagents logo 和 vite.svg 两个图标。没有 demo video、没有 asciinema、没有截图。README 里的架构图是唯一的视觉材料。</p>
+<p>对比一下 Cursor、Claude Code、<code>context-mode</code>——它们都有 demo video 或 gif。ml-intern 这方面的缺席，意味着<strong>项目目前还处在&quot;能跑，但还在打磨呈现&quot;的早期阶段</strong>。</p>
+<h3>坑四：一次任务烧 30–100 美元的 Opus token</h3>
+<p>过去 48 小时 ml-intern 仓库合并了 PR #72，标题直接写着：</p>
+<blockquote>
+<p>&quot;daily Opus cap + HF-org gate + cap dialog&quot;</p>
+</blockquote>
+<p>每日 Opus 上限、HF 组织准入门槛、达到上限时的对话提示。翻译：<strong>已经有早期用户烧爆了 Opus token，官方在紧急加上限</strong>。</p>
+<p>Opus 4.6 按当下 Anthropic 公开定价在 $15/M input / $75/M output tokens 这一档。一个完整的&quot;读 paper + 写 script + 跑沙箱 + 提交 job + 分析结果&quot;循环，跑到主 agent 接近自动压缩阈值，单次任务可能消耗 30–100 美元不等。<strong>玩玩可以，长期跑起来不便宜</strong>。</p>
+<hr>
+<h2>适合谁装 / 不适合谁装</h2>
+<table>
+<thead>
+<tr>
+<th>如果你是</th>
+<th>值不值得装</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>HF 生态重度用户（经常用 HF Jobs、datasets、Hub）</td>
+<td>✅ 值得装。工具链打通程度国内目前没有对标</td>
+</tr>
+<tr>
+<td>想看 agent 框架源码找灵感的工程师</td>
+<td>✅ 值得读。十几个工具 + doom loop + sandbox-first 三个设计值得偷</td>
+</tr>
+<tr>
+<td>做 AI research 的博士生，想用 AI 帮自己读 paper</td>
+<td>✅ 可以试。literature-first 工作流恰好匹配 research 场景</td>
+</tr>
+<tr>
+<td>想用它帮自己公司训线上模型</td>
+<td>❌ 先别碰。没 LICENSE + 没 benchmark + 没法律背书</td>
+</tr>
+<tr>
+<td>没有 Anthropic API 预算的开发者</td>
+<td>❌ 先别碰。默认 backbone 是 Opus，烧钱很猛</td>
+</tr>
+<tr>
+<td>国内中小团队想做自己的 Agent</td>
+<td>⚠️ 读代码值得，直接 fork 用要先等 LICENSE</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>国内开发者能拿走的 3 个技术启示</h2>
+<p><strong>一，Agent 开源不等于模型开源。</strong></p>
+<p>ml-intern 是个活样本——<strong>开源的是编排、工具、生态集成；不开源的是模型能力</strong>。这个分工在未来一年会越来越普遍。国内想做自主 AI agent 的团队别被&quot;开源&quot;这个词误导——真正需要自主的是<strong>工具层和数据层</strong>，模型层可以用任何一家（包括 DeepSeek V4、Qwen、Claude）。</p>
+<p><strong>二，HF Jobs 这个产品被严重低估。</strong></p>
+<p>ml-intern 最值钱的部分其实是它深度集成了 HF Jobs——<strong>一行命令起 a100x8 训练、自动 push_to_hub</strong>。国内做 AI 基础设施的厂商（阿里云、火山、腾讯云）有类似的 GPU 池，但缺乏&quot;给 AI agent 调用的一等公民接口&quot;。HF 把这件事做成 MCP 工具，是给所有 agent 生态铺的路。国内云厂商接下来一年应该抄这个范式。</p>
+<p><strong>三，Doom Loop 检测 + Sandbox-first 是 AI coding agent 2.0 的标配。</strong></p>
+<p>这两个设计都不是 ml-intern 原创（分别来自 Claude Code、Anthropic internal），但 ml-intern 把它们提升到了&quot;硬约束&quot;级别。<strong>做长任务 AI coding agent 的团队如果没有这两个机制，正在烧用户的钱也在砸自己的招牌</strong>。</p>
+<hr>
+<h2>回到开头那个 65%：4 道题背后的一条龙</h2>
+<p>Weighted Best-of-N 在 MATH-500 上做对 13/20 题，Greedy baseline 做对 9/20——agent 多做对 4 道题。</p>
+<p>站在 AutoML 2018 年的位置看，这不算什么突破：LightGBM 优化器在同时代的 tabular 任务上也能多做对 4 道题。</p>
+<p>但站在 2026 年回头看——<strong>ml-intern 做对这 4 道题的过程里，它读了 2 篇 arxiv paper、写了一个 PRM 加权投票 pipeline、跑了 16 次 rollout、画了 4 张图、起了个 HF Space 跑 T4 GPU、写了一份 blog post</strong>。</p>
+<p>AutoML 2018 做对那 4 道题，靠的是一个调参算法。ml-intern 做对那 4 道题，靠的是<strong>读论文、写代码、起云、画图、写报告一条龙</strong>。</p>
+<p>4 道题一样，中间那段路完全不一样。</p>
+<p>这就是为什么这个项目即使 stars 还不到 Cursor 零头、即使 HN 讨论冷清、即使还没有 LICENSE——<strong>它仍然是 2026 年 4 月开源 AI agent 生态里值得看的项目之一</strong>。</p>
+<hr>
+<p><strong>本文数据</strong>：huggingface/ml-intern GitHub API live 数据（2026-04-24 UTC+8 抓取）：4,155 stars / 346 forks / 38 open issues / 4,257 KB 仓库大小 / Python ≥3.11 / 创建于 2025-10-30 / 最新 push 2026-04-23。官方 blog：<code>huggingface.co/blog/cmpatino/ml-intern-takehome</code>。默认模型配置来自 <code>configs/main_agent_config.json</code>。MATH-500 实验数据来自同一 blog。HN submission ID 47882849 和 47848508（均 3 points / 0 comments）。主 agent context 压缩阈值来自 <code>agent/core/</code> 目录下 <code>_COMPACT_THRESHOLD_RATIO = 0.9</code> 配置；research 子 agent 170k/190k 配置来自 <code>agent/tools/research_tool.py</code>。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

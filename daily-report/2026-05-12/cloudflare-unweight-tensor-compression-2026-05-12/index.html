@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloudflare Unweight：给模型权重无损省 22% — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-12</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-12</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Cloudflare Unweight：给模型权重无损省 22%</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/covers/2026-05/cloudflare-unweight-tensor-compression-2026-05-12.png" alt="封面"></p>
+<p>如果手上正在跑线上推理，每月最熟的数字大概有两组：每天烧掉的显存峰值，和每千 token 单价。前者决定你要堆多少张 H100，后者决定能不能把单 token 价格再往下压一档。过去两年，「降本」基本绑死在量化这条路上 —— FP8、AWQ-INT4、GPTQ-INT4、GGUF —— 每一条都伴随着同一个隐形成本：模型输出会和原版有点不一样。大多数业务能扛，但凡是涉及评测复现、监管口径、内部对账的场景，这点不一样就很难解释。</p>
+<p>4 月 17 日，Cloudflare Research 发了一篇博客 <code>Unweight: how we compressed an LLM 22% without sacrificing quality</code>，作者 Mari Galicer / Ivan Nikulin / Chris Branch。配套的技术报告 <code>Cf-TR-2026.04.v1</code> 同日发布，CUDA 内核以 BSD 3-Clause 开源到 <code>cloudflareresearch/unweight-kernels</code>。结论一句话：在 NVIDIA Hopper（H100 / H200）GPU 上，他们用 Huffman 编码把 BF16 权重的指数位压了一遍，分发包最多省 22%，推理常驻显存省约 13%，出 token 和原始 BF16 模型逐位完全相同。</p>
+<p>这是一条之前没什么人公开认真做的路线。它不是「再多砍一点精度换更多显存」，而是「拿走冗余编码、留下全部数学」。对国内同行来说，这个口径值得认真读 —— 不是因为它能马上替换掉 FP8，而是因为它定义了一个新的位置：<strong>无损 + GPU 实时解压 + 真实账单口径</strong>。本文把这件事拆成原理、实测、对比、代价、国内可跟车度五段，逐条摆数据。</p>
+<h2>零、为什么 22% 这个数字值得专门写一篇</h2>
+<p>每一次模型压缩进展，国内同行最朴素的反应是「先看精度损失多少」。过去一年多关于推理优化的公开案例，无论是 vLLM 的 FP8 路线、SGLang 的 W8A8、TensorRT-LLM 的 AWQ 集成，还是 LMDeploy 的 W4A16 默认配置，本质上都在解一个问题：能不能在「业务可接受」的精度差范围内，把显存和吞吐挤得更紧。这个问题被解了无数遍，每一次都伴随同一个隐形成本 —— 你需要给业务方、给监管方、给评测团队解释「这点精度差不影响你关心的东西」。</p>
+<p>Unweight 把这个问题翻了个面。它不再追问「能损多少精度换多少显存」，而是追问「在不损精度的前提下，BF16 权重里到底有多少冗余编码可以拿走」。Cloudflare 给的答案是 22% 分发包、13% 显存常驻、30% MLP 内部。这个口径的特别之处在于：它给所有在意「输出可复现」的场景提供了一条之前不存在的路。</p>
+<p>国内最值得关心这件事的几类团队 —— 金融机构的合规模型评测组、政企客户的私有化部署团队、Agent 平台的 trace 复现链路、自动驾驶仿真的 LLM 决策评测 —— 过去都被迫在「FP8 + 给监管解释精度差」和「保 BF16 但显存账单翻一倍」之间二选一。Unweight 给出了第三个选项：保 BF16 字面输出，省 13% 显存，付 30% 吞吐代价。这个交易在很多场景里值得做。</p>
+<h2>一、Unweight 到底干了什么</h2>
+<p>把 BF16 拆开看，一个 16 比特的浮点数由三段组成：1 比特符号（sign）、8 比特指数（exponent）、7 比特尾数（mantissa）。FP8 的思路是把整个数压到 8 比特，三段全损。GPTQ / AWQ-INT4 更狠，整体压到 4 比特再加缩放因子。这些路线的共同选择是「重新设计一个新的数值格式」，所以全部有精度损失。</p>
+<p>Cloudflare 的切入点完全反过来。他们做了一个统计：在训练好的 LLM 每一层权重里，最常见的 16 个指数值覆盖了 99% 的所有权重。技术报告里给的更精确口径是 —— BF16 指数字段实际 Shannon 熵只有大约 2.6 比特，剩下的 5 比特多全是冗余。换句话说，那个 8 比特指数槽位里其实只「装」了 2.6 比特的真信息。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/12/cf-unweight-principle.png" alt="Unweight 原理：只压指数位"></p>
+<p>那就只压指数。具体做法：对每一个权重张量（per-tensor）建立一个 16 值的 Huffman 调色板（palette），高频指数分配 2-3 比特的短码，低频指数分配 4-5 比特的长码，少数极罕见的指数直接 verbatim 落整行作为兜底。符号位和尾数原样保留，因为它们近不可压。</p>
+<p>光压完落盘还不够，难点在 GPU 端怎么解 —— 你不能为了省 22% 落盘空间，把吞吐砸掉。Cloudflare 给出的关键工程结论是「reconstructive matrix multiplication」：解压发生在共享内存（shared memory）里，权重瓦片解出来直接喂给 tensor core，整个过程不经过慢速主显存。技术报告里写有三种执行管道可以由 coordinate-descent autotuner 按层动态切换：full Huffman decode、exponent-only decode、palette transcode。</p>
+<p>这是这套方案的真正护城河。落盘压 22% 不难 —— 直接拿 zstd 或 lz4 压 safetensors 文件就能做到差不多的压缩比。难的是「能在 H100 上一边解压一边算矩阵乘还不让吞吐崩」。这件事过去几年至少有 Huff-LLM（arxiv 2502.00922，2025-02）、ZipNN、ZipServ 三家学术或工程团队尝试过，但都没拿到能直接进生产的工程数据。Cloudflare 这次是第一个把「无损 + 解压融合 matmul + Hopper 实测 + 开源内核」四件事同时摆齐的团队。</p>
+<p>技术报告里另一个值得关注的细节：autotuner 是 coordinate-descent 算法，按层动态搜索最佳管道（full decode / exponent-only / palette transcode）。这意味着不同层的最优解压策略可能不一样 —— attention 层不参与压缩，但 MLP 层之间也会因为权重分布的细微差异选择不同的解压路径。这种「按层适应」的工程做法，过去常见于编译器的 PGO（profile-guided optimization）和 GPU 内核的 autotuning（参考 TVM / Triton 社区），第一次在权重压缩这个垂直方向上做出来。</p>
+<h2>二、22% 是「哪个 22%」：三档口径必须分清</h2>
+<p>媒体标题大多写「Cloudflare 把 LLM 压缩了 22%」，这个数字本身没错，但容易让读者误以为「显存省 22%」。实情要分三档看。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/12/cf-unweight-rates.png" alt="三档压缩口径"></p>
+<table>
+<thead>
+<tr>
+<th>压缩口径</th>
+<th>百分比</th>
+<th>解释</th>
+<th>对应场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>分发包（distribution bundle）</td>
+<td>约 22%</td>
+<td>权重落盘文件总体积</td>
+<td>模型仓库 / S3 / R2 / CDN 出网带宽</td>
+</tr>
+<tr>
+<td>推理常驻（inference bundle）</td>
+<td>约 13%</td>
+<td>GPU 显存里实际占用</td>
+<td>线上 24×7 服务的真实账单口径</td>
+</tr>
+<tr>
+<td>MLP 权重（gate / up / down）</td>
+<td>约 30%</td>
+<td>Huffman 实压在 MLP 部分</td>
+<td>技术解释，不直接等于全模型节省</td>
+</tr>
+<tr>
+<td>显存节省（Llama-3.1-8B 实测）</td>
+<td>约 3 GB</td>
+<td>BF16 约 16 GB 降到约 13 GB</td>
+<td>一张 H100 80 GB 多塞约 1 个并发分片</td>
+</tr>
+</tbody></table>
+<p>22% 是分发包口径，是因为分发包里还包括元数据 / 配置 / tokenizer / safetensors header 等可以无损打包压缩的部分，最终压缩比比纯权重高一些。13% 是真正影响线上账单的数字 —— GPU 显存里挂着的那一份。30% 是技术解释口径，是 Huffman 在 MLP 那三组矩阵（gate / up / down，约占总参数 2/3）上实际压出来的比例；attention 权重、embedding、layer norm 不参与压缩。</p>
+<p>对一张 H100 80GB 跑 Llama-3.1-8B 来说，BF16 常驻约 16 GB，Unweight 之后约 13 GB。多出来的 3 GB 在生产环境里意味着多塞一份 KV cache 分片，或者把并发 batch 再往上撑一档。不是性价比革命，但是「白送」的边际，前提是你愿意承担吞吐的代价（下一节展开）。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/12/cf-unweight-topology.png" alt="70B 级别拓扑跃迁"></p>
+<p>把数字推到 70B 级别更有意思。Llama-3.1-70B 在 BF16 下需要约 140 GB，需要 2 张 H100 80GB 或 1 张 H200 141GB；Unweight 之后约 122 GB，理论上单张 H200 就能装下。这意味着省下的不只是 13% 显存预算，而是从「双卡部署」回到「单卡部署」的拓扑跃迁 —— 后者意味着 NVLink 通信成本归零、张量并行的 all-reduce 开销归零、推理框架配置复杂度大幅下降。这一档变化在 70B / 110B 这个尺寸段上是有质变意义的。</p>
+<p>Qwen3-72B、GLM-4.6-32B、DeepSeek-V3 这些国内主流大尺寸开源模型，按 BF16 体积估算分别对应约 144 GB / 64 GB / 670 GB。Unweight 思路套上之后，72B 模型有可能从「双卡 H100」回到「单卡 H200」，32B 模型从「单卡 H100 80GB 紧绷」回到「单卡 H100 80GB 余 30%」，670B 的 V3 全量则可以从「8 卡 H100」更轻松地塞进「8 卡 H100」之内不需要 offload。这是国内推理团队公开口径里能直接对账的数字。</p>
+<h2>三、和 FP8 / AWQ / GPTQ 放一起看：四种路线的决策矩阵</h2>
+<p>Unweight 是新成员，不是 FP8 / AWQ 的替代品。它们处在完全不同的精度-显存-硬件-场景四维矩阵里。把它们摆桌上一起看才能选对。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/12/cf-unweight-tradeoff.png" alt="四种路线 trade-off"></p>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>精度损失</th>
+<th>显存节省</th>
+<th>吞吐影响</th>
+<th>硬件门槛</th>
+<th>适合场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Unweight（无损）</td>
+<td>0（逐位等同）</td>
+<td>约 13%</td>
+<td>-30%~40%（B=1）</td>
+<td>H100 / H200 only</td>
+<td>在意输出可复现 / 监管口径 / 评测对账</td>
+</tr>
+<tr>
+<td>FP8 E4M3</td>
+<td>PPL 差不到 1%</td>
+<td>约 50%</td>
+<td>提升 10%~30%</td>
+<td>H100 / H200 / RTX 4090</td>
+<td>线上主流推理 · 多数业务的甜点</td>
+</tr>
+<tr>
+<td>AWQ INT4</td>
+<td>PPL 差约 3%</td>
+<td>约 70%</td>
+<td>提升 20%~50%</td>
+<td>A100 起广泛兼容</td>
+<td>成本敏感 / 个人本地 / 低端卡</td>
+</tr>
+<tr>
+<td>GPTQ INT4</td>
+<td>PPL 差 3%~4%</td>
+<td>约 70%</td>
+<td>提升 15%~40%</td>
+<td>A100 起广泛兼容</td>
+<td>校准充足的离线量化 / 历史包袱</td>
+</tr>
+</tbody></table>
+<p>数据来源汇总：FP8 与 INT4 的精度数字来自 vLLM / SGLang 官方量化文档、Jarvis Labs / GPUStack 的 vLLM 量化 benchmark（Llama-3-8B WikiText-2 PPL）；Unweight 的吞吐 overhead 来自 Cloudflare 博客原文「30-40% throughput overhead at current optimization level, largest at batch size 1 (<del>41%) and narrows at batch 1024 (</del>30%)」字面。</p>
+<p>读出来三条决策线：</p>
+<ol>
+<li><strong>要逐位复现 + 监管口径 + 评测对账</strong>：唯一选项是 Unweight。FP8 和 INT4 都做不到 bit-exact，凡是涉及「这个输出和原版模型字面一致」的需求只有这一条路。</li>
+<li><strong>要线上常态 + 性价比</strong>：FP8 仍然是最甜的。精度差不到 1%，显存省 50%，主流 H100 部署的事实标准。</li>
+<li><strong>要个人本地 + 跑大尺寸开源模型</strong>：AWQ-INT4 默认首选，A100 / RTX 4090 / 3090 都能跑，70% 显存压缩。</li>
+</ol>
+<p>三者并不互斥。Unweight 本身只是「BF16 + Huffman」的组合，理论上 FP8 权重也能套同一套 Huffman 思路（FP8 同样有指数字段），技术报告里也提到这是后续研究方向。所以未来真正成熟的形态可能是「FP8 + Unweight」叠加，把 50% 再往下挤 10%。但当前开源的内核只支持 BF16。</p>
+<h2>四、代价摆桌上：吞吐 30%-40% 是真实的</h2>
+<p>任何「无损压缩 + GPU 实时解压」的方案，都逃不开一个朴素问题：解压本身要算力。Cloudflare 在博客里非常坦白 —— 当前优化档位下，吞吐相对 BF16 baseline 下降 30%-40%。这是写在原文里的数字，原句：「we currently see 30–40% throughput overhead at current optimization level, largest at batch size 1 (<del>41%) and narrows at batch 1024 (</del>30%)」。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/12/cf-unweight-throughput.png" alt="吞吐 overhead"></p>
+<p>读这张图有两件事要注意。第一，吞吐损失随 batch size 增大而收窄。B=1 时最痛苦（约 41%），因为 reconstructive matmul 的解压固定成本在小批量里占比高；B=1024 时收敛到约 30%，因为大批量摊薄了解压成本，但又被 tensor core 利用率提升弥补回来一些。第二，吞吐损失不等于延迟损失 —— 单条 token 的生成时间在很多设置下并没有等比例放大，因为解压发生在共享内存里、和 matmul 流水线重叠。</p>
+<p>这是当前研究预览的档位。Cloudflare 明示后续优化空间还有：cuBLAS 融合、palette transcode 路径的进一步精简、autotuner 的搜索空间扩展。从工程曲线看，这种「解压 + 计算融合」的方案过去一年也多次出现过类似的进展（参考 Huff-LLM 论文 arxiv 2502.00922 在 A100 上的演化），通常 1-2 个季度内能把 overhead 再往下砍 30%-50%。</p>
+<p>国内同行可以做一个朴素的成本算账：假设线上跑 Llama-3.1-8B 等价模型，每天产 1 亿 token，BF16 单卡 H100 吞吐约 3000 tok/s，那么需要约 4 张 H100 持续顶住。换 Unweight 之后，吞吐降到约 2000 tok/s，需要约 6 张 H100。多出来的 2 张卡按 H100 公允价 25 元/小时算，每天多花约 1200 元 —— 大约 36 万元/年。如果业务侧能因为「逐位复现」拿到合规口径上的好处（少花半年和监管掰扯、少做一轮独立精度评测、少配一个精度对账工程师），这个交易的账本马上就翻过来了。</p>
+<p>反过来，如果业务对输出复现没要求，纯粹追性价比，那么继续用 FP8 或 AWQ-INT4 是更合理的选择，Unweight 不是给这类场景准备的。这一点 Cloudflare 在博客原文里也讲得很清楚：「Unweight is designed for use cases where output reproducibility is non-negotiable」 —— 是给那些「输出可复现是底线」的场景准备的。</p>
+<p>但即使在当前档位，<strong>对于在意输出可复现的业务来说，30% 吞吐降低换 bit-exact 是值得做的交易</strong>。一个典型场景：金融机构的合规模型评测要求「每次输出结果可审计、可复现、和报备模型字面一致」，FP8 / INT4 都需要给监管解释「精度差 1%-3% 不影响业务」，而 Unweight 直接告诉监管「字面一致，0 偏差」。后一句话对很多审计员来说意味着工程上少花两个月时间和监管掰扯。</p>
+<h2>五、国内五家推理服务现在跑什么，能不能跟车</h2>
+<p>最后一节回到中国大陆的口径。如果你是一线 AI 团队，关心的不是 Cloudflare 这套能不能跑，而是「国内主流推理云目前是什么方案，Unweight 这种思路有没有可能进来」。把火山方舟、阿里百炼、智谱 BigModel、硅基流动、月之暗面五家公开口径摆一起看。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/12/cf-unweight-cn-inference.png" alt="国内五家对位"></p>
+<table>
+<thead>
+<tr>
+<th>平台</th>
+<th>主推模型</th>
+<th>量化方案</th>
+<th>计费颗粒</th>
+<th>Unweight 能不能跟车</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>火山引擎方舟</td>
+<td>豆包系列 / DeepSeek / Qwen</td>
+<td>默认 FP8 / 部分 INT8</td>
+<td>Token 计费 · 公共资源池</td>
+<td>封闭推理引擎，研究跟车需私有部署</td>
+</tr>
+<tr>
+<td>阿里百炼</td>
+<td>Qwen3 / DeepSeek 全家</td>
+<td>默认 BF16 / FP8 蒸馏</td>
+<td>Token 计费 · 新用户 100 万送</td>
+<td>千问开源版可自部署叠 Unweight</td>
+</tr>
+<tr>
+<td>智谱 BigModel</td>
+<td>GLM-4.6 / Z1 推理</td>
+<td>默认 BF16 / 私有部署 FP8</td>
+<td>Token 计费 + 私有化</td>
+<td>GLM 开源模型在 H100 上理论可叠</td>
+</tr>
+<tr>
+<td>硅基流动</td>
+<td>DeepSeek / Qwen / GLM / Yi</td>
+<td>自研推理引擎 · FP8 主力</td>
+<td>Token 计费 · 极低价</td>
+<td>等其引擎吸收即可，目前不开放</td>
+</tr>
+<tr>
+<td>月之暗面</td>
+<td>Kimi K2</td>
+<td>私有 + 闭源</td>
+<td>Token 计费 · 长上下文为主</td>
+<td>纯 SaaS，跟不跟车看官方</td>
+</tr>
+</tbody></table>
+<p>公开口径来源：火山方舟产品文档 <code>volcengine.com/docs/82379/2121998</code>、阿里百炼定价页 <code>help.aliyun.com/zh/model-studio/model-pricing</code>、智谱 BigModel 开发者文档、硅基流动 <code>siliconflow.cn</code> 模型中心、Moonshot 官网。</p>
+<p>读完这张表，对国内同行的实操含义有三层：</p>
+<p><strong>第一层，在意逐位输出复现（评测 / 监管 / 内部对账）的团队</strong>：可以在自有 H100 / H200 上跑 Qwen3 或 GLM 开源版，叠 Unweight 内核做研究复现。<code>unweight-kernels</code> 仓库 BSD 3-Clause 开源，不需要授权，只需要 Hopper GPU + CUDA 工具链。这条路线适合金融、政企、高校实验室。</p>
+<p><strong>第二层，走 SaaS 推理的多数团队</strong>：当前主流仍然是 FP8 / INT8，Unweight 还没有被吸进任何一家国内推理引擎。但硅基流动、火山方舟这两家自研引擎能力最强的服务商，过去对开源研究成果的吸收周期一般在 1-3 个季度。换句话说，如果 Unweight 的吞吐 overhead 在下一版本里被砍到 20% 以内，国内 SaaS 服务把它当作「bit-exact 模式」开放出来是大概率事件。</p>
+<p><strong>第三层，想现在就省显存账单的开发者</strong>：AWQ-INT4 / FP8 已经成熟到不需要再等。Unweight 是「在不能损精度的前提下再多挤 10%-13%」的研究边际，不是降本的主力工具。先用 AWQ / FP8 把 70% / 50% 的便宜钱拿到手，再考虑 Unweight 这种增量。</p>
+<p>另外一个相关的小细节：国内 H100 / H200 的实际供应情况和合规口径下，Hopper SM 9.0a 这道硬门槛不算太友好。H100 80GB 通过合规渠道在国内可得，H200 141GB 目前在国内仍非主流。这意味着 Unweight 短期内更可能出现在「自建机房 + 海外服务器 + 合规授权 + 私有部署」这条链上，而不是国内公有云的默认服务里。这条链上的典型客户是大行、大厂、政企，恰好和最需要「逐位复现」的客户群高度重合。</p>
+<p>国内 Hopper 替代品也值得提一句：海光、寒武纪、华为昇腾，目前公开口径下都还没有声明支持 Cloudflare 这套 reconstructive matmul 的内核接口。Unweight 内核用了 Hopper 的 wgmma 指令和 distributed shared memory，是 SM 9.0a 特性，迁移到其他架构需要重写。如果国内 GPU 厂商认真看到这条路线的价值，做一个适配国产硬件的版本是有空间的 —— 这也是 Unweight 开源给整个行业的一份「思想资产」。</p>
+<h2>六、为什么这件事值得国内同行单独看一眼</h2>
+<p>Cloudflare 这家公司一向以「自己写底层」著称 —— Workers 的 V8 isolate、R2 的纠删码存储、自研 NIC、自研芯片。这次又往 LLM 推理底层伸了一只手。它的姿态有意思的地方在于：不做模型、不做 chat 产品、不卷上层，纯粹就是想把每个数据中心 GPU 多挤一点出来。</p>
+<p>这套打法和国内一线推理服务的工程哲学非常像。火山方舟、硅基流动、阿里百炼 —— 这几家公司每一家的核心竞争力都是「把开源模型在自家硬件上压到极致」。Unweight 的开源内核给到这些团队的，不是直接可用的产品，而是一份<strong>新的工程思想资产</strong>：原来在 BF16 模型上还有 10%-13% 的纯无损边际可以挖，原来「无损 + GPU 解压融合」是可做的。</p>
+<p>这件事的味道，和当年 FlashAttention 第一版从斯坦福开源出来时类似 —— 单看 FlashAttention 1.0 的加速倍数其实不算夸张，但它定义了「fused attention」这条新路线，后续两年里整个推理生态围绕这个思路重写了 attention 内核。Unweight 现在的位置很像那个时刻：单看 22% / 30% overhead 的数字平平，但它定义了「lossless tensor compression with on-chip decode」这条研究方向，2026 下半年到 2027 年大概率会有跟进的论文、内核、工程化产品陆续冒出。</p>
+<p>更朴素的判断是：中国大陆这几年沉淀下来的推理工程师群体，是世界上最了解「怎么把 GPU 挤出每一滴」的人之一。Cloudflare 这套思路放出来，国内同行能很快理解、很快上手、很快做自己的版本。等到下一波吸收完，账单上能看到的不只是 13%，可能是叠加多种技术之后的累计节省 30%-40%。</p>
+<h2>七、一个具体的工程问题：怎么自己跑一次</h2>
+<p>如果想动手验证，路径相对清晰。需要的是 H100 或 H200 一张、CUDA 12.4+ 工具链、Python 3.10+。开源仓库 <code>cloudflareresearch/unweight-kernels</code> 提供了一组 CUDA 内核和 Python 绑定，BSD 3-Clause 许可证不需要授权。流程上分三步：</p>
+<p>第一步，从 Hugging Face 拉一个 BF16 模型，建议从 Llama-3.1-8B 起手 —— Cloudflare 自家用的就是这个，验证路径最干净。</p>
+<p>第二步，跑仓库里的 <code>compress.py</code> 脚本，对 MLP 权重（gate / up / down）逐层建 Huffman 调色板。这个步骤在 H100 上一次性完成，耗时几分钟。压缩后的权重以 safetensors 格式保存，文件体积相对原 BF16 落盘约 78%（节省 22%）。</p>
+<p>第三步，用仓库里提供的 <code>inference.py</code>（或者直接调用 CUDA 内核 API）做推理。关键参数是 autotuner 模式 —— 第一次跑会自动搜索每层的最佳解压管道，约耗时 1-2 分钟，结果缓存到本地。后续推理使用缓存的 autotuner 配置即可。</p>
+<p>如果想做 bit-exact 验证，跑原版 BF16 模型和 Unweight 版本，对同一个 prompt 比较输出的 logits（不是采样后的文本，logits 才是真正可逐位对比的口径）。Cloudflare 的承诺是 logits 完全一致，国内同行有条件的话非常值得自己跑一次验证 —— 这种工程级的「眼见为实」对建立技术信任至关重要。</p>
+<p>社区目前对接 vLLM / SGLang / TensorRT-LLM 的集成还没出现，但工程难度不高 —— 主要是把 reconstructive matmul 这个自定义 kernel 注册进各引擎的 linear layer 钩子。如果国内开源社区做这件事，1-2 个月时间应该能见到第一个 PR。</p>
+<h2>八、最后一段：好消息其实在底层</h2>
+<p>每次大模型成本下来一档，都不是单一技术单点突破。是十几条工程改进同时往下挤 —— 更好的 attention 内核、FP8 训练、AWQ 量化、prefix caching、speculative decoding、KV cache 压缩 …… 一年下来累计能压到 1/3 甚至 1/5。Unweight 是这个长名单里新加的一条，定位清晰、口径诚实、开源代码可读。</p>
+<p>对国内一线 AI 同行来说，这种「外部研究开源 + 我们在工程上跟车」的循环，过去 24 个月里每个季度都在发生 —— FlashAttention 来了我们做了 FlashAttention 国产化，FP8 来了我们做了 FP8 推理服务，AWQ 来了我们做了一系列 INT4 优化。每次都被吸收得很快、做得很好。Unweight 这条新路线进来，没有理由这次会不一样。</p>
+<p>底层每挤出一档，上层应用的可能性就多一档。手上跑着推理服务的同行，等到下一季度自家引擎把 Unweight 思路吸收进去时，看到账单上又多省了一档显存预算 —— 那是这种「在底层默默做加法」的工程师群体共同推着行业往前走的样子。这件事很安静，但很扎实。</p>
+<p>看 Unweight 还有一层更广的意义：过去两年大家被「大模型烧钱论」轰炸太久了，习惯性认为推理成本只能靠堆卡解决。但实际上每一个季度都有新的工程改进出来，每一次都把账单往下压一档。Cloudflare 是一家以工程能力著称的公司，他们愿意把这种边际优化开源出来，本身就是行业健康的信号 —— 推理优化不再是某一家公司的独家秘方，而是公开可复现的工程实践。这种开放生态对国内同行最友好：我们不需要从零造轮子，只需要把开源轮子接进自家系统，再做本地化适配。</p>
+<p>技术圈子里一直流传一句话「巨人的肩膀很高」。FlashAttention、vLLM、PagedAttention、SGLang、Unweight —— 这些过去 24 个月开源出来的工程瑰宝，是站在它们肩膀上的所有人共同的财富。国内推理生态今天能做到「DeepSeek-V3 推理单 token 成本压到 0.4 元 / 百万 token」，背后是无数个 Unweight 这样的小贡献累积出来的。下一季度、下一年、下一波，肯定还会有新的工程贡献冒出来。一线 AI 同行只要保持这种「外部研究开源 → 我们工程跟车」的节奏，就在这条曲线上。</p>
+<h2>参考链接</h2>
+<ul>
+<li>Cloudflare 博客原文：<code>blog.cloudflare.com/unweight-tensor-compression/</code></li>
+<li>Cloudflare 技术报告：<code>research.cloudflare.com/nikulin2026/</code>（Cf-TR-2026.04.v1）</li>
+<li>开源 CUDA 内核：<code>cloudflareresearch/unweight-kernels</code>（BSD 3-Clause，Hopper SM 9.0a）</li>
+<li>相关论文 Huff-LLM：<code>arxiv.org/html/2502.00922v1</code></li>
+<li>vLLM 量化官方文档：<code>docs.vllm.ai/en/latest/features/quantization/</code></li>
+<li>SGLang 量化官方文档：<code>sgl-project.github.io/advanced_features/quantization.html</code></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

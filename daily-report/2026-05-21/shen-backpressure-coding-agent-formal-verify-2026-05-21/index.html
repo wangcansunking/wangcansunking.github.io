@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>给 Claude Code 一道形式化类型门栏 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-21</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-21</span><span class="tag-pill">Daily Report</span></div>
+      <h1>给 Claude Code 一道形式化类型门栏</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/covers/2026-05/shen-backpressure-coding-agent-formal-verify-2026-05-21.png" alt="Shen-Backpressure 形式化类型门栏拦截 AI 智能体输出 等距 2.5D 封面"></p>
+<h2>这一次的核心判断</h2>
+<p>五月十八日，独立工程师 Reuben Brooks 在个人博客 reubenbrooks.dev 发了一篇标题硬到一句话能立住的文章——「Structural Backpressure Beats Smarter Agents」。Hacker News item 48209323 当天上了首页，六十八分十评论。文章不长，全篇围绕一句话展开：</p>
+<blockquote>
+<p>「For a wide class of production software, structural backpressure beats incremental improvements in agent intelligence.」</p>
+<p>对一大类生产软件来说，结构性压制智能体的输出空间，比让智能体本身一点点变聪明，要好得多。</p>
+</blockquote>
+<p>这句话的力度，国内开发者要顺着自己每天用 Claude Code、Cursor、千问 Coder、智谱 GLM-Coder 的体验读才能感觉出来。<strong>主流做法</strong>是让模型更聪明——参数从 32B 加到 200B，推理链从 8k token 拉到 64k，提示词工程从一段话写到一份完整 spec 文档。这条路有效，但每多一点能力，要花的钱、要等的时间、要喂的上下文都按指数往上跑。</p>
+<p>Brooks 的做法换了个方向——<strong>不让智能体变聪明，让智能体能写出来的东西变得更窄</strong>。具体怎么压窄？他做了一个叫 Shen-Backpressure 的实验项目，把 Mark Tarver 一九九零年代设计的 Shen Lisp 序列演算搬出来当规约语言——你用 Shen 写下「一个 tenant-access 实例必须满足这三条前提」，工具就自动吐出对应的 Go 或 TypeScript 守卫类型。业务代码只能通过这个守卫类型的构造器拿到带证明的实例。智能体想绕过去写一个裸 tenantID 直接调下游函数，<strong>Go 的类型检查器直接抓住，整轮智能体循环回滚</strong>。</p>
+<p>这跟过去十年「让模型更聪明」的范式有一个根本差别——<strong>它把对错的判断从模型权重里搬出来了，放进了编译器</strong>。模型不需要记住你的业务规则，编译器替你记住。</p>
+<p>工程上的意义也很直接：国内开发者下半年要在 Claude Code、千问 Coder、智谱 GLM-Coder 之间选型时，第一性问题不再是「哪个模型更强」，而是「<strong>我能不能给我的智能体写一道形式化门栏</strong>」。给得起，谁的模型都能用；给不起，谁的模型也救不了你。</p>
+<p>下面把可独立核实的关键数字、Brooks 博客的逐句论点、Shen Lisp 三十年的来龙去脉、Go 守卫类型的生成机制、HN 帖底三派代表评论、与 Claude Code / Cursor / 千问 Coder / 智谱 GLM-Coder 主流做法的横评、给国内 AI Coding 工具链团队的实操落地路径，按口径全部摆开。</p>
+<h2>可独立核实的关键数字</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>数值</th>
+<th>来源</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>原文发布时间</td>
+<td>二零二六年五月十八日</td>
+<td>reubenbrooks.dev/blog/structural-backpressure-beats-smarter-agents</td>
+</tr>
+<tr>
+<td>原文作者</td>
+<td>Reuben Brooks · 独立工程师</td>
+<td>reubenbrooks.dev 站点主页</td>
+</tr>
+<tr>
+<td>Hacker News 帖子 ID</td>
+<td>item 48209323</td>
+<td>hn.algolia.com 实查</td>
+</tr>
+<tr>
+<td>Hacker News 热度</td>
+<td>六十八分十评论 · 当天首页</td>
+<td>news.ycombinator.com/item?id=48209323</td>
+</tr>
+<tr>
+<td>Shen Lisp 设计者</td>
+<td>Mark Tarver</td>
+<td>shenlanguage.org 官方主页</td>
+</tr>
+<tr>
+<td>Shen Lisp 类型系统基础</td>
+<td>序列演算 · sequent calculus</td>
+<td>shenlanguage.org/learn-shen</td>
+</tr>
+<tr>
+<td>Shen 衍生自</td>
+<td>Qi 语言 · 上世纪末获奖函数式语言</td>
+<td>shenlanguage.org 历史段</td>
+</tr>
+<tr>
+<td>Shen 支持平台数</td>
+<td>十四个以上 · Lisp / Python / JS / C 等</td>
+<td>shenlanguage.org 平台清单</td>
+</tr>
+<tr>
+<td>项目实验语言</td>
+<td>Go · TypeScript（生产）+ Python · Rust（参考实现）</td>
+<td>原博客逐字</td>
+</tr>
+<tr>
+<td>默认门栏数量</td>
+<td>五道 · shengen / test / build / shen tc+ / tcb audit</td>
+<td>原博客逐字</td>
+</tr>
+<tr>
+<td>OWASP Top 10 #1</td>
+<td>Broken Access Control · 二零二五年版仍居榜首</td>
+<td>owasp.org/Top10</td>
+</tr>
+<tr>
+<td>HN 作者评论</td>
+<td>用户 pyrex41 · 「move rules from prompts into types」</td>
+<td>news.ycombinator.com/item?id=48209323</td>
+</tr>
+<tr>
+<td>HN 顶赞评论方向一</td>
+<td>确定性工具优于多智能体 · 用户 alexpotato</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>HN 反对意见</td>
+<td>「为什么不直接用 Liquid Haskell 或 Lean」· 用户 solomonb</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>安全质疑方向</td>
+<td>「AI 自己调用构造器 = AI 自己写断言」· 用户 singron</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>无 AI 也成立的判断</td>
+<td>用户 ajb · 「运营层不变量做成类型约束本身就有价值」</td>
+<td>同上</td>
+</tr>
+</tbody></table>
+<h2>两条路径 · 让模型更聪明 vs 把输出空间压窄</h2>
+<p>要把 Brooks 的核心判断说清楚，先把当前 AI Coding 工具的两条路径摆到同一张图里。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/21/shen-backpressure/structural-vs-smart-curve-v2.png" alt="两条路径的成本曲线对比 让模型更聪明 vs 结构压制"></p>
+<p>**A 路径 · 让智能体更聪明。**这条路是 Anthropic、OpenAI、阿里千问、智谱、字节豆包过去两年的共同方向——参数加大、推理链加深、上下文加长、提示词工程加细。Claude Code 默认上下文从二零二四年的二十万 token 涨到二零二六年的一百万 token，Cursor Composer 2.5 把 deep reasoning 时延从二点五秒拉到三十秒。这条路真实有效，但每多写一个 if-else 业务规则，模型需要的上下文就长一截，<strong>项目复杂度往上走，成本曲线接近指数化</strong>。</p>
+<p>**B 路径 · 结构性压窄智能体的输出空间。**这条路 Brooks 用 Shen-Backpressure 走出来——你用形式化语言写下一组规约，工具生成宿主语言（Go / TypeScript）的守卫类型，智能体写错就编译报错。每多写一条业务规则，<strong>成本只是「再写一条 Shen 规约」</strong>，跟模型的智能水平无关。这条路的曲线，跟项目复杂度近似线性。</p>
+<p>两条路不是非此即彼。A 路径是宝贵的——智能体本身要能把人话翻译成代码，光有类型门栏没用。但 Brooks 的论点很硬：<strong>在 A 路径已经够用的地方继续投入边际收益越来越低；把同样的工程小时投到 B 路径上，每一小时都买到一道编译器级的硬保障</strong>。</p>
+<p>这跟分布式系统社区过去十年走 chaos engineering + 测试覆盖率 vs 形式化方法的辩论，结构是完全一样的。工程范式 vs 数学范式。Brooks 的判断是——<strong>到二零二六年，AI Coding 这一战的辩论该往数学范式那头压了</strong>。</p>
+<h2>Shen Lisp · 一门为类型推理而生的小语言</h2>
+<p>国内大多数开发者对 Shen 这门语言陌生，先把它的三十年来龙去脉补一下。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/21/shen-backpressure/shen-logo.png" alt="Shen Lisp 官方 logo Mark Tarver 设计的函数式语言"></p>
+<p>**作者背景。**Mark Tarver 是英国数学家、计算机科学家，在剑桥拿了博士。他上世纪末做的第一门语言叫 Qi，是一门当年获过奖的函数式语言——核心卖点是「在 Common Lisp 之上加一套序列演算类型系统」。Qi 后来停止维护，Tarver 在二零一一年前后重写了一遍，叫做 Shen——保留 Qi 的核心思想，但把可移植性放在第一位。</p>
+<p>**核心能力。**Shen 官方主页用一句话讲清楚：「Static type checking based on sequent calculus.」基于序列演算的静态类型检查。序列演算是数理逻辑里证明系统的一种——一条规则长这样：横线上面写前提，横线下面写结论；只有当所有前提都被满足，结论才被允许成立。Shen 把这个数学结构直接搬到了类型系统里。</p>
+<p>**为什么这件事重要。**主流静态类型语言（Java / Go / Rust 的基础类型系统）能表达「这个变量是整数」「这个函数返回字符串」这种类型层面的约束。Shen 的序列演算能多走一步——可以表达「这个 tenant-access 实例必须满足 isMember == true 这个语义层面的不变量」。换句话说，<strong>它能把业务规则编码进类型本身</strong>。</p>
+<p>**Shen 的工程现状。**Shen 不是一门工业语言。它的真实用户是少数几个对形式化逻辑感兴趣的研究者和工程师，运行平台覆盖 Common Lisp、Clojure、JavaScript、Python、Scheme、C 等十四个以上。但 Brooks 的实验项目不是要把 Shen 推上生产线——<strong>他只把 Shen 当作规约语言，用工具生成宿主语言（Go / TypeScript）的守卫类型</strong>。生产代码仍然是 Go 和 TypeScript，团队不需要会写 Shen，只需要那一个负责维护规约的人会就行。</p>
+<p>这个分工逻辑跟 AWS、Azure 团队用 TLA+ 验证分布式系统是完全一样的——TLA+ 只在设计阶段用，生产代码还是 Java、C++、Rust。</p>
+<h2>一段 Shen 序列演算 · 看清楚它怎么写</h2>
+<p>把 Brooks 在博客里给的多租户访问控制例子完整摆出来，这是理解整个项目的关键。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/21/shen-backpressure/proof-chain-flow.png" alt="Shen 序列演算 → Go 守卫类型 → AI 智能体两种结局 三栏流程图"></p>
+<p>**第一段 · Shen 规约。**这一段是写给规约维护者看的，业务团队不直接接触：</p>
+<pre><code class="language-scheme">(datatype tenant-access
+  Principal : authenticated-principal;
+  Tenant : tenant-id;
+  IsMember : boolean;
+  (= IsMember true) : verified;
+  ================================
+  [Principal Tenant IsMember] : tenant-access;)
+</code></pre>
+<p>这一段的语义读法是：要构造一个 tenant-access 实例，必须满足横线上方的全部前提——Principal 必须是已认证的主体，Tenant 必须是合法的 tenant-id，IsMember 必须是布尔值，IsMember 必须等于 true。<strong>横线上方全部为真，才能在横线下方造出来一个 tenant-access</strong>。</p>
+<p>**第二段 · 工具生成的 Go 守卫类型。**Brooks 写的命令叫 <code>sb gen</code>。跑完之后输出这样一段：</p>
+<pre><code class="language-go">type TenantAccess struct {
+    principal AuthenticatedPrincipal
+    tenant    TenantId
+    isMember  bool
+}
+
+func NewTenantAccess(
+    principal AuthenticatedPrincipal,
+    tenant TenantId,
+    isMember bool,
+) (TenantAccess, error) {
+    if !(isMember == true) {
+        return TenantAccess{}, fmt.Errorf(&quot;isMember must equal true&quot;)
+    }
+    return TenantAccess{
+        principal: principal,
+        tenant:    tenant,
+        isMember:  isMember,
+    }, nil
+}
+</code></pre>
+<p>注意几个细节——struct 字段全部是小写私有，<strong>包外代码没法绕过构造器</strong>直接 new。构造器里写死了规约里那条 <code>isMember == true</code> 的前提检查。Principal 和 Tenant 用的是各自的强类型 <code>AuthenticatedPrincipal</code> 与 <code>TenantId</code>，不是裸 string。</p>
+<p>**第三段 · 业务 handler 的使用方式。**业务代码长这样：</p>
+<pre><code class="language-go">isMember := exists &gt; 0
+access, err := shengen.NewTenantAccess(principal, tenantID, isMember)
+if err != nil {
+    return shenguard.TenantAccess{},
+        fmt.Errorf(&quot;tenant access denied: %s is not a member of %s&quot;,
+            userID, tenantID.Val())
+}
+// 现在拿到一个带证明的 access 实例，可以直接传给下游函数
+return doProtectedThing(access)
+</code></pre>
+<p><strong>关键点。</strong><code>doProtectedThing</code> 这个函数的签名要求第一个参数类型是 <code>shenguard.TenantAccess</code> ——意味着它只能接受一个已经被构造器验证过的实例。智能体如果想偷懒写 <code>doProtectedThing(tenantID)</code>，Go 编译器立刻报错：「cannot use tenantID (variable of type string) as shenguard.TenantAccess value」——智能体的输出根本进不了这一行。<strong>bug 在类型阶段就被拦下来了</strong>。</p>
+<p>Brooks 在博客里用一句话总结这件事的工程意义：「the proof travels with the value」——<strong>证明随着这个值一起搬运</strong>。它不是写在某个文档里，不是写在某条 if 检查里，而是变成这个类型本身。整个项目所有需要这个证明的地方，都被迫从同一个构造器进。</p>
+<h2>默认五道闸门 · 智能体每一轮循环都过一遍</h2>
+<p>理解了规约怎么写，再看 Brooks 设计的五道闸门——这是智能体跑完一轮代码生成后，必须依次通过的五道结构性检查。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/21/shen-backpressure/five-gates-architecture-v2.png" alt="Shen-Backpressure 默认五道闸门架构 智能体循环的硬卡点"></p>
+<p>**第一道 · shengen（<code>sb gen</code>）。**重新跑一次代码生成器，看「Shen 规约」和「Go 守卫类型」之间有没有漂移。如果智能体偷偷改了规约但忘了同步守卫，或者改了守卫但没改规约，这一道直接红。</p>
+<p><strong>第二道 · test（<code>go test ./...</code>）。<strong>所有现有单元测试 + 集成测试必须全过。智能体可以新加测试，但</strong>不能让任何一个老测试变红</strong>。</p>
+<p>**第三道 · build（<code>go build ./...</code>）。**整个项目必须编译通过。如果智能体写出来的代码里有类型不匹配、引用了不存在的符号、调了一个未导出的私有构造器——这一道立刻拒。Brooks 在博客里强调，<strong>这是结构压制最直接的体现</strong>，因为它把「正确性」的判断从「智能体觉得对」变成「编译器觉得对」。</p>
+<p>**第四道 · shen tc+（<code>bin/shen-check.sh</code>）。**Shen 规约自身要在 Shen 类型检查器里通过——前提之间不能自相矛盾，结论不能是悬空声明。这一道挡住的是「智能体连规约本身都写错了」这一类情况。</p>
+<p>**第五道 · tcb audit（<code>bin/shenguard-audit.sh</code>）。**审计生成代码有没有被人工手改过。<code>shengen</code> 目录下的代码理论上只能由 <code>sb gen</code> 工具产生，任何手改都视为破坏可追溯性。这一道是 Brooks 设计里最妙的——<strong>它把「生成代码不可手改」做成一道闸门，倒逼智能体必须通过修改规约来修代码</strong>。</p>
+<p>**核心机制。**五道闸门串行跑，任意一道红，整轮智能体循环回滚——智能体拿到的不是一段「请重写」的口头反馈，而是一段确定的、机器可读的失败信号（哪个文件、哪一行、什么错）。<strong>结构压制 = 用确定性反馈替代主观反馈</strong>。</p>
+<p>这一点跟 Claude Code、Cursor、千问 Coder 当前默认行为有结构性差别——它们的失败回路主要靠模型自己读输出，自己决定要不要重试。读不读得懂 stderr，模型水平参差。Brooks 的方案把这件事变成了「五道闸门强制每一道都给二进制信号」，<strong>对模型水平的依赖被压到了最低</strong>。</p>
+<h2>HN 帖底三派声音 · 把整个行业的辩论范围画出来</h2>
+<p>Hacker News item 48209323 当天评论数只有十条，但分布很有代表性——五派意见全部出来了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/21/shen-backpressure/hn-comments-snapshot.png" alt="HN 帖底三派声音 结构压制派 确定性工具派 更强类型论派 代码生成安全派 无 AI 也成立派"></p>
+<p>**第一派 · 作者自陈结构压制派。**作者 pyrex41 自己在评论区留了一句话总结整个项目的思路：</p>
+<blockquote>
+<p>「Move rules from prompts into types the compiler refuses to violate, then bounce the AI coding loop off those refusals.」</p>
+<p>把规则从提示词搬进类型——让编译器拒绝违反，再把这种拒绝信号反馈给 AI 智能体的循环。</p>
+</blockquote>
+<p>这句话比博客标题更精炼——<code>bounce ... off those refusals</code> 这个动词用得讲究。智能体不是「读懂」类型门栏，而是「撞」上去，每撞一次掉一层皮，下一轮自然朝正确方向走。</p>
+<p>**第二派 · 确定性工具派。**用户 alexpotato 在评论里描述了他自己团队过去两年的演化路径：</p>
+<blockquote>
+<p>「Deterministic tools (for both deployments and testing) get you a binary answer and it&#39;s repeatable.」</p>
+<p>确定性的工具——不管是部署还是测试——给你的是二进制答案，并且可重复。</p>
+</blockquote>
+<p>他特别提到团队从多智能体方案回退到单智能体加确定性工具的路。这个观察对国内做 Agent 框架的团队（智谱 AutoGLM、阿里通义灵码、字节 MarsCode）有直接参考价值——<strong>与其堆智能体数量，不如把每个智能体的输出闸门做实</strong>。</p>
+<p>**第三派 · 更强类型论派。**用户 solomonb 提出了一个直接的反问：</p>
+<blockquote>
+<p>「Why not just use a more richly typed target language and skip this process, with Liquid Haskell or Lean?」</p>
+<p>如果是这样，为什么不直接用类型更丰富的目标语言——Liquid Haskell 或 Lean——跳过这整个流程？</p>
+</blockquote>
+<p>这个意见在学术圈很有市场——Haskell 的 refinement type、Idris 的 dependent type、Lean 的 mathematical proof，这些工具的类型表达力比 Shen + Go 这一组合要强得多。Brooks 在原文里的回答是：「Go 和 TypeScript 已经在用了。把团队从 Go 切到 Lean 的成本，远高于在 Go 之上加一层 Shen 规约的成本。」<strong>工业落地优先于理论纯粹</strong>。</p>
+<p>**第四派 · 代码生成安全派。**用户 singron 提了一个尖锐的安全质疑：</p>
+<blockquote>
+<p>「If AI is calling the constructor, then it&#39;s able to make its own assertions and derive whatever result it wants.」</p>
+<p>如果是 AI 自己调用构造器，那它就能自己写断言、自己推导任何结果——守卫类型本身的安全性需要重新审视。</p>
+</blockquote>
+<p>这个质疑是项目当前最值得花时间回应的点。Brooks 的第五道闸门（tcb audit）部分解决了这个问题——审计生成代码不能被人工或智能体绕过。但根本上，<strong>类型门栏要真硬，规约本身的 review 必须由人把关</strong>。这是一个权责边界问题，不是技术问题。</p>
+<p>**第五派 · 无 AI 也成立派。**用户 ajb 把视野拉到 AI 之外：</p>
+<blockquote>
+<p>「Sounds valuable even without LLMs, for operational-level invariant constraints.」</p>
+<p>就算不带大模型，把运营层的不变量直接做成类型约束，本身也很有价值。</p>
+</blockquote>
+<p>这一派是把 Brooks 的工作放到「类型驱动开发」的传统脉络里看——Domain-Driven Design 的 value object、Rust 的 newtype pattern、TypeScript 的 branded type，本质都是同一个思路。<strong>大模型只是一个让这件事变得更紧迫的催化剂</strong>。</p>
+<h2>对照表 · Claude Code / Cursor / 千问 Coder / 智谱 GLM-Coder 现在做到哪儿了</h2>
+<p>这一节是国内开发者最关心的——把当前主流 AI Coding 工具的「错误反馈机制」摆到同一张表上，看哪几家走在结构压制方向上，哪几家还在拼模型聪明。</p>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>默认错误反馈方式</th>
+<th>结构压制成分</th>
+<th>模型聪明成分</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Anthropic Claude Code</td>
+<td>自动跑 <code>bash</code> / <code>go test</code> / <code>tsc</code>，把 stderr 喂回模型</td>
+<td>中 · 依赖项目自己的测试覆盖</td>
+<td>高 · Opus 4.7 推理链</td>
+</tr>
+<tr>
+<td>Cursor Composer 2.5</td>
+<td>自动跑 lint + tsc + 用户配置的 build 命令</td>
+<td>中 · 用户可配 hooks</td>
+<td>高 · 三十秒 deep reasoning</td>
+</tr>
+<tr>
+<td>GitHub Copilot Agent</td>
+<td>内置 PR check loop，回归测试失败自动重试</td>
+<td>中 · 跟 CI 绑定</td>
+<td>中 · 默认 GPT-4 series</td>
+</tr>
+<tr>
+<td>阿里千问 Coder</td>
+<td>提供 IDE 插件，错误流读 stderr 反馈</td>
+<td>低 · 默认无项目级闸门</td>
+<td>高 · 千问 3 32B / Max</td>
+</tr>
+<tr>
+<td>智谱 GLM-Coder</td>
+<td>集成在 GLM-Coding-Plan 中，cli 模式跑命令</td>
+<td>低 · 默认无项目级闸门</td>
+<td>高 · GLM-4.5 系列</td>
+</tr>
+<tr>
+<td>Kimi K2.5 写代码</td>
+<td>双模式（chat + code）跑 sandbox 验证</td>
+<td>低 · sandbox 是次要路径</td>
+<td>高 · 一百万 token 上下文</td>
+</tr>
+<tr>
+<td>Shen-Backpressure</td>
+<td>强制五道闸门 · build / test / shen tc+ / shengen / tcb audit</td>
+<td>极高 · 整个工具就是结构压制本身</td>
+<td>与模型无关</td>
+</tr>
+</tbody></table>
+<p><strong>这张表的读法不是「谁强谁弱」</strong>——而是把当前的格局看清楚。Claude Code 和 Cursor 在结构压制方向上已经有中等程度的能力——它们能自动跑测试 + lint + tsc 并把失败反馈给模型。这是结构压制的最基础形态。但「测试 + lint + tsc」三件套挡不住语义层面的 bug——多租户访问控制写漏一个 if 检查，类型检查器抓不到。</p>
+<p>Brooks 用 Shen + 守卫类型做的事，是<strong>把语义层面的不变量也升级成类型层面的硬约束</strong>。这一步是当前主流工具都还没做的事。国内的千问 Coder 和智谱 GLM-Coder 在工程框架层面跟 Claude Code、Cursor 处在同一档——拼的还是模型聪明。</p>
+<p><strong>国内 AI Coding 工具下半年值得投入的方向</strong>：与其继续在「我的模型能跑多大上下文」上跟海外拼，不如把工程框架升级——做出一个国产版的 Shen-Backpressure，让国内 Go / Java / TypeScript 项目能够通过几行规约就把业务不变量提升成编译器级硬约束。<strong>这是一个工程框架层面的差异化机会，跟模型权重无关</strong>。</p>
+<h2>OWASP #1 不是技术问题 · 是规则放错位置问题</h2>
+<p>要把 Brooks 的论点说得更具体，看一个最贴近国内 Web 开发者日常的例子——OWASP Top 10 第一名是什么。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/21/shen-backpressure/owasp-broken-access-v2.png" alt="OWASP 第一名失效的访问控制 散乱 if 检查 vs 集中守卫类型 两种做法对照"></p>
+<p>**OWASP 二零二五年版 Top 10 第一名仍然是 Broken Access Control——失效的访问控制。**这个分类已经连续多年居榜首。常见 bug 长这样：handler-a 写了 <code>if !user.IsMemberOf(tenantID)</code> 检查，handler-b 漏写了，handler-c 用了一个不一样的检查（<code>if user.Role == &quot;admin&quot;</code>）。三个 handler 都通过了单元测试，都通过了 code review——但 handler-b 的疏漏让攻击者能跨租户访问数据。</p>
+<p>Brooks 在博客里有一句话总结这一类 bug：</p>
+<blockquote>
+<p>「These bugs ship because the rule has been placed in the wrong part of the system.」</p>
+<p>这些 bug 之所以上线，是因为规则被放在了系统中错误的位置。</p>
+</blockquote>
+<p>**正确的位置是哪里？**Brooks 的回答是：放进类型本身。当业务函数 <code>doProtectedThing</code> 的签名是 <code>func doProtectedThing(access TenantAccess)</code> 而不是 <code>func doProtectedThing(tenantID string)</code> 时——<strong>调用方根本没法传一个未验证的 tenantID 进来</strong>，编译器在调用站点就拒。规则只活在一个地方，就是 <code>TenantAccess</code> 的构造器。这个构造器是 <code>shengen</code> 工具从 Shen 规约自动生成的，每次规约改了重新跑 <code>sb gen</code>，所有调用站点都自动跟上。</p>
+<p><strong>这个思路对国内 SaaS 团队的直接价值</strong>：多租户、权限、限流、计费、合规——这五个领域的 bug 比例最高，原因都是「规则散落在十几个 handler 里」。把这些规则集中到守卫类型，单一信息源、单一改动点，<strong>不光防 AI 智能体写错，也防新来同事写错</strong>。</p>
+<p>ajb 在 HN 评论里强调的「无 AI 也成立」这一层意义，国内开发者尤其要听进去——<strong>Shen-Backpressure 的工程价值不只是治智能体，更是治散乱代码的传统老问题</strong>。</p>
+<h2>给国内 AI Coding 工具链团队的实操落地路径</h2>
+<p>抓住一个具体的工程价值出来谈——如果你是国内一线后端 / SRE / AI Coding 工具链开发者，看到这篇文章想试一试，从今天开始走多久能见到第一个真实价值？路径如下，按性价比顺序排列。</p>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>动作</th>
+<th>时间预算</th>
+<th>难度</th>
+<th>替代不替代得了人</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>一</td>
+<td>用 Claude Code / Cursor 跑一遍 Brooks 的 demo 仓</td>
+<td>半天</td>
+<td>低</td>
+<td>复现 demo 是熟悉机制</td>
+</tr>
+<tr>
+<td>二</td>
+<td>把你手上一条最常被写错的业务规则抽出来</td>
+<td>一天</td>
+<td>中</td>
+<td>这一步是人的活</td>
+</tr>
+<tr>
+<td>三</td>
+<td>用 Shen 写一段规约 + 手动写 Go 守卫类型</td>
+<td>一到两天</td>
+<td>中</td>
+<td>不必先写完整工具，先验证一段</td>
+</tr>
+<tr>
+<td>四</td>
+<td>用智能体跑一轮代码生成，看类型门栏挡了什么</td>
+<td>一天</td>
+<td>低</td>
+<td>类型检查器替你挡</td>
+</tr>
+<tr>
+<td>五</td>
+<td>把规约 + 守卫类型 + 闸门串成项目 CI 的一道步骤</td>
+<td>两到三天</td>
+<td>中</td>
+<td>这是工程化落地</td>
+</tr>
+<tr>
+<td>六</td>
+<td>把这套做法做成国产 AI Coding 工具的内置能力</td>
+<td>一到三个月</td>
+<td>高</td>
+<td>工具链团队的中长期投入</td>
+</tr>
+</tbody></table>
+<p>**第一步 · 用 Claude Code 跑 Brooks 的 demo 仓。**Brooks 在博客里给了一个完整可跑的 Go 示例项目。先用你已经在用的 AI 智能体（Claude Code Opus 4.7 / 千问 Coder Max / 智谱 GLM-Coder 都可以）把项目 clone 下来跑一遍 demo——五道闸门看到全绿，再让智能体故意写一个绕过 <code>TenantAccess</code> 的版本，看 build 闸门红出来。这一步的目的是把直觉建立起来。</p>
+<p>**第二步 · 找一条最常被写错的业务规则。**回到你自己的项目——过去三个月你的团队复盘过几次「上线后才发现某个 handler 漏写了某个检查」的事故？把那条最常出问题的规则找出来——可能是租户隔离、可能是限流、可能是金额范围、可能是状态机迁移。<strong>这一步是 AI 替代不了的工程判断活</strong>。</p>
+<p>**第三步 · 用 Shen 写一段规约 + 手动写 Go 守卫类型。**第一次不需要装 Shen 工具链——直接照着 Brooks 的格式手抄一段，再手写对应的 Go 守卫类型。重点是把横线上方的前提条件列清楚，把构造器写出来，把 struct 字段做成私有。这一步走通一次，你就理解了「证明随实例搬」这件事的工程语义。</p>
+<p>**第四步 · 用智能体跑一轮代码生成。**故意给智能体一个会触犯这条规则的需求——「请添加一个 handler，从 query string 拿 tenantID 后直接调下游函数」。看智能体写完之后跑 <code>go build</code>，看类型检查器是不是直接抓到了。如果抓到了，<strong>你的第一道结构压制门栏就跑通了</strong>。</p>
+<p>**第五步 · 串进项目 CI。**把守卫类型的生成 + 编译 + 测试三件套，放进你的 GitHub Actions 或者云效 / CodeArts 流水线。这一步的工程价值是——<strong>未来每一个智能体写的 PR 都会自动过这道闸门</strong>。</p>
+<p>**第六步 · 把它做成国产 AI Coding 工具的内置能力。**这一步是给阿里通义灵码、智谱 AutoGLM、字节 MarsCode、华为 CodeArts AI、百度 Comate 这些工具的产品团队看的——<strong>国内 AI Coding 工具下半年的差异化突破口</strong>，不在于「我的模型上下文更长」，而在于「我集成了一道形式化类型门栏」。Brooks 的 Shen-Backpressure 是参考实现，国内完全可以做出对标 Go / TypeScript / Java / Python 的国产工具。</p>
+<p>**实测时间预算 · 第一步到第五步走完一个真实业务规则的完整门栏，一个有 Go 基础的后端工程师大概一周。**走完一个国产化工具雏形，工具链团队大概两到三个月。比起继续等「模型更聪明」那一天，<strong>这个时间是已知的、可控的、跟模型权重无关的</strong>。</p>
+<h2>边界判断 · 这套做法能干和不能干的事</h2>
+<p>写到这里要把边界讲清楚——避免读者带着「形式化类型门栏能解决一切问题」的错误期望出去。</p>
+<p><strong>能干的三件事。</strong></p>
+<p>一是<strong>把可形式化的业务不变量升级成编译器级硬约束</strong>。多租户隔离、限流、金额范围、状态机迁移——这一类规则适合塞进类型门栏。Brooks 的例子是访问控制，国内 SaaS 团队最容易上手的也是这一类。</p>
+<p>二是<strong>给 AI 智能体提供确定性的失败反馈</strong>。智能体的输出空间被结构性收窄之后，它每一轮循环拿到的不是「请重写」这种主观信号，而是「编译器报错在 line 42」这种确定信号——<strong>对模型水平的要求随之降低</strong>。这意味着国内中等规模的开源模型（Qwen3 32B / GLM-4.5-Air）配合这套门栏，能跑出接近 Claude Opus 的工程效果。</p>
+<p>三是<strong>把规则集中到单一信息源</strong>。规则只活在一处——Shen 规约 + 守卫类型构造器。规则要改的时候只改一处，所有调用站点自动跟上。<strong>这一条对人也成立，不光对 AI</strong>。</p>
+<p><strong>不能干的三件事。</strong></p>
+<p>一是<strong>替你判断规则本身对不对</strong>。Shen 规约写错了——比如把「IsMember 必须为 true」写成「IsMember 必须为 false」——工具会忠实地生成相反的守卫类型，编译器只能保证「实际生成的代码符合写下的规约」，<strong>它不能告诉你规约本身是不是对的</strong>。规约的正确性需要人工 review 把关。HN 用户 singron 的质疑就是冲着这一层。</p>
+<p>二是<strong>替你处理无法形式化的需求</strong>。「这个按钮的颜色应该是蓝色还是紫色」「这段错误提示文案怎么写更人性化」「这个 API 接口要不要做向后兼容」——这些需求里没有可形式化的不变量，类型门栏帮不上忙。<strong>这一层仍然需要智能体本身的判断</strong>。</p>
+<p>三是<strong>替代测试和线上观测</strong>。类型门栏只在「设计阶段 + 编译阶段」起作用——它挡不住代码逻辑错误（比如 if 写反了）、挡不住性能问题（比如 N+1 查询）、挡不住运行时异常（比如下游服务超时）。<strong>它跟测试 + chaos engineering + 线上观测是互补关系，不是替代关系</strong>。</p>
+<p>把边界讲清楚的意义在于——<strong>这套做法的价值不在于革命，在于补缺</strong>。当前 AI Coding 工具链最薄弱的那一环——「智能体输出的确定性约束」——它补上了。其他环节仍然需要现有的工程实践。</p>
+<h2>结尾 · 一道门栏 · 一种工程文化转向</h2>
+<p>把这件事放到二零二六年这个时间点的更大背景里看，意义就清楚了。</p>
+<p>过去两年，国内 AI Coding 工具的竞赛主要在三条线上跑——模型参数（千问 3 32B / GLM-4.5-Air / DeepSeek V4）、上下文长度（Kimi 一百万 token）、推理深度（智谱 GLM-Coding-Plan 的 deep reasoning）。这三条线让模型本身的能力上限节节攀升。</p>
+<p>但二零二六年下半年开始，这三条线的边际收益会变缓——上下文从一百万拉到两百万 token，推理链从三十秒拉到六十秒，参数从 32B 加到 100B——<strong>每一步的工程价值都在变薄</strong>。</p>
+<p>Brooks 用 Shen-Backpressure 提出的另一条路——把规则从模型权重里搬出来放进编译器——给国内 AI Coding 工具链团队提供了一个二零二六年下半年的清晰方向。<strong>这条路的回报曲线跟项目复杂度近似线性，跟模型水平无关，跟你的国产基座是 Claude 还是千问也无关</strong>。任何 IDE 插件、任何 cli 工具、任何 cursor 风格的复合智能体，都能在这条路上做出差异化。</p>
+<p><strong>对国内开发者个人</strong>，这件事的意义是——你不需要等到「最聪明的模型」那一天再开始用 AI 写代码。今天的 Claude Code、Cursor、千问 Coder、智谱 GLM-Coder 的能力，加上你自己写的一段 Shen 规约 + 守卫类型，已经够把你项目里那些反复出 bug 的业务规则变成编译器级硬约束。<strong>该补的不是模型，是你自己的工程纪律</strong>。</p>
+<p><strong>对国内 AI Coding 工具链团队</strong>，这件事的意义是——下半年的产品决策点，已经不在「我的模型再加 30B 参数」这一头，而在「我能不能给我的智能体一道形式化类型门栏」这一头。<strong>这是一个跟海外巨头有共同起跑线的赛道</strong>——Anthropic、OpenAI、Google 在这件事上没有先发优势，谁先把国产化 Shen-Backpressure 工具做出来，谁就拿到二零二六年下半年的差异化身位。</p>
+<p>这是一个老工具（序列演算）被新场景（AI Coding）激活的故事，也是一个国内开发者社区可以走得更远的窗口期。<strong>结构压制比让模型更聪明，今天就开始用，明天就见效。</strong></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

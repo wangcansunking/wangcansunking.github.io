@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智谱公开 GLM-5 降智根因：两个 cache 漏洞 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-02</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-02</span><span class="tag-pill">Daily Report</span></div>
+      <h1>智谱公开 GLM-5 降智根因：两个 cache 漏洞</h1>
+<blockquote>
+<p>5 月 1 日 19:00，智谱发布技术博客《Scaling Pain》，把过去几周用户在 GLM-5 上撞见的&quot;降智&quot;问题讲透了：不是模型退化，是 PD 分离架构里 KV Cache 复用时序竞争，加上 SGLang HiCache 分层缓存的 read-before-ready 漏洞。两个 bug 都已经在 GLM-5.1 修复，修复方案被 SGLang 开源社区收下；配套的 LayerSplit 长上下文优化让吞吐在 40K-120K 区间提升 10%-132%。这是国产大模型团队第一次把超大规模推理事故讲到工程颗粒，含金量足够开发者收藏一遍。</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/02/zhipu-glm5-scaling-pain.png" alt="GLM-5 推理事故复盘"></p>
+<h2>一、事件复盘：用户撞见的「降智」是什么样</h2>
+<p>过去几周，GLM Coding Plan 用户在跑 Coding Agent 任务时陆续报告三类异常：模型有时输出整段乱码、有时陷入复读循环、有时蹦出意义不明的罕见字符。智谱团队在博客里直接把现象列了出来——</p>
+<blockquote>
+<p>&quot;过去几周，一些用户在使用 GLM-5 系列模型执行复杂 Coding Agent 任务时，遭遇多种异常，比如乱码、复读和罕见字符生成。&quot;</p>
+<p>—— 量子位转载智谱博客原文，2026-05-01</p>
+</blockquote>
+<p>这个体感很多用过国内 API 的同行都熟悉——一个长跑的 agent 任务，前半段还工整，跑到第几十轮工具调用突然飘成乱码。当时大家的猜测大多是&quot;模型本身出了问题&quot;或者&quot;上下文长度撑爆了&quot;。智谱这次复盘把答案钉在了系统层：<strong>模型权重没问题，是推理引擎里两个 KV Cache 相关的 bug</strong>。</p>
+<p>更值得注意的是修复后的数据。智谱原话是：</p>
+<blockquote>
+<p>&quot;最终修复该 bug 后，异常输出的发生率从约万分之十几下降至万分之三以下。&quot;</p>
+</blockquote>
+<p>万分之十几看起来不大，放到亿级日 token 的 Coding Plan 流量上就是相当扎眼的尾部体验问题；降到万分之三以下，对于一个每天被无数 agent 任务高强度敲打的推理服务而言，是一条清晰的&quot;修对了&quot;信号。</p>
+<h2>二、Bug A：PD 分离架构里的 KV Cache 跨节点复用竞态</h2>
+<p>要理解第一个 bug，需要先把当前主流大模型推理引擎的&quot;PD 分离&quot;架构搭起来。</p>
+<p>PD 分离指的是把推理过程拆成两个阶段、分别部署到不同节点：</p>
+<ul>
+<li><strong>Prefill 阶段（计算密集，compute-bound）</strong>：处理用户输入的 prompt，一次性把每层的 KV Cache 算出来。GPU 算力打满，吞吐瓶颈在 FLOPs。</li>
+<li><strong>Decode 阶段（显存密集，memory-bound）</strong>：拿到 KV Cache 后逐 token 自回归生成，每一步只算一个 token。GPU 算力没饱和，瓶颈在显存带宽——KV Cache 反复读入读出。</li>
+</ul>
+<p>这两个阶段对硬件的需求很不一样，把它们拆到不同节点能让算力和显存都更接近&quot;用满&quot;。代价是：跨节点协作的时序握手，要做得非常细。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/02/pd-separated-kv-cache-flow.png" alt="PD 分离架构里 KV Cache 时序竞争发生的位置"></p>
+<p>智谱定位到的第一个 bug 就发生在这个握手环节。原话：</p>
+<blockquote>
+<p>&quot;请求生命周期与 KV Cache 回收与复用时序之间的不一致，从而引发的 KV Cache 复用冲突。&quot;</p>
+</blockquote>
+<p>展开看大致是这样一条链：用户在 Coding Agent 里中止了某次长生成，Decode 侧收到中止指令后，对该请求执行 Abort，并回收其占用的 KV Cache 资源；问题在于，<strong>这个 Abort 信号没有被可靠地传递回 Prefill 侧</strong>。Prefill 节点这边以为请求还在进行、对应的 KV Cache 还在使用，新进来的另一个请求被路由到同一段 cache，结果就是新旧两个请求的中间表征互相覆盖——下游 Decode 拿到一份&quot;半新半旧&quot;的 KV，开始按字节级损坏的状态自回归，乱码、复读、罕见字符就是这么来的。</p>
+<p>智谱的修复也讲得很清楚：在 Decode 发出 Abort 后，主动向 Prefill 侧发送显式同步通知，确保对应 KV Cache 在 Prefill 释放掉占位之后才允许被新请求复用。一句话——<strong>把异步的&quot;我以为你已经知道了&quot;，改成同步的&quot;我等你回执&quot;</strong>。</p>
+<p>这一类&quot;分布式状态在事件边界处不一致&quot;的 bug，国内做大规模推理服务的同行其实并不陌生。早期 vLLM 在 0.x 时代多次修过 Block Manager 的 cache 释放时机问题；TensorRT-LLM 的 in-flight batching 在 2024 年初也踩过类似的状态同步坑；SGLang 的 RadixAttention 树状前缀缓存早期也修复过几次类似 race。这并不是哪一家实现不细致，是 PD 分离这个架构形态本身就把状态空间扩大了好几倍——每多一次跨节点协作，就多一道时序锁要校。</p>
+<h2>三、Bug B：HiCache 分层缓存的 read-before-ready</h2>
+<p>第二个 bug 出在 HiCache——SGLang 里把 KV Cache 分层缓存到 GPU 显存与 CPU 内存之间的模块，目的是让历史会话的 KV 不必全部塞进昂贵的显存，多轮对话和长上下文场景体验都更好。</p>
+<p>智谱原话：</p>
+<blockquote>
+<p>&quot;当 KV Cache 换入与计算重叠时，当前实现未能保证数据在使用前已完成加载，导致可能出现未就绪 KV Cache 被访问的情况。&quot;</p>
+</blockquote>
+<p>更具体的描述是 Forward Stream 与 Load Stream 之间缺少必要的同步点——Forward Stream 已经开始执行 Indexer 算子（要去读对应层的 KV），Load Stream 那边却还没把这一层的数据从 host 内存搬到 GPU 显存。读到一份&quot;还没就绪&quot;的 KV，等价于读到内存里的随机字节，模型立刻进入语义错乱状态。</p>
+<p>智谱给出的修复是：在 Indexer 算子启动之前，强制与 Load Stream 设一个显式同步点，确保对应层级的 Indexer Cache 已经完成加载。这个修复方案被 SGLang 开源社区采纳，意味着接下来所有用 SGLang 跑国产基座的团队，都直接受益于智谱这次复盘。</p>
+<p>把两个 bug 放一起看会发现一个很有意思的共性——<strong>它们都是&quot;显式同步点缺位&quot;导致的时序问题</strong>。一个发生在 PD 节点之间，一个发生在 GPU 上不同 stream 之间；尺度不同，本质相同。这条经验对所有自建推理服务的团队都成立：<strong>当你引入任何形式的异步 / 重叠 / 跨节点状态共享，都要回头看一遍同步点画在了哪里、画完了没</strong>。</p>
+<h2>四、配套优化：LayerSplit 让长上下文吞吐提升 10%-132%</h2>
+<p>修 bug 之外，智谱在博客里还讲了一个面向长上下文场景的吞吐优化——LayerSplit。</p>
+<p>原话：</p>
+<blockquote>
+<p>&quot;在该方案中，每个 GPU 只存储部分层的 KV Cache，显著降低了每个 GPU 的内存占用。&quot;</p>
+<p>&quot;在 Cache 命中率达到 90%、请求长度在 40k 到 120k 区间内时，系统吞吐量提高了 10% 到 132%。&quot;</p>
+</blockquote>
+<p>LayerSplit 的思路简单说就是把&quot;每张卡都装全部层 KV&quot;改成&quot;每张卡只装一部分层 KV&quot;，让显存被多卡分担、可以装下更长的上下文，同时把通信开销控制在合理水平。这个收益在 40K-120K 这种长 context 区间最明显——而 Coding Agent 恰恰是 40K-120K 长 context 的最大用户群之一。</p>
+<p>把这一块和前面两个 bug 放一起看，能更清楚地理解智谱这次想表达的东西：<strong>Coding Agent 给推理引擎施加的压力是普通对话场景的几个数量级</strong>。请求长度长、并发高、还经常中途 Abort 重来，每一项都直接撞向 PD 分离与分层缓存的&quot;边角案例&quot;。把这些边角填上、把吞吐再向上抬一截，是大模型走向规模化部署必经的一道工程关。</p>
+<h2>五、国产推理框架对位：每家都在哪个位置？</h2>
+<p>这一波修复方案能直接通过 SGLang 上游回流给所有用户，是开源社区协同的好例子。把国内开发者常见的几个推理框架放一起看，能更清楚地知道自己手头的方案处在哪个位置。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/02/inference-framework-cache-comparison.png" alt="国产推理框架的 KV Cache 管理对位"></p>
+<p><strong>SGLang</strong> 是这次事件最直接的相关者。LMSYS 团队主导，RadixAttention 树状前缀缓存 + HiCache 分层是它的招牌特性。智谱这次发现并修复了 HiCache 模块的 read-before-ready 问题，修复回流到 SGLang 主线，等同于让所有跑 SGLang 部署 GLM / Qwen / DeepSeek / Kimi 的团队同步受益。</p>
+<p><strong>vLLM</strong> 由 UC Berkeley Sky Lab 主导，PageAttention 块管理器 + Prefix Cache 是它的核心机制。早期版本里 Block Manager 的释放时机也修过几次类似的 race condition，社区里至今能查到当时的 issue 讨论。今天的 vLLM 已经稳定很多，但 PD 分离场景下的精细同步仍然是各推理引擎的共同功课。</p>
+<p><strong>lmdeploy</strong> 来自上海人工智能实验室，TurboMind 后端的 block-based KV 实现成熟、文档清晰，是国产推理生态里非常实用的一档选择。在内部 RAG / Coding Agent 部署里被很多国内团队选用。</p>
+<p><strong>TensorRT-LLM</strong> 是 NVIDIA 主推、国内多家厂商有分支版本的高性能引擎。in-flight batching 模式早期也踩过状态同步类问题，迭代到今天稳定度很高，但对工程团队的运维能力要求相对更重。</p>
+<p><strong>BladeLLM</strong> 是阿里巴巴内部使用的引擎之一，采用分页 KV + 多机调度，配合阿里云通义系列在生产环境里跑大流量，是国内云厂商在推理引擎上的代表性自研。</p>
+<p>把这五个放一起看会发现，<strong>KV Cache 管理是当前所有主流推理引擎共同面对的核心难题</strong>。每家都有自己的实现、各自踩过自己的坑、也都在持续修复。智谱这次把自己的复盘讲透并把修复回流到上游，是让整个生态都进了一步。</p>
+<h2>六、自建推理服务的同行能从这次复盘里抄什么</h2>
+<p>这一段对所有在内部跑 Coding Agent / RAG / 长上下文服务的团队都有用。把智谱这次的经验拆成几条可操作的工程动作，方便对照自己的部署。</p>
+<p><strong>第一，给推理引擎加 KV Cache 监控仪表盘。</strong> 这是性价比最高的一道防线。最少需要的指标包括：cache 命中率、cache 释放与新请求复用之间的时间差分布、跨节点 KV 推送的失败率、请求 Abort 后 cache 回收的延迟。这次智谱能把万分之十几的尾部异常率定位到时序竞争，前提就是有这种细到毫秒级的内部监控；没有监控，bug 会一直藏在统计噪声里。</p>
+<p><strong>第二，PD 分离部署里所有跨节点状态变化都要画显式同步点。</strong> 任何&quot;我中止了请求 / 我释放了资源 / 我开始复用 cache&quot;的事件，对端必须有回执确认才允许进入下一步。这条规则在分布式系统里听起来像常识，但一旦把性能优化压到极致就容易&quot;省掉一次同步&quot;——这次的事故就是这种省略累积起来的。</p>
+<p><strong>第三，HiCache 类分层缓存场景要明确区分 stream 边界。</strong> 任何&quot;加载 stream&quot;和&quot;计算 stream&quot;重叠的位置，都必须在每一层数据结构的访问入口加一道同步检查，确保被读取的层级&quot;已经就绪&quot;。这条对国内做长上下文服务、做多轮对话缓存的团队尤其值得抄。</p>
+<p><strong>第四，把&quot;训练事故&quot;和&quot;推理事故&quot;分开建账。</strong> 国内同行习惯把模型问题归到&quot;训练数据&quot;或&quot;基座对齐&quot;，但这次事件提醒大家——<strong>推理引擎本身可以单独制造看起来像&quot;模型退化&quot;的现象</strong>。下次再撞见用户报告&quot;模型变笨了&quot;，先让 SRE 同事查一遍推理链路的 cache 监控曲线，再考虑是否回退基座版本。</p>
+<p><strong>第五，部署 GLM-5 系列建议直接走 GLM-5.1。</strong> 智谱在博客里明确这两个 bug 都已经在 GLM-5.1 修复——根据公开资料，GLM-5.1 的 API 早在 3 月底上线、4 月初开源权重，对接的同行可以把内部部署版本切到 5.1，享受这次修复的全部红利。在 SGLang 部署侧建议同步升级到收下了智谱修复方案的版本。</p>
+<h2>七、国产 AI 工程文化的一次进阶</h2>
+<p>把视野拉远看，智谱这次复盘和上个月 OpenAI 公开《Where the goblins came from》、Anthropic 公开 RL spillover 报告其实是同一类工程文化动作——<strong>大模型团队把自己踩过的坑讲透，让整个行业一起进步</strong>。</p>
+<p>OpenAI 4 月底那一篇博客把 RLHF 训练事故的全过程摊给行业看；这次智谱选了另一个角度——把推理引擎的事故同样讲到工程颗粒。两件事放一起看会让人多一份信心：<strong>国产 AI 团队的工程文化正在从&quot;能跑就行&quot;向&quot;事故复盘是行业共同财富&quot;收敛</strong>。智谱博客最后一句话很值得记下来——</p>
+<blockquote>
+<p>&quot;未来大规模 AI 需要的不仅是 Scaling Law 推动的能力增长，还必须有等量级的系统工程支撑。&quot;</p>
+</blockquote>
+<p>这条规律一线工程师都懂。模型权重再强，也要由推理引擎把它稳稳交到用户手里；推理引擎再优化，也要被监控和复盘文化兜住底。国产大模型从去年到今年，一直在补这两条腿——从 DeepSeek-V3 公开训练优化、Qwen 系列公开后训练流水线，到智谱这次公开推理引擎事故，每一篇技术博客都是行业地图上多出来的一块路标。</p>
+<p>有这种坦诚，加上 GLM-5.1 已经在 OpenAI / Anthropic 主流榜单上拿到与第一梯队同一水准的成绩，国内做基座、做推理、做应用的同行都多了几分底气：<strong>我们这一代人手头的训练日志、监控仪表盘、修复 patch，都正在变成全球大模型工程社区的共同资产</strong>。这是一份在前沿做事的人才能写的成长账单——共勉。</p>
+<hr>
+<p><strong>事实来源</strong>：智谱博客《Scaling Pain》（<a href="https://z.ai/blog/scaling-pain）；量子位转载报道《智谱首次公开" target="_blank" rel="noopener">https://z.ai/blog/scaling-pain）；量子位转载报道《智谱首次公开</a> GLM-5 Coding Agent 推理工程实践》2026-05-01 19:00（<a href="https://www.qbitai.com/2026/05/412585.html）；智通财经" target="_blank" rel="noopener">https://www.qbitai.com/2026/05/412585.html）；智通财经</a> / 网易转载 2026-04-30 09:32 早期披露稿；SGLang 开源仓库（sgl-project/sglang）的 HiCache 与 PD 分离相关 issue 与 PR 公开记录；vLLM 官方文档 vllm.ai；Anthropic / OpenAI 4 月底事故复盘博客作为对照参考。所有数字、版本号、时间均交叉至少两家来源核对。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

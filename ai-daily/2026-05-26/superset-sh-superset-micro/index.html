@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code、Codex 并行编程：Superset 如何成为 AI Agent 调度层？ — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-26</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-26</span><span class="tag-pill">AI Daily</span></div>
+      <h1>Claude Code、Codex 并行编程：Superset 如何成为 AI Agent 调度层？</h1>
+<blockquote>
+<p>ai-daily · 2026 年 5 月 25 日 21:42 · 来源：GitHub Trending typescript</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-26/superset-sh-superset-micro/head.png" alt=""></p>
+<p>2026 年 1 月 15 日凌晨，旧金山某间公寓的屏幕还亮着。一个全栈开发者同时开着 6 个终端窗口，左边 Claude Code 在重构用户认证模块，右边 Codex CLI 在写单元测试，第三个窗口里 Gemini CLI 正在改前端组件——他像个空中交通管制员，不停地在 Alt+Tab 之间切换，脑子快要烧了。</p>
+<p>这种画面在过去半年里越来越常见。自 2025 年下半年 Anthropic 发布 Claude Code、OpenAI 推出 Codex CLI 以来，“终端里的 AI 程序员”从一个实验玩具变成了生产工具。但问题也随之而来：当你想同时跑 3 个、5 个、10 个 AI agent 时，终端切换的认知负担直接拉满——context switching 不再是人类开发者的专属痛苦，管理 AI agent 本身也成了一门手艺。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-26/superset-sh-superset-micro/content-1.png" alt="superset-sh/superset — Code Editor for the AI Agents Era - Run an army of Claude"></p>
+<p><strong>管理一群 AI，比写代码本身更让人头秃。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-26/superset-sh-superset-micro/content-2.png" alt="Superset"></p>
+<h2>一个终端管 10 个 agent，这工具想把“AI 监工”做成标准姿势</h2>
+<p>Superset 就是在这个时间点出现在 GitHub Trending 上的。2026 年 1 月 15 日，这个名为 superset-sh/superset 的 TypeScript 项目冲上榜单，定位很直接：“Code Editor for the AI Agents Era”——不是给人类用的编辑器，是给 AI agent 用的控制面板。</p>
+<p>核心技术思路是 git worktree 隔离。每个 agent 任务被分配到一个独立的工作目录和分支，互不干扰。这意味着你可以让 Claude Code 在 feature/auth 分支上重构登录逻辑，同时让 Codex CLI 在 fix/payment-bug 分支上修支付漏洞，再加一个 Gemini CLI 在 experiment/new-ui 上改组件——三个 agent 并行跑，不会互相踩文件、不会污染彼此的工作区。</p>
+<p>Superset 内置了一个 diff viewer，当某个 agent 完成修改后，你可以直接在应用里检查代码变更，决定接受还是丢弃。它还支持一键把当前工作区甩到外部编辑器（VS Code、Cursor 等）或终端里继续手动调整。整个逻辑链条是：分配任务→agent 干活→通知你审查→一键打开编辑器→人工微调→合并。</p>
+<p><strong>“Wait less, ship more”这句话，第一次听起来不像营销口号。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-26/superset-sh-superset-micro/schematic-1.png" alt="Superset 界面示意，左侧 agent 任务列表 + 中间 diff 视图 + 右侧终端面板，三个 agent 并行运行状态"></p>
+<h2>兼容一切 CLI agent，但真正的野心是“调度层”</h2>
+<p>Superset 的兼容列表值得仔细看：Claude Code、OpenAI Codex CLI、Cursor Agent、Gemini CLI、GitHub Copilot、Amp Code、OpenCode、Pi——官方用了一个“Fully supported”标签全覆盖。更关键的是最后一行：“Any CLI agent — If it runs in a terminal, it runs on Superset”。</p>
+<p>这意味着 Superset 不想绑定任何一个 AI 模型提供商。它的定位是中间调度层：你选你的 agent，我管我的工作区和任务队列。这种“agent-agnostic”的姿态在 2026 年初的 AI 工具生态里并不多见——大多数产品都在试图锁定用户到自家 agent 上（比如 Cursor 的 agent 模式只能在 Cursor 里用）。</p>
+<p>技术栈方面，Superset 基于 Bun v1.0+ 运行时、Git 2.20+、GitHub CLI（gh）、Caddy 做本地反向代理（用于 Electric SQL streams），目前只正式支持 macOS。Windows 和 Linux 被标注为“untested”。桌面应用用 <code>bun run build</code> 构建，输出在 <code>apps/desktop/release</code> 目录。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-26/superset-sh-superset-micro/schematic-2.png" alt="Superset 架构示意——CLI agent 层（Claude Code、Codex、Gemini CLI 等）→ Superset 调度层（worktree 隔离 + diff viewer + 通知）→ 开发者交互层（编辑器、终端、快捷键）"></p>
+<p>键盘快捷键的设计透露出这个工具的真实使用场景——高频操作。<code>⌘1-9</code> 直接切到第 1-9 号工作区，<code>⌘N</code> 新建工作区，<code>⌘T</code> 在终端里开新标签，<code>⌘D</code> 和 <code>⌘⇧D</code> 分别向右和向下分屏。这种快捷键密度让人想起 iTerm2 或 tmux 的重度用户配置——Superset 显然假设你会同时盯着多个 agent，并且需要在它们之间快速跳转。</p>
+<p>工作区预设（Workspace Presets）功能允许你在 <code>.superset/config.json</code> 里定义 <code>setup</code> 和 <code>teardown</code> 脚本。比如 setup 脚本执行 <code>cp ../.env .env &amp;&amp; bun install</code>，teardown 脚本清理临时文件。每个工作区创建时自动跑 setup，删除时自动跑 teardown——这让批量创建 agent 任务变得可行：你可以预先配置好环境变量和依赖安装，然后一口气启动 5 个 agent 分别处理不同的 issue。</p>
+<p>（值得一提的是，Superset 的许可证是 Elastic License 2.0（ELv2），不是 MIT 也不是 GPL。ELv2 的限制主要在“不能把 Superset 本身作为托管服务卖给别人”——对大多数个人开发者和企业内部使用来说影响不大，但对想做“AI agent 调度 SaaS”的创业者来说，得先跟团队谈谈。）</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-26/superset-sh-superset-micro/schematic-3.png" alt="Superset 工作区预设配置示例——config.json 定义 setup/teardown 脚本 + 环境变量 SUPERSET_WORKSPACE_NAME 和 SUPERSET_ROOT_PATH 的传递流程"></p>
+<p>我看到这个项目时的第一反应是：它解决了一个“还没被命名”的痛点。2025 年下半年以来，开发者社区里关于“如何管理多个 AI agent”的讨论在 Discord 和 Twitter 上零星出现，但没有人把它定义成一个产品品类。Superset 的 README 里没有写“我们发明了 X”，而是直接摆功能——这种“先做出来再说”的风格，反而比那些动辄“重新定义开发范式”的 PR 稿更让人信服。</p>
+<p>不过，Superset 目前的状态也暴露了一些现实限制。macOS only + Bun 运行时 + Caddy 反向代理 + gh CLI 的依赖组合，意味着它暂时不是“下载即用”的类型——你得先配好一套工具链。对于已经在这套生态里的开发者（用 Bun、用 gh、用 macOS）来说门槛很低，但对于 Windows 上的 Node.js 开发者或者习惯了 GitHub Desktop 的用户，可能还得等社区贡献兼容性补丁。</p>
+<p>社区方面，Superset 团队在 Discord 和 Twitter 上建立了沟通渠道，GitHub Discussions 用于问答和想法分享。从提交历史和 Star 增速来看（2026 年 1 月 15 日登上 Trending），这个项目的关注度正在快速爬升——但它能不能从“开发者玩具”变成“团队标配”，取决于后续的稳定性、跨平台支持，以及最重要的：当 agent 本身出错时，Superset 能不能提供足够的调试信息。</p>
+<p>2026 年的开发者正在从“写代码的人”变成“管 AI 写代码的人”。这个转变比大多数人预想的更快——而 Superset 想成为这个新角色的控制台。至于它能不能做到，等 Windows 版本出来再说吧。</p>
+<h2>参考来源</h2>
+<ul>
+<li>GitHub Trending TypeScript 仓库：superset-sh/superset — <a href="https://github.com/superset-sh/superset" target="_blank" rel="noopener">https://github.com/superset-sh/superset</a></li>
+<li>Superset 官方文档 — <a href="https://github.com/superset-sh/superset#readme" target="_blank" rel="noopener">https://github.com/superset-sh/superset#readme</a></li>
+<li>Elastic License 2.0 (ELv2) 条款 — <a href="https://www.elastic.co/licensing/elastic-license" target="_blank" rel="noopener">https://www.elastic.co/licensing/elastic-license</a></li>
+</ul>
+<p>#Code #Editor #AI #Agents #Era</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

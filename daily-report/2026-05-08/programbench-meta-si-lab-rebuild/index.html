@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>让 LLM 从零重写 ffmpeg：Meta 新 benchmark 出炉 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-08</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-08</span><span class="tag-pill">Daily Report</span></div>
+      <h1>让 LLM 从零重写 ffmpeg：Meta 新 benchmark 出炉</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/08/programbench-meta-si-lab-rebuild.png" alt="让 LLM 从零重写 ffmpeg：Meta 新 benchmark 出炉"></p>
+<h2>一、5 月 5 日，arXiv 上贴了一道新题</h2>
+<p>2026 年 5 月 5 日，arXiv 编号 2605.03546 挂上一篇短论文——<strong>ProgramBench: Can Language Models Rebuild Programs From Scratch?</strong> 作者署名横跨美国 Meta FAIR、Meta TBD Lab、Stanford、Harvard 四个机构，第一作者 John Yang 与最后一位 Ofir Press 都是 SWE-Bench 原班人马。</p>
+<p>题目本身很短：<strong>只给一个可执行二进制 + 用户文档，让 agent 从零拼出一份行为等价的代码库</strong>。不允许反编译，不允许联网，不允许看原始源码。评测方式不再依赖人类写测试，而是用一个独立 agent 对参考二进制做 fuzzing 自动生成端到端行为测试，再拿这套测试反过来跑 agent 写出来的实现。</p>
+<p>5 月 6 日 HN 首页冒出来这条 arXiv 链接，截至 5 月 8 日北京时间早上拿到 <strong>125 分、69 条评论</strong>，r/MachineLearning 当天顶贴位置也是它。讨论焦点不是&quot;模型多强&quot;，而是&quot;这道题是不是太狠了&quot;——9 个前沿模型同台跑分，<strong>没有一个完整通关任何一道题</strong>。最佳成绩是 Claude Opus 4.7，在 200 道题里只有 <strong>3.0% 的题能跑过 95% 的测试</strong>，剩下 97% 的题它连 95% 的行为测试都摸不到。</p>
+<blockquote>
+<p>论点先放这里：SWE-Bench 这一代 benchmark 已经被刷得逼近天花板，前沿模型在它上面 60–70 分早就常态。下一代 benchmark 不再是&quot;在已有 repo 里改 bug&quot;，而是直接让 agent 从设计开始重建完整开源程序。ProgramBench 是这个新范式的第一锤。它给业界一个干净的&quot;远未饱和&quot;的标尺，正好接住 SWE-Bench 之后的评测真空。</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/08/programbench-task-design.png" alt="ProgramBench 任务设计：从二进制+文档到等价代码库"></p>
+<h2>二、ProgramBench 是什么：任务定义与评分方式</h2>
+<h3>2.1 输入：只给二进制和文档</h3>
+<p>每道题包含三样东西：</p>
+<ul>
+<li>一份参考可执行二进制（reference executable）</li>
+<li>一份用户向文档（README / man page / CLI usage）</li>
+<li>一个空的工作目录</li>
+</ul>
+<p>agent 拿到的就这些。它要在这个空目录里<strong>架构一个完整代码库</strong>：选语言、选模块划分、选数据结构、写构建脚本、跑通编译、跑通自己的实现。</p>
+<p>明确禁止的项有三条：<strong>不许反编译参考二进制、不许联网搜索、不许看上游开源仓库的源码</strong>。这三条把&quot;拷代码 + 改皮肤&quot;这种作弊路径堵死了。</p>
+<h3>2.2 评测：agent 自己 fuzz 出来的端到端测试</h3>
+<p>ProgramBench 没有让人类来写测试集，而是用一个独立的 fuzzing agent 对参考二进制做行为采样，自动生成端到端测试。每道题中位 <strong>770 条测试</strong>，整个 benchmark 总测试函数数 <strong>248,853</strong>。</p>
+<p>得分有两档：</p>
+<ul>
+<li><strong>% Resolved</strong>——所有测试 100% 通过的题占比</li>
+<li><strong>% Almost</strong>——至少 95% 测试通过的题占比</li>
+</ul>
+<p>这两个数字才是论文摘要里那句&quot;none fully resolve any task, with the best model passing 95% of tests on only 3% of tasks&quot;的真正出处。9 个模型在 % Resolved 这一栏全部挂零；% Almost 这栏只有 Claude 三兄弟和 Opus 4.6 露头。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/08/programbench-eval-flow.png" alt="ProgramBench 评测流程：fuzzing agent 出题 + 模型答题"></p>
+<h3>2.3 任务规模：从 212 行到 270 万行</h3>
+<p>200 道题的代码库规模跨度极大：<strong>最小 212 行，最大 2,701,283 行</strong>。这意味着 agent 既要能拼一个 200 行的 toy CLI，也要能架构一个 270 万行级别的工业软件。论文明确写了：&quot;Models favor monolithic, single-file implementations that diverge sharply from human-written code.&quot;——大模型倾向写<strong>单文件、巨型文件</strong>的实现，跟人类工程师习惯的多模块结构差异显著。</p>
+<p>这条观察值得国内 AI Coding 团队抄进 prompt——多文件 / 模块化是大模型当前的弱项，不是它默认会做的事。</p>
+<h2>三、为什么 SWE-Bench 不够：从&quot;修房子&quot;到&quot;盖房子&quot;</h2>
+<h3>3.1 SWE-Bench 已被刷到顶</h3>
+<p>把时间轴拉一下：2023 年 SWE-Bench Verified 上线，前沿模型解决率从十几个百分点一路爬到 2025 年中段的 65%+，2026 年初 SWE-Bench Pro 出来收紧难度，但前沿模型依旧能拿 50% 上下。<strong>问题不是 benchmark 设计错了，而是模型真的越来越会修 bug</strong>。可它修的依然是别人盖好的房子里的一颗螺丝。</p>
+<p>ProgramBench 这篇论文里有一句关键话：<strong>&quot;building a functional application from scratch requires models to engage heavily with software design&quot;</strong>——从头盖一栋房子要的是建筑设计能力，不是螺丝刀技术。这是评测维度上的根本切换。</p>
+<h3>3.2 从&quot;局部 patch&quot;到&quot;全局架构&quot;</h3>
+<p>下面这张表把两类 benchmark 的差异摆清楚（数据来自论文 §1 与 §2）：</p>
+<ul>
+<li><strong>任务粒度</strong>：SWE-Bench / SWE-Bench Pro 是&quot;在 N 万行 repo 里改一处 bug 或加一个 feature&quot;；ProgramBench 是&quot;从空目录搭出一个 N 万行 repo&quot;</li>
+<li><strong>输入信息</strong>：SWE-Bench 给完整源码 + issue 描述；ProgramBench 只给二进制 + 文档，源码不可见</li>
+<li><strong>测试集</strong>：SWE-Bench 用项目原有的 pytest / unittest；ProgramBench 用 agent 自己 fuzz 出来的端到端测试，纯黑盒</li>
+<li><strong>顶级模型分数</strong>：SWE-Bench Pro 顶级模型 50%+；ProgramBench 顶级模型 % Resolved 一律 0.0%</li>
+<li><strong>评测重心</strong>：SWE-Bench 测的是代码理解 + 局部修改；ProgramBench 测的是架构设计 + 长程实现 + 黑盒等价</li>
+</ul>
+<p>ProgramBench 不是要替掉 SWE-Bench，而是在它头上加一层。SWE-Bench 测螺丝刀，ProgramBench 测建筑师。两道题缺一不可。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/08/swe-bench-vs-programbench.png" alt="SWE-Bench vs ProgramBench：两类编码评测的边界"></p>
+<h3>3.3 私榜不再是问题</h3>
+<p>这两年业界一个公开秘密：美国三家头部 AI 公司（OpenAI / Anthropic / Google）都在跑自己的内部&quot;长程编码&quot;私榜，但分数从来不公布。原因不是不能公布，而是<strong>没有干净的公开标尺</strong>——你说自己拿了 80 分，外面没办法 reproduce。ProgramBench 把这套评测做成开源 benchmark（Meta FAIR 已经把代码挂到 GitHub），200 道题、248K 测试函数、9 模型全跑一遍带 cost / API call 统计——业界等的就是这种公共标尺。</p>
+<h2>四、谁在领先：9 模型同台跑分</h2>
+<p>下面这份榜单数据全部来自 ProgramBench 论文 §4 leaderboard 表（按 % Almost 从高到低排）：</p>
+<ul>
+<li><strong>Claude Opus 4.7</strong>——% Resolved 0.0%；<strong>% Almost 3.0%</strong>；平均 93 次 API call；单题成本 $3.81</li>
+<li><strong>Claude Opus 4.6</strong>——% Resolved 0.0%；<strong>% Almost 2.5%</strong>；平均 260 次 API call；单题成本 $11.38</li>
+<li><strong>Claude Sonnet 4.6</strong>——% Resolved 0.0%；<strong>% Almost 1.6%</strong>；平均 475 次 API call；单题成本 $27.09</li>
+<li><strong>Claude Haiku 4.5</strong>——% Resolved 0.0%；% Almost 0.0%；平均 124 次 API call；单题成本 $0.80</li>
+<li><strong>Gemini 3.1 Pro</strong>——% Resolved 0.0%；% Almost 0.0%；平均 94 次 API call；单题成本 $1.51</li>
+<li><strong>Gemini 3 Flash</strong>——% Resolved 0.0%；% Almost 0.0%；平均 89 次 API call；单题成本 $0.33</li>
+<li><strong>GPT 5.4</strong>——% Resolved 0.0%；% Almost 0.0%；平均 16 次 API call；单题成本 $0.33</li>
+<li><strong>GPT 5.4 mini</strong>——% Resolved 0.0%；% Almost 0.0%；平均 18 次 API call；单题成本 $0.04</li>
+<li><strong>GPT 5 mini</strong>——% Resolved 0.0%；% Almost 0.0%；平均 15 次 API call；单题成本 $0.03</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/08/programbench-leaderboard.png" alt="ProgramBench Leaderboard：% Almost 排名与单题成本"></p>
+<p>几条值得注意的判断：</p>
+<p><strong>Claude 家族断层领先</strong>。前三名全部是 Anthropic 模型，% Almost 这一栏从 3.0 一路占到 1.6，再往下就是 0.0%。GPT 5.4 / Gemini 3.1 Pro 两个旗舰在 % Almost 上一题都没拿下。</p>
+<p><strong>长程能力 ≠ 单 token 智商</strong>。GPT 5.4 平均只跑 16 次 API call 就放弃了，Claude Sonnet 4.6 跑了 475 次还在尝试。这道题考的是&quot;愿不愿意一直试 + 能不能持续修正&quot;，更像 agent 长跑能力，不是 zero-shot 推理。</p>
+<p><strong>成本与分数不对齐</strong>。Claude Sonnet 4.6 的单题成本 $27.09 是 Opus 4.7 的 7 倍，但 % Almost 只有 1.6%（Opus 4.7 是 3.0%）。意思是更便宜的中端模型在这种长程任务上不划算——便宜模型的&quot;试错次数&quot;补不上推理深度的差距。</p>
+<p><strong>前沿模型的天花板就是 3%</strong>。这是关键信号：哪怕最强的 Claude Opus 4.7 也只能在 200 道题里搞定接近完成度的 6 道。剩下 194 道题对所有模型来说都是黑盒。这个数字给国产模型留出了非常宽的追赶窗口——不是要追到饱和，而是从 0 起步，只要做到 1–2% 就已经能挤进第一梯队后排。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/08/programbench-tasks-distribution.png" alt="200 道题分类与代码规模分布"></p>
+<h2>五、200 道题里都有什么：从 lazygit 到 SQLite</h2>
+<p>ProgramBench 的 200 道题不是随机抽的，而是按&quot;被工程师每天用、文档完善、行为可观察&quot;三个标准筛出来的。论文 §3.2 给了任务分布，覆盖六大类：</p>
+<ul>
+<li><strong>语言解释器</strong> —— PHP、Lua、TinyCC（C 编译器）</li>
+<li><strong>数据库</strong> —— DuckDB、SQLite</li>
+<li><strong>媒体与压缩</strong> —— FFmpeg、zstd、xz</li>
+<li><strong>开发者工具</strong> —— ripgrep、fzf、jq、lazygit</li>
+<li><strong>CLI 工具</strong> —— nnn、gron、以及其余 180 多个</li>
+<li><strong>系统工具混合</strong> —— 涵盖 C/C++、Rust、Go、Shell、Java、Haskell 多种语言</li>
+</ul>
+<p>这份清单的杀伤力在于：每一个程序都是开源世界的硬通货，它们的行为规范几十万开发者每天在用、在测、在依赖。让模型从零重建，不是&quot;刁钻 corner case&quot;，而是&quot;工业现实里最普通的软件&quot;。</p>
+<p>最大的题—— FFmpeg、SQLite、PHP 解释器 —— 单题代码库都在百万行量级。Claude Opus 4.7 拿下的那 6 道接近完成的题，按论文图 4 的 cumulative 分布看，集中在 <strong>300–10,000 行</strong>这个区间。意思是：<strong>目前所有前沿模型在小型工具类任务上才有&quot;接近完成&quot;的可能</strong>，超过 5 万行的工业软件，没有任何模型能逼近 95% 行为等价。</p>
+<h2>六、Meta Superintelligence Labs：这道题为什么从这里出</h2>
+<p>ProgramBench 由 Meta FAIR、Meta TBD Lab、Stanford、Harvard 联合署名，TBD Lab 是 <strong>Meta Superintelligence Labs</strong>（MSL）旗下负责前沿大模型的小组。</p>
+<p>MSL 这个 lab 的来历也是 2026 年 AI 圈的大事之一：2025 年 6 月，Meta 出 143 亿美元换 Scale AI 49% 的非投票权股份，把 28 岁的 Alexandr Wang 招进来，配上原 GitHub CEO Nat Friedman，组建一个全新的&quot;超级智能&quot;专项部门。前 OpenAI 首席科学家 Shengjia Zhao（GPT-4o 主要贡献者之一）出任 MSL 首席科学家。OpenAI 系的 Trapit Bansal（o-series 共同作者）、Shuchao Bi（GPT-4o voice 共同作者）、Huiwen Chang（GPT-4o 图像生成共同作者）、Lucas Beyer / Alexander Kolesnikov / Xiaohua Zhai（视觉三人组）等也都被打包带进 MSL。</p>
+<p>MSL 内部分成四个组：<strong>TBD Lab 管前沿大模型，Perception 管多模态视觉，FAIR 管长期研究（Rob Fergus 领头），还有一个产品/应用组</strong>。ProgramBench 这篇论文的署名横跨 TBD Lab + FAIR，加上 Stanford 的 Diyi Yang、Princeton/Stanford 系的 Ofir Press，是典型的 MSL 大模型组与学术机构联合出题的格局。</p>
+<p>把 ProgramBench 从这个 lab 出题这件事放在 2026 年节奏里看，很顺：<strong>MSL 一边在造模型，一边要建立&quot;自己人评测自己人&quot;以外的公共标尺</strong>。SWE-Bench 已经成熟，它需要新的硬题来证明&quot;当前所有前沿模型都还远没到达 superintelligence&quot;。这道题的政治意涵也明确：<strong>给业界泼一盆冷水，提醒不要把 SWE-Bench 60% 当成 AGI 信号</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/08/meta-si-lab-org-chart.png" alt="Meta Superintelligence Labs 组织与 ProgramBench 出处"></p>
+<h2>七、HN 与 r/ML 的反应：业界怎么看这道题</h2>
+<p>5 月 6 日 HN 首页这条 ProgramBench 链接，125 分 69 评论，讨论焦点集中在三件事。</p>
+<h3>7.1 &quot;这道题是不是太狠了&quot;</h3>
+<p>最高赞批评来自规则层面。一位资深工程师在评论里写：&quot;a model is supposed to reverse-engineer a blackbox using only limited number of tries. I&#39;m not sure even ASI can do this under these constraints.&quot;——意思是这套规则下连&quot;超级智能&quot;都未必通关，何况现在的模型。FFmpeg 文档大约几十页，但真要从零实现一个等价 FFmpeg 需要几百页编解码器规范，光靠 README + man page 是不够的。</p>
+<p>另一条高赞补刀更直白：<strong>&quot;the tester has vastly more knowledge of the program than the implementer&quot;</strong>——出题方（fuzzing agent）拿着参考二进制无限次调用 oracle，做题方（被测模型）只能在黑盒里盲打。这是评测公平性的真问题。</p>
+<h3>7.2 缺人类基线</h3>
+<p>第二个争议是<strong>没有人类对照分</strong>。一群人问：让一个工程师 8 小时给一份 README 重建 ripgrep，% Almost 能拿多少？论文没回答，因为这种基线测起来贵到离谱（200 道题 × 多人多日）。但缺了这条基线，&quot;模型 0% 通关&quot;这个数字就少了一个尺度——是模型菜，还是题真的解不动？</p>
+<h3>7.3 MirrorCode 的反例</h3>
+<p>最有意思的回应来自 Ofir Press 团队自己：<strong>&quot;On MirrorCode, Opus 4.6 successfully reimplements almost every program up to gotree&#39;s size.&quot;</strong> MirrorCode 是 Press 团队另一个未公开的内部 benchmark，让模型重建中等规模 Go 项目（gotree 量级，约几千行），Opus 4.6 在那道题上几乎全过。把 MirrorCode 和 ProgramBench 放一起看，结论可以重新校准——<strong>前沿模型在数千行规模的重建任务上已经能打，但跨过 1 万行边界就开始崩</strong>。</p>
+<p>ProgramBench 把题目难度刻意调高到行业天花板以上，Press 自己也承认这可能是&quot;under-eliciting models or setting unfair constraints&quot;。这个自我承认很重要，它说明这道题不是用来证明&quot;模型多废&quot;，而是用来圈出&quot;前沿模型当前还摸不到的能力上限&quot;。</p>
+<h3>7.4 文件结构争议</h3>
+<p>第三个被讨论很多的话题是论文那句&quot;Models favor monolithic, single-file implementations&quot;。HN 评论分两派：一派说这是模型缺陷（人类写多文件是为了维护性，模型不会）；另一派说这是 agent 工具链的缺陷——LLM 喜欢单文件是因为多文件需要更复杂的 file system 操作 + 跨文件上下文管理，agent harness 没把这条做顺。</p>
+<p>两派都有道理。这条观察直接给国内 AI Coding 工具厂商提了个清单——<strong>Trae / 通义灵码 / CodeBuddy / 智谱 CodeGeeX 这一波，谁先把&quot;多文件项目结构生成&quot;做成 first-class capability，谁就能在长程编码上拉开身位</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/08/hn-discussion-screenshot.png" alt="HN 与 r/ML 讨论焦点拼图"></p>
+<h2>八、对国产 LLM 的启发：标尺有了，接下来比什么</h2>
+<p>ProgramBench 这次跑分名单里没有出现 DeepSeek、千问（Qwen3）、Kimi（月之暗面 K2.6）、智谱 GLM-4.6、字节豆包大模型等任何一个国产前沿模型——不是国产模型不行，是论文是 2026 年 5 月 5 日提交的，9 个模型名单截止时间更早，而且 Meta 自己的 Llama 4 也没进榜。这个空缺反而是国产团队的机会。</p>
+<p>几个判断：</p>
+<p><strong>这是一道&quot;零起点&quot;的公共标尺</strong>。前沿模型 % Resolved 全部 0.0%，% Almost 最高 3.0%。国产模型如果现在补跑这套 benchmark，从 0 起步，只要做到 1.0% 就能进 leaderboard 第二档；做到 2.0% 就能挤进 Claude Opus 4.6 同档；做到 3.0% 就能和 Claude Opus 4.7 平起平坐。这种&quot;地板分&quot;机会在 SWE-Bench 上早就没有了——SWE-Bench 现在的入场分是 50%。</p>
+<p><strong>国内有没有人在做类似 benchmark</strong>。2025 年下半年清华 KEG、上海 AI 实验室、智源研究院都发过几篇 long-horizon coding evaluation 论文，但规模都在 50–100 道题，覆盖深度也不到 ProgramBench 的&quot;百万行级 reference&quot;。如果国产研究机构跟着 ProgramBench 这个范式做一份 ChinaProgramBench——加入鸿蒙、欧拉、华为开源镜像里的核心组件——既能给国产模型做公平评测，也能反过来给国产 AI Coding 工具喂训练信号。</p>
+<p><strong>长程能力是国产模型可以打的方向</strong>。看 leaderboard 那栏 API call 数字：Claude Sonnet 4.6 跑了 475 次还在试，GPT 5.4 16 次就退场。这个差距不是&quot;智商&quot;差距，而是<strong>愿意持续试错的训练倾向</strong>。国产模型用 agent RL（DeepSeek-R1、Qwen3-Thinking、智谱 GLM-Zero）这条路在长程任务上有原生优势——核心是 RL 出来的模型不容易&quot;放弃&quot;，正好对上 ProgramBench 这种要跑 200+ 步才出结果的题。</p>
+<p><strong>ProgramBench 给了国产 AI Coding 工具一个明确的设计提示</strong>：从&quot;单文件代码生成&quot;升级到&quot;多文件项目架构&quot;。Trae、通义灵码、CodeBuddy、CodeGeeX 这一代，谁先做出&quot;看到一份文档就生成完整项目骨架（src/ + tests/ + Makefile + Cargo.toml）&quot;，谁就能在长程编码这条新赛道上抢到先发位次。</p>
+<h2>九、一句话收口</h2>
+<p>SWE-Bench 教会模型修房子，ProgramBench 让它们试着盖房子。<strong>Claude Opus 4.7 在 200 道题里盖了 6 道半成品，剩下 194 道全军覆没</strong>——这个数字不是悲观信号，是正在打开的评测真空。国产模型从 0 起步，每涨 1% 都能挤进 leaderboard 一档；国产 AI Coding 工具谁先把&quot;多文件项目架构&quot;做成 first-class，谁就能在 ProgramBench 这个新标尺上抢到第一批分。</p>
+<p><strong>评测体系越硬，行业越往前走。这是 2026 年最值得关注的一道新题。</strong></p>
+<hr>
+<p><em>论文链接：arXiv:2605.03546，作者 John Yang / Kilian Lieret / Jeffrey Ma / Parth Thakkar / Dmitrii Pedchenko / Sten Sootla / Emily McMilin / Pengcheng Yin / Rui Hou / Gabriel Synnaeve / Diyi Yang / Ofir Press（Meta FAIR + Meta TBD Lab + Stanford + Harvard）。HN 讨论 125 pts / 69 cmt。</em></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

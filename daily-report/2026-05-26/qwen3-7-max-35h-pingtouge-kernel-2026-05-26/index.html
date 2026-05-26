@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>千问 Qwen3.7-Max 平头哥真武 35 小时跑出 10 倍加速 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-26</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-26</span><span class="tag-pill">Daily Report</span></div>
+      <p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/qwen3-7-max-35h-pingtouge-kernel-2026-05-26.png" alt="封面"></p>
+<h1>千问 Qwen3.7-Max 平头哥真武 35 小时跑出 10 倍加速</h1>
+<h2>30 秒先看完</h2>
+<p>5 月 20 日上午，阿里云峰会主会场放了一段长视频：屏幕上一台工作站、一颗陌生的国产芯片、一个空白工作目录，加上一份只有几页 PDF 的任务说明。任务交给千问 Qwen3.7-Max 之后，模型连续工作了 35 小时，没有人去碰一下键盘。最终它把 SGLang 里 Extend Attention 这条算子在平头哥真武 M890 上跑出对 Triton 参考实现 10.0 倍的几何平均加速，过程中做了 432 次内核评估、1158 次工具调用。</p>
+<p>同一道题给到另外三家国产旗舰：智谱 GLM-5.1 也撑完了 35 小时，最终停在 7.3 倍；月之暗面 Kimi K2.6 跑到 22 小时触发自身的早停策略，留在 5.0 倍；DeepSeek V4-Pro 15 小时早停在 3.3 倍。四款国产模型同台公开对比，本身就是 2026 年国内 AI 基座层最直观的一幅风景图。</p>
+<p>这条 35 小时实测的价值，不只是「一项跑分破了」。它把过去三年里所有关于「模型能不能在长任务上不漂」的讨论，从五分钟会议室聊天里搬到了一份可以复盘的真实工程产物里。对每天用 Claude Code、Cursor、通义灵码、Qoder 的国内 AI 编程开发者来说，这意味着两件事：一是 Claude Opus 4.6 那种长任务可控的体感，国内基座已经迈进了同一档；二是国产芯片上跑国产模型这条路径，正在从「能跑」走到「能用得很好」。</p>
+<p>关键事实（数据来源：阿里云 5/20 峰会 keynote 公开材料 + 量子位 / 阿里云开发者社区 / 投资界 / 品玩 / 网易科技 5 家国内媒体当日报道 + toolin.ai 公开的 Agent 基座技术评测，核对时间 2026-05-25 19:00 UTC+8）：</p>
+<ul>
+<li><strong>千问 Qwen3.7-Max</strong> · 5 月 20 日阿里云峰会发布，三个月内的第三次旗舰迭代，节奏在全球范围内属于最快档</li>
+<li><strong>平头哥真武 M890 PPU</strong> · 144 GB 显存 / 片间互联带宽 800 GB/s / 是上一代性能的 3 倍 / 累计出货 56 万片 / 服务 400 多家客户</li>
+<li><strong>35 小时连续自主执行</strong> · 1158 次工具调用零中断 · 432 次内核评估 · 零文档零样例从空白工作目录起跑</li>
+<li><strong>10.0x 几何平均加速</strong> · 对 SGLang Extend Attention 的 Triton 参考实现 · 上一代千问只能跑到 1.1 倍</li>
+<li><strong>横评同题</strong> · GLM-5.1 = 7.3x（跑满 35h） · Kimi K2.6 = 5.0x（22h 早停） · DeepSeek V4-Pro = 3.3x（15h 早停）</li>
+<li><strong>公开榜单</strong> · Arena 总榜国产第一 · Terminal-Bench 2.0-Terminus 得 69.7 · GPQA Diamond 92.4 · IFBench 79.1</li>
+<li><strong>跨智能体框架泛化</strong> · 不经专门训练即可无缝跑在 Claude Code / OpenClaw / 通义灵码 / Qoder / Trae 等多套客户端里</li>
+</ul>
+<p>本文的核心论点只有一句：<strong>国产基座在「长任务自主跑、跑完不漂」这条最难评测的能力上，已经从论文段位走到了工程产物段位；千问 Qwen3.7-Max 是当下国内开发者最值得每天放在工作台旁的一把工具。</strong> 后面九节围绕这条主线展开。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/qwen3-7-max-35h-timeline.png" alt="Qwen3.7-Max 35 小时跑表 + 10 倍加速曲线"></p>
+<h2>5 月 20 日峰会上发生了什么：旗舰位置 + 一颗国产芯片</h2>
+<p>阿里云今年峰会主题词是「Agent 时代的基础设施」，开场不到二十分钟就把镜头给了千问。三个月之内连出 Qwen3.5、Qwen3.6、Qwen3.7 三个旗舰版本，这个节奏在全球范围里没有第二家在保持。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/qwen3-7-max-iteration-speed.png" alt="千问 Qwen 三个月三次旗舰迭代节奏">峰会上正式上架的是 <strong>Qwen3.7-Max</strong>，前一日先放了 Preview 与 Plus Preview 两个预览版让外部团队跑评测，正式版当天进入阿里云百炼平台。</p>
+<p>之所以选在峰会上做这次发布，是因为它要把两件事放在一起讲：</p>
+<p>第一，<strong>千问基座这一档已经能在 Arena 全球盲测总榜上排进国产第一</strong>，并且接近 GPT、Claude、Gemini 三家最强档的距离。这是过去一年里国内多家媒体追问最多的问题——「国产模型到底排第几」，这次给了一个口径很硬的答案：依据 Arena 公开盲测，<strong>总成绩位列国产第一</strong>，对全球前三还在持续追赶但已经处于同一段位的对话距离。</p>
+<p>第二，<strong>这一档能力可以跑在国产芯片上</strong>。这就引出了峰会另一位主角——平头哥的真武 M890 PPU。这颗芯片单卡 144 GB 显存，片间互联带宽 800 GB/s，性能是上一代真武芯片的 3 倍，目前已经累计出货 56 万片、服务 400 多家客户。它跟英伟达的同代货比起来不是绝对意义上的对位，但已经能撑住国内主流大模型推理的工作负载，且在国内能买到、能交付。</p>
+<p>把这两件事拼在一台机器上跑通，就是峰会现场放的那段 35 小时长视频。后面九节，我们就一点一点把这段视频里发生的事情还原出来，看看它对每天写代码的国内开发者意味着什么。</p>
+<h2>35 小时究竟跑了什么：1158 次工具调用 + 432 次内核评估</h2>
+<p>很多人看到「35 小时连续跑」的第一反应是：模型不会就傻坐在那里反复打印日志吗？这段实测之所以有说服力，是因为整个过程是可复盘的。</p>
+<p>任务起点是一份 PDF 文档 + 一个空白工作目录。PDF 告诉模型两件事：第一，目标芯片是平头哥真武 M890 PPU，附上指令集架构和内存层级的简要说明；第二，要优化的算子是 SGLang 框架里的 <strong>Extend Attention Kernel</strong>，参考实现是社区里通用的 Triton 版本，目标是在真武 M890 上做出比参考实现更快的版本。除此之外没有任何示例代码、没有任何调优手册。模型要在这个起点上自己写工具、自己跑测试、自己读 profiler、自己做下一步决策。</p>
+<p>整个 35 小时里，模型做了这几类工作：</p>
+<table>
+<thead>
+<tr>
+<th>工作类型</th>
+<th>次数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>内核重写 / 评估</td>
+<td>432</td>
+<td>每次都包含写 kernel 代码、编译、跑数值校验、跑性能 profiler、读结果</td>
+</tr>
+<tr>
+<td>工具调用</td>
+<td>1158</td>
+<td>含读文档、列目录、运行编译命令、运行测试、读 profiler 报告、调日志</td>
+</tr>
+<tr>
+<td>早期阅读与摸底</td>
+<td>约 4 小时</td>
+<td>读 ISA 手册、看 SGLang 已有 Extend Attention 代码、列出可能优化点</td>
+</tr>
+<tr>
+<td>首版跑通</td>
+<td>约 6 小时</td>
+<td>端到端写出第一版可跑通的 kernel，加速大概在 1.4 倍，数值校验失败重写</td>
+</tr>
+<tr>
+<td>性能搜索与工具迭代</td>
+<td>约 10 小时</td>
+<td>232 次内核重写主要集中在这一段，期间还自己写了一个轻量 profiler</td>
+</tr>
+<tr>
+<td>数值精度收敛</td>
+<td>约 10 小时</td>
+<td>主要在解决 bf16 累加路径与 Triton 参考之间的数值偏差，加速冲到 7.8 倍</td>
+</tr>
+<tr>
+<td>结尾冲刺</td>
+<td>约 5 小时</td>
+<td>改写 wavefront 调度策略，命中 10.0 倍几何平均加速并通过最终验证</td>
+</tr>
+</tbody></table>
+<p>值得单独说一句的是「<strong>1158 次工具调用零中断</strong>」。Agent 长任务最容易出问题的地方不是写不出代码，而是中途某一步工具回包格式不对、子进程崩溃、上下文里夹了一段错误日志，模型一下就跑偏。35 小时里没有一次中断 = 模型在面对自己的 1158 次调用结果时，没有把任何一条噪音错认成「任务上下文」。这背后是阿里讲的「<strong>task-runtime-validator 三段正交解耦训练</strong>」——把任务目标、运行时反馈、外部校验三类信号分开喂进训练管线，避免模型在 long-horizon 推理里把工具回包污染当成新目标。</p>
+<p>这个事情值得国内开发者抄走一句话：<strong>模型长任务跑得稳，不是「上下文窗口大」这一件事决定的，而是它在面对自己每一步工具回包时能不能维持目标一致性。</strong></p>
+<h2>Extend Attention Kernel 到底是什么：为什么 Triton 参考不优</h2>
+<p>要看懂 35 小时跑出来的东西到底有多硬，得先弄明白 Extend Attention Kernel 在大模型推理路径里干什么。</p>
+<p>在 Transformer 推理里，注意力计算分为两段：<strong>Prefill 阶段</strong>处理用户输入的整段 prompt，<strong>Decode 阶段</strong>一个 token 一个 token 往外吐。但实际生产里还有第三种情况：用户已经发了一段 prompt、模型已经吐了一部分回复，这时候用户接着追加一段新输入（比如多轮对话、tool calling 之后回填工具结果），需要把新追加的 tokens 接到既有 KV cache 上继续算注意力。这一段就叫 <strong>Extend Attention</strong>，是 Prefill 和 Decode 之间最重要也最容易被忽视的那一块。</p>
+<p>它的硬指标长这样：</p>
+<ul>
+<li><strong>新输入长度可变</strong>：可能是几十个 token（工具回包），也可能是几千个 token（一段新的对话补充）</li>
+<li><strong>已有 KV cache 不能动</strong>：cache 里上一轮的状态必须按位置参与计算</li>
+<li><strong>吞吐敏感</strong>：在多轮对话或 agent 长任务里，这条路径会被反复调用</li>
+<li><strong>数值精度敏感</strong>：bf16 累加路径上的数值偏差会被多轮放大</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/qwen3-7-max-attention-path.png" alt="大模型推理路径里的三段注意力：Prefill / Decode / Extend"></p>
+<p>SGLang 是当前开源社区里把 Extend Attention 这块抽象做得最清晰的推理框架，但它默认的实现是 <strong>Triton 写的通用版本</strong>。Triton 的好处是跨硬件移植性强、写起来容易；坏处是它对每个具体硬件的指令布局、内存层级、wavefront 调度的利用都不够极致。在英伟达 GPU 上用 Triton 写也只能拿到比手写 CUDA 低不少的性能；换到平头哥真武 M890 这种全新指令集架构的 PPU 上，Triton 参考实现的性能差距就更明显。</p>
+<p>千问 Qwen3.7-Max 在 35 小时里干的事情，简单来说就是：</p>
+<ol>
+<li><strong>重新设计内存搬运模式</strong>，把 KV cache 的访问模式对齐到真武 M890 的内存层级</li>
+<li><strong>改写 wavefront 调度</strong>，让并行单元的占用率从最初的 30% 多冲到 80% 以上</li>
+<li><strong>重做 bf16 累加路径</strong>，让数值精度和 Triton 参考完全对齐的同时保留性能优势</li>
+<li><strong>针对 Extend 这条路径的可变长度特点写专门的边界处理</strong>，避免动态形状带来的额外开销</li>
+</ol>
+<p>最终拿到的是「<strong>几何平均 10.0 倍加速</strong>」——几何平均比算术平均更严格，意味着不是靠某几个特别短或特别长的 input 把分数拉上去，而是在所有 input 形状上都跑得显著快。</p>
+<p>这一段技术拆解的真正意义不在于「kernel 工程师才看得懂」。它说明：<strong>模型已经能在一个完全没见过的硬件上做出生产级算子优化，过程中需要建立的关于硬件、关于框架、关于数值精度的认知，全部是它在 35 小时里自己拼出来的。</strong> 这是 AI Coding 这条赛道过去一年最让人意外的一次能力跨越。</p>
+<h2>横评同题：四家国产旗舰跑出来的不同结果</h2>
+<p>阿里把这同一道 Extend Attention 题给了另外三家国产旗舰模型也跑了一遍——智谱 GLM-5.1、月之暗面 Kimi K2.6、DeepSeek V4-Pro。结果如下：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/qwen3-7-max-kernel-speedup.png" alt="四家国产模型在同一道 kernel 题上的加速比"></p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>几何平均加速</th>
+<th>实际跑时</th>
+<th>结束原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>千问 Qwen3.7-Max</strong></td>
+<td><strong>10.0x</strong></td>
+<td>35 小时</td>
+<td>跑满全程，最终命中目标</td>
+</tr>
+<tr>
+<td>智谱 GLM-5.1</td>
+<td>7.3x</td>
+<td>35 小时</td>
+<td>跑满全程，加速仍在缓慢提升</td>
+</tr>
+<tr>
+<td>月之暗面 Kimi K2.6</td>
+<td>5.0x</td>
+<td>22 小时</td>
+<td>早停（连续多次编译错误后判定无可行路径）</td>
+</tr>
+<tr>
+<td>DeepSeek V4-Pro</td>
+<td>3.3x</td>
+<td>15 小时</td>
+<td>早停（自身策略判定收益曲线已收敛）</td>
+</tr>
+</tbody></table>
+<p>四个结果可以分三档读：</p>
+<p><strong>第一档：跑满 35 小时的两位。</strong> Qwen3.7-Max 和 GLM-5.1 都把 35 小时跑完了，差别在最终命中的加速比。Qwen 跑到了 10.0x，是 SGLang 主仓库里官方调优都需要好几周专家工程师才能达到的水平；GLM-5.1 跑到了 7.3x，也是非常体面的成绩——意味着智谱基座在长任务可控性上同样跨过了一条线。这一档对开发者来说的意义是：国内已经至少有两个旗舰能在 30 小时以上的连续任务里不漂。</p>
+<p><strong>第二档：22 小时早停的 Kimi K2.6。</strong> 早停不是「模型不行」，而是模型自己的策略判定「再跑下去几次重写都失败、需要换种方式」，主动终止。在落地工程里，这种主动早停其实是一种有价值的能力——别把算力浪费在已经走死的路径上。代价是这次比赛它停在了 5.0x，没有再继续探出更高加速。</p>
+<p><strong>第三档：15 小时早停的 DeepSeek V4-Pro。</strong> DeepSeek 自身长项一直在数学、代码生成、思维链推理这种结构化任务上，长 horizon 自主探索类型的任务并不是它的主要优化目标。15 小时停在 3.3x，对一个不专门为长任务训练的模型来说算合理表现。</p>
+<p>四家放在一起看，最有信息量的是「<strong>国产基座层不是一家独大、而是出现了真正的分层</strong>」。Qwen 在长 horizon 上抢到了第一，GLM 在第二档稳得住，Kimi 和 DeepSeek 在自己擅长的方向上保持锋利。这种分层比「一家通吃」健康得多——国内开发者真正能选的是「按任务类型选基座」，而不是「按品牌站队」。</p>
+<h2>对照 Claude Opus 4.6 在 Cursor / Claude Code 里的体感</h2>
+<p>不少国内 AI 编程开发者每天都同时开着 Cursor / Claude Code + 一个国内客户端在轮着用。Claude Opus 4.6 自从年初发布以来一直是长任务体感最好的海外模型，跑过它的开发者大概都有这样一份观察：</p>
+<ul>
+<li>连续跑 30 到 60 分钟的复杂任务（比如让它读一个 5 万行的代码库做整体重构），体验通常是「前半段非常稳，后半段开始重复同一类调用、偶尔丢上下文」</li>
+<li>单轮任务上下文超过 200k token 之后，工具调用的精准度会肉眼可见地下滑</li>
+<li>真正的「跑一整天」型任务，目前还需要人介入分段，没有一款主流编程客户端默认会让模型连续跑 8 小时以上</li>
+</ul>
+<p>也就是说：Claude Opus 4.6 在长任务上的实际可控边界，大致在「半小时到一小时」这个量级，超过之后就要看人怎么切分。这个体感是过去一年所有海外旗舰模型的共同上限。</p>
+<p>Qwen3.7-Max 这次 35 小时不漂，<strong>等于把这条上限往前推了一个数量级</strong>。当然，35 小时是阿里官方设计、官方场景下的展示，不能直接外推到 Cursor 里随便跑一个项目就能 35 小时。但有两个事实可以平移：</p>
+<p>第一，Qwen3.7-Max 在 Arena 总榜上接近 Claude Opus 4.6 的档位，意味着<strong>普通短任务的体感差距已经不大</strong>。开发者切换基座时，不再有「换过去就明显变笨」的强烈直觉。</p>
+<p>第二，<strong>SWE-Pro、SWE-Multilingual、Terminal-Bench 2.0-Terminus</strong> 三项编程类公开评测里，Qwen3.7-Max 都拿到了领先或反超 Claude Opus 4.6 的成绩。其中 Terminal-Bench 2.0-Terminus 的 69.7 分是反超 Claude Opus 4.6 的；这道题考的是「<strong>模型能不能在真实终端环境里通过命令行完成长链条任务</strong>」——跟 Cursor / Claude Code 的实际工作流非常接近。</p>
+<p>合在一起说一句话：<strong>国内开发者把日常长任务从 Claude Opus 4.6 换到 Qwen3.7-Max 跑，已经不会是明显的能力降级，可能在 Terminal 类任务上反而拿到更好的稳定性</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/qwen3-7-max-bench-radar.png" alt="六项公开评测：千问 Qwen3.7-Max 与 Claude Opus 4.6 的领先项目"></p>
+<h2>编程实测：SWE-Pro / SWE-Multilingual / Terminal-Bench 三项成绩</h2>
+<p>把上一节那张图里 Qwen3.7-Max 反超 Claude Opus 4.6 的三项编程类公开评测单独拿出来读一遍，每一项背后对应的是国内开发者每天会用到的什么场景。</p>
+<p><strong>SWE-Pro：开源仓库真实 issue 修复。</strong> SWE 系列的评测路线是从一个真实 GitHub 仓库里随机抽 issue，让模型从读 issue、定位代码、写补丁、跑测试一路自主做完。Pro 版本是 SWE 系列里题目难度最高的一档，对模型的「跨文件长链路推理」要求最高。Qwen3.7-Max 在 SWE-Pro 上略胜 Claude Opus 4.6，意味着面对一个真实的开源仓库 bug 任务，Qwen 已经能不输给海外旗舰。</p>
+<p><strong>SWE-Multilingual：多语种代码仓库。</strong> 这是 Qwen 体系一直的强项。SWE-Multilingual 在 SWE 题目的基础上把语言扩展到 Python 之外的 Rust、Go、Java、Kotlin、PHP、TypeScript 等，对国内大量在多技术栈仓库里工作的开发者更接近真实场景。Qwen 多语种领先的原因，跟它训练数据里对中英文 + 多编程语言的均衡配比直接相关。</p>
+<p><strong>Terminal-Bench 2.0-Terminus 得 69.7：终端长链条任务。</strong> 这是这一组数字里最贴近 Claude Code / 通义灵码 / Qoder 实际工作流的一项。终端任务考的不是「写一段 Python」，而是「在一个真实的 Linux 环境里通过 shell 命令完成一个长链条任务」——比如从拉代码、装依赖、调环境变量、跑测试到提交 PR 这一整条。69.7 反超 Claude Opus 4.6，意味着<strong>用 Qwen3.7-Max 给 Claude Code 这类基于终端的 agent 客户端做基座，长链条稳定性会比海外旗舰更好</strong>。</p>
+<p>需要明说的是：这三项是公开评测榜单的数字，跟「每个开发者自己工程上的体感」之间一定还有距离。最靠谱的判断方式还是接进去自己用一周——下面一节会讲怎么用最低成本把它接进 Cursor / Claude Code 工作流。</p>
+<h2>国内开发者怎么实际用上：三条接入路径</h2>
+<p>Qwen3.7-Max 当天就上了<strong>阿里云百炼平台</strong>（bailian.console.aliyun.com），有三条主流接入路径，按上手成本从低到高排：</p>
+<p><strong>路径一：阿里云百炼直连 Cursor / Claude Code（最快上手）</strong></p>
+<p>Cursor 默认支持 OpenAI 兼容的 API，把 <code>OPENAI_BASE_URL</code> 指到百炼的 OpenAI 兼容端点，模型 ID 写 <code>qwen3.7-max</code>，三行配置改完即可在 Cursor 里跑国产基座。Claude Code 则用 <code>ANTHROPIC_BASE_URL</code> 指到百炼的 Anthropic 兼容网关，同样三行配置生效。无需改动 IDE 工作流，新基座当晚就能在工程里跑起来。</p>
+<p><strong>路径二：通义灵码 / Qoder / Trae 原生支持（开箱即用）</strong></p>
+<p>通义灵码、Qoder（独立编辑器）、Trae（字节跳动出品的 AI 编辑器）三家国产 AI 编程客户端在 5 月 20 日峰会当天即同步上线 Qwen3.7-Max 选项，团队版还可以走专属算力通道。这条路径适合还没固化 Cursor 工作流的团队、或者想统一权限 / 审计 / 计费在国内云上的中大型团队。</p>
+<p><strong>路径三：百炼上自建 Agent + 接外部 MCP 工具（适合更深定制）</strong></p>
+<p>百炼支持基于 Qwen3.7-Max 自建多 agent 工作流，把模型当作基座配上自有的 MCP 工具（比如内部代码库索引、内部知识库、企业流程系统）。这条路径上手成本稍高，但对要做完整 AI Coding 内部平台的团队是最稳的方案，且数据完全留在国内。</p>
+<p>三条路径有一个共同的好消息：<strong>Qwen3.7-Max 的&quot;跨智能体框架泛化能力&quot;是写在模型训练目标里的</strong>——不经专门微调即可在 Claude Code、OpenClaw、Qwen Code 等不同 agent harness 上稳定工作。换句话说，开发者今天接进 Cursor 用一周，下周想搬到通义灵码或自建 agent 平台，模型行为是一致的，不用再针对每个客户端重新熟悉一遍。</p>
+<h2>千行代码成本估算：百炼 vs Claude Opus 4.6</h2>
+<p>接基座的另一道现实题是钱。把日常 AI Coding 任务的成本量级估算放在一张表里看：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/qwen3-7-max-cost-comparison.png" alt="国内开发者三条路径每千行代码成本估算"></p>
+<p>按公开 API 报价折算（<strong>估算非合同价</strong>），假设单次任务平均消耗输入 12 k token + 输出 4 k token、对应大约一千行代码的工作量：</p>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>每千行成本估算</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>阿里云百炼直接接 Cursor</td>
+<td>约 ¥0.6 元</td>
+<td>折算自百炼 Qwen3.7-Max 公开报价</td>
+</tr>
+<tr>
+<td>Claude Code 走百炼网关</td>
+<td>约 ¥0.6 元</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>通义灵码 / Qoder / Trae 团队版</td>
+<td>随团队套餐</td>
+<td>团队订阅一般包含模型调用额度</td>
+</tr>
+<tr>
+<td>Claude Opus 4.6 海外直连</td>
+<td>约 ¥6 元</td>
+<td>Anthropic 官方 Opus 档报价折算</td>
+</tr>
+</tbody></table>
+<p>两个判断可以下：</p>
+<p>第一，<strong>单次任务成本量级</strong>，百炼上的 Qwen3.7-Max 大致是 Claude Opus 4.6 的 1/10 数量级。对每天跑几十到几百个 AI Coding 任务的团队，这个差距一个月下来非常可观。</p>
+<p>第二，<strong>接 Qwen3.7-Max 的真正价值不只是省钱</strong>。链路、数据、合规、网络稳定性、客服响应、发票流程——这些放在一起算，国内团队接百炼比直连海外 API 要顺得多。这条价值对企业团队比对单人开发者更显著。</p>
+<p>需要说明：上面是公开报价的合理估算，不构成正式商业合同价；实际企业采购下还会有定制折扣空间。</p>
+<h2>编辑说</h2>
+<p>35 小时这个数字最让人感慨的一点，是它把「模型长任务能不能不漂」这件事从话术争论搬到了可以复盘的工程产物上。这是国内 AI 基座 2026 年最重要的能力跨越——比单纯榜单上的某项分数更值得开发者花时间去理解。</p>
+<p>四家国产模型同台跑同一道 kernel 题、各自跑出不同结果，是一幅难得的「分层而非一家通吃」的清晰画面。这种格局对国内开发者其实是好消息：能选的工具更多，工作流可以按任务类型选基座；而不是被一家锁死。</p>
+<p>下面几条信号值得每天用 AI Coding 的国内开发者继续观察：</p>
+<ul>
+<li><strong>Qwen3.7-Plus 后续版本会不会接着上线</strong>，把 Max 档的能力下放到性价比更高的 Plus 档</li>
+<li><strong>百炼平台的并发与稳定性</strong>，长任务工作流接进去之后高峰期会不会出现可观察的退化</li>
+<li><strong>真武 V900、真武 J900 下一代芯片</strong>的供货节奏与价格曲线，决定了「国产模型 + 国产芯片」这条路径接下来一年能不能撑住更大规模的部署</li>
+<li><strong>Qwen Code 客户端</strong>自身的迭代节奏，决定了 Qwen 体系是只做基座还是要把客户端也吃下来</li>
+</ul>
+<p>往前一步，这一系列动作合在一起的信号是：<strong>国内 AI 开发者今年能用上的工具会比去年丰富得多，每个细分场景都开始有两到三个真正可选的基座</strong>。把 Claude Opus 4.6 留在工具栏作为对照，再把 Qwen3.7-Max 接进每日工作流，是 2026 年下半年最值得做的一件简单且能立刻获益的事情。</p>
+<p>如果你也在用 Qwen3.7-Max + Claude Code 的组合，欢迎把你的体感反馈给我们——尤其是真实工程里 30 小时以上的连续任务表现，这是公开评测榜目前还盖不住的一块。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

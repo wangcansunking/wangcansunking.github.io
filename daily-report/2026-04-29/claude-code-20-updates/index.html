@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code 近 3 个月 20 个最该上手的更新 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-04-29</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-04-29</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Claude Code 近 3 个月 20 个最该上手的更新</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/29/2026-04-29-claude-code-mcp.png" alt="Claude Code 2.1.121 MCP 升级"></p>
+<p><em>图片来源：anthropics/claude-code GitHub OG</em></p>
+<p>2026-02-01 到 2026-04-29，Claude Code 推了 60+ 项 changelog 条目、跨 30+ 个版本号。本文挑出 20 条对<strong>当前在用</strong>开发者最有手感的更新，每条给命令 / 配置 / 何时用 / 何时不要用。所有命令、版本号、价格来自官方 <a href="https://code.claude.com/docs/en/changelog" target="_blank" rel="noopener">Claude Code Changelog</a> 与 <a href="https://code.claude.com/docs/en/whats-new" target="_blank" rel="noopener">What&#39;s new</a>，真人原话与数字均挂原始来源。</p>
+<p>文末附<strong>降智风波</strong>三连失误（2026-02-09 → 04-20）的来龙去脉与社区自救脚本——这是本期 Claude Code 最大的事，绕不开。</p>
+<hr>
+<h2>一、模型与思考层</h2>
+<h3>1. Opus 4.7 GA + xhigh effort 等级（4-16）</h3>
+<p><code>/model opus</code> 现指向 Claude Opus 4.7，价格仍是 $5/$25 per MTok。Anthropic 在 <a href="https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-7" target="_blank" rel="noopener">whats-new-claude-4-7</a> 称生产任务解决率较 4.6 有明显提升。同步新增 <code>xhigh</code> 推理档，介于 <code>high</code> 与 <code>max</code> 之间，用 <code>/effort xhigh</code> 实时切。</p>
+<p><code>xhigh</code> 不是默认档位，社区对 4.7 评价分化。Reddit r/ClaudeAI 出现把 4.7 标作「regression」的吐槽帖；Simon Willison 多次在博客提到系统提示 token 占比上升、相对 4.6 整体成本上行（<a href="https://simonwillison.net/tags/claude-code/" target="_blank" rel="noopener">claude-code tag 索引</a>）。<strong>用法建议</strong>：日常任务保持 <code>/effort high</code>；架构改动 / 重构 / 多文件 diff 再切 <code>xhigh</code>。</p>
+<p>迁移要点：4.7 换了新 tokenizer，token 计数与 4.6 不一致，长 prompt 估算需重新跑一遍。</p>
+<h3>2. Opus / Sonnet 1M context 窗口 GA（3-13）</h3>
+<p>Opus 4.6 与 Sonnet 4.6 的 1M token 窗口正式 GA，不再需要 <code>context-1m-2025-08-07</code> beta header，走标准定价。超过 200K 输入 token 自动转长上下文计费档。单会话可塞下 600 张图像或 PDF 页面，200K 时代上限是 100。</p>
+<p>但 1M 不等于 1M 都好用。Marmelab 工程师 Caroline Schneider 在 <a href="https://marmelab.com/blog/2026/04/24/claude-code-tips-i-wish-id-had-from-day-one.html" target="_blank" rel="noopener">实测博客</a> 里写「用 Opus + 满 1M 上下文是浪费资源；400K 之后回报递减」。dev.to 社区压测同样指出，有效上下文过 50%（约 500K）之后衰减明显。<strong>操作指引</strong>：超 500K 时主动用 <code>/compact</code> 压缩 + skill 按需加载，别全文塞入。</p>
+<h3>3. Adaptive thinking 与 /effort 实时滑条（随 Opus 4.7 引入，4-16）</h3>
+<p><code>thinking: { type: &quot;adaptive&quot; }</code> 替代旧的 <code>budget_tokens</code>，让模型自估当前 prompt 该想多深。设置优先级：CLI <code>/effort xhigh</code> &gt; skill frontmatter <code>effort: xhigh</code> &gt; settings.json <code>&quot;effort&quot;: &quot;high&quot;</code> &gt; 默认。</p>
+<p>旧的 <code>&quot;thinking&quot;: { &quot;type&quot;: &quot;enabled&quot;, &quot;budget_tokens&quot;: 5000 }</code> 仍可用，但不再推荐。<strong>避坑提示</strong>：习惯了 <code>budget_tokens</code> 的人，迁到 <code>effort</code> 体系前先跑一组对比——<code>adaptive</code> 在简单任务上可能反而把 thinking 砍得过狠（详见文末降智风波附录）。</p>
+<hr>
+<h2>二、Skills 与插件生态</h2>
+<h3>4. Skills 标准化 + agentskills.io 开放标准</h3>
+<p>单个 skill 启动时只占几十个 token——一份 YAML frontmatter + Markdown 文件，丢到 <code>~/.claude/skills/&lt;name&gt;/SKILL.md</code> 或 <code>.claude/skills/&lt;name&gt;/SKILL.md</code>，Claude Code 只扫 metadata。GitHub 官方 MCP server 单个就吃数万 token，差距是数量级。这就是 skill 跑赢 MCP 的关键。</p>
+<p>Simon Willison 在 <a href="https://simonw.substack.com/p/claude-skills-are-awesome-maybe-a" target="_blank" rel="noopener">Substack</a> 写「Claude Skills are awesome, maybe a bigger deal than MCP」。Tyler Folkman 的 telemetry 笔记给出更具体的体感——日常会话里相当大比例其实在烧 token 干一件早就写进 skill 文件就能省下的活。把重复决策压进 skill 后，他自己测到 PR 合并量翻倍。社区里像 frontend-design 这种实用 skill 已积累数十万级安装。</p>
+<p><strong>最小可用 skill</strong>：</p>
+<pre><code class="language-markdown">---
+name: my-skill
+description: Use when the user asks XXX
+---
+
+# 任务流程
+1. 先做 A
+2. 再做 B
+</code></pre>
+<p><code>/skills</code> 列表在 v2.1.121 加了搜索框。装第三方 skill 用 <code>claude plugin install</code>，或直接 git clone 到上述目录。</p>
+<h3>5. Plugin Marketplace + claude plugin prune（v2.1.121, 4-28）</h3>
+<p>官方 marketplace 上线时即首批数十个 Anthropic 自家 + 合作伙伴 plugin。第三方目录 <a href="https://claudemarketplaces.com/" target="_blank" rel="noopener">claudemarketplaces.com</a> 现已聚合数千个 skill、数百个 MCP server 与上千个 marketplace 入口。配套 v2.1.121 的 <code>claude plugin prune</code> 清理孤儿 plugin 缓存，长期重度用户磁盘能省几个 G。</p>
+<p>plugin 质量分层严重。buildtolaunch 的 <a href="https://buildtolaunch.substack.com/p/best-claude-code-plugins-tested-review" target="_blank" rel="noopener">11 测 4 留</a> 实测里，Brand Voice / Marketing 两个能直接落地；Sales 那个生成的竞对情报「订阅数低报、tier 写错」，作者直接打 Skip。<strong>用法建议</strong>：装新 plugin 第一次用先盯一遍输出事实，别直接 ship。</p>
+<h3>6. MCP 升级三件套：alwaysLoad / 500K override / OAuth（3-26 ~ 4-28）</h3>
+<p>三处独立改动叠加，MCP server 终于摆脱「token 大户」标签：</p>
+<ul>
+<li><strong><code>alwaysLoad: true</code></strong>（v2.1.121, 4-28）：跳过延迟工具加载，启动就拿全 schema。工具数量少的 MCP server 用这个能去掉首次调用的 ~500ms 延迟。</li>
+<li><strong>单工具结果上限放到 500K 字符</strong>（v2.1.91, 4-02）：MCP 工具在响应里加 <code>_meta[&quot;anthropic/maxResultSizeChars&quot;]: 500000</code> 即可绕开默认上限。日志类、数据库类工具受益最大。</li>
+<li><strong>MCP OAuth RFC 9728</strong>（v2.1.85, 3-26）：标准 OAuth 2.0 替换旧的自定义 token，企业 MCP server 接 SSO 不必再写 hack。</li>
+</ul>
+<p><code>.mcp.json</code> 配置示例：</p>
+<pre><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;github&quot;: {
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [&quot;-y&quot;, &quot;@modelcontextprotocol/server-github&quot;],
+      &quot;alwaysLoad&quot;: true,
+      &quot;oauth&quot;: { &quot;clientId&quot;: &quot;...&quot; }
+    }
+  }
+}
+</code></pre>
+<h3>7. Hook 升级：条件 if 字段 + PermissionDenied 事件（3-26 / 4-01）</h3>
+<p>Hook 终于有了过滤 DSL。<code>if</code> 字段按工具调用模式匹配，命中才触发，避免每次 Bash 都跑脚本。新增的 <code>PermissionDenied</code> 事件在 Auto Mode 拒绝某次工具调用时触发，方便审计。</p>
+<pre><code class="language-json">{
+  &quot;hooks&quot;: {
+    &quot;PreToolUse&quot;: [{
+      &quot;if&quot;: &quot;Bash(git push *)&quot;,
+      &quot;hooks&quot;: [{ &quot;type&quot;: &quot;command&quot;, &quot;command&quot;: &quot;./check-protected-branch.sh&quot; }]
+    }],
+    &quot;PermissionDenied&quot;: [{
+      &quot;hooks&quot;: [{ &quot;type&quot;: &quot;command&quot;, &quot;command&quot;: &quot;logger &#39;auto-mode blocked: $TOOL_NAME&#39;&quot; }]
+    }]
+  }
+}
+</code></pre>
+<p><strong>典型用法</strong>：把高危命令（<code>rm -rf</code>、<code>git push --force</code>、<code>kubectl delete</code>）挂 <code>if</code> 字段做二次确认，比通用 PreToolUse 拦截精准得多，也更省脚本调用次数。</p>
+<hr>
+<h2>三、权限与沙盒安全</h2>
+<h3>8. Auto Mode：AI 分类器接管权限对话框（3-23 → 4-16 GA）</h3>
+<p>后台跑一个 Sonnet 4.6 当权限分类器：安全动作直接放行，危险动作弹窗确认。时间线四步：3-23 research preview → 3-24 推 Team → 3-26 推 Enterprise / API → 4-16 对 Max 用户全量开放。开启方式：</p>
+<pre><code class="language-bash">export CLAUDE_CODE_AUTO_MODE=1
+# 或 ~/.claude/settings.json
+{ &quot;autoApproveMode&quot;: true }
+</code></pre>
+<p>但这条路的天花板很明显。Anthropic 在 <a href="https://claude.com/blog/auto-mode" target="_blank" rel="noopener">auto-mode 博客</a> 里坦承双 stage 切换以放大 false negative（漏放真实越权动作）为代价换来 false positive（误拦截）大幅下降——分类器再准也是概率模型，不能完全替代规则与沙盒。社区随后跑的独立压测进一步把端到端漏放率推得更高，状态变更类动作还有相当比例根本没进检查范围。</p>
+<p>Simon Willison 在 <a href="https://simonwillison.net/2026/Mar/24/auto-mode-for-claude-code/" target="_blank" rel="noopener">3-24 评测</a> 里写「I remain unconvinced by prompt injection protections that rely on AI, since they&#39;re non-deterministic by nature」，他更倾向走「确定性沙盒 + 文件 / 网络白名单」路线。<strong>实操建议</strong>：自己跑代码可以开 Auto Mode；接生产数据 / 跑 CI / 碰客户 secrets 时关掉，配上 §9 的沙盒升级三件套。</p>
+<h3>9. 沙盒升级三件套：域名阻止 + 子进程隔离 + 凭证清洗（4-09 / 4-17）</h3>
+<p>三处一起上：</p>
+<ul>
+<li><strong><code>sandbox.network.deniedDomains</code></strong>（v2.1.113, 4-17）：在 settings.json 里列禁访域名（支持 glob），由系统级代理拦截，不依赖 Claude 自觉。</li>
+<li><strong>PID namespace 隔离</strong>（Linux，v2.1.98, 4-09）：Bash 工具生成的子进程跑在独立 PID namespace 里，看不到也干扰不了宿主进程。</li>
+<li><strong><code>CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1</code></strong>（v2.1.98）：开启后 <code>*TOKEN</code>、<code>*PASSWORD</code>、<code>*KEY</code> 这类敏感环境变量不传给子进程。</li>
+</ul>
+<pre><code class="language-json">{
+  &quot;sandbox&quot;: {
+    &quot;network&quot;: {
+      &quot;deniedDomains&quot;: [&quot;internal-*.corp.local&quot;, &quot;*.s3.amazonaws.com&quot;]
+    }
+  },
+  &quot;env&quot;: { &quot;CLAUDE_CODE_SUBPROCESS_ENV_SCRUB&quot;: &quot;1&quot; }
+}
+</code></pre>
+<p>接管企业内网代码这套是底配。文档：<a href="https://code.claude.com/docs/en/sandboxing" target="_blank" rel="noopener">sandboxing</a>。</p>
+<hr>
+<h2>四、多设备与 agent 协作</h2>
+<h3>10. Agent Teams：多 session 对等通信（2-05 research preview）</h3>
+<p>多个 Claude Code session 并排跑，一个当 team lead 协调，其他做 teammate。每个 session 有独立邮箱地址，可点对点通信，不必走 lead 中转。开启：</p>
+<pre><code class="language-bash">export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+claude
+# 在会话内
+/create-team
+/assign-task &lt;teammate&gt; &quot;review src/auth/&quot;
+/team-status
+</code></pre>
+<p>适合并行调研、多假设调试、模块分工。<strong>但 token 开销极大</strong>，官方文档反复强调任务设计要慎重。配套的 <code>/team-onboarding</code>（v2.1.101, 4-10）会读项目的 CLAUDE.md 自动生成新成员入门指南。文档：<a href="https://code.claude.com/docs/en/agent-teams" target="_blank" rel="noopener">agent-teams</a>。</p>
+<h3>11. Remote Control：手机当遥控器（2-25）</h3>
+<p>终端 Claude Code 会话挂着，手机 / 网页 / 桌面 app 端远程发 prompt 或读输出。Simon Willison 同日 <a href="https://simonwillison.net/2026/Feb/25/claude-code-remote-control/" target="_blank" rel="noopener">实测</a> 写「a little bit janky right now」，列了一串具体 bug：<code>--dangerously-skip-permissions</code> 失效、API 500、单机只能开 1 个会话。</p>
+<p><strong>当前定位</strong>：长跑任务值班用——上班路上看一眼进度、晚上睡前确认昨夜测试通过没。要稳定双向编辑，还是用 §13 的 Channels。</p>
+<h3>12. Channels + Dispatch：把 Claude 推到 Telegram / Slack（3-17 / 3-20）</h3>
+<p>Channels 把 Claude Code 的输出推到 Telegram / Slack / Discord，Dispatch 走 REST 接口让外部触发后台 agent。aimaker substack 的 <a href="https://aimaker.substack.com/p/anthropic-claude-updates-q1-2026-guide" target="_blank" rel="noopener">Q1 综合评测</a> 写「The output finds you. You stop checking」。核心价值是不用再每隔几分钟切窗口看进度。</p>
+<p><strong>配套用法</strong>：和 §14 的 Routines 串起来，定时任务跑完直接推 Telegram，不用守在终端。Cowork Dispatch 在 v2.1.87（3-29）修了消息漏送 bug，现可投生产。</p>
+<hr>
+<h2>五、云端 agent</h2>
+<h3>13. Ultraplan：把规划任务推到云端（约 4-08，research preview）</h3>
+<p><code>/ultraplan &lt;description&gt;</code> 把规划任务派到云端 Opus 4.6 session，本地 CLI 同时还能干别的活。3 秒轮询，可在浏览器里 emoji 回应，3 个规划变体 A/B 分配。MindStudio 的 <a href="https://www.mindstudio.ai/blog/claude-code-ultra-plan-vs-local-plan-mode" target="_blank" rel="noopener">对比测试</a>：</p>
+<table>
+<thead>
+<tr>
+<th>任务规模</th>
+<th>Ultraplan</th>
+<th>本地 Plan Mode</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>简单 bug fix</td>
+<td>~2 min</td>
+<td>~10-15 min</td>
+</tr>
+<tr>
+<td>单文件 feature</td>
+<td>~5 min</td>
+<td>~20-25 min</td>
+</tr>
+<tr>
+<td>多文件重构</td>
+<td>~8-12 min</td>
+<td>~30-40 min</td>
+</tr>
+<tr>
+<td>架构级改动</td>
+<td>~15-20 min</td>
+<td>~45-60 min</td>
+</tr>
+</tbody></table>
+<p>限制：需要 Claude Code Web 账户 + GitHub 连接；Bedrock / Vertex AI / Foundry 用户不支持；仍是 research preview，行为可能调整。文档：<a href="https://code.claude.com/docs/en/ultraplan" target="_blank" rel="noopener">ultraplan</a>。</p>
+<h3>14. Routines：云端定时跑（4-14）</h3>
+<p>笔记本关了也能跑的 cron。配额：Pro 5 次/天，Max 15 次/天，Team / Enterprise 25 次/天。Linas Substack 实测「Four recovered hours per week, every week, without a single person doing the work」。The Register 同时警告「burns through tokens far more rapidly than judiciously applied AI assistance」——Routines 烧 token 的速度比手工调用快得多。</p>
+<p><strong>典型场景</strong>：每天 8 点扫昨日 PR 评审；每小时拉一次 staging 日志做异常分类；每周一查一次依赖更新建议。<strong>避坑</strong>：定时任务的 prompt 一定要带强约束（「只输出，不写文件」「token 超过 X 立刻停」），否则一夜烧掉一周配额是分分钟的事。</p>
+<h3>15. /ultrareview：云端多 agent 代码审查（4-16）</h3>
+<p><code>/ultrareview</code> 把当前分支 diff 推到云端 sandbox，多 agent 互相验证——每条 finding 必须经独立 agent 复跑 pass 才返回。比本地 <code>claude review</code> 多一道事实校验闸。</p>
+<p>价格：Pro / Max 用户 3 次免费，免费窗口到 2026-05-05；之后 $5-$20 / 次（按 diff 体量分档）。<strong>何时值</strong>：合并 main 前的最后一道 review、对外开源仓库的 release PR、安全敏感模块改动。<strong>何时不值</strong>：内部分支日常 push，本地 <code>claude review</code> 够用。</p>
+<hr>
+<h2>六、本地 CLI 体验</h2>
+<h3>16. Git Worktree 原生 + EnterWorktree / ExitWorktree（2-19 起分两轮完善）</h3>
+<p>CLI 内置 worktree。Anthropic 工程负责人 Boris Cherny 在 Threads 写「Each agent gets its own worktree」——多个 subagent 并行改代码不会互相覆盖。但首版翻车不少：<a href="https://github.com/anthropics/claude-code/issues/29436" target="_blank" rel="noopener">Issue #29436</a> 报「worktree 合并回主分支后 cwd 卡死、shell 内 cd 也无效」，后续版本补上 <code>ExitWorktree</code> 才修干净。</p>
+<pre><code class="language-bash"># 在会话内
+/worktree create feature-auth
+# subagent 自动跑在该 worktree
+/worktree exit  # 合并 / 丢弃后必须显式退出
+</code></pre>
+<p><strong>实战经验</strong>：3 个以上并行 worktree 时认知负担会爆。Caroline Schneider 提醒「risk overwhelming context-switching」。建议 ≤ 2 个并行，再多就拆 session。</p>
+<h3>17. PowerShell 默认 + 终端 UX 五件套（3-26 → 4-28）</h3>
+<p>Windows 用户终于解放。v2.1.84（3-26）PowerShell tool 进 opt-in preview，v2.1.120（4-28）直接做成默认 shell——<strong>Git for Windows 不再是必须项</strong>。settings.json 里 <code>&quot;shell&quot;: &quot;powershell&quot;</code> 显式覆盖即可。</p>
+<p>配套终端体验改动 5 件（具体版本号以 <a href="https://code.claude.com/docs/en/changelog" target="_blank" rel="noopener">官方 changelog</a> 为准）：</p>
+<table>
+<thead>
+<tr>
+<th>改动</th>
+<th>用法</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Transcript search</td>
+<td><code>Ctrl+O</code> 进历史模式后输关键词搜过往会话</td>
+</tr>
+<tr>
+<td>NO_FLICKER 渲染</td>
+<td><code>export NO_FLICKER=1</code> 进 alt-screen 渲染，长会话不再闪</td>
+</tr>
+<tr>
+<td><code>/tui</code> 全屏</td>
+<td>大屏幕展开</td>
+</tr>
+<tr>
+<td>Vim visual modes</td>
+<td><code>v</code> / <code>V</code> / <code>Ctrl+V</code> 三档可视选择</td>
+</tr>
+<tr>
+<td><code>/theme</code> 主题</td>
+<td>自带配色 + <code>~/.claude/themes/</code> 自定义</td>
+</tr>
+</tbody></table>
+<h3>18. /usage 合并 + /powerup 教学 + /resume 从 PR URL（Q2 期间陆续上线）</h3>
+<p><code>/usage</code> 把旧的 <code>/cost</code> 与 <code>/stats</code> 合一，按「并行 session / subagent / cache miss / 长上下文」四块拆分占比，给最近 24h 用量分布 + 优化建议。配额吃紧时第一个该跑的命令。</p>
+<p><code>/powerup</code> 是内置交互式教程，Skills / Hooks / MCP / Subagents / Plan mode 每条都有逐步教学，比官方文档上手快。<code>/resume</code> 也加了从 PR URL 直接拉上下文的能力——<code>claude --resume https://github.com/owner/repo/pull/123</code> 直接拿到 PR diff + 之前的对话，code review 接力时省一大段重新铺垫。具体引入版本号见 <a href="https://code.claude.com/docs/en/changelog" target="_blank" rel="noopener">changelog</a>。</p>
+<hr>
+<h2>七、性能与缓存</h2>
+<h3>19. 1 小时 prompt cache + Session Recap + /resume 提速 67%（4-14 ~ 4-22）</h3>
+<p>三处性能改动一起讲：</p>
+<ul>
+<li><strong>1 小时 prompt cache TTL</strong>（v2.1.108, 4-14）：默认 5 分钟拉到 1 小时，跨午饭、跨会议都能命中。开启方式：<code>ENABLE_PROMPT_CACHING_1H=1</code> 环境变量或 API header，<strong>走标准缓存定价不加价</strong>。长会话的实际 token 账单能砍 30-50%。</li>
+<li><strong>Session Recap</strong>（v2.1.108）：会话末自动生成 markdown 摘要，记录关键决策与输出。<code>/recap</code> 也可手动触发，分享给同事时省去整理。</li>
+<li><strong><code>/resume</code> 提速 67%</strong>（v2.1.116, 4-20）：&gt;40MB 的大 session 恢复速度。<a href="https://wotai.co/blog/claude-code-2-1-116" target="_blank" rel="noopener">wotai.co 实测</a> 原话是「compounds every time you launch — if you run claude 50 times a day, you get that speedup 50 times a day」。配套 v2.1.113 改原生二进制生成，启动延迟也降了一档。<code>/branch</code> 不再拒绝 50MB+ 会话。</li>
+</ul>
+<hr>
+<h2>八、不能漏的迁移 deadline</h2>
+<h3>20. 三条强制迁移线（4-30 / 4-20 / 6-15）</h3>
+<p>近 3 个月 Anthropic 同时退役了一批旧模型，<strong>3 条线一定要在日历上标红</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>日期</th>
+<th>退役 / 失效</th>
+<th>替代</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>2026-04-20</strong></td>
+<td>Claude Haiku 3 已退役（v2.1.120 执行）</td>
+<td>Haiku 4.5</td>
+<td>还在用 <code>claude-3-haiku-20240307</code> 的代码已经 5xx</td>
+</tr>
+<tr>
+<td><strong>2026-04-30</strong></td>
+<td>1M context beta header（<code>context-1m-2025-08-07</code>）失效</td>
+<td>Sonnet 4.6 / Opus 4.6+（无需 header）</td>
+<td>Sonnet 4.5 / Sonnet 4 之后无法再走 1M</td>
+</tr>
+<tr>
+<td><strong>2026-06-15</strong></td>
+<td>Claude Opus 4 + Sonnet 4 退役</td>
+<td>Opus 4.7 / Sonnet 4.6</td>
+<td>tokenizer 变化，prompt token 估算需重测</td>
+</tr>
+</tbody></table>
+<p>模型弃用时间线官方页：<a href="https://platform.claude.com/docs/en/about-claude/model-deprecations" target="_blank" rel="noopener">model-deprecations</a>。CI 里 hardcode 模型名的，<strong>赶紧改用别名</strong>（<code>opus</code> / <code>sonnet</code> / <code>haiku</code>），别再写完整版本号。</p>
+<hr>
+<h2>附录：降智风波三连失误（2-09 → 4-20）</h2>
+<p>三处独立改动叠加，让 2 月底到 4 月中的 Claude Code 输出质量明显下滑——这是近 3 个月最大的事。Anthropic 在 <a href="https://www.anthropic.com/engineering/april-23-postmortem" target="_blank" rel="noopener">4-23 复盘</a> 公开承认了三处失误：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/29/Anthropic-claude-code-quality-postmortem.webp" alt="Anthropic Claude Code postmortem"></p>
+<ol>
+<li><strong>3-04 默认 reasoning effort 从 high 改 medium</strong>：本意降延迟，结果砍了高难任务成功率。<strong>4-07 回滚</strong>。</li>
+<li><strong>3-26 thinking 缓存清理 bug</strong>：上下文增长后旧 thinking 没正确失效，让模型基于过期推理产出。<strong>4-10 修复</strong>。</li>
+<li><strong>4-16 系统提示 ≤25 词限制</strong>：随 Opus 4.7 上线引入，instruction following 显著退化。<strong>4-20 回滚</strong>。</li>
+</ol>
+<p>社区先于官方拍出证据。AMD AI 工程团队的 Stella Laurenzo 在 <a href="https://github.com/anthropics/claude-code/issues/42796" target="_blank" rel="noopener">Issue #42796</a> 拉了 6,852 个会话日志、234,760 次工具调用：中位思考长度从 2,200 字符降到 600 字符（<strong>-73%</strong>），读改比从 6.6 降到 2.0（<strong>-70%</strong>），同团队 API 调用次数从 1,498 涨到 119,341（<strong>80x</strong>），月账单从 $345 涨到 $42,121。原话「Claude has regressed to the point it cannot be trusted to perform complex engineering」。</p>
+<p>Tyler Folkman 干脆把 $200/月 Max 替成 $45/月 OpenCode + CRISPY 多 agent 配置，<a href="https://tylerfolkman.substack.com/p/i-replaced-claude-code-with-a-45month" target="_blank" rel="noopener">实测博客</a> 给的判语很直接：「The quality drop wasn&#39;t subtle. Read:Edit ratio went from 6.6 to 2.0」。</p>
+<p><strong>HN 用户 robeym 的社区自救脚本</strong>（<a href="https://news.ycombinator.com/item?id=47660925" target="_blank" rel="noopener">来源</a>）至今仍可作为「保险开关」——在 Anthropic 修复前后切换对比：</p>
+<pre><code class="language-bash"># ~/.bashrc 或 ~/.zshrc
+export CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING=1
+export CLAUDE_CODE_EFFORT_LEVEL=max
+</code></pre>
+<p>Simon Willison 4-22 的 <a href="https://simonwillison.net/2026/Apr/22/claude-code-confusion/" target="_blank" rel="noopener">博客</a> 写「My trust in Anthropic&#39;s transparency around pricing has been shaken」。这事不只是技术回滚，更是定价透明度的信任受损。<strong>给当前使用者的实用结论</strong>：日常把 <code>/usage</code> 加进收工前必跑的命令里；token / 重试次数 / 占比异常波动时立刻切换 <code>--effort max</code> 兜底；并在 GitHub issue 翻一遍当周是否有人报新的 regression。</p>
+<hr>
+<h2>收尾</h2>
+<p>近 3 个月 Claude Code 两条主线很清楚：<strong>云端 agent 化</strong>（Ultraplan / Routines / /ultrareview / Channels）让人不必再守在终端；<strong>Skills + Plugins 标准化</strong>把 prompt 复用从手工艺活变成可分发的工件。但同期 Auto Mode 漏放概率仍偏高、降智风波 80x 的 API 调用爆发、Plugin marketplace 良莠不齐——每用一个新功能前先翻一眼 issue tracker，比直接信 changelog 稳得多。</p>
+<p>本文 20 条更新对应的官方 changelog 索引：<a href="https://code.claude.com/docs/en/changelog" target="_blank" rel="noopener">code.claude.com/docs/en/changelog</a>；模型弃用时间线：<a href="https://platform.claude.com/docs/en/about-claude/model-deprecations" target="_blank" rel="noopener">model-deprecations</a>。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

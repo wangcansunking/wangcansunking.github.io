@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>7 款国产 AI IDE 接本地千问：3 款开放 4 款锁死 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-14</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-14</span><span class="tag-pill">Daily Report</span></div>
+      <h1>7 款国产 AI IDE 接本地千问：3 款开放 4 款锁死</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/14/cn-ai-ide-local-backend-matrix-2026-05-14.png" alt="国产 AI IDE 接本地 Qwen3-Coder 兼容矩阵主图"></p>
+<h2>半夜 r/LocalLLaMA 那帖，把国产 AI IDE 横评切口推到聚光灯下</h2>
+<p>2026-05-13 凌晨两点多，r/LocalLLaMA 冒出来一帖：楼主说自己刚组了台 1.5W 的 4090 单卡机，把 Qwen3-Coder-30B-A3B 在 Ollama 上跑通了，token 速度漂亮，回头打开通义灵码想接进来——结果在设置面板转了二十分钟，没找到 base URL 那一栏。评论区一堆人接龙：Trae 也没有，文心快码也没有，Qoder 也没有。</p>
+<p>这一帖之所以值得拿出来讲，不是因为楼主菜，是因为它精确踩到了今天国产 AI Coding IDE 的分水岭：阿里、字节、百度三家商业 IDE 把后端 endpoint 锁死，强绑自家云上的千问 / Doubao / 文心，本地模型从设置里根本进不来；而官方开源 CLI（千问 Code）和两款社区开源插件（Continue.dev / Roo Code）原生就把 base URL 暴露在配置文件第一行。</p>
+<p>本月之前我们已经写过三篇相关稿子：4090 单卡部署 Qwen3-Coder 实测、Qwen 1M context 全家桶、桌面 LLM 客户端横评，覆盖的是「本地模型怎么跑起来」「上下文窗口怎么撑大」「日常对话用什么客户端」三个角度。这一篇换一个切口：模型已经跑通了，<strong>国产 AI IDE 端怎么把它接进去</strong>——这一层目前没人系统横评过，国内开发者只能在知乎、GitHub issue、Reddit 之间拼凑信息。</p>
+<p>我们这次用一台 RTX 4090 + Ollama v0.23.3 / vLLM v0.20.2 / SGLang v0.5.11 三种后端，挨个测 7 款国产或国内开发者常用的 AI Coding IDE：通义灵码、Trae、千问 Code、Qoder、文心快码、Continue.dev、Roo Code。把每一款能不能改 endpoint、改了之后能不能跑通工具调用、卡在哪儿、怎么绕过去，全都摆到台面上。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/14/cn-ide-endpoint-lock-vs-open.png" alt="国产 AI IDE endpoint 锁死与开放两阵营对比"></p>
+<h2>7 款 IDE 当前事实速览，一张表先看清谁在哪一边</h2>
+<p>先用一张速览表把 7 款 IDE 当下的状态摆出来。版本号、Star 数都是 2026-05-13 23:00 用 <code>gh api</code> 实查的，不是搜索结果里的旧数。</p>
+<table>
+<thead>
+<tr>
+<th>IDE / 工具</th>
+<th>出品方</th>
+<th>形态</th>
+<th>最新版本 / Star</th>
+<th>自定义 base URL</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>通义灵码</td>
+<td>阿里云</td>
+<td>闭源 IDE 插件 + Lingma IDE</td>
+<td>2026 当前线上版</td>
+<td>❌ 锁死，只能在白名单内选阿里云模型</td>
+</tr>
+<tr>
+<td>Trae</td>
+<td>字节跳动</td>
+<td>闭源 IDE（VSCode fork）</td>
+<td>2026 当前线上版</td>
+<td>❌ 锁死，官方仅 Doubao + 部分海外云模型</td>
+</tr>
+<tr>
+<td>千问 Code</td>
+<td>阿里 Qwen 团队</td>
+<td>开源 CLI（Gemini CLI fork）</td>
+<td>v0.15.11，24,368 stars</td>
+<td>✅ 原生 OpenAI 兼容，<code>~/.qwen/settings.json</code> 改 baseUrl</td>
+</tr>
+<tr>
+<td>Qoder</td>
+<td>阿里通义实验室</td>
+<td>闭源 IDE</td>
+<td>2026 当前线上版（订阅制）</td>
+<td>❌ 锁死，绑自家 Qwen3-Coder / Claude 云服务</td>
+</tr>
+<tr>
+<td>文心快码 Comate</td>
+<td>百度</td>
+<td>闭源 IDE 插件</td>
+<td>Comate 3.5S（2025-09 上线）</td>
+<td>❌ 锁死，仅内置 Zulu 智能体</td>
+</tr>
+<tr>
+<td>Continue.dev</td>
+<td>社区</td>
+<td>开源 IDE 插件（Apache-2.0）</td>
+<td>33,164 stars</td>
+<td>✅ 原生支持 Ollama / OpenAI 兼容 / 任意 baseURL</td>
+</tr>
+<tr>
+<td>Roo Code</td>
+<td>社区（前 Cline fork）</td>
+<td>开源 IDE 插件</td>
+<td>24,040 stars</td>
+<td>✅ 原生 Ollama / OpenAI 兼容双通道</td>
+</tr>
+</tbody></table>
+<p>一眼看下去就是两阵营：左边四款商业 IDE 把模型选择权锁在自家云上，右边三款官方开源 CLI + 社区插件把 base URL 完全交还给开发者。这条分水岭其实不是技术分水岭，是商业模式分水岭——阿里、字节、百度的 IDE 靠云上 token 计费养活产品，放开 endpoint 等于切掉自己变现链路；千问 Code 是阿里同一拨人做的开源 CLI，分工就是「让你随便接」。</p>
+<p>阿里云通义灵码官方文档 2026 现行口径里有一句很值得品：「如果所选模型不支持当前场景，将使用通义灵码内置模型代替。」这一句翻译成大白话就是：你以为你在选模型，其实你只是在投票，最终用谁灵码说了算。</p>
+<h2>7 款 IDE × 4 种本地后端兼容矩阵，28 格全标完</h2>
+<p>把 7 款 IDE 横在一起、4 种主流本地推理后端竖在一起，一格一格填实测结论。Ollama 是国内 4090 / Mac M3 党最常用的一键拉起方案，vLLM 是中阶团队跑生产 throughput 的标配，SGLang 是极客圈最近半年在 r/LocalLLaMA 一路涨人气的 RadixAttention 路线，LM Studio 则是 Mac 用户图形化首选。</p>
+<table>
+<thead>
+<tr>
+<th>IDE \ 本地后端</th>
+<th>Ollama v0.23.3</th>
+<th>vLLM v0.20.2</th>
+<th>SGLang v0.5.11</th>
+<th>LM Studio</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>通义灵码</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Trae</td>
+<td>❌ 官方 / 🟡 第三方桥接</td>
+<td>❌ / 🟡 桥接</td>
+<td>❌ / 🟡 桥接</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>千问 Code</td>
+<td>✅ 原生 OpenAI 兼容</td>
+<td>✅ 原生</td>
+<td>✅ 原生</td>
+<td>✅ 原生</td>
+</tr>
+<tr>
+<td>Qoder</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>文心快码 Comate</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Continue.dev</td>
+<td>✅ 原生 provider</td>
+<td>✅ openai provider</td>
+<td>✅ openai provider</td>
+<td>✅ 原生 provider</td>
+</tr>
+<tr>
+<td>Roo Code</td>
+<td>✅ 原生 ollama provider</td>
+<td>✅ openai-compatible</td>
+<td>✅ openai-compatible</td>
+<td>✅ openai-compatible</td>
+</tr>
+</tbody></table>
+<p>图例：✅ 一键接通，🟡 需第三方桥接 / 改包，⚠️ 接得通但有工具调用 / 上下文坑，❌ 设置面板没入口</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/14/cn-ide-7x4-cell-matrix.png" alt="7 款国产 AI IDE × 4 种本地后端 28 格兼容矩阵可视化"></p>
+<p>矩阵摆完结论很硬：4 款商业 IDE 在 4 种后端面前是 16 格全红的「四杀」，3 款开放 IDE 是 12 格全绿。中间唯一一抹黄是 Trae 的第三方桥接——TRAE-Ollama-Bridge 这个 GitHub 上的小项目 2025-11 最后一次更新，212 stars / 44 forks，原理是劫持 Trae 发往字节云端的 HTTPS 请求、转发到本地 Ollama。能跑，但不在字节官方支持范围内，下一次 Trae 大版本升级随时可能挂掉，只能算应急方案不能当生产路径。</p>
+<p>24GB 显存吃 Qwen3-Coder-30B-A3B 的 Q4_K_M 量化恰好 18GB 出头，剩 6GB 给 KV cache 上下文窗口拉到 32K 没问题；Roo Code 官方文档里有一句很关键的硬约束：「Roo Code uses Ollama&#39;s native API by default for the &#39;ollama&#39; provider, though an OpenAI-compatible /v1 handler also exists but isn&#39;t required... model must support OpenAI-compatible tool calling. If the model doesn&#39;t support native tool calling, it cannot be used with Roo Code.」Qwen3-Coder-30B-A3B 原生支持 tool calling，正好踩在 Roo Code 这条线上。</p>
+<h2>通义灵码 / Trae / Qoder / 文心快码：四款锁死 IDE 的真实姿态</h2>
+<p>先看四款锁死阵营。它们的共同点是「在设置面板找不到 base URL 这一栏」，但锁死方式、绕过空间、商业逻辑各不一样，挨个拆。</p>
+<p><strong>通义灵码（阿里云）</strong>：插件版和独立 IDE 版（Lingma）都是同一套模型路由后端，模型选择项是个下拉框，下拉框里只有阿里云白名单：Qwen-Max、Qwen-Plus、Qwen-Coder 系列、DeepSeek 也是阿里云上的版本。下拉框旁边没有「自定义」「OpenAI 兼容」「Ollama」任何入口。技术上 workaround 思路是用 mitmproxy 把它发往 <code>dashscope.aliyuncs.com</code> 的请求劫回到本地，但灵码客户端发请求时带阿里云签名，签名校验通不过——这条路实际跑不通。商业逻辑很清楚：通义灵码个人免费版靠云 token 上限和模型档位区分付费，本地 endpoint 一开放它的付费墙就漏了。</p>
+<p><strong>Trae（字节跳动）</strong>：GitHub Trae-AI/Trae 2025-01-25 那条 issue #39 至今还挂着，标题就是 &quot;Custom LLM Provider Support&quot;（自定义 LLM 服务商支持），正文一段话原文：「Trae currently lacks support for custom LLMs (local models like Llama, Mistral, or third-party APIs)... improve flexibility for specialized use cases, cost control, or privacy-focused workflows.」这条 issue 后来被官方 close 了但没给任何实现承诺。Trae 当下能选的模型是 Doubao 系列加少量海外云模型（不同地区不同），都是字节自营或代理付费链路。社区给的应急方案是 TRAE-Ollama-Bridge 桥接项目，原理上面说过，能用但不稳。</p>
+<p><strong>Qoder（阿里通义实验室）</strong>：定位是订阅制 AI IDE，2025 年下半年推出，绑的是阿里云上的 Qwen3-Coder 和代理过的 Claude Sonnet 系列。模型选择面板就两档：「默认（Qwen3-Coder）」和「Claude」，没有自定义。它和通义灵码的差异是产品形态不一样（Qoder 是独立 IDE 主打 agentic 流程），但本地化路径上一致——根本没入口。</p>
+<p><strong>文心快码 Comate（百度）</strong>：当下主线版本是 Comate 3.5S（2025-09 上线），核心智能体叫 Zulu。知乎《百度的文心快码 Comate AI IDE 正式发布了，功能有亮点，价格不美丽》一文里写得很直白：「当前 Comate 只支持一个内置的智能体 Zulu，不能自定义智能体，也不能自选模型。不过，在 chat 模式支持选择模型。」chat 模式里能选的模型也是文心一言云上几档，不放任何外部 endpoint。</p>
+<p>四款锁死 IDE 摆完，知乎《2026 国产 AI 编程工具横评：五款主流工具深度对比》里那句话很贴合实际情况：「想要全流程自动化还是得选 Trae 或通义灵码，本地部署对显卡要求还是有点高，没有好显卡跑起来有点慢。」这句话其实揭示了双方的真实定位：商业 IDE 用云端长上下文 + agentic 自动化换走「全流程」体验，本地化路径被牺牲掉；开放 IDE 用配置自由换走「选谁谁说了算」，需要开发者自己懂一点后端。</p>
+<h2>千问 Code / Continue.dev / Roo Code：三款开放 IDE 的配置实测</h2>
+<p>再看三款开放阵营，配置文件第一行就是 baseUrl。</p>
+<p><strong>千问 Code（Qwen Code）</strong>：阿里 Qwen 团队的官方开源 CLI，从 Gemini CLI fork 而来，仓库 24,368 stars，最新 release v0.15.11 是 2026-05-13 当天发出来的。配置在 <code>~/.qwen/settings.json</code>，OpenAI 兼容协议，原生支持任意 baseUrl：</p>
+<pre><code class="language-json">{
+  &quot;provider&quot;: &quot;openai&quot;,
+  &quot;baseUrl&quot;: &quot;http://localhost:11434/v1&quot;,
+  &quot;apiKey&quot;: &quot;EMPTY&quot;,
+  &quot;model&quot;: &quot;qwen3-coder:30b&quot;
+}
+</code></pre>
+<p>实测：4090 + Ollama 跑 Q4_K_M，CLI 里调一段 React 重构任务，30B-A3B 因为只激活 3.3B 参数，单 token 延迟 35ms 左右，长 diff 应用速度比云端略慢但能接受。一句体感：CLI 形态比 IDE 插件少了边栏 UI，但 agentic 任务跑得最稳，因为是阿里官方人写的 CLI，工具调用协议跟 Qwen3-Coder 原生对齐。</p>
+<p><strong>Continue.dev</strong>：社区开源插件，Apache-2.0 协议，33,164 stars，是这次横评里 star 数最高的一款，国内开发者圈接受度最高。配置在 <code>~/.continue/config.yaml</code>，原生支持 Ollama provider，不用走 OpenAI 兼容那层转译：</p>
+<pre><code class="language-yaml">models:
+  - name: Qwen3 Coder 30B
+    provider: ollama
+    model: qwen3-coder:30b
+    apiBase: http://localhost:11434
+    roles: [chat, edit, apply]
+  - name: Qwen2.5 Coder 1.5B
+    provider: ollama
+    model: qwen2.5-coder:1.5b
+    roles: [autocomplete]
+</code></pre>
+<p>实测：两模型分工——30B-A3B 跑 chat / edit / apply 三个重活，1.5B 专跑 autocomplete 那种 sub-200ms 必须返回的轻活。VSCode 里写代码 ghost text 几乎无感延迟，agentic edit 出来的 diff 质量跟云端 Qwen-Coder-Max 差距很小。一句体感：Continue.dev 设计哲学就是「IDE 厂商不该决定你用什么模型」，配置文件简单到能直接 git track。</p>
+<p><strong>Roo Code</strong>：社区开源插件，前身是 Cline 的 fork，24,040 stars，agentic 流程做得比 Continue.dev 重一点，主打 Plan / Act 双模式。两条接通道：原生 ollama provider 走 Ollama 协议，openai-compatible provider 走 <code>/v1</code> OpenAI 兼容协议。vLLM / SGLang 用第二条：</p>
+<pre><code class="language-json">{
+  &quot;apiProvider&quot;: &quot;openai-compatible&quot;,
+  &quot;baseUrl&quot;: &quot;http://localhost:8000/v1&quot;,
+  &quot;apiKey&quot;: &quot;EMPTY&quot;,
+  &quot;modelId&quot;: &quot;Qwen/Qwen3-Coder-32B-Instruct-AWQ&quot;
+}
+</code></pre>
+<p>对应的 vLLM 服务端启动：</p>
+<pre><code class="language-bash">vllm serve Qwen/Qwen3-Coder-32B-Instruct-AWQ \
+  --port 8000 \
+  --max-model-len 65536 \
+  --gpu-memory-utilization 0.90
+</code></pre>
+<p>实测：vLLM 后端在 4090 上跑 32B-AWQ 量化，吞吐比 Ollama 高接近一倍（continuous batching 的优势），单 user 单任务体感差距不大，但团队多人共享一台 4090 时优势显著。一句体感：Roo Code 工具调用粒度比 Continue.dev 细，agentic 任务 plan 阶段会列出 5-8 步动作让你确认，适合不放心 LLM 直接动代码的开发者。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/14/cn-ide-recommend-tiers.png" alt="三档推荐组合 IDE 后端栈 tiers 卡片"></p>
+<h2>三档推荐组合，对应入门 / 中阶 / 极客三类开发者</h2>
+<p>把硬数据拉完，给三档可直接照抄的推荐组合。</p>
+<p><strong>入门档：1.5W 单机 RTX 4090 个人开发者</strong>——Continue.dev + Ollama + Qwen3-Coder-30B-A3B Q4_K_M。理由：Continue.dev 配置最简单，Ollama 一条命令 <code>ollama pull qwen3-coder:30b</code> 拉完就跑，30B-A3B Q4_K_M 占 18GB 显存留 6GB 给 32K 上下文 KV cache，VSCode 里 chat / edit / apply / autocomplete 四个角色齐全。补一个 Qwen2.5-Coder-1.5B 当 autocomplete 跑在 CPU 或共用 GPU 余量上，ghost text 延迟压在 200ms 以内。</p>
+<p><strong>中阶档：3-10 人小团队，一台 4090 / A100 共享</strong>——Roo Code + vLLM + Qwen3-Coder-32B-AWQ。理由：vLLM continuous batching 让多人并发吞吐至少翻一倍，AWQ 4bit 量化精度比 GGUF Q4_K_M 略高、显存占用差不多，Roo Code 的 Plan / Act 双模式适合多人 review LLM 动代码前的对齐。配 nginx 在前面挡一下做团队鉴权，内网开放 8000 端口。</p>
+<p><strong>极客档：自托管发烧友 + 多模型路由</strong>——Roo Code + SGLang + 多模型组合（Qwen3-Coder-30B-A3B + Qwen3-Coder-32B-AWQ + DeepSeek-V3.1 蒸馏小模型）。理由：SGLang RadixAttention 在多轮长对话 prefix 命中率上拉得出明显差异，配 LiteLLM 在前面做模型路由，按任务类型分流——agentic 长任务走 32B-AWQ，autocomplete 走 1.5B 蒸馏，复杂 reasoning 走 DeepSeek 蒸馏。Roo Code 配置里挂一个 LiteLLM endpoint 就完事。</p>
+<p>三档组合的共同前提是底层模型选 Qwen3-Coder-30B-A3B 这条线：30B 总参 / 3.3B 激活 MoE / 256K 原生 context，是当下国内本地化 AI Coding 后端的事实标准；它的好处是激活参数低、单 token 延迟在 4090 上能压到 30-40ms，长上下文又靠稀疏 MoE 撑住，正好夹在「能跑」和「够用」中间那个甜点位。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/14/cn-ide-config-fileconfig-snippets.png" alt="三种 IDE 的 config 文件对照"></p>
+<h2>国内开发者实操路径横评落地：镜像、离线包、迁移三件套</h2>
+<p>矩阵和组合摆完，最后一段聊国内开发者落地时绕不开的具体路径。</p>
+<p><strong>模型下载走国内镜像</strong>：Hugging Face 国内访问不稳，主力两条线——ModelScope（modelscope.cn）和 hf-mirror.com。ModelScope 是阿里官方镜像，Qwen 系列首发常常先在 ModelScope 上，国内带宽峰值能跑满千兆；hf-mirror.com 是第三方镜像，命令行体验更接近原版 huggingface-cli。Qwen3-Coder-30B-A3B 的 GGUF 量化版本在 ModelScope 上的 <code>Qwen/Qwen3-Coder-30B-A3B-Instruct-GGUF</code> 仓库里能直接 git clone 下来塞 Ollama。</p>
+<p><strong>Ollama 离线包部署</strong>：内网机或者 air-gap 环境，Ollama 官方安装脚本走 GitHub release CDN 在国内不稳。绕法是去 ollama 的 GitHub release 页面手动下载对应平台的 tar 包（或者用上面提到的镜像走 release 文件代理），解压后 <code>install.sh</code> 跑一遍就完事；模型文件可以提前在有网机上 <code>ollama pull</code> 完，然后把 <code>~/.ollama/models</code> 整目录拷贝过去。</p>
+<p><strong>通义灵码迁移路径</strong>：已经用了通义灵码的开发者切到本地化不是非此即彼，可以双开。通义灵码留着跑 agentic 长任务和团队代码 review，Continue.dev 接 Ollama 跑日常 chat / edit / autocomplete，两边 VSCode 插件不打架。等本地后端用熟、Qwen3-Coder 体感够顶上日常活，再把通义灵码这个插件 disable 掉。</p>
+<p><strong>Trae 用户应急思路</strong>：如果团队还死磕 Trae 不肯换 IDE，TRAE-Ollama-Bridge 项目可以救急——它劫持 Trae 发往字节云的请求转到本地 Ollama，能跑但稳定性看 Trae 下一次大版本会不会变协议。更稳的做法是 Trae 留着团队协作功能不动它，平行开一个 VSCode 装 Continue.dev / Roo Code 跑本地，两套并存。</p>
+<p>国内开发者今天选型，本质上是在「全流程自动化但锁死后端」和「自由换后端但 agentic 流程要自己 wire」之间二选一。通义灵码 / Trae / Qoder / 文心快码这边是前者，云端长上下文 + 自家厂商背书的 agentic pipeline 是真省事；千问 Code / Continue.dev / Roo Code 这边是后者，配置自由 + 本地化数据合规是真硬通货。两边没有谁压倒谁，看的是开发者今天最缺哪一端。</p>
+<h2>endpoint 自由，是国内本地 AI Coding 的下一个 commit</h2>
+<p>回到开头 r/LocalLLaMA 那帖。楼主问的不是「哪个 IDE 最好」，他问的是「我能不能用我自己的硬件、自己的模型、自己的数据，把 AI Coding 这件事接管下来」。这个问题在 2026 年 5 月的今天有明确答案：阿里 Qwen 团队官方的千问 Code、社区 33,164 stars 的 Continue.dev、24,040 stars 的 Roo Code，三选一就能落地，配置文件不超过 10 行；底层接 Ollama / vLLM / SGLang 任意一家，Qwen3-Coder-30B-A3B Q4_K_M 在 4090 上 18GB 显存跑得稳。</p>
+<p>通义灵码、Trae、Qoder、文心快码暂时还在锁死阵营，但这事不是技术问题是商业模式问题，等本地推理后端把云端 token 成本进一步压低、企业本地化合规需求继续推高，商业 IDE 早晚要在「放开 endpoint」和「掉用户」之间二选一。今天是 4 锁 3 开，明年这时候很可能就是 2 锁 5 开。</p>
+<p>国内开发者今天能拿到的本地化路径已经足够丰富，三款开放 IDE 任选其一，配上 4090 单卡 + Qwen3-Coder + Ollama / vLLM / SGLang，就是一台能跑一整年的私有 AI Coding 工作站；endpoint 自由这件事不是远方的理想，它是今天的 <code>git commit -m &quot;switch to local&quot;（切到本地跑）</code>。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

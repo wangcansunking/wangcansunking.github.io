@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeepSeek V4 没集成 Engram：那块缺失的拼图 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-04</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-04</span><span class="tag-pill">Daily Report</span></div>
+      <h1>DeepSeek V4 没集成 Engram：那块缺失的拼图</h1>
+<blockquote>
+<p>Engram-27B 在 MMLU 上 +3.4、BBH 上 +5.0、Multi-Query NIAH 从 84.2% 直接拉到 97.0%——这是 DeepSeek 与北京大学 1 月联合开源的记忆模块的成绩单。但 4 月 24 日上线的 DeepSeek V4 Preview 没有它。</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/04/deepseek-v4-engram-missing-knowledge-lookup.png" alt="DeepSeek V4 没集成 Engram · 封面"></p>
+<h2>一、先把数字摆出来</h2>
+<p>Engram-27B 是 DeepSeek 团队在 2026 年 1 月 12 日发表的论文里给出的小规模验证模型。激活参数 3.8B、训练 262B tokens、在同规模基线上跑出六项基准全面提升：</p>
+<ul>
+<li><strong>MMLU +3.4</strong>（通用知识）</li>
+<li><strong>CMMLU +4.0</strong>（中文知识）</li>
+<li><strong>BBH +5.0</strong>（复杂推理）</li>
+<li><strong>ARC-Challenge +3.7</strong>（常识推理）</li>
+<li><strong>HumanEval +3.0</strong>（代码生成）</li>
+<li><strong>MATH +2.4</strong>（数学）</li>
+<li>长文本检索的 <strong>Multi-Query NIAH 从 84.2% 跳到 97.0%</strong></li>
+<li>状态追踪 <strong>Variable Tracking 从 77.0% 跳到 89.0%</strong></li>
+</ul>
+<p>整篇论文最关键的结尾是一句话——&quot;我们认为条件记忆将是下一代稀疏模型不可或缺的建模原语。&quot;通讯作者是梁文锋，第一作者是北大博士生 Cheng Xin。</p>
+<p>放在 2026 年这个时间点回头看，这一组数字和这一句结论，几乎被所有读论文的人翻译成了同一个动作——按住 Command + F，到 4 月 24 日发布的 DeepSeek V4 Preview 论文里搜 &quot;Engram&quot;。</p>
+<p>零结果。</p>
+<h2>二、Engram 是什么：一条 MoE 之外的稀疏轴</h2>
+<p>要理解为什么这件事在 AI 圈引发的反应这么强烈，先看 Engram 的架构定位。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/04/deepseek-v4-engram-architecture.png" alt="Engram 架构图：Transformer 主干 + 哈希查表旁路"></p>
+<p>过去几年大模型的&quot;稀疏化&quot;基本上只走一条路——MoE（Mixture of Experts，混合专家）。每个 token 只激活全部专家中的少数几个，剩下的不参与计算，节约的是浮点算力。从 Mixtral 到 DeepSeek V3、V4，从千问 3-MoE 到美团 LongCat-Flash，这条路已经被反复验证。</p>
+<p>Engram 提出的是<strong>第二条稀疏轴</strong>——记忆稀疏。</p>
+<p>具体做法：在 Transformer 主干旁边挂一张超大参数表（27B 实验里是 1000 亿参数表），训练时学习一组哈希函数 H(token)。推理时，每过一个 Transformer 层，都用哈希函数从大表里取出 K 行向量，再用一个上下文感知门控把取到的内容融合回主干。</p>
+<p>整个过程的关键性质有三条：</p>
+<p><strong>第一</strong>，哈希取址是 O(1) 的。不像 Attention 要做矩阵乘法，也不像 MoE 要算 router 概率，哈希查表就是直接按地址读，不动主干计算。</p>
+<p><strong>第二</strong>，1000 亿参数的大表可以<strong>卸载到 DRAM</strong>。这一点非常关键——传统大模型所有参数都得放进 GPU 的 HBM，HBM 既贵又稀缺；DRAM 是普通服务器内存，便宜、容量大、想加多少都行。论文给出的数据是：H800 上推理吞吐损失只有 2.8%，几乎可以忽略。</p>
+<p><strong>第三</strong>，参数预算重新切分。Engram 论文给出的最佳配比是约 <strong>20-25% 的稀疏参数预算分给 Engram，剩下 75-80% 留给 MoE</strong>。两条轴互补——MoE 管&quot;算什么&quot;，Engram 管&quot;记什么&quot;。</p>
+<p>落到效果上就是六项基准全面优于同规模基线，最显著的是长文本检索这一块——Multi-Query NIAH 从 84.2% 直接跳到 97.0% 这种幅度，在 2026 年的开源世界里是少见的。</p>
+<h2>三、Engram-27B 的数据再看一眼</h2>
+<p>把基准全摊开看，Engram 的提升不是某一项的偶然亮点，而是<strong>通用知识、中文知识、复杂推理、长文本检索四个维度全面发力</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/04/deepseek-v4-engram-27b-bench.png" alt="Engram-27B 六项基准"></p>
+<p>中文知识（CMMLU）+4.0 这一栏特别值得国内开发者注意——它意味着哈希查表机制对中文这种&quot;知识密度高、固定搭配多&quot;的语言是有结构性优势的。中文里大量&quot;专名 + 关系&quot;的固定知识（&quot;李白 → 唐朝&quot;、&quot;凯恩斯 → 经济学&quot;），刚好是 Engram 这种&quot;按名字直接取知识行&quot;的机制最擅长的类型。把这条规律放大到法律条文、医学诊断、工程文档这类知识密度更高的领域，效果只会更明显。</p>
+<p>复杂推理（BBH）+5.0 是另一项关键信号。BBH 是 Big-Bench Hard 的缩写，专挑 Big-Bench 里最难的 23 项任务。提升 5 个点意味着模型在多步推理时能更稳地&quot;调出相关背景知识&quot;，而不是每一步都靠 Attention 重新算一遍。</p>
+<p>长文本检索（Multi-Query NIAH）从 84.2% 拉到 97.0% 这一项，提升幅度最大。这背后的机制很直观——哈希查表让模型不用把所有上下文都塞进 KV cache 里慢慢翻，而是按需直接调出相关行。状态追踪（Variable Tracking）从 77.0 跳到 89.0 是同一类机制的另一种表现：长程依赖里&quot;哪些变量当前还活着&quot;这种问题，恰好是哈希查表最稳定的应用场景之一。</p>
+<p>整篇 Engram 论文给出的硬约束是清晰的：<strong>Engram 不是替代 MoE，而是和 MoE 共存</strong>。最佳配比是 20-25% / 75-80%。换句话说，论文给的是一个&quot;在现有 MoE 架构上加挂一条记忆轴&quot;的渐进式方案，不是颠覆现有 MoE 路线的另起一摊。这一点对工程团队的吸收成本来说很友好。</p>
+<h2>四、为什么 V4 Preview 没集成？</h2>
+<p>DeepSeek V4 Preview 2026 年 4 月 24 日上线。两个版本：</p>
+<ul>
+<li><strong>V4-Pro</strong>：1.6T 总参数、49B 激活参数、1M 上下文</li>
+<li><strong>V4-Flash</strong>：284B 总参数、13B 激活参数、1M 上下文</li>
+</ul>
+<p>两者都开源、都支持 1M 上下文、都有 Thinking / Non-Thinking 双模式。从能力指标上，V4-Pro 已经接近闭源前沿，价格只是闭源的零头。这是一次合格甚至超额的发布。</p>
+<p>但论文里没有 Engram 这一节，模型卡里没有 Engram 这一层。</p>
+<p>直接证据还有一条——<code>deepseek-ai/Engram</code> 这个 GitHub 仓库，最后一次提交停在 2026 年 1 月 14 日，距 Engram 论文发表只过了两天。从那之后，仓库再没动过。同期 DeepSeek 主仓库的更新一直在持续，V4 Preview 也按时上线了。</p>
+<p>把这两个事实并起来看，最朴素的推断是：<strong>1 月发布 Engram 论文之后，团队的资源被 V4 主线吸走，Engram 这条支线没在 V4 时间窗口内完成产品化</strong>。</p>
+<p>这是一个工程团队 priority 排期的常见结果，不是判断 Engram 这条路走不通——论文给出的 20-25% 配比、H800 吞吐损失 2.8%、六项基准全面提升，这些都是已经在 27B 规模上验证过的真实数据。它更像是 V5 或 V4.x 才会正式融入的下一代特征。</p>
+<h2>五、海外同行已经在动：从 Memory Layers 到 Mem0、Letta</h2>
+<p>DeepSeek 提出 Engram 的同一个时间窗口里，海外几条平行路径也都在往&quot;模型级 / 应用级记忆&quot;方向走。把它们摆到同一张表里看，能看清 Engram 在全球记忆层方案中的具体位置。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/04/deepseek-v4-engram-landscape.png" alt="全球大模型记忆层方案横评"></p>
+<p><strong>Meta Memory Layers</strong> 是和 Engram 最像的一条路——同样在模型架构内部嵌入&quot;记忆参数&quot;，训练时学习。差别在 Meta 方案的参数耦合度更高，DeepSeek Engram 走的是&quot;参数解耦 + DRAM 卸载&quot;路线，工程友好度更高。</p>
+<p><strong>Anthropic context editing</strong> 是另一条思路——不动模型架构，靠对话期的&quot;动态上下文编辑&quot;来管理记忆。它的位置在上下文窗口外、应用层。优势是任何模型都能用，劣势是受上下文窗口长度物理限制。</p>
+<p><strong>Mem0 / Letta</strong> 是开源社区里最活跃的两个记忆框架，定位都是&quot;应用层 + 用户对话沉淀&quot;。Mem0 偏轻量，Letta 偏完整。它们的特点是&quot;和模型完全解耦&quot;——任何 LLM API 都能挂上来用，但记忆本身不进模型参数，部署时是另一套服务。</p>
+<p><strong>KV Cache 压缩</strong>和**RAG（向量检索）**是大家熟悉的两条路。前者是推理优化层的临时记忆；后者是数据层的外部知识库。两条路都已经在生产环境用了好几年，但都不属于&quot;模型架构内&quot;的记忆。</p>
+<p>把六条路径排到一起，Engram 的独特定位就清楚了——它是**&quot;架构级记忆 + 训练时学习 + DRAM 卸载&quot;**这条路上目前的代表方案。这条路的产业含义之一是：<strong>记忆参数可以和计算参数分开部署、分开扩容</strong>。一台 H800 配 1TB DRAM，可以挂一张万亿参数的知识表，而 GPU 显存只用来跑那 75-80% 的 MoE 计算部分。</p>
+<h2>六、衍生研究已经走在前面</h2>
+<p>Engram 论文公开之后，社区里几条衍生研究路径已经开出来了。</p>
+<p><strong>AutoArk 视觉扩展</strong>——一支独立团队基于 Qwen-3 复现了文本 Engram，然后把它接到 Stable Diffusion 上。视觉 patch 经分层编码后做哈希查表融合。结论是：达到同等效果，Engram 需要的额外参数只有 LoRA 的 15%-30%。这意味着记忆机制对图像、视频这类高维模态同样适用。</p>
+<p><strong>CXL 内存池方案</strong>——3 月 10 日北大等机构发布的工程实现：8 台服务器共享 4TB 内存池，512GB/s 带宽，端到端吞吐损失小于 5%。这是把&quot;参数解耦 + DRAM 卸载&quot;思路从单机扩展到集群的具体工程方案，对国家级智算中心和央国企算力底座是直接可用的工程蓝图。</p>
+<p><strong>多头哈希冲突处理</strong>——独立研究者在论文公开后的两周内验证了 Engram 多头哈希的冲突处理机制，给出了不同 hash table size 下的命中率曲线。</p>
+<p>这三条衍生研究都在论文公开之后的 90 天内完成，节奏比一般论文社区跟进要快得多。</p>
+<h2>七、国产卡 + DRAM 卸载：对国内是利好</h2>
+<p>把 Engram 这条路的工程含义放回到国内 AI 算力的语境里，结论比较清晰。</p>
+<p>国产 AI 卡这两年的进展国内开发者都看在眼里——昇腾 950PR 已经撑起 DeepSeek-V4 万亿 MoE 训练，华为 910C、寒武纪思元 690、海光 DCU、摩尔线程、沐曦曦云 C600 都已经稳定供货。短板一直是 HBM——国产 HBM 产能、容量、带宽相比海外仍有差距。</p>
+<p>Engram 的&quot;参数解耦 + DRAM 卸载&quot;思路恰好绕开了 HBM 这个短板。一张万亿参数的知识表挂在普通服务器内存里，对 GPU 卡的 HBM 容量没有额外要求。这等于说：<strong>国产卡 + 国产服务器 + DRAM 大容量这条组合</strong>，在 Engram 这条架构上反而拥有不错的工程匹配度。</p>
+<p>3 月 10 日发布的 CXL 内存池方案进一步把这件事工程化——8 台服务器共享 4TB DRAM 池、端到端吞吐损失小于 5%——这是央国企智算中心、城市级算力中心、高校科研云的现成方案。它的另一层含义是：当未来 V5 之类的版本把 Engram 集成进来后，已有的国产化算力中心几乎不需要做大动作，把 DRAM 容量配齐、把 CXL 网络铺到位，记忆层就能挂上来。这种&quot;先有架构思路、再有工程方案、最后等模型集成&quot;的节奏，过去几年在国产 AI 算力里并不多见。</p>
+<h2>八、过渡期的现状盘点</h2>
+<p>Engram 集成到 DeepSeek 模型主线里，按目前节奏看大概率要等 V5 或 V4.x 中的某个版本。这中间的过渡期，国内同行的&quot;记忆层&quot;现状大致是这样一张图。</p>
+<p><strong>知识密集型应用层面</strong>——已经稳定运行的方案主要是 Mem0 / Letta 接 DeepSeek V4 或千问3（Qwen3）-Max API。Mem0 偏轻量，启动快、API 简洁；Letta 偏完整，自带 agent 抽象、状态追踪、多轮对话沉淀。两者都是开源框架，国内可以直接用。一旦 V5 把 Engram 集成进来，应用层和模型层之间的接口不变，迁移成本主要在模型 API 切换那一步。</p>
+<p><strong>长上下文应用层面</strong>——DeepSeek V4 自身的 1M 上下文已经覆盖论文阅读、多文档对比、长代码库理解这些常见场景。Engram 真正的价值是把&quot;长上下文 + 高准确率检索&quot;的成本进一步压下来，但当前 V4 + 1M context 在多数场景里够用。</p>
+<p><strong>Engram 后续进展的观察点</strong>有两个。一个是论文层面，DeepSeek 与北大合作团队的论文动向是上游信号；另一个是工程层面，<code>deepseek-ai/Engram</code> 这个仓库目前停在 1 月 14 日的最后一次提交，下一次更新对应的就是 V5 或 V4.x 集成的工程节点。</p>
+<p><strong>国产卡 + DRAM 服务器组合的产业匹配度</strong>——Engram 这条路一旦集成进主线模型，国产卡阵营在&quot;参数解耦 + DRAM 卸载&quot;上的工程匹配度，会比英伟达 + HBM 路线更顺手。央国企智算中心、城市级算力中心已经在按 CXL 内存池方案铺底，等待模型层的对接。</p>
+<h2>九、写在最后</h2>
+<p>DeepSeek V4 把&quot;开源、1M 上下文、低价、闭源前沿水平&quot;这四件事一次给到位，是 2026 年中国开源大模型最值得记住的版本之一。Engram 没在这一版集成进来，是工程排期问题，不是路径问题。论文给的 27B 实验数据、20-25% / 75-80% 的稀疏轴配比、H800 上 2.8% 的吞吐损失，都是已经验证过的真实结果。</p>
+<p>社区这边的进度也很清楚——Meta Memory Layers、Anthropic context editing、Mem0 / Letta、AutoArk 视觉扩展、CXL 内存池方案，海内外几条平行路径都在往同一个方向推进。论文里那句&quot;条件记忆将是下一代稀疏模型不可或缺的建模原语&quot;，写得很笃定。我们这一代国内 AI 开发者，刚好赶上这条路从论文走向产品的时间窗口——是个值得参与的过程。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

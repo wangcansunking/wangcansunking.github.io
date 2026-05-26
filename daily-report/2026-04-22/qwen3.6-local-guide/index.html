@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Qwen3.6 本地部署指南 · Mac + Windows 实战版 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-04-22</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-04-22</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Qwen3.6 本地部署指南 · Mac + Windows 实战版</h1>
+<blockquote>
+<p><strong>适用读者</strong>：用 MacBook 或普通 Windows PC，想在本地跑起来 Qwen3.6 开源版的人。不涉及服务器、H100、多卡推理。
+数据截至 2026-04-22。tok/s 数字为社区实测 + 公开 benchmark 汇总，因系统配置、上下文长度、散热策略差异可能 ±20%。</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/22/qwen3.6-local-cover.png" alt="Qwen3.6 本地部署指南 · Mac + Windows 实战版"></p>
+<h2>一、Qwen3.6 是什么（30 秒版）</h2>
+<p>你要跑的是 <strong>Qwen3.6-35B-A3B</strong>，阿里通义千问 2026-04-16 开源的权重。关键三件事：</p>
+<ul>
+<li><strong>35B 总参数，3B 激活</strong>（MoE 架构，256 专家每 token 激活 9 个）</li>
+<li><strong>原生 256K 上下文</strong></li>
+<li><strong>Apache 2.0 协议，商用也行</strong></li>
+</ul>
+<p>和你切身相关的只有一个概念：<strong>「35B 要全部装进内存，但每个 token 只跑 3B 的计算」</strong>。这意味着——</p>
+<blockquote>
+<p><strong>内存决定你能不能跑；算力决定你跑多快。</strong></p>
+</blockquote>
+<p>Mac 的统一内存天然适合这种模型；Windows 因为要拆 CPU/GPU 内存，反而吃亏。</p>
+<p>其他闭源版本（Qwen3.6-Plus / Qwen3.6-Max-Preview）只能走 API，本地跑不了，本文不讨论。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/22/Qwen3.6-35B-A3B-benchmark.png" alt="Qwen3.6-35B-A3B 评测表现"></p>
+<p><em>图：Qwen3.6-35B-A3B 综合评测得分（官方）</em></p>
+<hr>
+<h2>二、你的机器能跑什么（一张表看懂）</h2>
+<table>
+<thead>
+<tr>
+<th>你的机器</th>
+<th>能跑吗</th>
+<th>推荐量化</th>
+<th>预期速度</th>
+<th>体验</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>M1 / M2 · 16GB</td>
+<td>❌ 不建议</td>
+<td>—</td>
+<td>—</td>
+<td>塞不下，swap 爆炸</td>
+</tr>
+<tr>
+<td>M1 Pro / M2 Pro · 16GB</td>
+<td>⚠️ 勉强</td>
+<td>UD-IQ2_M (11.5GB)</td>
+<td>~6 tok/s</td>
+<td>慢、发热、只能短对话</td>
+</tr>
+<tr>
+<td>M1 Pro / M2 Pro · 32GB</td>
+<td>✅</td>
+<td>UD-Q3_K_M (16.6GB)</td>
+<td>~12 tok/s</td>
+<td>可用，上下文开小点</td>
+</tr>
+<tr>
+<td>M1 Max / M2 Max · 32GB</td>
+<td>✅</td>
+<td>UD-Q4_K_M (22GB)</td>
+<td>~18 tok/s</td>
+<td>舒服</td>
+</tr>
+<tr>
+<td>M1 Max / M2 Max · 64GB</td>
+<td>✅</td>
+<td>UD-Q5_K_M (26.5GB)</td>
+<td>~35 tok/s</td>
+<td>流畅主力机</td>
+</tr>
+<tr>
+<td>M2 Ultra · 128GB</td>
+<td>✅</td>
+<td>UD-Q6_K (29.3GB)</td>
+<td>~45 tok/s</td>
+<td>桌面级</td>
+</tr>
+<tr>
+<td>M3 Pro · 18/36GB</td>
+<td>✅</td>
+<td>Q3 / Q4_K_M</td>
+<td>15 / 25 tok/s</td>
+<td>OK</td>
+</tr>
+<tr>
+<td>M3 Max · 48GB</td>
+<td>✅</td>
+<td>UD-Q4_K_M (22GB)</td>
+<td>~35 tok/s</td>
+<td>流畅</td>
+</tr>
+<tr>
+<td>M3 Max · 64/96GB</td>
+<td>✅✅</td>
+<td>UD-Q5_K_M (26.5GB)</td>
+<td>~50 tok/s</td>
+<td>很爽</td>
+</tr>
+<tr>
+<td>M3 Ultra · 192GB</td>
+<td>✅✅</td>
+<td>BF16 (69GB)</td>
+<td>~55 tok/s</td>
+<td>原生精度</td>
+</tr>
+<tr>
+<td>M4 Pro · 24/48GB</td>
+<td>✅</td>
+<td>Q3 / Q4_K_M</td>
+<td>20 / 35 tok/s</td>
+<td>好</td>
+</tr>
+<tr>
+<td>M4 Max · 48GB</td>
+<td>✅✅</td>
+<td>UD-Q4_K_M (22GB)</td>
+<td>~45 tok/s</td>
+<td>接近旗舰</td>
+</tr>
+<tr>
+<td>M4 Max · 64/128GB</td>
+<td>✅✅</td>
+<td>UD-Q5_K_M</td>
+<td>~55 tok/s（llama.cpp）/ ~120 tok/s（MLX）</td>
+<td>本文推荐甜点</td>
+</tr>
+<tr>
+<td><strong>M5 Pro · 64GB</strong></td>
+<td>✅✅</td>
+<td>UD-Q5_K_M (26.5GB)</td>
+<td>~60 tok/s</td>
+<td><strong>新机主流配置</strong></td>
+</tr>
+<tr>
+<td><strong>M5 Max · 128GB</strong></td>
+<td>✅✅✅</td>
+<td>Q8_0 / BF16</td>
+<td>~75 tok/s</td>
+<td>顶配个人机</td>
+</tr>
+<tr>
+<td>Windows 16GB RAM，无独显</td>
+<td>❌ 不建议</td>
+<td>—</td>
+<td>—</td>
+<td>跑不动</td>
+</tr>
+<tr>
+<td>Windows 32GB RAM，无独显</td>
+<td>⚠️ 勉强</td>
+<td>UD-Q3_K_M</td>
+<td>~3 tok/s</td>
+<td>纯 CPU，慢</td>
+</tr>
+<tr>
+<td>Windows + RTX 4060 8GB</td>
+<td>⚠️</td>
+<td>UD-IQ4_XS</td>
+<td>~12 tok/s</td>
+<td>部分 offload</td>
+</tr>
+<tr>
+<td>Windows + RTX 4070 Ti 12GB</td>
+<td>✅</td>
+<td>UD-Q4_K_M</td>
+<td>~25 tok/s</td>
+<td>能用</td>
+</tr>
+<tr>
+<td>Windows + RTX 4080 16GB + 64GB RAM</td>
+<td>✅</td>
+<td>UD-Q5_K_M</td>
+<td>~35 tok/s</td>
+<td>流畅</td>
+</tr>
+<tr>
+<td>Windows + RTX 4090 24GB + 64GB RAM</td>
+<td>✅✅</td>
+<td>UD-Q5_K_M</td>
+<td>~55 tok/s</td>
+<td>4000 系最佳</td>
+</tr>
+<tr>
+<td><strong>Windows + RTX 5060 Ti 16GB</strong></td>
+<td>✅</td>
+<td>UD-Q4_K_M</td>
+<td>~30 tok/s</td>
+<td>入门 50 系</td>
+</tr>
+<tr>
+<td><strong>Windows + RTX 5070 12GB</strong></td>
+<td>✅</td>
+<td>UD-Q4_K_M</td>
+<td>~35 tok/s</td>
+<td>12GB 卡性价比</td>
+</tr>
+<tr>
+<td><strong>Windows + RTX 5070 Ti 16GB</strong></td>
+<td>✅✅</td>
+<td>UD-Q5_K_M</td>
+<td>~50 tok/s</td>
+<td>50 系甜点</td>
+</tr>
+<tr>
+<td><strong>Windows + RTX 5080 16GB</strong></td>
+<td>✅✅</td>
+<td>UD-Q5_K_M</td>
+<td>~55 tok/s</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Windows + RTX 5090 32GB</strong></td>
+<td>✅✅✅</td>
+<td>Q6_K (29.3GB)</td>
+<td>~80 tok/s</td>
+<td>Win 顶配</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>三、为什么 MoE 对 Mac 特别友好</h2>
+<p>Qwen3.6 是 MoE（混合专家），这个架构和 Apple Silicon 的统一内存是天作之合。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/22/Apple-M5-MacBook-Pro.jpg" alt="Apple MacBook Pro M5 Pro / M5 Max"></p>
+<p><em>图：Apple 2026 年 3 月发布的 MacBook Pro M5 Pro/Max，内存带宽最高 614 GB/s</em></p>
+<p><strong>传统稠密模型（如 Llama 3 70B）</strong>：</p>
+<ul>
+<li>70B 参数每个 token 都要参与计算 → 算力瓶颈</li>
+<li>CPU/GPU 内存分离 → 数据搬运开销大</li>
+</ul>
+<p><strong>MoE 模型（Qwen3.6 35B-A3B）</strong>：</p>
+<ul>
+<li>只有 3B 参与计算 → 算力需求低，相当于跑 3B 模型</li>
+<li>但所有 35B 必须随时可访问 → 内存需求大</li>
+</ul>
+<p><strong>Apple Silicon 的优势</strong>：</p>
+<ul>
+<li><strong>统一内存架构（UMA）</strong>：CPU 和 GPU 共享同一块物理内存，无需拷贝</li>
+<li><strong>内存带宽大</strong>：M4 Max 546 GB/s、<strong>M5 Max 614 GB/s</strong>，远超 DDR5 双通道（~100 GB/s）</li>
+<li>MoE 的随机专家访问模式 → UMA 零拷贝优势被放大</li>
+</ul>
+<p><strong>实测对比</strong>（同样 Q4_K_M 量化 Qwen3.6-35B-A3B）：</p>
+<table>
+<thead>
+<tr>
+<th>设备</th>
+<th>后端</th>
+<th>tok/s</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>M4 Max 64GB</td>
+<td>llama.cpp</td>
+<td>~55</td>
+<td>常规</td>
+</tr>
+<tr>
+<td><strong>M4 Max 64GB</strong></td>
+<td><strong>MLX</strong></td>
+<td><strong>~120</strong></td>
+<td><strong>Apple 官方 ML 框架，性能翻倍</strong></td>
+</tr>
+<tr>
+<td>M5 Pro 64GB</td>
+<td>llama.cpp</td>
+<td>~60</td>
+<td>Fusion 架构带宽加成</td>
+</tr>
+<tr>
+<td>RTX 4090 24GB</td>
+<td>llama.cpp CUDA</td>
+<td>~55</td>
+<td>受 24GB VRAM 限制必须部分 CPU offload</td>
+</tr>
+<tr>
+<td>RTX 5090 32GB</td>
+<td>llama.cpp CUDA</td>
+<td>~80</td>
+<td>全放 VRAM，GDDR7 带宽优势</td>
+</tr>
+</tbody></table>
+<p>这就是为什么我会推荐：<strong>预算充足首选 M4 Max 64GB 或 M5 Pro 64GB</strong>。一个设备顶 4090 + 64GB 系统，还省电。</p>
+<hr>
+<h2>四、Mac 档位详表</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/22/Qwen3.6-Plus-hero.png" alt="Qwen3.6-Plus 能力概览"></p>
+<p><em>图：Qwen3.6-Plus 定位 · 35B-A3B 是开源版本，本节主题</em></p>
+<h3>轻量级：入门能跑（16-24GB）</h3>
+<table>
+<thead>
+<tr>
+<th>机型</th>
+<th>内存</th>
+<th>推荐量化</th>
+<th>文件大小</th>
+<th>tok/s</th>
+<th>可用上下文</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>M1 / M2</td>
+<td>16GB</td>
+<td>❌</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>系统本身就占 ~10GB，跑 35B-A3B 最低 Q2 也会 swap</td>
+</tr>
+<tr>
+<td>M1 Pro / M2 Pro</td>
+<td>16GB</td>
+<td>UD-IQ2_M</td>
+<td>11.5 GB</td>
+<td>~6</td>
+<td>4K</td>
+<td>能跑但慢，只适合短问答</td>
+</tr>
+<tr>
+<td>M1 Pro / M2 Pro / M3 Pro</td>
+<td>18GB</td>
+<td>UD-Q3_K_M</td>
+<td>16.6 GB</td>
+<td>~10</td>
+<td>8K</td>
+<td>建议关其他 App</td>
+</tr>
+<tr>
+<td>M1/M2/M3 Pro</td>
+<td>24GB</td>
+<td>UD-Q3_K_XL</td>
+<td>16.8 GB</td>
+<td>~15</td>
+<td>16K</td>
+<td>日常够用</td>
+</tr>
+<tr>
+<td>M4 Pro</td>
+<td>24GB</td>
+<td>UD-Q3_K_XL</td>
+<td>16.8 GB</td>
+<td>~18</td>
+<td>16K</td>
+<td>M4 代带宽更高</td>
+</tr>
+</tbody></table>
+<p><strong>关键坑</strong>：macOS 会从物理内存切一部分给系统和 App。<strong>16GB 机器实际可用给 LLM 的只有 ~8-10GB</strong>。别听别人说&quot;16GB 也能跑 35B&quot;——是能跑 IQ1/IQ2 极限压缩，质量崩到不如 8B 模型。</p>
+<h3>主力级：日常流畅（32-64GB）</h3>
+<table>
+<thead>
+<tr>
+<th>机型</th>
+<th>内存</th>
+<th>推荐量化</th>
+<th>文件大小</th>
+<th>tok/s</th>
+<th>可用上下文</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>M1 Pro / M2 Pro</td>
+<td>32GB</td>
+<td>UD-Q4_K_M</td>
+<td>22 GB</td>
+<td>~15</td>
+<td>32K</td>
+<td>甜点入门</td>
+</tr>
+<tr>
+<td>M1 Max / M2 Max</td>
+<td>32GB</td>
+<td>UD-Q4_K_M</td>
+<td>22 GB</td>
+<td>~18-22</td>
+<td>32K</td>
+<td>Max 带宽是 Pro 两倍</td>
+</tr>
+<tr>
+<td>M3 Pro / M4 Pro</td>
+<td>36/48GB</td>
+<td>UD-Q4_K_M</td>
+<td>22 GB</td>
+<td>~25-35</td>
+<td>64K</td>
+<td></td>
+</tr>
+<tr>
+<td>M1 Max / M2 Max / M3 Max</td>
+<td>64GB</td>
+<td>UD-Q5_K_M</td>
+<td>26.5 GB</td>
+<td>~30-45</td>
+<td>128K</td>
+<td><strong>性价比首选</strong></td>
+</tr>
+<tr>
+<td>M4 Max</td>
+<td>48GB</td>
+<td>UD-Q4_K_M</td>
+<td>22 GB</td>
+<td>~40-45</td>
+<td>64K</td>
+<td></td>
+</tr>
+<tr>
+<td>M4 Max</td>
+<td>64GB</td>
+<td>UD-Q5_K_M</td>
+<td>26.5 GB</td>
+<td>~50-55</td>
+<td>128K</td>
+<td><strong>本文推荐甜点</strong></td>
+</tr>
+<tr>
+<td><strong>M5 Pro</strong></td>
+<td><strong>64GB</strong></td>
+<td><strong>UD-Q5_K_M</strong></td>
+<td><strong>26.5 GB</strong></td>
+<td><strong>~55-65</strong></td>
+<td><strong>128K</strong></td>
+<td><strong>2026 新款主流</strong></td>
+</tr>
+</tbody></table>
+<h3>旗舰级：接近云端（96GB+）</h3>
+<table>
+<thead>
+<tr>
+<th>机型</th>
+<th>内存</th>
+<th>推荐量化</th>
+<th>文件大小</th>
+<th>tok/s</th>
+<th>可用上下文</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>M3 Max / M4 Max</td>
+<td>96GB</td>
+<td>UD-Q6_K</td>
+<td>29.3 GB</td>
+<td>~50</td>
+<td>256K</td>
+<td></td>
+</tr>
+<tr>
+<td>M2 Ultra</td>
+<td>128GB</td>
+<td>Q8_0</td>
+<td>36.9 GB</td>
+<td>~50</td>
+<td>256K</td>
+<td>Mac Studio / Pro</td>
+</tr>
+<tr>
+<td>M4 Max</td>
+<td>128GB</td>
+<td>Q8_0</td>
+<td>36.9 GB</td>
+<td>~55-60</td>
+<td>256K</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>M5 Max</strong></td>
+<td><strong>128GB</strong></td>
+<td><strong>Q8_0 / BF16</strong></td>
+<td><strong>37~70 GB</strong></td>
+<td><strong>~70-80</strong></td>
+<td><strong>256K 全开</strong></td>
+<td><strong>614 GB/s 带宽</strong></td>
+</tr>
+<tr>
+<td>M3 Ultra</td>
+<td>192GB</td>
+<td>BF16</td>
+<td>69.4 GB</td>
+<td>~55</td>
+<td>256K</td>
+<td>原生精度本地跑</td>
+</tr>
+</tbody></table>
+<h3>MLX 彩蛋：Mac 性能翻倍</h3>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/22/MLX-og.png" alt="MLX · Apple 官方 ML 框架"></p>
+<p><em>图：Apple 开源的 <a href="https://github.com/ml-explore/mlx" target="_blank" rel="noopener">MLX 框架</a></em></p>
+<p>如果你愿意折腾 Apple 官方的 MLX 框架（非 Ollama/llama.cpp），<strong>同样机器 tok/s 能翻 1.5-2 倍</strong>：</p>
+<ul>
+<li>M4 Max 64GB：llama.cpp 55 tok/s → <strong>MLX 120+ tok/s</strong></li>
+<li>M3 Max 64GB：llama.cpp 45 tok/s → <strong>MLX 90 tok/s</strong></li>
+</ul>
+<p>适合愿意敲命令、榨每一滴性能的同学。装法见本文第七节方案 C。</p>
+<hr>
+<h2>五、Windows 档位详表</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/22/NVIDIA-RTX-5090.jpg" alt="NVIDIA GeForce RTX 5090"></p>
+<p><em>图：NVIDIA RTX 5090（Blackwell · GDDR7 · 32GB VRAM），Windows 平台跑 Qwen3.6-35B-A3B 的顶配</em></p>
+<p>Windows 的硬伤：<strong>没有统一内存，MoE 必须手动权衡 GPU VRAM + 系统 RAM</strong>。而且 Ollama 在 Windows 上对 MoE 的支持一度有 bug（<a href="https://github.com/ollama/ollama/issues/10458" target="_blank" rel="noopener">issue</a>），<strong>强烈推荐走 WSL2 + llama.cpp 或 LMStudio</strong>，不要用 Windows 原生 Ollama。</p>
+<h3>没有独立显卡</h3>
+<table>
+<thead>
+<tr>
+<th>配置</th>
+<th>推荐量化</th>
+<th>tok/s</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>16GB RAM 笔记本</td>
+<td>❌</td>
+<td>—</td>
+<td>根本跑不动，换模型或买独显</td>
+</tr>
+<tr>
+<td>32GB RAM 笔记本/台式</td>
+<td>UD-IQ3_S (13.7 GB)</td>
+<td>~2-4</td>
+<td>纯 CPU，勉强能问答</td>
+</tr>
+<tr>
+<td>64GB RAM 台式机</td>
+<td>UD-Q4_K_M (22 GB)</td>
+<td>~4-6</td>
+<td>纯 CPU 上限</td>
+</tr>
+</tbody></table>
+<h3>RTX 40 系（Ada，GDDR6X）</h3>
+<table>
+<thead>
+<tr>
+<th>显卡 VRAM</th>
+<th>系统 RAM</th>
+<th>推荐量化</th>
+<th>文件大小</th>
+<th>tok/s</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>RTX 4060 8GB</td>
+<td>32GB</td>
+<td>UD-IQ4_XS</td>
+<td>17.7 GB</td>
+<td>~10-15</td>
+<td>大部分在 CPU，GPU 辅助</td>
+</tr>
+<tr>
+<td>RTX 4060 Ti 16GB</td>
+<td>32GB</td>
+<td>UD-Q4_K_M</td>
+<td>22 GB</td>
+<td>~20-25</td>
+<td></td>
+</tr>
+<tr>
+<td>RTX 4070 Ti 12GB</td>
+<td>32GB</td>
+<td>UD-Q4_K_M</td>
+<td>22 GB</td>
+<td>~25-30</td>
+<td></td>
+</tr>
+<tr>
+<td>RTX 4070 Ti Super 16GB</td>
+<td>32GB</td>
+<td>UD-Q4_K_M</td>
+<td>22 GB</td>
+<td>~30-35</td>
+<td></td>
+</tr>
+<tr>
+<td>RTX 4080 16GB</td>
+<td>64GB</td>
+<td>UD-Q5_K_M</td>
+<td>26.5 GB</td>
+<td>~35-42</td>
+<td></td>
+</tr>
+<tr>
+<td>RTX 4080 Super 16GB</td>
+<td>64GB</td>
+<td>UD-Q5_K_M</td>
+<td>26.5 GB</td>
+<td>~40-48</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>RTX 4090 24GB</strong></td>
+<td><strong>64GB</strong></td>
+<td><strong>UD-Q5_K_M</strong></td>
+<td><strong>26.5 GB</strong></td>
+<td><strong>~55-65</strong></td>
+<td><strong>40 系最佳性价比</strong></td>
+</tr>
+</tbody></table>
+<h3>RTX 50 系（Blackwell，GDDR7 · 带宽提升 ~50%）</h3>
+<p><strong>50 系最大变化</strong>：换 GDDR7（比 GDDR6X 带宽高 ~40-50%）、CUDA 架构升级、FP4 原生支持（未来有用）。对 LLM 推理的实际增益主要来自内存带宽。</p>
+<table>
+<thead>
+<tr>
+<th>显卡 VRAM</th>
+<th>系统 RAM</th>
+<th>推荐量化</th>
+<th>文件大小</th>
+<th>tok/s</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>RTX 5060 8GB</td>
+<td>32GB</td>
+<td>UD-IQ4_XS</td>
+<td>17.7 GB</td>
+<td>~15-20</td>
+<td>比 4060 明显好，但 8GB 还是受限</td>
+</tr>
+<tr>
+<td><strong>RTX 5060 Ti 16GB</strong></td>
+<td>32GB</td>
+<td>UD-Q4_K_M</td>
+<td>22 GB</td>
+<td>~28-32</td>
+<td><strong>50 系入门甜点</strong>，16GB 够塞</td>
+</tr>
+<tr>
+<td><strong>RTX 5070 12GB</strong></td>
+<td>32GB</td>
+<td>UD-Q4_K_M</td>
+<td>22 GB</td>
+<td>~32-38</td>
+<td>带宽 672 GB/s（比 4070 Ti 快 ~20%）</td>
+</tr>
+<tr>
+<td><strong>RTX 5070 Ti 16GB</strong></td>
+<td>64GB</td>
+<td>UD-Q5_K_M</td>
+<td>26.5 GB</td>
+<td>~45-52</td>
+<td><strong>50 系性价比王者</strong></td>
+</tr>
+<tr>
+<td>RTX 5080 16GB</td>
+<td>64GB</td>
+<td>UD-Q5_K_M</td>
+<td>26.5 GB</td>
+<td>~50-58</td>
+<td>比 4080 Super 快 ~25%</td>
+</tr>
+<tr>
+<td><strong>RTX 5090 32GB</strong></td>
+<td>64GB</td>
+<td><strong>Q6_K (29.3 GB)</strong></td>
+<td>29.3 GB</td>
+<td><strong>~75-85</strong></td>
+<td><strong>全放 VRAM + GDDR7</strong>，Win 顶配</td>
+</tr>
+</tbody></table>
+<p><strong>50 系选型提醒</strong>：</p>
+<ul>
+<li><strong>12GB vs 16GB VRAM 决定量化上限</strong>：12GB 卡（5070）只能 Q4_K_M；16GB 卡（5070 Ti/5080）可上 Q5_K_M，智力差异明显</li>
+<li><strong>5090 的 32GB VRAM 是质变</strong>：可以全量加载 Q6_K（29.3GB）连带 KV cache 全在 VRAM，不用 CPU offload</li>
+<li><strong>5060 8GB 别碰</strong>：和 4060 一样 VRAM 太小，对 35B-A3B 都要 CPU offload，收益少</li>
+</ul>
+<p><strong>Windows 上跑 MoE 的隐藏坑</strong>：当量化文件比 VRAM 稍大（例如 Q4_K_M 22GB vs 4090 24GB），因为 KV cache 还要占几 GB，引擎会把整层 offload 到 CPU，速度直接腰斩。<strong>宁可选小一档的量化让它全部装进 VRAM，也别卡着上限跑</strong>。</p>
+<hr>
+<h2>六、工具选择：Ollama vs LMStudio vs llama.cpp</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/22/LMStudio-og.png" alt="LMStudio · GUI 派首选"></p>
+<p><em>图：LMStudio 界面 · 点按钮就能下模型、开 Chat，完全不用命令行</em></p>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>适合谁</th>
+<th>优点</th>
+<th>缺点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Ollama</strong></td>
+<td>90% 用户</td>
+<td>一行命令装好，跨平台，生态大</td>
+<td>MoE Windows 有 bug；细粒度调参麻烦</td>
+</tr>
+<tr>
+<td><strong>LMStudio</strong></td>
+<td>不想敲命令的人</td>
+<td>图形界面，内置模型下载，像装 App</td>
+<td>封闭，调优空间小</td>
+</tr>
+<tr>
+<td><strong>llama.cpp</strong></td>
+<td>爱折腾的工程师</td>
+<td>最全参数、最新量化第一时间支持</td>
+<td>要自己编译，命令多</td>
+</tr>
+<tr>
+<td><strong>MLX</strong></td>
+<td>Mac 玩家</td>
+<td>tok/s 翻倍</td>
+<td>只能 Mac，生态小</td>
+</tr>
+</tbody></table>
+<p><strong>给普通人的建议</strong>：</p>
+<ul>
+<li><strong>Mac 用户</strong>：先装 Ollama 试试水，熟了之后折腾 MLX 榨性能</li>
+<li><strong>Windows 用户</strong>：装 LMStudio（点按钮就能用）或 WSL2 + Ollama，绕开 Windows 原生 Ollama 的 MoE 坑</li>
+</ul>
+<hr>
+<h2>七、Mac 完整安装步骤</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/22/Ollama-og.png" alt="Ollama · 一行命令的 LLM 管家"></p>
+<p><em>图：Ollama · Mac 用户最简首选</em></p>
+<h3>方案 A · Ollama（10 分钟上手）</h3>
+<pre><code class="language-bash"># 1. 装 Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 2. 拉 4-bit 量化（22GB，视网速 5-15 分钟）
+ollama pull qwen3.6:35b-a3b-q4_K_M
+
+# 3. 开聊
+ollama run qwen3.6:35b-a3b-q4_K_M
+</code></pre>
+<p>查看可用量化：<a href="https://ollama.com/library/qwen3.6" target="_blank" rel="noopener">ollama.com/library/qwen3.6</a>。64GB 机器改 <code>q5_K_M</code>；32GB 机器降 <code>q3_K_M</code>。</p>
+<h3>方案 B · LMStudio（点按钮派）</h3>
+<ol>
+<li>去 <a href="https://lmstudio.ai" target="_blank" rel="noopener">lmstudio.ai</a> 下载 macOS 版</li>
+<li>左侧搜索 <code>Qwen3.6-35B-A3B</code></li>
+<li>按你的机器选 GGUF 文件（旁边显示&quot;Fully GPU Offload&quot;绿色标签的就是你能跑的）</li>
+<li>下载完点&quot;Chat&quot; → 立刻用</li>
+</ol>
+<p><strong>设置要点</strong>：</p>
+<ul>
+<li><code>Context Length</code>：32K（日常够）/ 128K（长文/代码）</li>
+<li><code>GPU Offload</code>：拉满（Mac 会自动用 Metal）</li>
+<li><code>Flash Attention</code>：开</li>
+</ul>
+<h3>方案 C · MLX（Mac 性能榨干派）</h3>
+<pre><code class="language-bash"># 1. 装 MLX 和 mlx-lm
+pip install mlx-lm
+
+# 2. 拉模型（MLX 原生量化）
+python -m mlx_lm.server --model mlx-community/Qwen3.6-35B-A3B-4bit
+
+# 3. 这就是个 OpenAI 兼容 server，端口 8080
+curl http://localhost:8080/v1/chat/completions \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;model&quot;:&quot;qwen&quot;,&quot;messages&quot;:[{&quot;role&quot;:&quot;user&quot;,&quot;content&quot;:&quot;你好&quot;}]}&#39;
+</code></pre>
+<p>用过都说好——M4 Max 上 120 tok/s 不是梦。</p>
+<hr>
+<h2>八、Windows 完整安装步骤</h2>
+<h3>方案 A · LMStudio（最稳）</h3>
+<ol>
+<li><a href="https://lmstudio.ai" target="_blank" rel="noopener">lmstudio.ai</a> 下载 Windows 版</li>
+<li>搜 <code>Qwen3.6-35B-A3B</code>，下载 <code>UD-Q4_K_M</code> GGUF</li>
+<li>设置页 → <code>GPU Offload</code>：如果你是 RTX 4090/5090 就拉到 99（全部层 GPU）；如果是 8GB 卡拉到 12-16 层（剩下 CPU）</li>
+<li>开 Chat</li>
+</ol>
+<h3>方案 B · WSL2 + Ollama（避开 Windows 原生坑）</h3>
+<pre><code class="language-powershell"># 1. 装 WSL2 + Ubuntu
+wsl --install
+
+# 2. 进 WSL2 Ubuntu
+wsl
+</code></pre>
+<p>然后在 Ubuntu 里走 Mac 方案 A 的步骤。<strong>显卡会被 WSL2 自动识别</strong>（Windows 11 + NVIDIA 最新驱动）。</p>
+<h3>方案 C · 纯 Windows 版 llama.cpp（最灵活）</h3>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/22/llamacpp-og.png" alt="llama.cpp · 最底层的 LLM 推理引擎"></p>
+<p><em>图：llama.cpp · 所有 GGUF 量化的源头</em></p>
+<pre><code class="language-powershell"># 装 winget（Win10/11 自带）
+winget install llama.cpp
+
+# 下 GGUF
+curl -L -o qwen3.6-35b-a3b.gguf `
+  https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/resolve/main/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+
+# 启动（4090/5090 示例）
+llama-server -m qwen3.6-35b-a3b.gguf --port 8000 -ngl 99 -c 32768 --jinja
+</code></pre>
+<p>参数：<code>-ngl 99</code> 全 GPU，<code>-ngl 20</code> 部分 GPU 部分 CPU，<code>-c 32768</code> 上下文长度。</p>
+<h3>50 系专属提示</h3>
+<ul>
+<li><strong>5090 32GB</strong>：能直接全量加载 Q6_K（29.3GB）+ 32K 上下文的 KV cache，不用 offload。这是 Windows 平台目前最流畅的配置。</li>
+<li><strong>5070 Ti 16GB</strong>：甜点之选，性价比最高。<strong>别用 Q5_K_M XL</strong>（26.6GB 超上限），走 Q5_K_M（26.5GB）临界但可行，或降到 Q4_K_M 更稳。</li>
+<li><strong>5060 Ti 16GB</strong>：最低&quot;像样&quot;的 50 系选项，Q4_K_M 能全上 VRAM。性能比同价位 4060 Ti 16GB 高 ~30%。</li>
+</ul>
+<hr>
+<h2>九、性能调优小手册</h2>
+<p><strong>Mac：</strong></p>
+<ul>
+<li>跑之前 <code>sudo purge</code> 清内存 cache，给 LLM 留尽可能多物理内存</li>
+<li>电源选&quot;最佳性能&quot;（System Settings → Battery）</li>
+<li><strong>插电</strong>：M 系列在电池上跑 LLM 降频严重，速度直接减半</li>
+<li>长时间跑用底部散热架或抬起机身，防止热节流</li>
+</ul>
+<p><strong>Windows：</strong></p>
+<ul>
+<li>独显机器在 NVIDIA Control Panel → Manage 3D Settings → Power Mode → Prefer Maximum Performance</li>
+<li>关掉 Windows Defender 实时扫描模型目录（扫大文件会卡）</li>
+<li>32GB 以下机器跑之前把 Chrome/Slack 等关掉</li>
+<li>散热差的笔记本别跑，结局是降频到 5 tok/s</li>
+<li><strong>50 系驱动</strong>：确保用 NVIDIA 572.xx 或更新版本，早期 50 系驱动对 CUDA inference 有 bug</li>
+</ul>
+<p><strong>通用：</strong></p>
+<ul>
+<li><strong>context 开多大有讲究</strong>：<ul>
+<li>4K-16K：日常问答、短代码，省内存</li>
+<li>32K-64K：阅读长文、项目级代码</li>
+<li>128K+：全仓库读代码。但 KV cache 吃内存厉害</li>
+<li>每 token 的 KV cache 占用：35B-A3B 大约 <strong>0.4MB/token</strong>。128K 上下文 = ~50GB 额外显存/内存</li>
+</ul>
+</li>
+<li><code>presence_penalty=1.5</code>：<strong>Qwen 官方强调必须加</strong>，不然输出循环复读</li>
+<li><code>temperature=1.0</code>：别抄 GPT 的 0.7，Qwen 调教偏好高温</li>
+</ul>
+<hr>
+<h2>十、常见坑</h2>
+<ul>
+<li><strong>&quot;16GB Mac 也能跑&quot;</strong>：能跑 IQ1/IQ2，但智力掉到不如 Qwen3-7B。别自欺。</li>
+<li><strong>Ollama 默认 tag 是低量化</strong>：<code>ollama pull qwen3.6:35b-a3b</code> 会给你 Q2 或 Q3，质量打折。显式指定 <code>q4_K_M</code> / <code>q5_K_M</code>。</li>
+<li><strong>Windows 原生 Ollama 跑 MoE 慢如龟</strong>：见 <a href="https://github.com/ollama/ollama/issues/10458" target="_blank" rel="noopener">GitHub issue #10458</a>。走 LMStudio 或 WSL2。</li>
+<li><strong>量化卡着 VRAM 上限</strong>：22GB 文件 vs 24GB 卡，加上 KV cache 撑爆。主动降一档。</li>
+<li><strong>50 系早期驱动</strong>：Blackwell 刚上市时 CUDA 13.0 有坑，更新到 NVIDIA 572+ 驱动 + CUDA 13.1 解决。</li>
+<li><strong>忘了开思维模式</strong>：Ollama 在 Modelfile 里默认关，手动加 <code>/set parameter think true</code>。质量会上一个台阶。</li>
+<li><strong>忘了 presence_penalty</strong>：输出开始复读同一句话，就是这个原因。</li>
+<li><strong>温度调太低</strong>：Qwen 偏爱 <code>temperature=1.0, top_p=0.95, top_k=20</code>。</li>
+</ul>
+<hr>
+<h2>十一、一键决策：我该选哪个量化？</h2>
+<p>回答三个问题：</p>
+<p><strong>Q1. 你的机器可用内存（Mac 是总内存，Windows 是 VRAM + 系统 RAM 能给 LLM 的那部分）？</strong></p>
+<ul>
+<li>&lt; 16GB → 放弃跑 35B-A3B，换 Qwen3-8B</li>
+<li>16-20GB → UD-IQ3_S（13.7GB）</li>
+<li>20-24GB → UD-Q3_K_M（16.6GB）或 UD-Q3_K_XL（16.8GB）</li>
+<li>24-32GB → UD-Q4_K_M（22GB）⭐</li>
+<li>32-48GB → UD-Q5_K_M（26.5GB）⭐⭐</li>
+<li>48-64GB → UD-Q6_K（29.3GB）或保留给 context</li>
+<li>64GB+ → Q8_0（36.9GB）接近无损</li>
+<li>128GB+ → BF16（69.4GB）原生</li>
+</ul>
+<p><strong>Q2. 你主要用它干嘛？</strong></p>
+<ul>
+<li>闲聊 / 短问答 → 32K context，Q4_K_M 够用</li>
+<li>读长文档 / 代码 → 64K-128K context，至少要 48GB+ 机器</li>
+<li>重度代码辅助 → 选 Q5_K_M 起步，智力有感差异</li>
+</ul>
+<p><strong>Q3. 速度底线？</strong></p>
+<ul>
+<li><strong>&gt;70 tok/s</strong>：M5 Max 128GB、M4 Max 64GB（MLX）、RTX 5090</li>
+<li><strong>50-70 tok/s</strong>：M4 Max 64GB（llama.cpp）、M5 Pro 64GB、RTX 4090、RTX 5070 Ti、RTX 5080</li>
+<li><strong>20-50 tok/s</strong>：M2 Max 64GB、M3 Max 48GB、RTX 4080、RTX 5060 Ti/5070</li>
+<li><strong>&lt;20 tok/s</strong>：32GB Mac、RTX 4060/4070、RTX 5060</li>
+<li><strong>&lt;10 tok/s</strong>：16GB Mac、纯 CPU Windows（别买，体验差）</li>
+</ul>
+<hr>
+<h2>十二、参考资料</h2>
+<ul>
+<li><a href="https://huggingface.co/Qwen/Qwen3.6-35B-A3B" target="_blank" rel="noopener">HuggingFace · Qwen/Qwen3.6-35B-A3B</a>（官方模型卡）</li>
+<li><a href="https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF" target="_blank" rel="noopener">HuggingFace · unsloth Q 系列 GGUF</a>（推荐量化来源）</li>
+<li><a href="https://ollama.com/library/qwen3.6" target="_blank" rel="noopener">Ollama · Qwen3.6 model library</a></li>
+<li><a href="https://github.com/ml-explore/mlx-lm" target="_blank" rel="noopener">MLX · mlx-lm</a>（Mac 性能翻倍）</li>
+<li><a href="https://github.com/ggml-org/llama.cpp/discussions/4167" target="_blank" rel="noopener">llama.cpp · Apple Silicon 性能讨论</a></li>
+<li><a href="https://lmstudio.ai" target="_blank" rel="noopener">LMStudio · GUI 派首选</a></li>
+<li><a href="https://www.apple.com/newsroom/2026/03/apple-introduces-macbook-pro-with-all-new-m5-pro-and-m5-max/" target="_blank" rel="noopener">Apple · MacBook Pro M5 Pro/Max 发布</a></li>
+<li><a href="https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/" target="_blank" rel="noopener">NVIDIA · GeForce RTX 50 系</a></li>
+<li><a href="https://antekapetanovic.com/blog/qwen3.5-apple-silicon-benchmark/" target="_blank" rel="noopener">Ante Kapetanovic · Qwen3.5 Apple Silicon MLX benchmark</a></li>
+</ul>
+<hr>
+<p><em>Last updated: 2026-04-22</em></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

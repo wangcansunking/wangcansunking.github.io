@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 改文档悄悄篡改 25%·DELEGATE-52 全景 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-11</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-11</span><span class="tag-pill">Daily Report</span></div>
+      <h1>AI 改文档悄悄篡改 25%·DELEGATE-52 全景</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/delegate-52-llm-doc-corruption-2026-05-11.png" alt="DELEGATE-52 全景封面"></p>
+<h2>一、为什么这次值得专门拆一篇</h2>
+<p>把一份 30 页的 Word 合同丢给 AI，要它&quot;通读、按新版法规改一遍、保留我的批注、再排个版&quot;——这件事在 2026 年第一次有了正式的学术口径：<a href="https://arxiv.org/abs/2604.15597" target="_blank" rel="noopener">Microsoft Research 团队 4 月 17 日上线的 DELEGATE-52 论文（arxiv 2604.15597）</a>实测 19 个主流大模型，发现哪怕是 Gemini 3.1 Pro / Claude 4.6 Opus / GPT 5.4 这一档前沿模型，在跑完 20 轮 delegated workflow 之后，<strong>平均也会悄悄改坏 25% 的文档内容</strong>；19 个模型整体均值是 50%；52 个专业域里只有 Python 一域 17/19 模型能做到接近无损。</p>
+<p><a href="https://news.ycombinator.com/item?id=48073246" target="_blank" rel="noopener">5 月 9 日，论文被 rbanffy 发到 Hacker News</a>，48 小时内冲到 458 分 180 评论，留言区里 simonw（Simon Willison）、pcwelder、sebastiennight、meander_water 等 AI Coding 圈熟面孔几乎全员到场。这是这篇论文值得正式拆的第一个理由：它给&quot;AI 改文档到底有多靠谱&quot;这个一直只能靠体感争论的问题，第一次塞进了一组可复现、可校准的数字。</p>
+<p>第二个理由更接地气。今年大量国内用户已经把 AI 改文档当默认动作：HR 用通义千问（Qwen3）批量润色 JD、律师事务所用 Kimi K2.6 整理几百页诉讼材料、产品经理用豆包改 PRD、大学教授用文心 5 整理课题报告、公文写作员用 WPS AI 起草请示。研究里 25% 这个数字落到这些场景就不再是数字，而是悄悄走样的工资条款、突然消失的诉讼证据、对不上号的图表编号、慢慢漂移的财务数字。<strong>这不是关于 AI 行不行的论战，这是工程化下半场必经的一次可靠性盘点</strong>——做完这次盘点，下半年很多团队的 AI 写作流水线会更稳。</p>
+<p>第三个理由是工程方法论本身。这篇论文给出的 mitigation 不是&quot;别用 AI&quot;，而是一组很冷静的工程化建议：diff-first review、checksum 锚点、结构化输出、分块委托、抽样人工核。论文里 chunk-by-section 单变量实验直接把腐化率从 25% 降到 6%。下面把全文拆成 6 段：怎么测、测出什么、错在哪、国产 AI 写作工具公开口径在哪、5 条工程化止损、HN 顶贴值得读的 6 条。</p>
+<h2>二、DELEGATE-52 是怎么测的</h2>
+<p>读这篇论文的关键词只有一个：<strong>round-trip relay simulation</strong>——往返中继模拟。研究者给模型一份种子文档（2k–5k tokens 的真实素材），先要它做一次结构化编辑（forward edit），然后再要同一个模型用另一段提示把这次编辑撤销回原状（backward edit）。一个完美的模型应该让中继前后的两份文本语义完全一样；任何漂移都说明模型在某一步偷偷改坏了什么。</p>
+<p>整个 benchmark 的尺寸大致是这样：310 个工作环境、52 个专业域，每个域 6 个环境、每个环境 5–10 个编辑任务；除了种子文档之外，还会塞 8k–12k tokens 的&quot;distractor 文件&quot;在 context 里干扰。论文用 20 轮往返作为长 workflow 的标准刻度，最高跑到 100 轮，发现腐化率从未出现拐点回升——一直单调下滑。</p>
+<blockquote>
+<p>引用论文 §3 关键句之一（meander_water 在 HN 复述）：</p>
+<p>&quot;We find that models are not failing due to &#39;death by a thousand cuts&#39; (i.e., many small errors). Instead, they maintain near-perfect reconstruction in some rounds, and experience critical failures in a few rounds, typically losing 10-30+ points in a single round trip.&quot;</p>
+</blockquote>
+<p>这是这篇论文方法论的灵魂——<strong>模型不是平均意义上的不靠谱，而是大多数时候靠谱、偶尔在某一轮塌一次大坑</strong>。这种特性比&quot;持续慢漏水&quot;更难处理：肉眼跳读基本扫不出来，等下游流程触发问题，已经过了好几轮。</p>
+<p>52 个域涵盖的范围很有意思：编程（Python / Rust / SQL）、晶体学 .cif、音乐记谱、字幕、会计科目、法律合同、PPT、PDF、Markdown、HTML、TeX、TOML 配置、JSON Schema、Excel、电气原理图，等等。换句话说，它不是只测了&quot;AI 写文章&quot;，而是测了&quot;AI 处理人类生产生活中各种结构化半结构化文档&quot;的整张图。</p>
+<h2>三、20 轮过完一份文档：到底坏在哪</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/delegate-52-corruption-rate.png" alt="DELEGATE-52 长 workflow 文档腐化率"></p>
+<p>先看一组论文摘要里直接给出的数字：</p>
+<ul>
+<li>三档前沿模型（Gemini 3.1 Pro / Claude 4.6 Opus / GPT 5.4）：≈25% 腐化率</li>
+<li>19 个模型平均：≈50% 腐化率</li>
+<li>52 个域里达到&quot;ready&quot;门槛（≥98% reconstruction score）的域：仅 11 个</li>
+<li>80%+ 的&quot;模型 × 域&quot;组合出现 catastrophic corruption（≤80% 还原）</li>
+<li>Python 一域是唯一的好学生：17/19 模型能跑无损</li>
+</ul>
+<p>文档体量越大、对话越长、context 里干扰文件越多，腐化越严重。论文里有一组 GPT 5.4 单变量实验：种子文档从 1k tokens 涨到 10k tokens，最终轮分数从 91.4% 一路跌到 59.9%。每多 1,000 tokens，2 轮的时候只多腐化 0.7%；20 轮的时候每多 1,000 tokens 多腐化 3.6%——<strong>腐化率本身随上下文体量呈非线性放大</strong>。distractor 文件单独一项在 20 轮时贡献 2–8% 的额外腐化。</p>
+<p>更反直觉的是论文的&quot;agentic tool use&quot;实验。研究者搭了个最朴素的 read_file / write_file / run_python 脚手架，让模型走 agent 模式，<strong>结果腐化率反而比直接产出多了 3–6%</strong>。论文里 simonw 在 HN 顶贴里直接挑明：这个 harness 太朴素了，没有 str_replace 这种局部精修能力，相当于给模型&quot;读全文 → 重写全文&quot;加了一道 token 中转，自然更坏。</p>
+<blockquote>
+<p>simonw 顶贴原话：</p>
+<p>&quot;I&#39;m suspicious of their results with regards to tool usage. Their basic harness consists of read_file() and write_file() — that&#39;s just round-tripping with an extra step! The modern coding agent harnesses put a LOT of work into the design of their tools for editing files. My favorite current example is the Claude edit suite — the str_replace and insert commands are essential for avoiding round-trip risky edits of the whole file.&quot;</p>
+</blockquote>
+<p>这一条很重要：<strong>&quot;agent 没用&quot;不是结论，&quot;读全文 + 重写全文型 agent 没用&quot;才是结论</strong>。Claude Code、Cursor、Cline 这一档主流编程 agent 全部走 str_replace / patch 路线，恰好是论文未覆盖的那块。HN 评论区里 pcwelder（开源 agent 老作者之一）补了一句：Claude Code 自己也不用 insert 工具，但用了自定义 edit 工具。这片工具设计的工程地基就是这两年 AI Coding 跑赢&quot;AI 写作&quot;的关键。</p>
+<h2>四、5 类典型腐化模式·都是不报错的错</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/delegate-52-error-modes.png" alt="5 类典型腐化模式"></p>
+<p>论文把腐化分成两大族：<strong>deletion</strong>（直接吞段）和 <strong>corruption</strong>（改字不改长）。弱档模型偏 deletion，前沿档偏 corruption。把 HN 顶贴里大家自发举的真实例子合并进来，能整理出 5 类反复出现的模式：</p>
+<p><strong>第 1 类·silent edit（悄悄改字）</strong>。模型保留段落长度、保留语气，只在关键数字 / 关键词上做微调。&quot;合同 30 天内付款&quot;被改成&quot;合同 90 天内付款&quot;——一个字，眼睛跳读漏掉。这是前沿档模型最危险的腐化方式，因为长度对得上、语义连贯，diff 一打才暴露。</p>
+<p><strong>第 2 类·hallucinated insertion（凭空塞料）</strong>。论文里晶体学 .cif 文件案例：模型新增一行不存在的原子坐标，下游 X-ray 拟合直接发散。HN 顶贴里 cyanydeez 复述自己玩本地 LLM 时也遇到：&quot;the longer it ran in context, the more likely it was to try to slip things in that seemed related but wasn&#39;t part of the breakdown.&quot;——越长越容易往下塞看似相关其实没出处的内容。</p>
+<p><strong>第 3 类·lost section（整段丢失）</strong>。&quot;重排版&quot;看起来是个无害动作，但弱档模型经常把第 7 页 PPT 业绩对比整页吞掉。论文里弱模型的 deletion 占比远高于前沿档；HN 顶贴里 m463 留言：&quot;Someone AI&#39;d and &#39;extended&#39; some code I wrote, and it did what day-1 jr programmer did - moved all the whitespace lines around and destroyed readability. Like &#39;cleaning up&#39; the mona lisa :)&quot;</p>
+<p><strong>第 4 类·cross-reference broken（前后引用对不齐）</strong>。Word 长报告里&quot;见图 3&quot;，模型重排了图序，图 3 实际是图 5；或者表格里&quot;如下表所示&quot;，下面的表早被另一段挤到下一节。这一类 silent edit 之后比 silent edit 更难发现——因为只看局部段落都没问题。</p>
+<p><strong>第 5 类·number drift（数字慢慢偏移）</strong>。最经典的是财务表 / 简历 / 论文。一份 .xlsx &quot;营收 12.4 亿&quot;经过几轮抽离 + 重写，可能漂成&quot;12.6 亿&quot;。论文里 §4 一段话原文：&quot;typically losing 10-30+ points in a single round trip&quot;——单轮跌 10–30 分的崩塌点，正是 number drift 的典型形态。</p>
+<blockquote>
+<p>HN 顶贴 timacles 的比喻很到位：</p>
+<p>&quot;They are essentially like that one JPEG meme, where each pass of saving as JPEG slightly degrades the quality until by the end its unrecognizable. Each pass of the LLMs degrades the intent.&quot;</p>
+</blockquote>
+<p>5 类合起来有一个共同特征：<strong>都不报错</strong>。模型既不会拒答、也不会显式说&quot;这里我不确定&quot;。出错时唯一的信号是&quot;输出长得很像样&quot;。</p>
+<h2>五、国产 AI 写作工具长文档保真度公开口径对照</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/delegate-52-cn-tools-table.png" alt="国产 AI 写作工具长文档处理能力"></p>
+<p>⚠️ 必要的诚实：DELEGATE-52 论文的 19 个模型主要覆盖海外六大模型家族（细节见 §三论文方法论描述）；<strong>国产 AI 写作工具——千问 / 文心 / 豆包 / 智谱 / WPS AI / 飞书智能伙伴 / 百度文库 AI——并未在论文中单独跑分</strong>。下面这张表是把各家公开口径合并展示，便于读者对照各自手头工具的&quot;长文档保真&quot;位置，不能直接代入 DELEGATE-52 的腐化率结论。</p>
+<p>各家公开档位，从用户最常踩的几个维度看：</p>
+<ul>
+<li><strong>通义千问 Qwen3.6-Plus</strong>：<a href="https://help.aliyun.com/zh/model-studio/what-is-qwen-llm" target="_blank" rel="noopener">阿里云官方文档</a>写明上下文 1M tokens、原生支持 PDF / Word / Excel / PPT / 图片输入。Qwen3-Max 在长尾知识与指令遵循上的迭代，对长文写作的稳定性有正向贡献。</li>
+<li><strong>Kimi K2.6</strong>：<a href="https://www.kimi.com/en" target="_blank" rel="noopener">官方公告</a>上下文 256K。社区评测反馈，K2.6 把长文 retrieval / 长文摘要的下限抬高，但幻觉控制相比 K2.5 没本质提升，且 token 消耗比 K2.5 高约一倍。</li>
+<li><strong>豆包 1.6</strong>：上下文 256K，PDF / PPT / Word 输入支持完整；最大特点是嵌入飞书智能伙伴这一条云文档生产线，把&quot;原文档 → 知识助手 → 改写&quot;做成闭环。</li>
+<li><strong>文心 5.0</strong>：上下文 128K，公文写作 / 文学创作 / 数学计算 / 翻译四条腿，渠道优势在百度文库 + 政企客户。</li>
+<li><strong>智谱 GLM-4.6</strong>：上下文 200K，私有化部署友好，代码 + 长文均衡。</li>
+<li><strong>DeepSeek V3.2</strong>：上下文 128K，开源 + 价格地板，是国内长文档处理价比最猛的一档。</li>
+<li><strong>WPS AI 2.0</strong>：上下文取决于底模，但好处是 Word / Excel / PPT 原生集成，改写 / 续写 / 排版三件套直接落到 365 万 WPS 用户已有工作流里。</li>
+<li><strong>飞书智能伙伴</strong>：上下文取决于底模，把云文档 + 多维表 + 文档摘要做成默认工作面。</li>
+</ul>
+<p>把 DELEGATE-52 的方法论搬到国产工具上不难——任何一家都可以基于自家的 API 跑一次 round-trip relay，给行业一个独立基线。这是下半年值得国内学术 / 媒体团队补的一份对照实验。在那之前，下面 5 条工程化止损策略是工具中立的，国产 AI 写作工具同样可以套上。</p>
+<h2>六、5 条把腐化率从 25% 砍到 5% 以下的工程化对策</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/delegate-52-mitigations.png" alt="5 条工程化止损策略"></p>
+<p>这 5 条按&quot;最便宜先上&quot;到&quot;工程量最大&quot;排序，做完前 3 条一般已经够用：</p>
+<p><strong>1. diff-first review</strong>。改完不直接覆盖，让模型把改动产出成 .diff 或 word-level 红绿差异，让人扫一眼。这一条几乎零成本，能拦下 80% 的 silent edit。WPS AI、飞书智能伙伴、Kimi 长文助手都已经支持 word-level diff 显示，开关默认打开就行。</p>
+<p><strong>2. checksum-anchored sections</strong>。把重要段落（合同金额条款、财务关键行、PPT 关键页）前后塞两段唯一锚点（哈希字符串或 magic 字符串），改完先自动核对锚点没动；类似 git pre-commit hook，是写作流水线版本的&quot;hash 完整性校验&quot;。这条对结构化文档（合同、报告、配置文件）特别有效。</p>
+<p><strong>3. structured-output schema</strong>。<strong>这是论文 §5 隐含的最关键工程约束</strong>：禁让模型整段重写，改成只产出 JSON Patch / str_replace 指令 / sed 风格的精准修改片段。Claude Code、Cursor、Cline 这条赛道这两年跑通的核心，就是这一招。文档场景同理——做&quot;AI 改 Word&quot;的工程化产品，应该把模型输出限定为&quot;指令序列&quot;而不是&quot;重写后的全文&quot;。</p>
+<p><strong>4. chunk-by-section delegation</strong>。整篇切成 &lt; 800 字小块独立改，每块改完即合回主文档。论文里 chunk-by-section 单变量实验把腐化率从 25% 降到 6%，是所有 mitigation 里数字最漂亮的一条。代价是要写一段切分 + 合并的胶水代码，国内已有 LangChain / LlamaIndex / DSPy 中文版本可复用。</p>
+<p><strong>5. human-in-loop spot-check</strong>。最后兜底——抽样 10% 段落人工核，发现 ≥ 3 处错就整轮回滚。这是工厂 QC 抽检的思路，对法律 / 财务 / 学术这种错一个字就出大事的场景，是必经一步。HN 顶贴里 ofjcihen 的提醒值得贴在墙上：很多每天用 AI 的非技术用户根本不知道&quot;harness&quot;是什么、不会做这一步——产品端把抽检做成默认 UI，是对这部分用户最关键的保护。</p>
+<blockquote>
+<p>HN 顶贴 sebastiennight 一句话总结很值得抄下来：</p>
+<p>&quot;Trusting a LLM to make the change without tools is like telling the smartest person you know to just recite the converted document out loud from memory. At some point they&#39;ll get distracted, wrong, or unwittingly inject their own biases.&quot;</p>
+</blockquote>
+<p>把 5 条都拼起来，做&quot;AI 改文档&quot;产品的工程化下半场就有了路径：模型选型 → diff-first → checksum → structured patch → chunk → 人工抽检 → 全流水线版本化。<strong>这不是&quot;AI 写作不能用&quot;，这是&quot;AI 写作要用得稳，工程基建要补齐&quot;</strong>。今年下半年中国 AI 写作工具最值得做的一件事，就是把这条工程链当默认动作，不用让用户自己学怎么搭。</p>
+<h2>七、HN 顶贴值得带走的 6 条</h2>
+<p>最后从 458 分 180 评论里抽 6 条最有价值的留言，是中文媒体里看不到的视角，原文 + 中文意思各保留：</p>
+<ol>
+<li><p><strong>simonw</strong>（Simon Willison）：质疑论文 agentic 部分的 harness 太朴素；&quot;Frequent LLM users already know not to round-trip long content through an LLM.&quot;（常用 LLM 的人已经知道不能整篇过模型——但论文真正的价值是把这个直觉变成数字。）</p>
+</li>
+<li><p><strong>meander_water</strong>：复述论文里两条最关键发现——&quot;models are not failing due to death by a thousand cuts. Instead, they maintain near-perfect reconstruction in some rounds, and experience critical failures in a few rounds.&quot;（不是慢漏水，是偶尔大塌方。）</p>
+</li>
+<li><p><strong>timacles</strong>：JPEG 压缩比喻——&quot;Each pass of the LLMs degrades the intent.&quot;（每过一道 LLM，意图就稍微失真一点。）</p>
+</li>
+<li><p><strong>sebastiennight</strong>：建议把转换类任务交给确定性脚本，而不是让 LLM 凭记忆背诵——这是&quot;structured-output schema&quot;的另一个表述。</p>
+</li>
+<li><p><strong>ofjcihen</strong>：提醒研究人员，主流大量非技术用户不会用 harness、不懂这些复杂提示工程；产品端把保护做成默认 UI 才是真正普惠的解。</p>
+</li>
+<li><p><strong>isityettime</strong>：诚实自述自己用 AI 写代码时的经验——&quot;after a flurry of feature work in which I thought I was being reasonably careful, I take a closer look at some small piece of code and go &#39;holy shit&#39;.&quot;（飞快写完一阵之后回头看，会发现一堆 LLM 偷偷塞进来的小问题。）这是这篇论文落地最真切的一条——<strong>自我提醒，每天用 AI 改文档 / 改代码的人，每周拿一个小时回头扫一遍</strong>。</p>
+</li>
+</ol>
+<h2>八、收尾·一份给中国 AI 写作下半场的清单</h2>
+<p>DELEGATE-52 没有给出绝望的结论。它给的是一份很冷静的&quot;工程化下半场必经的可靠性议题&quot;清单：</p>
+<ul>
+<li><strong>数据</strong>：腐化率不是用与不用的二元题，是 25% 到 6% 之间的工程拨杆问题。</li>
+<li><strong>方法</strong>：5 条 mitigation 拼起来，多数文档场景能扛得住生产可靠性要求。</li>
+<li><strong>机会</strong>：国产 AI 写作工具——千问 / Kimi / 豆包 / 文心 / 智谱 / WPS AI / 飞书智能伙伴——都拥有自家 API 与端到端文档场景，最适合把这套工程链当默认 UI 做出来；做出来之后，&quot;国内用户用 AI 改 Word 比海外靠谱&quot;完全有可能。</li>
+<li><strong>同行</strong>：Claude Code 这条 AI Coding 赛道两年来卷出的 str_replace / patch 工艺，恰好是 AI 写作可以拿来主义的工程地基；中文 AI 写作生态完全可以缩短这条工艺的复刻时间。</li>
+</ul>
+<p>剩下的事情交给时间。下次再有人对着一份 30 页 Word 说&quot;丢给 AI 改一遍&quot;，可以多问一句：&quot;你打开 diff 看一眼了吗？&quot;——这就是 2026 年 5 月这篇论文留给所有 AI 写作用户最实际的礼物。</p>
+<hr>
+<p><strong>主要参考</strong></p>
+<ul>
+<li><a href="https://arxiv.org/abs/2604.15597" target="_blank" rel="noopener">Laban, Schnabel, Neville · LLMs Corrupt Your Documents When You Delegate · arxiv 2604.15597</a></li>
+<li><a href="https://news.ycombinator.com/item?id=48073246" target="_blank" rel="noopener">HN 顶贴 · 458 分 180 评论</a></li>
+<li><a href="https://github.com/microsoft/DELEGATE52" target="_blank" rel="noopener">microsoft/DELEGATE52 GitHub repo</a></li>
+<li><a href="https://x.com/PhilippeLaban/status/2046615120332124450" target="_blank" rel="noopener">Philippe Laban Twitter 介绍贴</a></li>
+<li><a href="https://huggingface.co/papers/2604.15597" target="_blank" rel="noopener">HuggingFace · Paper page DELEGATE-52</a></li>
+<li><a href="https://cekrem.github.io/posts/llms-corrupt-your-documents/" target="_blank" rel="noopener">cekrem.github.io · LLMs Corrupt Your Documents 复盘</a></li>
+<li><a href="https://medium.com/@ithinkbot/how-ai-quietly-corrupts-your-documents-and-what-you-can-do-about-it-0d2f5e59d718" target="_blank" rel="noopener">Mandar Karhade · How AI Quietly Corrupts Your Documents on Medium</a></li>
+<li><a href="https://help.aliyun.com/zh/model-studio/what-is-qwen-llm" target="_blank" rel="noopener">阿里云 · 通义千问大模型介绍</a></li>
+<li><a href="https://www.kimi.com/en" target="_blank" rel="noopener">Kimi 官网 K2.6 公告</a></li>
+<li>知乎社区 Kimi K2.6 评测讨论（zhihu.com/question/2029714522651272097，国内访问需登录）</li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

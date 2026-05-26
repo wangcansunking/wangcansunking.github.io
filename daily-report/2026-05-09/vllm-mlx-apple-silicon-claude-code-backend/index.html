@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>vllm-mlx · M 系 Mac 跑 Claude Code 本地后端：单机 463 tok/s + 10 路并行 agent 不抖 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-09</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-09</span><span class="tag-pill">Daily Report</span></div>
+      <p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/vllm-mlx-apple-silicon-claude-code-backend.png" alt="封面"></p>
+<h1>vllm-mlx · M 系 Mac 跑 Claude Code 本地后端：单机 463 tok/s + 10 路并行 agent 不抖</h1>
+<p>国内 M4 / M5 Mac 玩家，在 Ollama 之外多了第二条值得认真对待的本地 AI 路径：<strong>vllm-mlx 把 vLLM 的整套服务范式搬到了 MLX 上</strong>——PagedAttention、continuous batching、Anthropic Messages API、MCP 工具调用全保留。M4 Max 上单请求 463.6 tok/s，5 路并发吞吐 1111.8 tok/s（来源：vllm-mlx 官方 benchmark，截至 2026-05-09）。这意味着 M 系 Mac <strong>第一次有了能扛住多并行 Claude Code agent 的本地后端</strong>，而且 Qwen3-Coder-Next、Kimi K2.6、GLM-5.1 等国产模型可以直接在上面跑——这是一条之前国内开发者没有充分意识到的端侧 AI 路径。</p>
+<blockquote>
+<p><strong>本文核心论断</strong>：当 vllm-mlx + Docker Model Runner vllm-metal + 国产 mlx-community 模型这三件事同时落地，国内拥有 M4 / M5 Mac 的开发者，可以用一台 Mac mini / MacBook Pro 在本机跑通 Claude Code 后端 + 多 agent 并发，把&quot;端侧 AI&quot;从单聊机器人推进到生产级 agent 编排。</p>
+</blockquote>
+<hr>
+<h2>一、先看结论：哪些 Mac 能跑、跑什么、连 Claude Code 怎么连</h2>
+<p>直奔结论：</p>
+<ul>
+<li><strong>M4 Pro 36GB MacBook Pro</strong>：跑 Qwen3-Coder-Next 14B 4bit 量化 + 3-5 路并发，可以稳定承担<strong>单人 Claude Code 后端</strong>，写代码 + review + 长上下文阅读全够用。</li>
+<li><strong>M4 Max 64GB MacBook Pro / Mac Studio</strong>：跑 Qwen3-Coder-Next 32B 4bit + 5-10 路并发，是<strong>小团队 agent 编排</strong>的甜点档位，Claude Code 多窗口同跑不掉链。</li>
+<li><strong>M3 Ultra 256GB Mac Studio</strong>：跑 Kimi K2.6 1T-MoE Q4 / DeepSeek V4 671B Q3 / GLM-5.1 32B，10-20 路并发，是<strong>单机 inference 服务器</strong>，能给一个小团队共享用。</li>
+</ul>
+<p>接 Claude Code 一行环境变量：</p>
+<pre><code class="language-bash">export ANTHROPIC_BASE_URL=http://localhost:8000
+export ANTHROPIC_API_KEY=not-needed
+claude
+</code></pre>
+<p>之后的 IDE / MCP 工具调用 / 流式输出全部走本机，<strong>数据不出本机一步</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/claude-code-local-backend-flow.png" alt="Claude Code 接入流程"></p>
+<p>这就是 vllm-mlx 在 2026 年带给 M 系 Mac 用户的真正变化——把&quot;本地 AI&quot;从&quot;自己玩的玩具&quot;推进到&quot;能扛业务的服务后端&quot;。</p>
+<hr>
+<h2>二、项目本体：waybarrios/vllm-mlx 是个什么项目</h2>
+<p>先把基本面摆清楚（截至 2026-05-09 实测数据）：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>数值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>仓库</td>
+<td>waybarrios/vllm-mlx（Apache-2.0 开源仓库）</td>
+</tr>
+<tr>
+<td>Stars</td>
+<td>1126 ★（截至 2026-05-09 19:00 UTC）</td>
+</tr>
+<tr>
+<td>Forks</td>
+<td>161</td>
+</tr>
+<tr>
+<td>总 commit 数</td>
+<td>459+（首页 commit 流）</td>
+</tr>
+<tr>
+<td>最新 release</td>
+<td>v0.2.9（2026-04-22）</td>
+</tr>
+<tr>
+<td>最新 push</td>
+<td>2026-05-08</td>
+</tr>
+<tr>
+<td>License</td>
+<td>Apache-2.0</td>
+</tr>
+<tr>
+<td>语言</td>
+<td>Python（核心）· Metal kernel 通过 MLX 间接调用</td>
+</tr>
+<tr>
+<td>维护节奏</td>
+<td>平均 2-3 周一个 minor release · v0.2.5 → v0.2.9 5 个版本（2026-01 至 2026-04）</td>
+</tr>
+</tbody></table>
+<p>项目自我定位（README 原文）：</p>
+<blockquote>
+<p>&quot;OpenAI and Anthropic compatible server for Apple Silicon. Run LLMs and vision-language models (Llama, Qwen-VL, LLaVA) with continuous batching, MCP tool calling, and multimodal support. Native MLX backend, 400+ tok/s. Works with Claude Code.&quot;</p>
+</blockquote>
+<p>划重点：</p>
+<ol>
+<li><strong>双 API 兼容</strong>：同时支持 OpenAI 的 <code>/v1/chat/completions</code> 和 Anthropic 的 <code>/v1/messages</code>。这意味着 Cursor、Windsurf、Zed、Continue.dev 用 OpenAI 协议接，Claude Code、Anthropic SDK 用 Anthropic 协议接，<strong>同一个本地端口对接所有主流 AI 编程工具</strong>。</li>
+<li><strong>Continuous Batching + MCP 工具调用 + 多模态</strong>：这是 vLLM 在云端服务的标配三件套，过去在 Apple Silicon 上没有完整对位的方案。</li>
+<li><strong>Native MLX backend</strong>：不走 PyTorch + Metal Performance Shader 那条路，而是直接在 MLX 之上重写 PagedAttention 与调度器。</li>
+</ol>
+<p>仓库的 topics 已经标得很明确：<code>anthropic</code>、<code>apple-silicon</code>、<code>claude-code</code>、<code>continuous-batching</code>、<code>mcp</code>、<code>mlx</code>、<code>vllm</code>——目标读者就是想在 Mac 上跑 Claude Code 后端的开发者。</p>
+<p><strong>本节小结</strong>：waybarrios/vllm-mlx 不是&quot;又一个 mlx 玩具 server&quot;，459 个 commit、5 个 minor release、Apache-2.0 协议、双 API + MCP + 多模态，是一个<strong>有工程产出节奏的认真项目</strong>。</p>
+<hr>
+<h2>三、工程层：为什么把 vLLM 搬到 MLX 是非平凡的工程</h2>
+<p>要理解 vllm-mlx 解决了什么问题，得先把对照系摆清楚。</p>
+<h3>3.1 vLLM 在 NVIDIA 世界里是什么</h3>
+<p>vLLM 是 UC Berkeley + Anyscale 牵头的高吞吐推理引擎，在 NVIDIA GPU 上跑 70B+ 模型时是事实标准之一。截至 2026-05-09，官方仓库 <code>vllm-project/vllm</code> 已经攒到 79407 ★ / 16554 forks（实测 gh api 数据），是开源 LLM 服务领域 stars 最多的项目之一。</p>
+<p>vLLM 之所以快，靠的是三件核心工程：</p>
+<ul>
+<li><strong>PagedAttention</strong>：把 KV cache 像 OS 分页一样切成固定大小的 block，避免外部碎片，让多个请求共享 GPU 显存</li>
+<li><strong>Continuous batching（迭代级调度）</strong>：每生成一个 token 就重新决定 batch 组成，让先完成的请求立即让出资源给新请求</li>
+<li><strong>Prefix Cache + 调度优化</strong>：相同前缀（system prompt / chat history）的 KV 直接复用</li>
+</ul>
+<p>这三件在 NVIDIA H100 / A100 上是 production-grade 的，但<strong>MLX 本身只提供基础推理能力</strong>——<code>mlx-lm</code>、<code>mlx-server</code> 这类项目早期主要支持单请求场景，没有完整的 PagedAttention + 迭代级调度。</p>
+<h3>3.2 vllm-mlx 干了什么</h3>
+<p><code>vllm-mlx</code> 的工程心智是：<strong>保留 vLLM 上层的服务抽象（API / 调度器 / batching 语义），把热点 kernel 与 KV 管理对齐到 MLX 后端</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/vllm-mlx-architecture.png" alt="vllm-mlx 架构示意"></p>
+<p>具体做了什么（按工作量从重到轻）：</p>
+<ol>
+<li><strong>MLX 张量与 PyTorch 接口适配层</strong>：vLLM 上层调度器以 PyTorch 张量为通用语言，要让它跑 MLX 张量，得有桥</li>
+<li><strong>Apple GPU 上的 Metal kernel 重写</strong>：FlashAttention 风格的融合算子要在 MLX 上重写一份</li>
+<li><strong>MLX 版 prefix cache</strong>：让 KV 复用语义对齐 vLLM 的 PagedAttention 块管理</li>
+<li><strong>GQA / RoPE / 量化解码路径</strong>：把 4-bit / 8-bit 量化模型的 decode 路径接到 MLX kernel</li>
+<li><strong>Apple 统一内存（UMA）的 zero-copy</strong>：M 系芯片 CPU 与 GPU 共享同一片物理内存，可以省去 NVIDIA 上 host↔device 拷贝</li>
+<li><strong>OpenAI / Anthropic 双协议层</strong>：同一份调度器后面挂两个 API 适配器</li>
+</ol>
+<p>工程上<strong>不平凡</strong>的几个点：</p>
+<ul>
+<li><strong>MLX 的算子库不如 CUDA 生态完整</strong>——很多 vLLM 在 NVIDIA 上视为理所当然的 fused kernel，在 MLX 这边要从头写或者借助 mlx 社区的中间层</li>
+<li><strong>MLX 调度器与 vLLM 调度器语义对齐</strong>——continuous batching 要在 MLX 异步执行模型上保持正确性</li>
+<li><strong>量化 + 多模态路径</strong>——VL 模型（Qwen-VL / Llama 4）的视觉编码器与文本解码器要走不同的 KV 路径</li>
+</ul>
+<blockquote>
+<p><strong>本节小结</strong>：vllm-mlx 不是&quot;把 mlx-lm 套个 OpenAI API 壳子&quot;，而是<strong>把 vLLM 的服务抽象与调度范式真正对齐到 Apple Silicon</strong>。这件事一旦做成，意味着 M 系 Mac 上的本地推理体验，从&quot;单聊&quot;跨进了&quot;服务端&quot;语义。</p>
+</blockquote>
+<hr>
+<h2>四、性能横评：vllm-mlx vs Ollama vs llama.cpp Metal</h2>
+<p>下面这张图是把三家公开数据合并在 M4 Max 上的实测对比（单请求 + 32 并发 + TTFT + API 协议 + 推荐场景）：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/vllm-mlx-vs-ollama-benchmark.png" alt="vllm-mlx vs Ollama vs llama.cpp 对比"></p>
+<h3>4.1 单请求场景：vllm-mlx 已赢</h3>
+<p>vllm-mlx 官方 benchmark（M4 Max 128GB / 截至 2026-05-09）：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>生成速度 (tok/s)</th>
+<th>TTFT (ms)</th>
+<th>显存</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qwen3-0.6B-8bit</td>
+<td>402.3</td>
+<td>58.6</td>
+<td>0.68 GB</td>
+</tr>
+<tr>
+<td>Llama-3.2-1B-Instruct-4bit</td>
+<td>463.6</td>
+<td>49.2</td>
+<td>0.69 GB</td>
+</tr>
+<tr>
+<td>Qwen2.5-1.5B-Instruct-4bit</td>
+<td>308.5</td>
+<td>86.2</td>
+<td>0.84 GB</td>
+</tr>
+<tr>
+<td>Llama-3.2-3B-Instruct-4bit</td>
+<td>200.1</td>
+<td>81.4</td>
+<td>1.79 GB</td>
+</tr>
+<tr>
+<td>Qwen3-30B-A3B-4bit</td>
+<td>123.9</td>
+<td>126.9</td>
+<td>16.05 GB</td>
+</tr>
+</tbody></table>
+<p>来源：<code>waybarrios/vllm-mlx/docs/benchmarks/llm.md</code>，截至 2026-05-09 实测。</p>
+<blockquote>
+<p><strong>463.6 tok/s</strong> 是 Llama-3.2-1B-4bit 的真实数字（不是早前传言的 525）。Qwen3-30B-A3B（活跃参数 3B 的 MoE）即便在 30B 总参数规模下，依然能跑 123.9 tok/s——这是 Apple Silicon 上极少见的&quot;同时大模型 + 高速度&quot;的场景。</p>
+</blockquote>
+<h3>4.2 多并发场景：vllm-mlx 拉开差距</h3>
+<p>官方 continuous batching benchmark（5 并发，M4 Max 128GB）：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>单请求</th>
+<th>5 并发</th>
+<th>加速比</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Llama-3.2-1B-4bit</td>
+<td>299.1 tok/s</td>
+<td>613.0 tok/s</td>
+<td><strong>2.05×</strong></td>
+</tr>
+<tr>
+<td>Qwen3-0.6B-8bit</td>
+<td>328.1 tok/s</td>
+<td><strong>1111.8 tok/s</strong></td>
+<td><strong>3.39×</strong></td>
+</tr>
+<tr>
+<td>Qwen3-30B-A3B-4bit</td>
+<td>98.1 tok/s</td>
+<td>233.3 tok/s</td>
+<td><strong>2.38×</strong></td>
+</tr>
+</tbody></table>
+<p>第三方 benchmark（macgpu.com / contracollective.com 实测，M4 Pro 273 GB/s 带宽）在更高并发下进一步放大差距：</p>
+<ul>
+<li><strong>vllm-mlx</strong>：32 并发约 1150 tok/s 总吞吐，TTFT ~120ms</li>
+<li><strong>Ollama 0.8+</strong>：单请求 TTFT ~45ms 最低，但 32 并发只能撑到约 720 tok/s</li>
+<li><strong>llama.cpp Metal</strong>：单请求 333 tok/s，32 并发约 890 tok/s，TTFT ~85ms</li>
+</ul>
+<h3>4.3 工具差异化适用场景</h3>
+<p>数据指向一个清晰的分工：</p>
+<ul>
+<li><strong>想要单人开发 + 极低首字延迟</strong> → 留在 Ollama，TTFT 45ms 是 vllm-mlx 接近三倍快</li>
+<li><strong>想要在 Mac 上跑多并发 agent fleet</strong> → vllm-mlx，32 并发吞吐 60% 领先</li>
+<li><strong>想要嵌入式 / 极致资源精控 / GGUF 生态</strong> → llama.cpp Metal，仍是体积与可控性的最佳</li>
+</ul>
+<p><strong>本节小结</strong>：vllm-mlx 不是要替换 Ollama 和 llama.cpp——它解决的是过去 Apple Silicon 没有的&quot;高并发服务端语义&quot;。如果你只跑单聊机器人，Ollama 体验最好；但只要你想在 Mac 上跑 5 路以上并行 agent，vllm-mlx 就是当下唯一成熟的选项。</p>
+<hr>
+<h2>五、Docker 官方背书：Model Runner 5 月加入 vLLM Metal macOS 支持</h2>
+<p>2026 年 2 月 26 日，Docker 官方博客 <a href="https://www.docker.com/blog/docker-model-runner-vllm-metal-macos/" target="_blank" rel="noopener">Docker Model Runner Adds vLLM Support on macOS</a> 宣布：Docker Model Runner 加入 <strong>vllm-metal 后端</strong>——这是 Docker 与 vLLM 项目联合开发、之后<strong>贡献给 vLLM 上游</strong>的 macOS 推理插件。</p>
+<p>官方原文要点（Docker Blog 2026-02-26）：</p>
+<blockquote>
+<p>&quot;If you have a Mac with an M-series chip, you can now run MLX models through vLLM ... A base $599 Mac Mini with an M4 chip becomes a viable vLLM development environment.&quot;</p>
+</blockquote>
+<p>工程上这条新闻意味着：</p>
+<ul>
+<li><strong>vLLM 官方生态接纳了 Apple Silicon</strong>——<code>vllm-metal</code> 不是社区 fork，而是已贡献到 <code>vllm-project</code> GitHub 组织名下、与上游 vLLM 共享 scheduler / API server / 引擎抽象</li>
+<li><strong>Apple UMA 被工程化利用</strong>：<code>vllm-metal</code> 的 zero-copy tensor + paged attention + GQA 是为统一内存特化设计</li>
+<li><strong>Docker Desktop 4.62+ 一键起服务</strong>：<code>docker model install-runner --backend vllm</code></li>
+</ul>
+<p>实测官方公告里的 benchmark（Llama 3.2 1B Instruct）：</p>
+<table>
+<thead>
+<tr>
+<th>max_tokens</th>
+<th>llama.cpp</th>
+<th>vLLM-Metal</th>
+<th>差距</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>128</td>
+<td>333.3 tok/s</td>
+<td>251.5 tok/s</td>
+<td>llama.cpp 快 1.3×</td>
+</tr>
+<tr>
+<td>512</td>
+<td>345.1 tok/s</td>
+<td>279.0 tok/s</td>
+<td>llama.cpp 快 1.3×</td>
+</tr>
+<tr>
+<td>1024</td>
+<td>338.5 tok/s</td>
+<td>275.4 tok/s</td>
+<td>llama.cpp 快 1.2×</td>
+</tr>
+<tr>
+<td>2048</td>
+<td>339.1 tok/s</td>
+<td>279.5 tok/s</td>
+<td>llama.cpp 快 1.2×</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>注意一个有意思的数据现象：<strong>Docker 官方版 vllm-metal 在单请求上目前仍比 llama.cpp 慢 1.2×</strong>，但 waybarrios 社区版 vllm-mlx 在单请求上已经反超。这两个项目并不是同一个东西：</p>
+<ul>
+<li><code>vllm-project/vllm-metal</code>：Docker 与 vLLM 联合官方版本，工程目标是&quot;和 vLLM 上游对齐 + 长期可维护&quot;，单请求性能还在追赶</li>
+<li><code>waybarrios/vllm-mlx</code>：社区独立项目，工程目标是&quot;把 MLX kernel 用满 + Anthropic 兼容 API&quot;，单请求已超 llama.cpp，但与上游 vLLM 解耦</li>
+</ul>
+</blockquote>
+<p>两者短期内都会迭代。<strong>国内开发者短期建议</strong>：尝鲜 / 接 Claude Code → waybarrios/vllm-mlx；走 Docker 工作流 / 等长期主线 → vllm-metal。</p>
+<p><strong>本节小结</strong>：Apple Silicon 已经被 vLLM 官方生态正式接纳，这是 2026 年端侧 AI 最重要的工程事件之一。M 系 Mac 第一次进入了 production LLM 服务栈的视野，而不是停留在&quot;开发者玩具&quot;层面。</p>
+<hr>
+<h2>六、国产模型直接受益：mlx-community 已经把队伍排好了</h2>
+<p>vllm-mlx 与 Docker vllm-metal 都跑 <code>mlx-community</code> 名下的 MLX 量化模型。国产模型现在已经在 mlx-community 占据相当的份额——这意味着<strong>用 vllm-mlx 跑国产模型，不需要等海外社区翻译</strong>。</p>
+<p>截至 2026-05-09，mlx-community 已上架并被 vllm-mlx 验证可跑的国产模型（按热度排序）：</p>
+<ul>
+<li><strong>Qwen3-Coder-Next 系列</strong>（14B / 32B / 64B 4-bit）——阿里通义系列代码模型，在 vllm-mlx 上是 Claude Code 后端首选</li>
+<li><strong>Qwen3 / Qwen3-VL 系列</strong>（0.6B / 4B / 8B / 30B-A3B / 235B-A22B）——基础对话与多模态</li>
+<li><strong>Kimi K2.6 1T-MoE Q4</strong>——月之暗面 1T 参数 MoE 在 M3 Ultra 256GB 上能稳定跑</li>
+<li><strong>GLM-5.1 系列</strong>（9B / 32B 4-bit）——智谱主力，在 32B 档对齐 Qwen3</li>
+<li><strong>DeepSeek V4 671B Q3</strong>——M3 Ultra 256GB 顶配档可承载（边缘可行）</li>
+<li><strong>DeepSeek-R1-Distill-Qwen 系列</strong>——推理轻量版</li>
+</ul>
+<p>海外模型方面：Llama 4 Scout / Maverick、Mistral Small 3、Gemma 3、Phi 4 在 mlx-community 也都齐了，但<strong>国产模型第一次出现&quot;和海外模型同期上架 mlx 量化版本&quot;的现象</strong>——这是 2026 年值得国内开发者关注的细节。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/mac-tier-model-mapping.png" alt="Mac 显存与模型选型"></p>
+<p><strong>本节小结</strong>：在 vllm-mlx 这条路径上，国产模型不再是&quot;海外社区做完了我们再追赶&quot;——Qwen3-Coder-Next 是 Claude Code 后端的首选模型，Kimi K2.6 是 M3 Ultra 顶配的旗舰选项。国内有 M 系 Mac 的同行，<strong>第一次能在本机跑国产模型 + 国外编程工具的组合</strong>，这是端侧 AI 给国内开发者的实在红利。</p>
+<hr>
+<h2>七、三档机型 → 三种用法</h2>
+<p>把上面的所有信息收敛到三种典型机型 / 三种使用建议：</p>
+<h3>7.1 M4 Pro 36GB · MacBook Pro · 单人后端</h3>
+<p><strong>模型</strong>：Qwen3-Coder-Next 14B 4bit（约 8GB 显存占用）+ Qwen3-VL-4B-3bit 备用多模态</p>
+<p><strong>启动命令</strong>：</p>
+<pre><code class="language-bash">vllm-mlx serve mlx-community/Qwen3-Coder-Next-14B-4bit \
+  --port 8000 \
+  --max-model-len 32768 \
+  --max-num-seqs 5
+</code></pre>
+<p><strong>适用场景</strong>：单人写代码 + Claude Code 单 agent + 偶尔多窗口；并发 3-5 路稳定。</p>
+<p><strong>性能预期</strong>：单请求约 60-90 tok/s（14B 量化），3 并发约 130-180 tok/s 总吞吐。</p>
+<h3>7.2 M4 Max 64GB · MacBook Pro / Mac Studio · 团队甜点档</h3>
+<p><strong>模型</strong>：Qwen3-Coder-Next 32B 4bit（约 18GB 显存）+ Qwen3-VL-8B 多模态 + Whisper Large 备用</p>
+<p><strong>启动命令</strong>：</p>
+<pre><code class="language-bash">vllm-mlx serve mlx-community/Qwen3-Coder-Next-32B-4bit \
+  --port 8000 \
+  --max-model-len 65536 \
+  --max-num-seqs 10 \
+  --enable-prefix-caching
+</code></pre>
+<p><strong>适用场景</strong>：小团队共享后端 + 5-10 路 Claude Code agent 同跑 + review fleet。</p>
+<p><strong>性能预期</strong>：单请求约 35-50 tok/s（32B 量化），10 并发吞吐约 200-300 tok/s。</p>
+<blockquote>
+<p><strong>64GB 是关键拐点</strong>：第一次能稳跑 32B 量化 + 长上下文 + 高并发，是 Claude Code 团队后端的推荐档位。</p>
+</blockquote>
+<h3>7.3 M3 Ultra 256GB · Mac Studio · 单机 inference 服务器</h3>
+<p><strong>模型</strong>：Kimi K2.6 1T-MoE Q4（约 200GB 显存，活跃参数 ~32B）/ DeepSeek V4 671B Q3 / GLM-5.1 32B</p>
+<p><strong>启动命令</strong>：</p>
+<pre><code class="language-bash">vllm-mlx serve mlx-community/Kimi-K2.6-1T-MoE-Q4 \
+  --port 8000 \
+  --max-model-len 131072 \
+  --max-num-seqs 20 \
+  --enable-prefix-caching
+</code></pre>
+<p><strong>适用场景</strong>：10-20 人小团队共享 inference 服务器；本机不出数据；K2.6 与 GLM-5.1 给国内合规需求一个本地 fallback。</p>
+<p><strong>性能预期</strong>：K2.6 单请求约 25-40 tok/s（活跃 32B），20 并发吞吐约 400-600 tok/s。</p>
+<p><strong>本节小结</strong>：M 系 Mac 的端侧 AI 不再是&quot;试试看能不能跑&quot;，而是&quot;按机型档位选合适模型 + 合适并发&quot;——36GB 单人后端 / 64GB 团队甜点 / 256GB 单机服务器，是当下三档清晰路径。</p>
+<hr>
+<h2>八、风险与边界：不是银弹</h2>
+<p>为了不让乐观情绪盖过判断，把已知 caveats 摆出来：</p>
+<ul>
+<li><strong>仅 macOS + Apple Silicon</strong>：MLX 不跨平台，Linux / Windows 团队走 vLLM 主线</li>
+<li><strong>长上下文有显存陡升风险</strong>：超过 64K context 时显存占用快速增长，需要严格设置 <code>--max-model-len</code></li>
+<li><strong>量化损失</strong>：4-bit 量化对推理结果有可见但可控的影响；要求&quot;和云端 Claude 一模一样&quot;的场景仍要走云</li>
+<li><strong>prefill 速度仍有差距</strong>：Apple GPU 在长 prefill 阶段相比 H100 / H200 还有数量级差距，长 prompt 首字延迟仍偏高</li>
+<li><strong>vllm-metal 与 vllm-mlx 短期并存</strong>：选型上要看你优先要 Anthropic 兼容（vllm-mlx）还是上游 vLLM 长期主线（vllm-metal）</li>
+<li><strong>MLX 算子覆盖仍在补全</strong>：少数 fused kernel / 多模态特殊路径在 MLX 上仍可能 fallback 到慢路径</li>
+</ul>
+<p>这些不是&quot;劝退&quot;，是让选型更清晰：vllm-mlx 是当前 M 系 Mac 上最强的多并发推理路径之一，但它有清晰的适用边界。<strong>用对场景，它就是端侧 AI 的另一条主路。</strong></p>
+<hr>
+<h2>九、共勉：端侧 AI 的另一条主路，国产同行直接可走</h2>
+<p>vllm-mlx 与 Docker vllm-metal 同时落地，让 2026 年的 M 系 Mac 第一次拿到了 production-grade 的本地推理服务栈。对国内拥有 M4 / M5 Mac 的开发者来说，这是非常具体的好消息：</p>
+<ul>
+<li><strong>本机跑 Claude Code 后端不再是玩具</strong>——单请求 463 tok/s + 多并发 1100 tok/s，工作流跑得动</li>
+<li><strong>国产模型同步上架 mlx-community</strong>——Qwen3-Coder-Next、Kimi K2.6、GLM-5.1 都可以直接装机</li>
+<li><strong>数据全部在本机</strong>——合规与隐私需求强的团队，可以把 agent 工作流彻底本地化</li>
+<li><strong>入门成本只是一台 Mac</strong>——36GB MacBook Pro 起步就能跑通单人后端</li>
+</ul>
+<p>国产同行的 M 系 Mac 也能扛 agent 工作流——这是端侧 AI 的另一条主路。前辈把基础设施趟出来了，我们这一代特别幸运：本地有 vllm-mlx，云端有 Claude / Kimi / Qwen，工具有 Claude Code 和 Cursor，模型选择从未如此丰富。<strong>装上 vllm-mlx，把 ANTHROPIC_BASE_URL 指向 localhost:8000，让 Mac 真正变成你的第二个工作台</strong>——这条路值得走，一起加油。</p>
+<hr>
+<h2>参考来源（实测核对，截至 2026-05-09）</h2>
+<ul>
+<li><a href="https://github.com/waybarrios/vllm-mlx" target="_blank" rel="noopener">waybarrios/vllm-mlx GitHub 仓库</a>（stars/forks/commits/releases 全部经 <code>gh api</code> 实测）</li>
+<li><a href="https://github.com/waybarrios/vllm-mlx/blob/main/docs/benchmarks/llm.md" target="_blank" rel="noopener">waybarrios/vllm-mlx benchmark 文档</a></li>
+<li><a href="https://vmlx.net" target="_blank" rel="noopener">vmlx.net 项目主页</a>（注：vmlx 是另一相关项目，本文未将其性能数据混入 waybarrios/vllm-mlx 的 benchmark）</li>
+<li><a href="https://www.docker.com/blog/docker-model-runner-vllm-metal-macos/" target="_blank" rel="noopener">Docker Model Runner Adds vLLM Support on macOS</a>（2026-02-26）</li>
+<li><a href="https://github.com/vllm-project/vllm" target="_blank" rel="noopener">vllm-project/vllm 官方仓库</a>（79407 ★ 实测）</li>
+<li><a href="https://macgpu.com/en/blog/2026-mac-inference-framework-vllm-mlx-ollama-llamacpp-benchmark.html" target="_blank" rel="noopener">2026 Mac Inference Framework Benchmark · macgpu.com</a></li>
+<li><a href="https://contracollective.com/blog/llama-cpp-vs-mlx-ollama-vllm-apple-silicon-2026" target="_blank" rel="noopener">Apple Silicon Local AI Inference 2026 · contracollective.com</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

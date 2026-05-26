@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>字节 GRN 给视觉生成开第三条路：2B 反超 SD3 / Infinity / Wan 2.1 / CogVideoX — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-15</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-15</span><span class="tag-pill">Daily Report</span></div>
+      <h1>字节 GRN 给视觉生成开第三条路：2B 反超 SD3 / Infinity / Wan 2.1 / CogVideoX</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/bytedance-grn-hero-qbitai.png" alt="GRN 论文与三路对比示意 · 量子位 2026-05-13 头条原图"></p>
+<h2>一句话把数字摆桌上：0.56 / 1.81 / 0.76，2B 全面 SOTA</h2>
+<p>字节跳动一篇 arXiv 论文 <strong>2604.13030《Generative Refinement Networks for Visual Synthesis》</strong> 4 月 14 日上线，5 月 13 日由量子位作者鹭羽以《挑战扩散自回归统治！字节提出视觉生成第三种路线，让模型像人类一样边画边改》一文推到国内 AI 圈视野中央，新浪财经、网易订阅、知乎专栏 5 月 13 日同步跟进。论文作者 Jian Han、Jinlai Liu、Jiahuan Wang、Bingyue Peng、Zehuan Yuan 来自字节，配套代码同步开源，文生图 demo（演示）上 HuggingFace、文生视频演示上 Discord。</p>
+<p>把硬数据摆桌上看：</p>
+<ul>
+<li><strong>ImageNet 图像重建 rFID = 0.56</strong>，HBQ 二进制量化拿下，超过 RAE 的 0.62 与 SD-VAE 的 0.87；</li>
+<li><strong>ImageNet 类别生图 gFID = 1.81</strong>，GRN-G 2B 模型，超过 DiT-XL/2 与 VAR-d30；</li>
+<li><strong>GenEval 文生图 = 0.76</strong>，GRN-bit 2B 模型，超过同档 SD3 Medium 与 Infinity 2B；</li>
+<li><strong>文生视频 480p / 2-10 秒</strong>，GRN 2B 反超 CogVideoX 5B 与 Wan 2.1 14B；</li>
+<li>参数规模对照：GRN-B 130M 模型 FID 已经压到 3.56，对手 MaskGIT 227M 是 6.18；</li>
+<li>复杂度感知采样让 130M 模型平均推理步数从 50 步降到 24 步，<strong>步数砍掉一半多 gFID 只从 3.56 升到 3.79</strong>，几乎不掉点。</li>
+</ul>
+<p>这一组数字之所以值得正经讲，不是因为「字节又发了一篇论文」这件事本身——这件事每周都有。值得讲的是字节这次把「视觉生成只有扩散和自回归两条路」这个国内开发者默认接受的二分法直接撕开了——给出了第三条可工程化、可开源、参数更小、效果反向更好的路。媒体侧普遍聚焦在「第三条路」的叙事钩子上，本文要补的是路线背后的技术内涵、为什么 2B 能反超更大参数、国内开发者本地接入这套路线的最短路径，以及国产视觉生成栈现在到底齐到什么程度。</p>
+<h2>三条路一并摆开：扩散管保真、自回归管自适应、GRN 一并拿下</h2>
+<p>要把 GRN 这件事的意义讲清楚，得先把过去两年视觉生成的两条主流路线在国内开发者熟悉的产品身上对位过来。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/bytedance-grn-three-paths.png" alt="视觉生成的三条路线 · 扩散 vs 自回归 vs GRN"></p>
+<p><strong>扩散模型这条路</strong>国内开发者最熟。Stable Diffusion 1.5 / SDXL / SD3 Medium / Flux.1-dev、快手可灵、阿里通义万相、智谱 CogVideoX，本质都是这条路上的产物。技术内核是连续表示加固定步数去噪：先给一张图加足噪声变成纯随机，再用神经网络一步一步去掉噪声还原成画面。优势在于连续表示信息损失小、画面保真度高。短板量子位文章里用一句很形象的话总结：「<strong>无论是画简单的一颗苹果，还是复杂的巴洛克壁画，都必须老老实实一笔一笔画</strong>」。换句话说，扩散没有内容复杂度感知能力——简单画面也得走完同样多步、消耗同样多算力，这是它的算力账始终下不去的根本原因。</p>
+<p><strong>自回归模型这条路</strong>对应的是 Infinity、VAR、LlamaGen 这一脉，Apple 内部的几款图生图也走过这条路。技术内核是把图像离散化成 token 序列，模型像写文本一样逐 token 生成。优势在于具备复杂度感知——简单内容用更少 token、复杂内容用更多 token，算力是可省的。短板量子位文章给的判断也直白：「<strong>受限于离散 token 化，存在严重的信息损失</strong>」，而且「<strong>早期错误无法修正，于是越错越离谱</strong>」——自回归是单向的，前面写错了后面就只能将错就错。</p>
+<p><strong>GRN 这条第三路</strong>做的是把两条路的优点合到一起、把缺点同时解掉。三个技术模块各自负责一格：</p>
+<ol>
+<li><strong>层次二叉树量化（HBQ）</strong>——用「近乎无损」的二进制多轮量化代替传统 VQ-VAE 的离散码本，量化误差随轮数<strong>指数级衰减</strong>，第一次让离散 token 重建质量逼近连续 VAE。这一格解决「自回归信息损失重」的硬伤。</li>
+<li><strong>全局精炼网络（GRN）</strong>——引入 token 精调机制：确定的 token 保留、不确定的 token 反复改写，论文的原话是「<strong>就像一个画家一样，真正做到了边画边改</strong>」。这一格解决「自回归早期错误不能改」的硬伤。</li>
+<li><strong>复杂度感知采样</strong>——用熵衡量画面复杂度，简单样本分配少步数、复杂样本分配多步数。这一格解决「扩散算力固定下不去」的硬伤。</li>
+</ol>
+<p>三件事拼到一起，GRN 才有底气说自己是「第三条路」——不是新瓶装旧酒，是三个独立的工程突破合到同一个框架里。</p>
+<h2>三项评测一并齐了：单点不算，一并领先才算</h2>
+<p>很多视觉生成新工作吃过的亏是：单点评测漂亮，换一个就回去了。GRN 这一组实验的份量在于三个评测<strong>一并</strong>领先，而不是某一项擦边。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/bytedance-grn-benchmark-bars.png" alt="GRN 在 rFID / gFID / GenEval 三项评测全部领先"></p>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>模型 / 参数</th>
+<th>关键指标</th>
+<th>对手</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ImageNet 图像重建</td>
+<td>HBQ</td>
+<td>rFID 0.56</td>
+<td>SD-VAE 0.87 · RAE 0.62</td>
+</tr>
+<tr>
+<td>ImageNet 类别生图</td>
+<td>GRN-G 2B</td>
+<td>gFID 1.81 / IS 299.0</td>
+<td>DiT-XL/2 · VAR-d30</td>
+</tr>
+<tr>
+<td>GenEval 文生图</td>
+<td>GRN-bit 2B</td>
+<td>GenEval 0.76</td>
+<td>SD3 Medium · Infinity 2B</td>
+</tr>
+<tr>
+<td>文生视频 T2V</td>
+<td>GRN 2B</td>
+<td>480p / 2-10 秒</td>
+<td>CogVideoX 5B · Wan 2.1 14B</td>
+</tr>
+<tr>
+<td>小参数对照</td>
+<td>GRN-B 130M</td>
+<td>FID 3.56</td>
+<td>MaskGIT 227M FID 6.18</td>
+</tr>
+<tr>
+<td>HBQ 视频重建</td>
+<td>64 通道</td>
+<td>PSNR 33.97</td>
+<td>与 Wan 2.1 同档</td>
+</tr>
+</tbody></table>
+<p>HBQ 的 0.56 rFID 是论文里花了最多笔墨证明的硬数据——重建质量直接决定了上层生成的天花板，离散 tokenizer 长期被 VAE 压一头，GRN 的 HBQ 第一次让离散方案在 ImageNet 上<strong>接近连续 VAE 的重建效果</strong>，PSNR 在 64 通道时能达到 33.97。简单理解：以前用离散 token 必须吃信息损失，现在不用了。</p>
+<p>GenEval 这条评测是 2024 年下半年起国内文生图圈最看重的一项——OpenAI 早期 DALL·E 3 拿 0.67、SD3 Medium 在 0.62 附近、Infinity 2B 报到 0.73。GRN-bit 2B 拿到 0.76，是 2B 参数量级目前公开数据里最高的一档。这件事对国内开发者意味着：不需要等 8B / 12B 大模型也能拿到国际一线效果，2B 这个尺寸恰好是消费级单卡可以推理的甜点位。</p>
+<p>复杂度感知采样那一条数据特别值得单独提：130M 小模型平均推理步数<strong>从 50 步降到 24 步</strong>，gFID 只从 3.56 升到 3.79。换算成显存与时间成本，等于推理时间和算力账单一并打了对折，但效果几乎没掉。这对在边端跑视觉生成的开发者来说是直接的算力红利——简单 prompt 用少步数、复杂 prompt 才用多步数，不再像扩散那样一刀切。</p>
+<h2>视频生成最有意思：2B 反向超 5B 与 14B，路线效率打头</h2>
+<p>如果说图像生成的对比还在「同档比效果」，视频生成这一格的对比更刺激：<strong>GRN 2B 直接反超 CogVideoX 5B 和 Wan 2.1 14B</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/bytedance-grn-video-compare.png" alt="GRN 2B vs 智谱 CogVideoX 5B vs 阿里 Wan 2.1 14B 文生视频对比"></p>
+<p>国内开发者过去一年熟悉的文生视频开源代表是智谱的 CogVideoX 5B（2024 年开源时是国内最强的开源 T2V，480p 输出，长度 2-6 秒）和阿里通义的 Wan 2.1 14B（2025 年发布，720p 输出，长度 5 秒，是当前国内开源里的标杆）。两家都是堆参数堆算力做大模型的路线——CogVideoX 是 5B、Wan 2.1 是 14B，参数量都比 GRN 大上一截。GRN 2B 的参数量是 CogVideoX 5B 的 2/5，是 Wan 2.1 14B 的 1/7，按传统思路效果应该差一档才对。</p>
+<p>量子位 5 月 13 日实测口径给出的反向结论是 GRN 在 480p / 2-10 秒生成上<strong>反超</strong>两位前辈。这件事不是说 GRN 视频比可灵 1.6 这类闭源商业模型一定好——可灵这类闭源模型走的是更高分辨率、更长时长、更细调的产品化路线，跟开源版的对比是另一档比较——而是说<strong>同等开源 T2V 赛道里，参数量更小的模型用路线红利换回了效果</strong>。</p>
+<p>这件事对国内做视频生成的团队特别关键。过去一年视频生成圈的默认共识是「想要好效果就要堆参数堆算力」，5B / 14B / 30B 一路加码。GRN 2B 反超这件事直接质疑了这个共识：路线选对了，参数量可以反向降一档。复杂度感知 + 边画边改两件事在视频上比图像上获益更明显——视频帧之间有大量信息冗余，简单镜头帧用少步数、复杂镜头帧用多步数，整体推理成本压缩比图像更狠。</p>
+<h2>不同源数字对齐：量子位 vs 论文 vs arXiv，怎么对得上</h2>
+<p>写这一篇时数字源有三处：量子位 5 月 13 日头条、字节论文 PDF 主要数据表、arXiv abstract 摘要。三个口径基本一致，但落到文字时有几处必须显式对齐，避免读者复核时打架。</p>
+<p><strong>第一处</strong>是 GenEval 数字。量子位文章里给的是「<strong>0.76 超 SD3 Medium 和 Infinity</strong>」，论文表格里 GRN-bit 2B 这一行是 0.76，SD3 Medium 是 0.62、Infinity 2B 是 0.73。本文用论文表格精确数字，避免约整带来的二义。</p>
+<p><strong>第二处</strong>是视频生成对比。量子位文章原文是「<strong>2B 文生视频反超 CogVideoX 5B 与 Wan 2.1 14B</strong>」，论文摘要给的是更克制的表述：在同等规模下文生图与文生视频均取得更优表现。两家口径不冲突——量子位口径是论文表格的中文转述，论文摘要本身没列具体参数对比。本文按量子位 5/13 实测口径转述，并注明「公开口径未列具体评测数字 · 本文按量子位实测转述不外推」。</p>
+<p><strong>第三处</strong>是 130M 模型那条步数压缩数据。量子位里写的是「<strong>从 50 步降至 24 步 · gFID 仅从 3.56 升至 3.79</strong>」，论文表格里这一组数据出现在消融实验部分。本文用量子位原始字符串，因为这是国内读者最容易复核的一致口径。</p>
+<h2>国内可用性对照：六家视觉生成模型，国产栈已经齐到这一步</h2>
+<p>把 GRN 摆到国内开发者熟悉的视觉生成栈里看会更有质感。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/bytedance-grn-china-availability.png" alt="国内 6 家视觉生成模型可用性对照 · 开源 / 国内访问 / 推理门槛"></p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>归属</th>
+<th>开源情况</th>
+<th>国内可用度</th>
+<th>推理门槛</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>GRN 2B</td>
+<td>字节跳动 · 中国</td>
+<td>论文 + 代码 + HuggingFace 演示（demo）已开源</td>
+<td>直接可用</td>
+<td>消费级 GPU 可跑</td>
+</tr>
+<tr>
+<td>Wan 2.1 14B</td>
+<td>阿里通义 · 中国</td>
+<td>已开源</td>
+<td>直接可用</td>
+<td>多卡或 A100</td>
+</tr>
+<tr>
+<td>CogVideoX 5B</td>
+<td>智谱 · 中国</td>
+<td>已开源</td>
+<td>直接可用</td>
+<td>单 A100 / 多卡 4090</td>
+</tr>
+<tr>
+<td>可灵 1.6</td>
+<td>快手 · 中国</td>
+<td>闭源</td>
+<td>走商业 API</td>
+<td>云端推理</td>
+</tr>
+<tr>
+<td>SD3 Medium 2B</td>
+<td>Stability · 美国</td>
+<td>已开源</td>
+<td>模型可下、本地可跑</td>
+<td>消费级 GPU</td>
+</tr>
+<tr>
+<td>Flux.1-dev 12B</td>
+<td>Black Forest · 德国</td>
+<td>已开源</td>
+<td>模型可下、本地可跑</td>
+<td>24G 显存起</td>
+</tr>
+</tbody></table>
+<p>六家摆在一起看，国内一线公司在视觉生成赛道里已经齐了完整阵型——字节走开源 + 路线创新（GRN），阿里通义走开源 + 大参数堆质量（Wan 2.1），智谱走开源 + 工程化稳定（CogVideoX），快手走闭源 + 商业 API（可灵）。这四条路线在过去一年里都各自跑出来了，国产视觉生成栈在 2026 年这个时间点上，已经不需要把 SD3 / Flux 当唯一答案。</p>
+<p>更值得国内开发者注意的是 GRN 这次开源的形态：论文加代码加 HuggingFace 文生图演示加 Discord 文生视频演示同步发，是字节内部对开源的认真态度。HBQ 和复杂度感知采样这两件事是可单独拿出来用的——HBQ 可以替换任何现有项目的 VQ-VAE 模块，复杂度感知采样可以挂到任何扩散模型上做推理加速。这两个组件的可移植性意味着字节这次开源不只是放一个模型，是放了两件可被国内同行接到自己 pipeline 里的中间件。</p>
+<h2>国内开发者能不能本地跑 2B 推理：消费级显卡的算力账</h2>
+<p>最后回到国内开发者最关心的问题：GRN 2B 这个尺寸在本地能不能跑。</p>
+<p>按公开口径粗算（具体配置要等代码发布之后看 README）：2B FP16 推理大约需要 6-8GB 显存放权重，加上中间激活和 KV cache，单张 24GB 消费级显卡（RTX 4090 / 5090）跑起来比较舒服，16GB 卡（RTX 4080 / 5080）开半精度也跑得动，12GB 卡（RTX 4070 Ti / 3080 Ti）可能要走量化路线。</p>
+<p>复杂度感知采样的算力红利在本地推理时尤其明显——简单提示词（prompt）平均 24 步、复杂提示词才走 50 步，单张图的推理时间相比固定 50 步扩散模型有望砍掉一半。对国内独立开发者、画师、内容工作室来说，这是直接把本地视觉生成从「48GB 服务器卡」拉回到「单张消费级显卡」的关键一档。</p>
+<p>视频生成 2B 本地推理的门槛会高一些——480p / 10 秒视频，激活内存会显著放大，单张 24GB 卡可能要走分片或低分辨率预览路线。但相比 CogVideoX 5B 和 Wan 2.1 14B 必须上多卡 A100 的门槛，GRN 2B 已经是消费级硬件能摸到的天花板。</p>
+<p>开源时间线方面，字节这次的节奏是论文先上 arXiv、代码与模型权重同步开源（一些适配工作还在收尾），文生图演示已经在 HuggingFace 可玩、文生视频演示在 Discord 上线。等代码完整发布之后，国内同行接进自己 pipeline 的最短路径就是直接 <code>from grn import HBQ, GRN</code>，把现有 VQ-VAE 或扩散采样器替换掉。</p>
+<h2>摆完信号：国产视觉生成栈又向前一格</h2>
+<p>把今天这一组数字、技术内涵、对比、可用性放到一起看，国产视觉生成栈在 2026 年 5 月这个时间点上的进度可以这样总结：</p>
+<p><strong>路线侧</strong> — 国内一线公司已经不再满足于「跟着海外路线做更好的实现」，开始反过来在路线层面做底层创新。GRN 这条第三路是过去两年视觉生成圈第一次有团队同时质疑扩散和自回归两个主流共识，并且用三项评测的硬数据把质疑落地。这件事的份量比单纯开源一个 SOTA 模型更重——它给了国内视觉生成工程师一个新的可参考的工程范式。</p>
+<p><strong>参数侧</strong> — 2B 这个尺寸恰好是国内开发者最舒服的工程档位：单卡消费级硬件能跑、训练成本可控、推理延迟可接受。GRN 用 2B 在三个评测上压过同档对手，意味着国内做视觉生成的中小团队不需要追逐 30B / 100B 的算力游戏，2B 这一档值得认真做。</p>
+<p><strong>开源侧</strong> — 字节、阿里通义、智谱在开源端已经齐了完整阵型，加上快手可灵在商业 API 端的产品化能力，国产视觉生成栈在文生图、文生视频两条主线上都已经有可工程化的国产方案。SD3、Flux 不再是开发者的唯一选项，国内同行可以按自己的工程约束选合适的模型。</p>
+<p><strong>生态侧</strong> — GRN 这次开源的 HBQ 和复杂度感知采样两个组件是可拆解、可移植的中间件，国内做扩散模型的同行可以把复杂度感知采样挂到自己 pipeline 上做推理加速，做自回归的同行可以把 HBQ 替换原有 VQ-VAE 做信息损失压缩。这种「不只是放模型、也放底层方法」的开源姿态，对国产视觉生成生态的整体抬升比单点 SOTA 更有意义。</p>
+<p>信号摆得很清楚——视觉生成这条赛道，国产一线团队已经从「跟跑」走到了「在路线层面给新答案」的位置。接下来要看的就是 GRN 这条第三路能不能在国内开发者社区里被接住、被复用、被推到更多场景里。这部分要交给国内 AI 开发者社区的工程实力来回答。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

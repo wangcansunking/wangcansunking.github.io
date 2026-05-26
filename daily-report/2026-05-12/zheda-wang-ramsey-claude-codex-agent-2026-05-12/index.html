@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>浙大校友用 Claude+Codex 推 R(3,17) 一步 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-12</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-12</span><span class="tag-pill">Daily Report</span></div>
+      <h1>浙大校友用 Claude+Codex 推 R(3,17) 一步</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/12/zheda-wang-ramsey-claude-codex-agent-2026-05-12.png" alt="封面：王宜平用 Claude+Codex 双 Agent 在一台 CPU 服务器上推进拉姆齐数下界"></p>
+<p>一句话先把数字摆出来：拉姆齐数 R(3,17) 的下界是 92，由王清、王光辉、严尚安三位中国数学家 1994 年给出，此后 32 年无人撼动；2026 年 5 月 7 日，浙江大学竺可桢学院校友、华盛顿大学博士、xAI 技术员工王宜平在 GitHub 推出仓库 <code>ypwang61/ScaleAutoResearch-Ramsey</code>，把这个数推到了 93，同时把 R(4,15) 接着 DeepMind AlphaEvolve 半年前的 159 又推到了 160。算力是一台 CPU 服务器，方法是 Claude Code + Codex 跨 LLM 跑多个并行 autoresearch agent，许可证是 Apache-2.0，所有见证图明文 <code>.txt</code> 摆在仓库根目录。</p>
+<p>这是 2026 年第一件由中国数学血统的研究者主导、用通用 LLM API + 个人级算力刷新一个国际经典组合数学下界的工作，量子位、36氪、机器之心 PRO、知乎热议在 5 月 10 日把它推上技术圈头版。媒体口径基本停在「单服务器 + 跨 LLM Agent + 32 年首破」三个标题词。本文想往里再挖三层：这套 ScaleAutoResearch 框架的工程结构到底怎么搭、和 DeepMind AlphaEvolve 那条 Gemini 集群路线差在哪、国内已经在跑的 AI × 数学路线有几条可以和这条路接上。</p>
+<h2>拉姆齐数 R(3,17) 是什么，为什么这个 92 卡了 32 年</h2>
+<p>拉姆齐数 R(r,s) 的定义可以一句话讲清：它是最小的正整数 n，使得任何一个 n 个顶点的简单图，要么包含一个 r 个顶点两两相连的团（clique），要么包含一个 s 个顶点两两不相连的独立集（independent set）。R(3,3) = 6 是经典初等结论：六个人放在一起，要么有三个互相认识，要么有三个互相不认识。</p>
+<p>参数往上走一点点，问题就变得极其困难。R(5,5) 的精确值至今未知，圈内有「上界 48 下界 43」的悬置纪录。要刷新一个下界 R(r,s) ≥ n+1，需要的不是数学证明的一笔灵感，而是给出一张 n 个顶点的具体图，证明它既不含 r-团、也不含 s-独立集——这种图叫见证图（witness graph），其搜索空间随着 n 指数级膨胀。</p>
+<p>R(3,17) 是组合数学小拉姆齐数表里特别难拨的一格。下界 92 这个数字来自 1994 年中国学者王清、王光辉、严尚安三人的 Wang-Wang-Yan 构造，论文标题是《A Search Algorithm and New Lower Bounds for Ramsey Numbers》。他们给出的是一个 91 顶点循环图，独立数 α=16，三角形数为 0，完美符合 R(3,17) ≥ 92 的要求。从那一刻起，这个数字 32 年没动过。期间不止一波研究者上来试过：传统 SAT/ILP 求解器、Exoo 流派的随机重启爬山、Tabu Search、近年的强化学习 + 神经网络搜索，全都卡在 92 上下徘徊。</p>
+<p>更让圈内意外的是，Google DeepMind 在 2026 年 3 月公布的 AlphaEvolve（arXiv:2603.09172）也没能拨动 R(3,17)。AlphaEvolve 是 Gemini Flash + Pro 驱动的代码进化 agent，论文里给出 9 个被它推进的拉姆齐下界——R(3,13) 60→61、R(3,18) 99→100、R(4,13) 138→139、R(4,14) 147→148、R(4,15) 158→159、R(4,16) 170→174、R(4,18) 205→209、R(4,19) 213→219、R(4,20) 234→237——R(3,17) 唯独缺席。在 ScaleAutoResearch-Ramsey 仓库 README 里王宜平把这句话写得很克制：「Google DeepMind 的 AlphaEvolve (2026) 复刻了之前的下界但没击穿它。」</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/12/ramsey-r317-r415-timeline.png" alt="图 1：拉姆齐数 R(3,17) 与 R(4,15) 下界 70 年时间线"></p>
+<p>时间线一字摊开就是这样：1955 年经典证明时代奠基，1968 年 Kalbfleisch 用循环图把 R(3,k) 系列下界批量推进，1989 年 Exoo 引入计算机辅助，1994 年 Wang-Wang-Yan 把 R(3,17) 推到 92，然后是 32 年的沉默。直到 2026 年 5 月，又一个王姓研究者把它推到 93——这件事被国内同行第一时间注意到，不光是因为「32 年首破」，而是因为接力棒回到了中国学者手里，而且这一棒接得格外轻：没有集群、没有闭源模型权重、没有特殊算法库。</p>
+<h2>这个王姓研究者：浙大竺院 → 华大博士 → xAI 技术员工</h2>
+<p>王宜平的个人主页 <code>ypwang61.github.io</code> 把履历写得很短：浙江大学竺可桢学院计算机与数学双学位（honors degree），2023 年 9 月进华盛顿大学 Paul G. Allen 计算机科学与工程学院读博，导师 Simon Shaolei Du（杜少雷），主攻强化学习与大模型推理的交叉。2025 年 10 月，他拿到 Amazon AI PhD Fellowship；同期他另一个身份是 xAI 的技术员工（Member of Technical Staff）——这是他在马斯克麾下接触到大量 LLM 工程实践的窗口。</p>
+<p>他不是一个突然冒出来的拉姆齐爱好者。Google Scholar 上他过去两年的论文主题集中在三件事：CLIP 预训练的数据选择（CLIPLoss，2024）、One-Shot RLVR（2025 年 4 月 HuggingFace 日榜第一）、可验证环境的强化学习（RLVE）与动态环境强化学习（ThetaEvolve）。最后一条是关键：ThetaEvolve 这条线本质就是「LLM agent 在一个 verifier 严格定义的环境里反复试错」，把它从一般 RL 扩展到组合优化，只差一个具体应用场景。拉姆齐数搜索几乎是为这条思路量身定做的——见证图的合法性可以用一段一百行级别的 Python 严格校验，校验器写一次终身复用。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/12/wang-yiping-personal-timeline.png" alt="图 2：王宜平浙大竺院 → 华大 → xAI 的代际接力时间线"></p>
+<p>要理解这一点，得把视野放大一点。过去十年，浙大竺可桢学院、清华姚班、北大数院走出去的本科生，普遍走「数学基础 + CS 工程」的双底子路线；他们到了海外读博，并没有把自己关在传统组合数学的圈子里，而是把研究目标设定在「我能用 AI 工程解决一个数学开放问题」这条结合带上。王宜平这次的工作不是孤胆英雄叙事，他背后是这一代中国计算机数学复合人才常态化的训练路径在结果上的一次集中体现。</p>
+<p>仓库里另一个很值得注意的细节：<code>README.md</code> 末尾的 acknowledgements 把灵感源点列得很坦诚——Andrej Karpathy 的 autoresearch 框架、DeepMind 的 AlphaEvolve 论文、Radziszowski 的《Small Ramsey Numbers》调研、王宜平自己 2025 年发表的 ThetaEvolve 工作。这四条引用合起来恰好刻画了一名年轻研究者怎么把不同领域的工程套路缝起来：从 Karpathy 那里拿到「autoresearch 多 agent」骨架，从 AlphaEvolve 那里拿到「拉姆齐数搜索能做」的灵感，从 Radziszowski 那里拿到最新已知下界列表当起点，从自己的 ThetaEvolve 那里搬来 RL × LLM 在可验证环境里反复试错的经验。这种把已有积木重新组合的能力，在 AI Agent 工程化时代是最稀缺的研究品味。</p>
+<h2>ScaleAutoResearch-Ramsey 框架到底怎么搭</h2>
+<p>把媒体口径里的「多 Agent 跨 LLM 协作」翻译成工程话术，是这套框架真正值得国内同行细看的部分。仓库目前公开的文件不多：<code>README.md</code> 3.4KB、<code>r3_17_record_summarized.md</code> 20KB、<code>r4_15_record_summarized.md</code> 28KB，加上两张见证图明文 <code>R(3, 17) &gt;= 93.txt</code>、<code>R(4, 15) &gt;= 160.txt</code>，以及一个直接 fork 自 AlphaEvolve Ramsey 验证仓库的 <code>verify_bounds.ipynb</code>。29 个 star、1 个 fork、Apache-2.0、Jupyter Notebook 标签，截至 5 月 11 日。</p>
+<p>README 自己写得很简洁：「核心方法刻意做得简单——跑很多独立的 autoresearch agent，每个都按 autoresearch 风格的同一套脚手架运行，沿宽度（width）和深度（depth）两个维度同时 scaling。」每个 agent session 都使用 Claude Code 或 Codex，遵循同一个实验脚手架：一个不可变的 verifier、一个 initial program、一份 reference materials、一份要求 agent 持续迭代的 <code>program.md</code> 指令文件、一份机器可读的 <code>results.tsv</code>、一份人可读的 <code>record.md</code>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/12/scaleautoresearch-ramsey-architecture.png" alt="图 2-arch：ScaleAutoResearch-Ramsey 多 Agent + 共享 frontier + Git 分支继承"></p>
+<p>往里再拆一层，这套结构有四个工程要点值得国内做 AutoResearch 的团队抄走：</p>
+<p><strong>第一，「many parallel」是多样性来源，不是算力堆叠。</strong> README 原文：「即使有最强模型，开放问题的多数尝试还是失败的。多样性的主要来源因此是多个独立的 autoresearch agent 并行运行。」</p>
+<p>换句话说，单 agent 多 step 的纵深是有限的——LLM 容易在某条思路上打死结。横向铺开多个起点不同、模型 backend 不同的并行 agent，是抑制陷入局部最优的最朴素办法。</p>
+<p><strong>第二，frontier quality 是 agent 间的公共评分。</strong> 拉姆齐搜索里的 frontier quality 用「冲突数（conflict count）」量化——比如距离合法见证图还差几条三角形边、还差几个独立集破坏点。任何一个 agent 找到更低冲突数的图，就把它推到共享 frontier；其他 agent 在新 session 里直接 inherit 这个 seed 继续往前推。这套机制的好处是非常底层：评分函数完全机器可计算，无需 LLM-as-judge。</p>
+<p><strong>第三，GitHub branch 当实验台账。</strong> README 写得明确：「分享与继承在实验层管理，并通过 GitHub branch 显式呈现。」每条 seed 起一个分支，每个突破对应一次 commit，<code>results.tsv</code> 一行一次实验，关键列包含 n、edges、α、triangles、17-indep-sets、算法变体、seed、timestamp。<code>verify.py</code> 是只读 oracle，每个 claimed best 必须过它。这套做法把 LLM agent 工程跟传统软件工程的版本控制直接打通——研究记录变成代码仓库 commit log。</p>
+<p><strong>第四，核心算法 Compound Drop-Repair (cdr) 与传统爬山的根本差异。</strong> 这是 <code>r3_17_record_summarized.md</code> 里写得最详细的部分。常规思路是「从一张小图开始往上加点加边」；早期阶段王宜平也是这样做的，跑了四天 270 个 α=18 的 Cayley 见证图，一无所获。然后他们做了一个范式翻转：「从一个满足 α ≤ 16（零独立集冲突）但带有少量三角形的图开始；用 compound drop-repair：删除一条三角形边，添加修复边来打断新生成的独立集冲突。」一次复合移动可能跨 5 步：seed → drop:25-35 边 → add:0-35 边 → cover:2 → triadd:1 → drop:30-45。这样的 5-step chain 允许中间出现高冲突状态——而单边爬山见到这种中间态就会因为短视回退。</p>
+<p>突破路径在 record 文件里几乎像登山日志：冲突数从 12 一路降到 0，关键卡点 9→8 用「足够大的 keep_uphill」打开，「magic-formula tuple」(keep_uphill, beam, random_keep, repair_top, drop_sample) 是反复试错出来的参数组合。最终结果是 n=92 顶点、727 条边、α=16、0 三角形，验证脚本 <code>verify.py</code> 给出 VALID 判定，R(3,17) ≥ 93 成立。同样的脚手架接着用在 R(4,15) 上，把 AlphaEvolve 半年前推到的 159 再推一步到 160。</p>
+<p>把这条登山路径里几个细节摆出来，能看清这套方法和「LLM 自动出答案」之间的差距有多大。Phase 1 的失败很典型，四套传统方法连续失败：</p>
+<ul>
+<li><code>extend_exoo.py</code> 用 R(3,16) ≥ 82 当 base 做随机填充到 n=92，得到的图独立数 α=20-21，远超 16 的目标线</li>
+<li><code>crossover.py</code> 想把两张图三角形自由地并起来，每条候选新边都引发跨图三角形冲突，加不进去</li>
+<li><code>targeted_cover.py</code> 的贪婪 hitting-set 在「每个非边都有公共邻居」的稠密区直接死循环</li>
+<li><code>ghost_vertex_search.py</code> 是仿 AlphaEvolve 风格的方案，跑了千万级迭代毫无改进</li>
+</ul>
+<p>四套都失败之后才有了那次范式翻转：从「α 不够小」转向「α 已经够小但有三角形」，把问题从「加结构」改成「拆结构」。</p>
+<p>这就是数学搜索里最难的那种 insight——它不会被 LLM 在第一轮 prompt 里给出来，它需要经验积累和反复失败之后的反向思考。LLM 在这里的角色是把这种 insight 变成可以执行的代码，把每一次失败的中间数据完整记下来。</p>
+<p>Phase 6 到 Phase 9 是真正的突破密集区。冲突数 12→11→10→9 用 cdr 普通配置打下，9→8 这一步反复打不通，直到把 <code>keep_uphill</code> 从绝对阈值改成增量上限——这是 record 里反复出现的关键工程决策。<code>keep_uphill</code> 与传统 h_walk 的 <code>keep_total</code> 在语义上不同：前者允许 chain 里中间节点比当前最优值差几格的临时上扬，后者是绝对的总冲突门限。改完之后 8→7→6→5 接连打下，第 8 阶段进入「3-conflict 三角形结构上互不共享顶点」的稀疏状态，再走 4→3→2→1→0。整个 n=92 的突破链 record 标注「roughly nine hours of progressive breakthroughs」，单 session 完成。这也是为什么 ScaleAutoResearch 的核心资产不是「跑过哪些参数」而是「跑过的参数被怎么解释」——20KB 的 markdown 比 GB 级别的实验 log 更有价值。</p>
+<h2>Claude Code + Codex 这对组合具体怎么协作</h2>
+<p>国内媒体几乎都把这件事描述为「Claude Code + Codex 双模型协作」，但 README 写得非常直白：「每个 agent session 使用 Claude Code <strong>或</strong> Codex」——两个模型不是在同一个 session 里互相对话评审，而是各自起 session、各自跑实验、共享 frontier。这是一种更朴素也更稳健的混用方式。</p>
+<p>实操上，Claude Code 和 Codex 各有擅长。Claude Code 在长上下文工具调用、把一段 record.md 当作 working memory 持续追加、严格执行 program.md 的迭代指令方面更稳；Codex 在数值搜索类小型脚本的快速重写、对失败 trace 做最小改动方面响应更快。在 ScaleAutoResearch 的 scaffold 里，这两个 agent 跑出来的程序变体不需要彼此读懂——它们读的是同一份共享 frontier 的 seed graph + results.tsv，输出的是同一份 verify.py 验得过的见证图。共享接口是数据结构，不是自然语言。</p>
+<p>这套设计的副产品是「成本可计算」。一个 cdr 5-step chain 在 CPU 上跑一个 session 的开销有限，LLM API 的调用频率被严格限制在「我要 propose 下一组超参 / 下一段 search code」这种粗粒度决策上——大部分 wall-clock 时间是 verifier 在跑搜索，不是 LLM 在思考。这跟 AlphaEvolve 那种「Gemini Pro 长链思考主导」的路线根本不同。</p>
+<p>第二层副产品是「失败 trace 也是资产」。record.md 里每条失败路径都被写得很细：什么算法、什么参数、跑了多久、最终冲突数停在哪、为什么判定它走不动。这些失败 trace 对后来的 agent 来说是输入——下一个 from-X fleet 起 session 时，会被告知「这些方向已经证伪，不要再去」。在传统强化学习里，负样本是用来更新策略权重的；在 ScaleAutoResearch 里，负样本是用来在自然语言层面约束下一个 LLM session 的搜索空间的。两者效果相近，但后者不需要训练，也不需要梯度。这是一种很务实的「轻量化经验复用」。</p>
+<h2>vs DeepMind AlphaEvolve：两条 LLM-for-Math 路线对照</h2>
+<p>AlphaEvolve 是 2026 年初最受关注的 AI × 数学项目。它的论文清楚标注：Gemini Flash 负责广度搜索、Gemini Pro 负责深度推理，闭源，仅计划对选定学术用户开放 Early Access。论文里它在 50+ 个数学开放问题上做了实验，约 75% 复刻 state-of-the-art，约 20% 推进 best known——这两个数字本身已经很扎实。但和 ScaleAutoResearch 摆在一起对照，两条路线的差异非常清晰。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/12/wang-vs-alphaevolve-route.png" alt="图 3：王宜平 ScaleAutoResearch vs DeepMind AlphaEvolve 路线对照"></p>
+<p>七个维度一项项过：开源 / 闭源，前者 Apache-2.0 完整开源含见证图，后者闭源仅论文；底层模型，前者 Claude Code + Codex 通用 API，后者 Gemini Flash + Pro 闭源 API；算力规模，前者一台 CPU 服务器，后者 Google 内部基础设施；核心机制，前者多 agent 并行 + 共享 frontier，后者代码进化（mutation + selection）+ 多元搜索；R(3,17) 战绩，前者推到 93，后者复刻旧下界 92；R(4,15) 战绩，前者推到 160，后者推到 159；可复制性，前者公开仓库 + 个人服务器即可复跑，后者外部不可直接复跑。</p>
+<p>要特别说明的是，这不是一个「胜负」表。AlphaEvolve 在 R(4,16) 170→174、R(4,18) 205→209 这些大数字上的推进幅度远超 ScaleAutoResearch，那是大算力大模型路线该有的产出。两条路线的真正对比在另一个维度：可被外部独立研究者继承、改造、扩展的程度。ScaleAutoResearch 的所有 seed graph 都是文本文件，所有 record 都是 markdown，整个仓库 fork 一份就能在自己的服务器上接着跑——这是开源做学术的传统做法。AlphaEvolve 给的是结果与方法描述，不是工具。这两种交付物的二阶影响，差别会在未来 12 个月里慢慢长出来。</p>
+<h2>单 CPU 服务器 vs 集群：成本结构与对国内学术研究的启示</h2>
+<p>「一台 CPU 服务器」这件事在国内技术圈引起的兴趣比下界数字本身还大。一个常见误读是把这条路线翻译成「省钱版 AlphaEvolve」——实际上它更像是「另一种范式」。</p>
+<p>集群路线的本质是用规模换覆盖：同样一份代码进化逻辑，在 1000 个并行 worker 上跑，每个 worker 都有完整 GPU/TPU 加速，单位时间能 propose 的程序变体数量是单 CPU 路线的几个数量级。AlphaEvolve 论文里 50+ 问题、9 个 Ramsey 数被推进，背后是这种 brute-force-with-taste 的能力。</p>
+<p>单 CPU 路线的本质是用算法换规模：所有突破点都来自机制设计——Compound Drop-Repair 的 5-step chain、keep_uphill 这个允许爬上山的参数、from-X fleet 这种基于强 seed 的派生策略、frontier-quality 这个机器可计算评分。换句话说，王宜平这套方法的核心资产不是算力，是 r3_17_record_summarized.md 里 20KB 的实验日志——上面记着哪些方向走死了、哪些参数组合一打就开。这部分是公开的，谁愿意接着读、接着试，门槛只有 LLM API 调用费用。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/12/single-cpu-vs-cluster.png" alt="图 4：单 CPU 服务器 vs 集群路线在三个维度上的对照"></p>
+<p>放在国内的语境里，这条路线特别值得高校组合数学方向的研究生注意。过去十年，但凡涉及大规模搜索的论文，国内同学的第一反应是「我没有 GPU 集群所以这条路走不通」。</p>
+<p>王宜平这个例子给出了一个反例：一台普通 CPU 服务器、几个通用 LLM API key、20KB 实验日志的耐心，加在一起足以打穿一个 32 年没人动的下界。这不是说集群没意义，而是说，开放问题的搜索从来都是「算法 × 算力」的乘积，前者乘出来的可能性，远比预算表上能看到的多。</p>
+<h2>国内 AI × 数学研究图谱与对比：王宜平这条路有谁可以接</h2>
+<p>国内已经在跑 AI × 数学路线的团队不少，但大多在另几条赛道上：定理证明、数学预训练语料、数学增强 LLM。「用 LLM agent 搜索组合数学开放问题下界」这条特定的轨道，王宜平之前国内公开 case 几乎为零。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/12/china-ai-math-teams.png" alt="图 5：国内 AI × 数学公开图谱（清华 AIM / 上海 AI Lab / 智源 / 阿里达摩院 / 字节 Seed / 北大 + 王宜平 ScaleAutoResearch）"></p>
+<p>放到一张图里看：清华 AIM 数学家智能体在 2025 年 6 月被量子位报道独立完成理论难题，机制上跟 ScaleAutoResearch 最接近——多个 LRM 并行评审、自动调用基本定理、构建证明思路；上海 AI Lab 联合十多所高校跑数学专项博士培养，InternMath 系列 + Mathlib 形式化贡献都已经摆在桌面上；智源研究院走数学预训练 + 工具增强路线，MathOrca、数学增强 SFT 数据成体系开源；阿里达摩院的 MathPile 是十亿级语料的工业基础设施，Qwen-Math 系列模型在工程能力上已经成熟；字节 Seed 在数学 RL 与推理强化方向连续产出论文；北大、北航、哈工大数院的形式化定理证明圈对 Lean、Mathlib 的贡献是国际级的。</p>
+<p>把王宜平这条路接上去，最近邻就是清华 AIM 和上海 AI Lab。AIM 的多 LRM 并行评审与 ScaleAutoResearch 的多 agent 共享 frontier 在机制层是同源；上海 AI Lab 的组合数学方向博士、加上 InternMath 的工程基底，做 R(5,5) 这种更难的数字是完全可想象的下一步。智源、达摩院、字节 Seed 这几条数学 LLM 主线，提供的是「更聪明的 LLM backend」——未来 ScaleAutoResearch 的 agent 不一定非要跑 Claude Code 或 Codex，国产数学 LLM 在合适的接口下也是可插拔的。</p>
+<p>把这几个团队的现状摆细一点：</p>
+<ul>
+<li><strong>清华 AIM</strong>：公开机制三个核心动作——自由探索围绕命题展开、生成中间猜想完成证明、多个 LRM 并行评审自动修正。这跟 ScaleAutoResearch 里 from-X fleet 派多个 worker 接力的逻辑是同源；差别在于 AIM 偏证明，ScaleAutoResearch 偏构造。</li>
+<li><strong>上海 AI Lab</strong>：2022 年起就跟浙大、北大、清华等十多所高校联合培养博士，组合数学方向有产出渠道；InternMath 系列模型与 Mathlib 形式化方向的工具积累，是把这套方法迁移到更难的 R(4,17)、R(5,5) 上最现实的国内基础设施。</li>
+<li><strong>智源研究院</strong>：走数据 + 工具增强路线，MathOrca 给出的是 SFT 数据集，能让国产 LLM 在数学场景的指令遵循上接近顶级水平。</li>
+<li><strong>阿里达摩院</strong>：MathPile 十亿 token 预训练语料，Qwen-Math 是已经成熟的模型家族；提供的是「未来 ScaleAutoResearch 不必依赖海外 LLM 也能跑」的底座选项。</li>
+<li><strong>字节 Seed</strong>：数学 RL 与 DAPO 等可验证奖励算法上的产出是另一条可能合流的支路，对「如何在 LLM agent 工程里设计更稳的评分函数」有直接参考价值。</li>
+</ul>
+<p>要补一句不是承诺、是事实的话：王宜平的仓库目前一个 fork、29 个 star，国内的关注很热但接得上的不多。这件事的客观难点不在拉姆齐数本身，而是要同时具备组合数学背景、LLM 工程经验、对 Agent 评分机制的设计敏感度。这恰好是浙大竺院、清华姚班、北大数院这一代复合背景同学的训练靶心。</p>
+<h2>这是中国数学家共同体的一次代际接力</h2>
+<p>把整件事放回它真正的位置上：1994 年的 R(3,17) ≥ 92 是中国三位数学家的工作（王清、王光辉、严尚安）；2026 年的 R(3,17) ≥ 93 是浙江大学竺可桢学院出来的另一位王姓研究者的工作。两代人之间没有亲属关系，但两个工作之间是清晰的代际接力——同样是把一个组合数学下界往前推一步，同样靠搜索算法 + 工程实现 + 耐心，只是 32 年间，搜索的工具从手写循环图程序换成了 LLM agent，验证的脚手架从论文里的引理换成了 100 行 Python verifier。</p>
+<p>这件事对国内同行最直接的鼓舞是：开放问题的边界不需要等大公司、大集群、大模型才能往前推。一台 CPU 服务器、两个通用 LLM API、一份耐心的实验日志，已经足以接住一个三十年没人续上的接力棒。AlphaEvolve 走的是它该走的路；王宜平这条路证明了，在这条平行的赛道上，独立研究者依然有非常实在的空间。</p>
+<p>Agent 工程化是 2026 年的关键词。当这种工程化方法落到经典数学问题上、再被中国背景的研究者率先做出可复跑的版本——这就是属于这一代年轻人的故事。下一个被推进的数字会是谁、会被谁推动，没人能预测，但路径已经摆在那里，仓库地址、见证图、实验日志全是公开的。Apache-2.0 这四个字意味着任何国内同行都可以直接 fork、改造、扩展、商用，不需要任何额外许可。</p>
+<p>R(3,17) 这个数字本身在数学应用里没有直接用途，它的价值在于它是「组合数学开放问题」的一个具体可触达的实例。这一类问题在国内学术语境里长期处于「值得做但没人有空做」的状态——它们不像顶会论文那样能快速换出引用，也不像产业问题那样能换出收入。今天有一位浙大校友用一种轻量化的方法把这个数字往前推了一步，证明这件事在中国学者的训练谱系里是可达的。同行们多看几眼，多接住一棒，这条接力还会很长。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

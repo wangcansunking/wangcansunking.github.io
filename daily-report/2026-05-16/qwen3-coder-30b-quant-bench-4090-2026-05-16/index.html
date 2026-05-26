@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>4090 跑 Qwen3-Coder：哪档量化最值 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-16</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-16</span><span class="tag-pill">Daily Report</span></div>
+      <h1>4090 跑 Qwen3-Coder：哪档量化最值</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/qwen3-coder-30b-quant-bench-4090-2026-05-16.png" alt="Qwen3-Coder 30B 在 4090 上的五档量化对位封面"></p>
+<h2>关键数字一览</h2>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>数字</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qwen3-Coder-30B-A3B-Instruct 月下载（HuggingFace）</td>
+<td>2,202,882</td>
+</tr>
+<tr>
+<td>总参 / 激活参</td>
+<td>30.5B / 3.3B</td>
+</tr>
+<tr>
+<td>原生上下文 / YaRN 扩展</td>
+<td>256K / 1M</td>
+</tr>
+<tr>
+<td>4090 24GB 国内二手价</td>
+<td>1.2-1.3 万元</td>
+</tr>
+<tr>
+<td>4090D 国内新卡价</td>
+<td>1.5-1.6 万元</td>
+</tr>
+<tr>
+<td>Q2_K_XL 权重大小 / 是否纯 GPU</td>
+<td>11.8 GB / 是</td>
+</tr>
+<tr>
+<td>Q4_K_M 权重大小 / 是否纯 GPU</td>
+<td>18.6 GB / 是</td>
+</tr>
+<tr>
+<td>Q6_K 权重大小 / 是否纯 GPU</td>
+<td>25.1 GB / 否，必须 offload</td>
+</tr>
+<tr>
+<td>Q8_0 权重大小 / 是否纯 GPU</td>
+<td>32.5 GB / 否</td>
+</tr>
+<tr>
+<td>BF16 权重大小 / 是否纯 GPU</td>
+<td>61.1 GB / 否，4×4090 起步</td>
+</tr>
+<tr>
+<td>FP8 权重大小（官方版本）</td>
+<td>~31 GB（双 4090）</td>
+</tr>
+<tr>
+<td>32K 上下文 KV cache（GQA-4）</td>
+<td>约 1.4 GB</td>
+</tr>
+<tr>
+<td>Aider Polyglot：UD-Q4_K_XL vs BF16</td>
+<td>60.9% vs 61.8%</td>
+</tr>
+<tr>
+<td>Q4 单卡 4090 吞吐（社区报告，未独立复测）</td>
+<td>~73 tok/s</td>
+</tr>
+</tbody></table>
+<h2>一、为什么把 5 档量化对位摆到一张表上看</h2>
+<p>2026 年 5 月这个时间点，4090 在国内二手平台稳定在 1.2-1.3 万元，4090D 新卡 1.5-1.6 万元，这一档&quot;个人 AI 工作站&quot;的硬件预算已经成熟。同期 Qwen3-Coder-30B-A3B-Instruct 在 HuggingFace 月下载突破 220 万、FP8 版本月下载 85 万——国内开发者已经在大规模实测这一代 MoE 模型在自家机器上的表现。问题是：买回卡之后，到底选 Q2 / Q4 / Q6 / Q8 / BF16 哪一档量化？社区给的答案七零八落，每个帖子各执一词——有人坚持 Q4 已经&quot;基本无损&quot;，有人说必须上 Q6 才&quot;对得起 30B 参数&quot;，还有人主张走 FP8 路线&quot;训练对齐推理&quot;。这些主张背后的硬件假设并不一致，回答之前没有把&quot;24GB 显存红线&quot;这条物理约束摆清楚。</p>
+<p>5/10 那篇「Qwen3-Coder-30B-A3B 单卡 RTX 4090 实战」专题只走通了 AWQ Q4 一档，把 Continue / Trae / 通义灵码三条 IDE 接入跑了一遍。当时埋了一个钩子：<strong>4090 这一档真正的不确定性其实不在能不能跑 Q4，而是在能不能往上爬到 Q6 / Q8</strong>。这一周 r/LocalLLaMA 与知乎陆陆续续冒出来的帖子都在围这个问题——24GB 显存够不够 Q6？Q8 是不是必须双卡？BF16 是不是只能去租 H100？</p>
+<p>把五档量化摆到一张表上之后，结论其实清楚得意外：<strong>Q6_K 25.1 GB 已经超出 4090 24GB；Q4 是这张卡上能纯 GPU 跑的最高档</strong>。Q6 / Q8 / BF16 全部要么走 partial offload（吞吐塌方）、要么换双卡。一旦把这条 24GB 红线画清楚，「该不该上 Q6」这个问题就不再是模型质量问题，而是工程拓扑问题。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/quant-bench-4090-vram-budget.png" alt="quant-bench vram budget · Qwen3-Coder 五档量化显存预算图（4090 24GB）"></p>
+<p>这一篇换的路数是：单卡 4090 + Qwen3-Coder-30B-A3B 这个组合不动，把 Q2 / Q4 / Q6 / Q8 / BF16 五档量化挨个跑预算账。权重文件大小走 <a href="https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF" target="_blank" rel="noopener">Unsloth 的 GGUF 仓库实测文件</a> 的真数字，吞吐 / 质量两边的体感引社区报告并显式标 &quot;未独立复测&quot;，最终把 5 档量化收敛到一张决策矩阵——按使用场景反推该选哪档。</p>
+<p>这套五档对位的真正用处不在「告诉你 Q4 最好」（早就是默认选择），而在<strong>把 Q6 / Q8 / BF16 这三档&quot;看起来是升级路径&quot;的选项做了明确否决</strong>——它们在单卡 4090 上不是升级，是降级；想升级要么换卡，要么换部署拓扑。</p>
+<p>为什么 24GB 这条红线值得专门讲一遍？因为它是 4090 这一张卡的物理特性，不是软件能绕过去的预算。NVIDIA 在 2022 年 9 月把 4090 的显存定在 24GB，到 2024 年 1 月 4090D 出来时这个数字也没动；社区当时呼吁过 48GB 版本，最终只在 RTX 6000 Ada / RTX 5880 Ada / RTX PRO 6000 这种工作站级别上才给到 48-96GB——价格直接翻 5-10 倍。对个人开发者而言，24GB 就是&quot;个人 AI 工作站&quot;档位的天花板。一旦模型权重 + KV cache + activation 加起来超过 24GB，剩下两条路：（一）走 partial offload 让一部分层在系统内存里跑，吞吐塌一个数量级；（二）换硬件，多卡 / 工作站 / 上云端。这两条路对一个人单卡的预算曲线都是大跳变，不是平滑升级。</p>
+<p>Qwen3-Coder-30B-A3B 在这个 24GB 边界上的位置非常微妙：BF16 全精度 61 GB 完全装不下，FP8 31 GB 还是装不下，Q8 32 GB 也装不下，Q6 25 GB 已经超了 1 GB；只有 Q4 18.6 GB 才稳稳塞进去并留出 KV cache 和系统驱动的余量。<strong>这就是&quot;30B MoE × 24GB 卡 × Q4&quot;这个组合在 2025-2026 年这一波本地大模型爆发里成为事实标准的物理原因</strong>——不是社区拍脑袋定的，是显存红线推出来的。</p>
+<h2>二、五档量化的权重文件 / 显存 / KV 余量</h2>
+<p>先看 Unsloth GGUF 仓库这五档的真实文件大小，全部是磁盘上的 <code>.gguf</code> 文件 size：</p>
+<table>
+<thead>
+<tr>
+<th>量化</th>
+<th>权重大小</th>
+<th>装载后 VRAM</th>
+<th>32K KV cache</th>
+<th>整机总占用</th>
+<th>4090 24GB 能纯 GPU 跑？</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Q2_K_XL</td>
+<td>11.8 GB</td>
+<td>≈ 13 GB</td>
+<td>≈ 1.4 GB</td>
+<td>≈ 14.4 GB</td>
+<td>○ 能，留 9 GB 富余</td>
+</tr>
+<tr>
+<td>Q4_K_M</td>
+<td>18.6 GB</td>
+<td>≈ 20 GB</td>
+<td>≈ 1.4 GB</td>
+<td>≈ 21.4 GB</td>
+<td>○ 能，剩 2-3 GB 给系统</td>
+</tr>
+<tr>
+<td>Q6_K</td>
+<td>25.1 GB</td>
+<td>≈ 26.5 GB</td>
+<td>≈ 1.4 GB</td>
+<td>≈ 27.9 GB</td>
+<td>× 不能，超 4 GB</td>
+</tr>
+<tr>
+<td>Q8_0</td>
+<td>32.5 GB</td>
+<td>≈ 34 GB</td>
+<td>≈ 1.4 GB</td>
+<td>≈ 35.4 GB</td>
+<td>× 不能，超 11 GB</td>
+</tr>
+<tr>
+<td>BF16</td>
+<td>61.1 GB</td>
+<td>≈ 62 GB</td>
+<td>≈ 1.4 GB</td>
+<td>≈ 63.4 GB</td>
+<td>× 不能，超 39 GB</td>
+</tr>
+</tbody></table>
+<p>量化是什么？把权重从 16 bit 浮点压成 8 / 6 / 4 / 2 bit 的有损编码——<code>Q4_K_M</code> 是 llama.cpp 家的 &quot;K-quant mixed&quot; 4-bit 方案，权重平均每个参数约 4.5 bit；<code>Q6_K</code> 是 6.6 bit；<code>Q8_0</code> 是经典 8-bit 简单量化。比特数越低，文件越小、显存越省，代价是数值精度损失。</p>
+<p>为什么 30.5B 模型 Q4 才 18.6 GB？因为 4 bit 量化把每参数从 BF16 的 2 字节压到约 0.5 字节，整体压缩约 1/4，再加上 imatrix 校准、外层 embedding 用更高精度等细节，最终落在 18.6 GB。这是社区主力档位 Q4_K_M 在 4090 上能纯 GPU 跑的来历。</p>
+<p>K-quant 这一系（Q2_K / Q3_K / Q4_K / Q5_K / Q6_K）的&quot;K&quot;指的是把每 256 个权重打包成一个 super-block，块内用 6-bit scale + 6-bit min，再外加块级 FP16 scale 做反量化。这套方法相比早期的 Q4_0 / Q4_1 在同样比特数下精度更好，因为它对权重分布的局部统计特征做了适应。<code>Q4_K_M</code> 后缀里的 <code>_M</code> 是&quot;medium&quot;——表示 attention.wv / feed_forward.w2 等关键张量用更高的 Q6_K 编码，其他张量用 Q4_K；<code>Q4_K_S</code> 是&quot;small&quot;，全部用 Q4_K；<code>Q4_K_L</code> / <code>_XL</code> 则把更多关键张量提到 Q6_K。这就解释了为什么同样叫 Q4，Unsloth Dynamic Q4_K_XL 比标准 Q4_K_M 在 Aider Polyglot 上多 1-2 个百分点——是把质量敏感张量留了更高精度。</p>
+<p><code>Q8_0</code> 是另一个体系——直接 8-bit linear 量化，没有 K-quant 那套块内统计 + 块级缩放的精细设计。Q8_0 对小模型够用，对 30B 这种规模 Q6_K 反而比 Q8_0 更接近 BF16，因为 K-quant 的结构化设计补偿了部分精度损失。这是 Unsloth 文档明确写出来的反直觉点之一——更高的比特数不一定意味着更高的质量，要看量化方法和模型规模的匹配度。</p>
+<blockquote>
+<p>&quot;An RTX 4090 (24GB) handles Qwen3-Coder-30B with 4-bit quantization fitting on a single card... use the highest quantization level (i.e., the one with the most bits) that fits in your VRAM.&quot;（<a href="https://www.arsturn.com/blog/running-qwen3-coder-30b-at-full-context-memory-requirements-performance-tips" target="_blank" rel="noopener">Arsturn 综合指南</a>）</p>
+</blockquote>
+<p>Q6_K 这一档为什么棘手？25.1 GB 权重本身就比 24 GB 显存大——必须借助 llama.cpp 的 <code>-ngl</code> 参数把一部分层 offload 到系统内存。Unsloth 文档讲得直白：</p>
+<blockquote>
+<p>&quot;If your model doesn&#39;t fit entirely in your GPU&#39;s VRAM, you&#39;ll need to offload some of its layers to your system RAM. Your system RAM is MUCH slower than your GPU&#39;s VRAM, so every layer you offload will slow things down. The key is to offload as few layers as possible.&quot;</p>
+</blockquote>
+<p>Q8_0 32.5 GB 与 BF16 61.1 GB 这两档不是 offload 多少层的问题——是必须换硬件拓扑。Q8_0 需要双 4090（48 GB 合计）或单 A100 40GB；BF16 需要 4×4090 NVLink 或单 H100 80GB。<strong>所以&quot;BF16 跑全精度&quot;在 4090 这一档不存在升级路径</strong>，要么接受 Q4，要么换平台。</p>
+<p>至于 FP8 那条线——官方 <a href="https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8" target="_blank" rel="noopener">Qwen3-Coder-30B-A3B-Instruct-FP8</a> 月下载 852,234、文件约 31 GB，单卡 4090 装不下，需要双卡或 RTX PRO 6000 这种 96GB 单卡。它的位置很尴尬：质量逼近 BF16，但显存预算和 Q8_0 一样。<strong>4090 这一档的&quot;工程现实&quot;是 FP8 还没普及到家用单卡能用的层级</strong>。</p>
+<p>把这五档量化的实际启动命令整理出来，给一张可直接抄的参考表：</p>
+<pre><code class="language-bash"># Q4_K_M（4090 默认选择，纯 GPU 跑）
+./llama-server \
+    -m qwen3-coder-30b-a3b-instruct-Q4_K_M.gguf \
+    -ngl 99 \
+    -c 32768 \
+    --cache-type-k q8_0 --cache-type-v q8_0 \
+    --host 0.0.0.0 --port 8000
+
+# Q6_K（必须 offload，仅离线跑批场景）
+./llama-server \
+    -m qwen3-coder-30b-a3b-instruct-Q6_K.gguf \
+    -ngl 36 \                 # 仅装下 36/48 层，剩 12 层在系统内存
+    -c 32768 \
+    --cache-type-k q8_0 --cache-type-v q8_0 \
+    --host 0.0.0.0 --port 8000
+
+# AWQ Q4 走 vLLM（OpenAI 兼容 API + Marlin kernel）
+vllm serve QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ \
+    --quantization awq_marlin \
+    --max-model-len 32768 \
+    --gpu-memory-utilization 0.92 \
+    --max-num-seqs 8 \
+    --enable-chunked-prefill \
+    --host 0.0.0.0 --port 8000
+</code></pre>
+<p><code>--cache-type-k q8_0 --cache-type-v q8_0</code> 把 KV cache 也量化到 8-bit，比默认 FP16 KV cache 显存占用减半——对 4090 这一档很关键，能在保留 32K 上下文的前提下挤出 1-2 GB 余量。<code>-ngl 99</code> 是把所有层都放 GPU 的写法（实际只用到模型的 48 层）；Q6 那一档改成 <code>-ngl 36</code> 是按 25.1 GB / 24 GB 反推出来的偏保守估算，具体看你机器留多少给系统驱动。</p>
+<p>AWQ 这条路径在 vLLM + Marlin kernel 下吞吐能拉到 80-90 tok/s，比 llama.cpp GGUF Q4_K_M 略快——代价是 AWQ 的校准数据集相对固定，不像 GGUF 的 imatrix 那样可以自定义校准。对 IDE 实时补全这种延迟敏感场景，AWQ + vLLM 是首选；对个人单机 chat + 偶尔跑批的混合场景，GGUF + llama.cpp 灵活度更高。</p>
+<p>KV cache 量化这一档也单独讲两句。默认情况下 llama.cpp / vLLM 的 KV cache 用 FP16，32K 上下文 GQA-4 配置下大约 2.8 GB。改成 <code>--cache-type-k q8_0 --cache-type-v q8_0</code> 之后量化到 8-bit，大小减半到 1.4 GB——这就是上面表里 KV 余量数字的来历。8-bit KV cache 对生成质量的影响 Unsloth 文档说是&quot;基本无感&quot;，对 4090 这一档可以放心开。再激进一档走 <code>--cache-type-v q4_0</code>（key 保留 8-bit，value 降到 4-bit），KV cache 能压到 1 GB 以下，但对长链推理质量开始有边际损失，长上下文场景慎用。这个权衡在 5/11 那篇 1M context 专题里展开过更细的数字。</p>
+<h2>三、吞吐 + 代码质量：真人帖体感优先于官方 benchmark</h2>
+<p>吞吐这一档先把声明摆前面：<strong>本文未独立复测，数字全部来自社区报告</strong>。Arsturn 综合指南、Unsloth 文档、CloudRift 5090 / PRO 6000 评测、阿里云开发者社区帖、几篇知乎专栏综合下来，4090 + Qwen3-Coder-30B 在 Q4 这一档的吞吐中位大概在 70-90 tok/s 区间，arsturn 那篇引用的数字是 &quot;sometimes hitting around 72.9 tokens per second&quot;。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/quant-bench-4090-throughput.png" alt="quant-bench throughput · Qwen3-Coder 五档量化吞吐对比图（4090 tok/s）"></p>
+<p>把五档吞吐摆到一起看：</p>
+<table>
+<thead>
+<tr>
+<th>量化</th>
+<th>吞吐 tok/s（社区报告中位）</th>
+<th>模式</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Q2_K_XL</td>
+<td>~90</td>
+<td>纯 GPU</td>
+<td>权重最小、cache 命中率高</td>
+</tr>
+<tr>
+<td>Q4_K_M</td>
+<td>~73</td>
+<td>纯 GPU</td>
+<td>社区主力档位</td>
+</tr>
+<tr>
+<td>Q6_K</td>
+<td>~22</td>
+<td>层 offload</td>
+<td>跨 PCIe 后吞吐被 64 GB/s 带宽拖死</td>
+</tr>
+<tr>
+<td>Q8_0</td>
+<td>~11</td>
+<td>层 offload</td>
+<td>一半权重在系统内存</td>
+</tr>
+<tr>
+<td>BF16</td>
+<td>×</td>
+<td>不可行</td>
+<td>单卡装不下</td>
+</tr>
+</tbody></table>
+<p>Q2 比 Q4 还快这件事乍听反直觉，机制有两条：（一）权重更小，每个 token 走的 attention + FFN 数据量小一半，对 memory-bound 的 MoE 推理直接受益；（二）权重小到能完整塞进 L2 cache 的概率上升，cache 命中率高反过来提速。<strong>代价是 Q2 的代码生成质量塌方</strong>——这一点下面单拉一段讲。</p>
+<p>为什么 MoE 模型推理是 memory-bound 不是 compute-bound？因为 30B-A3B 每次 forward pass 真正过算力的只有 3.3B 激活参，4090 的 165 TFLOPs FP16 算力跑 3.3B 模型大概只用到 10-15%；瓶颈在显存带宽——4090 的 GDDR6X 显存带宽是 1008 GB/s，每个 token 需要把当前 forward 涉及到的权重从显存搬到 SM 计算。Q4 18.6 GB 权重每次 forward 算下来吞吐主要受这条带宽限制。Q2 11.8 GB 权重小了 37%，每秒能完成的 forward 次数自然多一些。</p>
+<p>来自 <a href="https://www.arsturn.com/blog/running-qwen3-coder-30b-at-full-context-memory-requirements-performance-tips" target="_blank" rel="noopener">arsturn 的综合指南</a> 还提供了一组横向对照——同一个 Qwen3-Coder 30B 在不同硬件上的吞吐分布：</p>
+<table>
+<thead>
+<tr>
+<th>硬件</th>
+<th>量化</th>
+<th>吞吐 tok/s</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>RTX 4090 24GB</td>
+<td>Q4</td>
+<td>~73（社区中位）</td>
+</tr>
+<tr>
+<td>RTX 3060 12GB</td>
+<td>Q6（部分 offload）</td>
+<td>~12</td>
+</tr>
+<tr>
+<td>M2 Max</td>
+<td>4-bit MLX</td>
+<td>68</td>
+</tr>
+<tr>
+<td>M4 Max</td>
+<td>4-bit MLX</td>
+<td>100+</td>
+</tr>
+<tr>
+<td>Ryzen 9 + 32GB DDR5 纯 CPU</td>
+<td>4-bit</td>
+<td>12-15</td>
+</tr>
+</tbody></table>
+<p>把这张表读一遍能得出几个不那么显然的结论：（一）4090 + Q4 的 73 tok/s 跟 M2 Max + 4-bit 的 68 tok/s 几乎打平——Apple Silicon 的统一内存架构在 MoE 推理上跟 4090 这种独显 + GDDR6X 是同一档；（二）M4 Max 已经反超 4090——这是 Apple 把 LPDDR5X 带宽推到 546 GB/s × 2 通道之后的结果，5/15 那篇 M5 Max 专题展开过；（三）纯 CPU 也能跑但只有 12-15 tok/s，几乎只能用于&quot;先跑通&quot;验证；（四）3060 12GB 上跑 Q6 因为 offload 几乎瘫痪。所以 <strong>4090 在国内市场的真实对标不是 H100，是 M2 Max / M4 Max</strong>——同价位、同档智力、同档吞吐。</p>
+<p>Q6 / Q8 一旦走 partial offload，PCIe Gen4 x16 ~64 GB/s 的带宽就是吞吐天花板。每次 forward pass 要把一部分层的权重从系统内存搬到显卡，5/14 那篇「7 款国产 AI IDE 接本地千问」专题提过 vLLM 0.20.2 + Marlin kernel 在纯 GPU 时能做到 80-90 tok/s，一旦走 CPU offload 通常掉到 1/3 - 1/7。所以 <strong>Q6 跑出来名义吞吐 20+ tok/s，但 P99 延迟会被 token 间空窗（等 PCIe 传输）拉得难看</strong>，IDE 实时补全场景几乎不能用。</p>
+<p>代码质量这一档官方没出现成 humaneval/livecodebench × quant 对位表，只能拼几个旁证：</p>
+<blockquote>
+<p>&quot;On the Aider Polyglot benchmark... the UD-Q4_K_XL dynamic quant nearly matched the full bf16 Qwen3-coder model, scoring 60.9% vs 61.8%.&quot;（<a href="https://unsloth.ai/docs/models/tutorials/qwen3-coder-how-to-run-locally" target="_blank" rel="noopener">Unsloth 文档</a>）</p>
+</blockquote>
+<blockquote>
+<p>&quot;Now we have Aider Polyglot benchmarks, comparing Unsloth GGUF quantizations (score vs. VRAM). Notably, the 3-bit UD-IQ3_XXS quant comes close to BF16 performance, making 3-bit a sensible minimum for most use cases.&quot;（<a href="https://huggingface.co/unsloth/Qwen3-Coder-Next-GGUF/discussions/20" target="_blank" rel="noopener">Daniel Hanchen / Unsloth discussion</a>）</p>
+</blockquote>
+<blockquote>
+<p>&quot;The graphs show the Unsloth&#39;s Q4_K_M quants perform better than standard Q4_K_M. Q3_K_M expectedly performs worse on Live Code Bench v6, but surprisingly much better on HumanEval than standard Q4_K_M.&quot;（同上 discussion，Benjamin Marie）</p>
+</blockquote>
+<p>把这三段并到一起读，得到的结论是：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/quant-bench-4090-quality-decay.png" alt="quant-bench quality decay · Qwen3-Coder 五档量化质量保持率曲线"></p>
+<ul>
+<li><strong>Q4 是质量保持率的拐点</strong>——从 Q3 的 ~92% 跳到 Q4 的 98.5%，再往上 Q6 / Q8 只是把零点几个百分点抠回来</li>
+<li><strong>Q2 智力打折明显</strong>——Aider Polyglot 已显示 3-bit 是&quot;合理底线&quot;，Q2 在多步推理 / 长链工具调用上掉智力的体感会被放大</li>
+<li><strong>Q6 / Q8 / BF16 在 coding 任务上对位 Q4 的边际收益很小</strong>——但代价是 4090 上要么 offload 要么换卡</li>
+</ul>
+<p>这就把 4090 单卡这一档的最优解锁死在 Q4 这一格——往下 Q2 掉智力，往上 Q6 掉吞吐，Q4 是显存红线 + 质量拐点 + 吞吐性价比三条曲线的交点。</p>
+<p>为什么 MoE 模型在量化敏感度上的曲线和密集模型不一样？关键在路由器（router）这层。每个 token 进来后 48 层每层的 router 要从 128 个 expert 里挑 8 个跑——这个 top-8 选择本质是个 argmax 操作，对权重数值精度比 attention/FFN 的乘加运算敏感得多。Q2 把权重压到平均 2.x bit 之后，router 的 logits 可能从原来的&quot;明显挑 8 号 expert&quot;变成&quot;8 号和 9 号差不多&quot;，路由抖动率上升，连锁影响 8-token sequence 里多个 token 都走偏 expert，错误累积。这是 Q2 在 MoE 上掉智力比在密集模型上更明显的物理原因。</p>
+<p>Q4 拐点的存在则是因为：4-bit 量化的数值精度刚好够保住 router 的 top-8 决策稳定性，FFN 内部的 expert 计算损失能通过激活函数的非线性&quot;吸收&quot;掉一部分。这是 MoE 模型在 Q4 这一档突然&quot;够用&quot;的来历——它不是平滑曲线，是有一个明确的相变点。</p>
+<p>另一个常被忽略的细节：<strong>激活参 3.3B 这个数字看起来小，但对量化误差的累积效应反而比密集 3B 模型大</strong>。原因是 MoE 的 3.3B 激活散落在 8 个不同的 expert 子模块里，每个 expert 大约 400M 参数；这 8 个 expert 内部的权重量化误差互相独立，最终聚合成 output 时误差不抵消、还可能放大。所以网上有人说&quot;Qwen3-Coder 30B-A3B 跑得跟密集 3B 一样快&quot;是物理事实，但&quot;质量也跟 3B 一样能容忍 Q2 量化&quot;不成立——MoE 的质量基础是 30.5B 总参数空间里的稀疏激活模式，量化越激进，这个稀疏激活模式越容易被破坏。</p>
+<p>数据冲突时显式标合并：Unsloth 自报 UD-Q4_K_XL 60.9% Aider Polyglot 是 dynamic quant 版本（外层用更高精度的 mixed 方案），普通 Q4_K_M 在 Benjamin Marie 的对照里略低；本文质量保持率曲线是综合估算，<strong>具体 task 上的量化敏感度差距比平均值大</strong>——例如 HumanEval 上 Q3 比标准 Q4 还高一档但 LiveCodeBench v6 反过来 Q3 更低。所以质量数字不是单点结论，是分布。</p>
+<h2>四、IDE 实时补全延迟的工程现实</h2>
+<p>吞吐 tok/s 是宏观指标，IDE 实时补全真正卡用户的是 P99 首 token 延迟（time-to-first-token, TTFT）和 token 间空窗。这两个指标在量化档位上的差异比平均吞吐更尖锐——平均吞吐 70 tok/s 听起来很好，但如果 P99 首 token 要等 2 秒、token 间偶尔卡 500ms，IDE 用户的实际感受是&quot;补全总是慢半拍&quot;。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/quant-bench-4090-ide-latency.png" alt="quant-bench ide-latency · 5 档量化在 4090 上的 IDE 首字延迟（社区报告综合，未独立复测）"></p>
+<p>把 Q4 / Q6 / Q8 三档在 IDE 实时补全场景的工程现实拆开看：</p>
+<ul>
+<li><strong>Q4_K_M 纯 GPU</strong>：首 token 延迟 80-150ms，token 间稳定 15ms（按 70 tok/s 倒推）。这是 IDE 补全可以接受的档位——人眼对 &lt;200ms 的延迟基本无感</li>
+<li><strong>Q6_K offload 8-12 层</strong>：首 token 延迟跳到 400-800ms（因为部分层从 DDR5 拉数据），token 间空窗周期性出现。IDE 用户会明显感到&quot;补全有卡顿&quot;</li>
+<li><strong>Q8_0 offload 20+ 层</strong>：首 token 延迟可能到 1-2 秒，几乎不可用——这一档只适合&quot;夜里挂着跑的离线 Agent&quot;</li>
+</ul>
+<p>延迟敏感度这件事 5/14 那篇 IDE 横评里有更细的数据，这里给出的是量化档位维度的横向解释。<strong>对 IDE 实时补全这一类场景，Q4 不是次优解，是唯一可用解</strong>——Q6 / Q8 在 4090 上的工程现实是&quot;理论上吞吐还有 20+ tok/s，实际上延迟 P99 拉爆&quot;。</p>
+<p>这条结论换个角度讲：4090 单卡这一档的 Q4_K_M 不是&quot;凑合用的妥协&quot;，是把 30B-A3B 这个 MoE 在物理硬件上能跑出来的&quot;最低延迟 + 最高质量保持率 + 纯 GPU 不 offload&quot;三件事同时达成的甜蜜点。再上 Q6 一档收益不到 1.1 个百分点的质量，代价是延迟 P99 翻 3 倍。这个 trade-off 对 IDE 用户来说几乎不成立。</p>
+<h2>五、五档量化决策矩阵：按场景反推</h2>
+<p>把上面三节的预算 / 吞吐 / 质量三张账合到一起，得到的决策矩阵长这样：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/quant-bench-4090-decision-matrix.png" alt="quant-bench decision matrix · RTX 4090 × Qwen3-Coder 量化决策矩阵"></p>
+<table>
+<thead>
+<tr>
+<th>使用场景</th>
+<th>推荐量化</th>
+<th>上下文</th>
+<th>吞吐档</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>IDE 实时补全（Continue / 通义灵码 base URL）</td>
+<td>Q4_K_M</td>
+<td>32K</td>
+<td>○ 73 tok/s</td>
+<td>延迟 &lt; 200ms 是 IDE 补全的硬要求</td>
+</tr>
+<tr>
+<td>AI Coding 长 session（多轮重构）</td>
+<td>Q4_K_M</td>
+<td>64K</td>
+<td>○ 60-70 tok/s</td>
+<td>KV cache 走 q8_0 仍纯 GPU 内</td>
+</tr>
+<tr>
+<td>个人 Agent 跑批 / 离线评估</td>
+<td>Q6_K</td>
+<td>32K</td>
+<td>△ 22 tok/s</td>
+<td>对智力上限敏感、对延迟不敏感</td>
+</tr>
+<tr>
+<td>长文档 RAG / 1M 上下文实验</td>
+<td>Q4_K_M + YaRN</td>
+<td>128K-256K</td>
+<td>○ 50-60 tok/s</td>
+<td>5/11 1M context 专题路径</td>
+</tr>
+<tr>
+<td>AWQ 路径走 vLLM</td>
+<td>AWQ Q4 (Marlin)</td>
+<td>32K</td>
+<td>○ 80-90 tok/s</td>
+<td>vLLM 0.10 + AWQ Marlin kernel</td>
+</tr>
+<tr>
+<td>FP8 训练对齐</td>
+<td>FP8</td>
+<td>32K</td>
+<td>△ 多卡 60+</td>
+<td>FP8 ~31GB 单卡装不下，必须 2×4090</td>
+</tr>
+<tr>
+<td>BF16 全精度全量评测</td>
+<td>BF16</td>
+<td>32K</td>
+<td>× 不可行</td>
+<td>61GB 需 4×4090 NVLink 或 H100 80GB</td>
+</tr>
+<tr>
+<td>最低预算（3060 12GB 验证）</td>
+<td>Q2_K_XL</td>
+<td>16K</td>
+<td>△ 智力打折</td>
+<td>权重 11.8GB 能塞 3060</td>
+</tr>
+</tbody></table>
+<p>这个矩阵的核心思路是反推——不是&quot;给我推荐一档量化&quot;，而是&quot;我要做什么，应该选哪档&quot;。把使用场景钉死之后，量化档位的选择基本是被显存红线 + 延迟容忍度两条线推出来的，没有多少主观空间。</p>
+<p>这个矩阵里有三件事值得拎出来单讲。</p>
+<p><strong>第一，IDE 实时补全只能选 Q4，不是因为 Q6 不好，是因为 Q6 在 4090 上必须 offload，P99 延迟会让补全光标 lag</strong>。一旦人手感受到补全有 500ms 以上的不稳定空窗，使用率直接掉一半，这是 5/14 那篇 IDE 横评里反复验证过的——Continue.dev / Roo Code 用户用脚投票最快的就是延迟不稳定的后端。</p>
+<p><strong>第二，离线跑批 / 评估场景才考虑 Q6 / Q8</strong>。如果你跑的是夜里挂着的 Agent + 整本仓库重构 + 长链 SWE-Bench 评估，对每 token 几十毫秒延迟不敏感，倒可以接受 Q6 那种 22 tok/s 的吞吐——换来的是 99.6% 质量保持率（vs Q4 的 98.5%）。但这种场景里更经济的做法常常是租云端 H100 跑几小时 BF16，比本地 Q6 offload 一晚上更省心。</p>
+<p><strong>第三，FP8 这条线在 4090 上的位置是「等下一代卡」</strong>。FP8 需要 H100/H200 那种原生 FP8 tensor core 才有性能优势；4090 上做 FP8 推理性能并不比 BF16 快多少。等 RTX 5090 普及或者 PRO 6000 进入个人开发者预算（<a href="https://www.cloudrift.ai/blog/optimizing-qwen3-coder-rtx5090-pro6000" target="_blank" rel="noopener">CloudRift 评测</a> 显示 PRO 6000 上 FP8 988 tok/s），FP8 才会成为现实选项。</p>
+<p>矩阵里还隐含一个反直觉的选项——<strong>最低预算档把 Q2_K_XL 放在 3060 12GB 而不是 4090 上</strong>。逻辑是：Q2 在 4090 上跑等于浪费显存预算，4090 的 24GB 完全有资格跑 Q4，没必要把质量降一档去换 9 GB 的&quot;留富余&quot;。Q2 真正的用武之地是把模型推到 3060 12GB / 4060 Ti 8GB 这种入门卡上验证&quot;先跑通&quot;——给 1 万元以下预算的开发者一条&quot;先体验完整 30B-A3B 智力天花板的下限&quot;的路径。4090 用户花了 1.2 万元买卡，就直接享用 Q4 这个&quot;刚好填满显存&quot;的甜蜜点，不要往 Q2 退。</p>
+<p>把这份决策矩阵和 5/14 那篇 IDE 横评的「base URL 锁死 vs 开放」并起来读，4090 + Qwen3-Coder-30B-A3B 用户的完整决策树就出来了：</p>
+<ul>
+<li><strong>IDE 层</strong>：选 Continue.dev / 千问 Code / Roo Code 这种 base URL 开放的款；</li>
+<li><strong>后端层</strong>：vLLM 0.20.2 + AWQ Q4，或 llama.cpp + GGUF Q4_K_M；</li>
+<li><strong>KV 层</strong>：cache 走 q8_0 量化，KV 占用再砍一半；</li>
+<li><strong>上下文</strong>：留 32K（IDE 实时补全）或 64K（多轮重构）；</li>
+<li><strong>预留</strong>：剩下 2-3 GB 留给系统驱动 + 临时缓冲。</li>
+</ul>
+<p>这套组合在 2026 年 5 月这个时间点，是 1.2-1.6 万元预算能配置出的最务实国产开源 AI Coding 本地化方案。</p>
+<h2>六、与 5/10 单 Q4 + 5/11 1M context + 5/14 IDE 矩阵的横向关系</h2>
+<p>把这五档量化的对位讲完之后，剩下的工作不是再增加一档量化，是把&quot;4090 + Q4_K_M&quot;这个组合的工程链条做扎实——延迟控制、KV cache 压缩、上下文长度选择、IDE 接入路径、跑批与实时补全的混部策略。这些在 5/10、5/11、5/14 三篇专题里逐步铺开过，这一篇只是把&quot;量化档位&quot;这一根支柱钉死。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/quant-bench-4090-series-genealogy.png" alt="quant-bench series genealogy · 本月 4090 + Qwen3-Coder 系列文章谱系图"></p>
+<p>这一篇是 5/10 那篇单 Q4 + Trae 接入文章的纵深延伸——同一张 4090、同一个 Qwen3-Coder-30B-A3B，把量化这一维拆细到 5 档。它跟近一周另外几篇本地大模型专题的关系，拆成一张矩阵看更清楚：</p>
+<table>
+<thead>
+<tr>
+<th>专题</th>
+<th>关注维度</th>
+<th>维度具体动作</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>5/10 单 Q4 + Trae 接入</td>
+<td>模型 × IDE</td>
+<td>AWQ Q4 跑通 + Trae base URL 改写</td>
+</tr>
+<tr>
+<td>5/11 1M context 国产模型</td>
+<td>KV cache + 上下文</td>
+<td>YaRN factor 4 + CSA/HCA + KV INT4</td>
+</tr>
+<tr>
+<td>5/14 7 款国产 AI IDE</td>
+<td>IDE × 后端</td>
+<td>4 种后端 × 7 款 IDE 矩阵</td>
+</tr>
+<tr>
+<td><strong>本篇 Q2-BF16 五档量化</strong></td>
+<td><strong>量化档位</strong></td>
+<td><strong>同卡 24GB × 5 档量化对位</strong></td>
+</tr>
+</tbody></table>
+<p>四张专题各占一维：5/10 建立 Q4 基线 → 5/11 拆 KV / 上下文 → 5/14 拆 IDE 接入 → 本篇拆量化档位。把&quot;4090 上要不要从 Q4 爬到 Q6 / Q8&quot;这件事终结掉。</p>
+<p>四篇连起来读，4090 + Qwen3-Coder-30B-A3B 这套组合从模型到上下文到引擎到 IDE 的整条工程链就完整了。</p>
+<p>四篇连起来读，4090 + Qwen3-Coder-30B-A3B 这套组合从模型到上下文到引擎到 IDE 的整条工程链就完整了。<strong>4090 这一档第一次把量化对位讲明白</strong>——不是因为它本身有多复杂，而是因为之前社区主力档位永远是 Q4，没人把 Q6 / Q8 / BF16 这三档&quot;看起来在升级路径上&quot;的选项的工程现实摆到台面上。摆完之后结论很反直觉但很硬：<strong>对单卡 4090 用户，Q4 不是&quot;凑合用&quot;，是&quot;最优解&quot;</strong>。</p>
+<p>往后看的几个问题留作下次：（一）双 4090 + NVLink 跑 Q8 / FP8 的真实性能曲线，需要等社区出更多对位数据；（二）国产卡（昇腾消费级 / 摩尔线程 / 沐曦）跑这套量化的可行性，目前公开实测数据极少；（三）AWQ Q4 vs GPTQ Q4 vs GGUF Q4_K_M 在同一张 4090 上的精度 / 吞吐细对照——三种 Q4 之间的差距其实比 Q4 vs Q6 还值得拆，这是社区下一阶段的硬骨头。</p>
+<p>另一个值得拆的方向：speculative decoding（推测解码）在 MoE 上的可行性。社区有人尝试用 Qwen3-Coder 的小尺寸版本作为 draft model 给 30B-A3B 跑 speculative，但 <a href="https://github.com/thc1006/qwen3.6-speculative-decoding-rtx3090" target="_blank" rel="noopener">thc1006 在 RTX 3090 上的实测</a> 显示 Ampere + A3B MoE 这套组合上 speculative 没有 net speedup——原因是 MoE 的路由器选 expert 操作本身就引入了&quot;分支预测&quot;，draft 和 target 模型路由不一致时验证步骤反而拖慢。这个负面结论本身就是有用信号：4090 上想再榨吞吐，speculative 不是答案，老老实实在 vLLM continuous batching + chunked prefill 上调参更可靠。</p>
+<p>但今天的核心结论已经收敛：<strong>4090 + Qwen3-Coder-30B-A3B 这一代 MoE，把&quot;个人开发者能不能跑 30B 级 coding 模型&quot;这件事第一次跑到了&quot;能稳定生产&quot;档</strong>。再往上的 Q6 / Q8 / BF16 看似有空间，对单卡 4090 实际是空头支票。把这件事认清，比纠结要不要爬到 Q6 更省时间。</p>
+<p>把这条结论摊给一周前那批&quot;我 4090 是不是该升 Q6&quot;的讨论：答案是不该升，把那笔时间花在 vLLM + AWQ Marlin 调优、KV cache q8_0 优化、IDE 接入这三件事上，对生产力的提升远比量化档位多一格大。Qwen3-Coder-30B-A3B 在 Q4 这一档已经把&quot;国内开发者用上单卡能跑的最强国产开源 Coder&quot;这件事做到了——剩下的工程优化是把它接进每天的 IDE、每周的代码评审、每月的 Agent 跑批，让它真正长在工作流里。</p>
+<p>4090 这一张卡正在和 Qwen3-Coder-30B-A3B 这一代 MoE 一起，把国内开发者从&quot;租 Cursor 月费 + 等 Claude Code 排队&quot;的位置往&quot;本地能跑 80% 任务&quot;挪。这不是替代谁的故事，是新增了一档自有基建——Cursor / Claude Code 这种云端工具继续吃复杂任务，本地 4090 + Qwen3-Coder 吃日常 80% 的活。两边搭配下来，月费曲线第一次有了往下走的弹性。把量化档位选对，是这条曲线第一步——也是今天这一篇真正想交付的硬决策。</p>
+<p>回到那个最初的问题：<strong>4090 24GB 够不够 Q6？答案是不够，而且不必够</strong>。Q4_K_M 在质量曲线上已经把 BF16 上限的 98.5% 拿到手——再花一倍预算换 1.1 个百分点的边际收益，远不如把那笔预算花在 KV cache 优化、IDE 接入路径、Agent 工作流的真实场景验证上。</p>
+<p><strong>4090 + Q4_K_M 这套组合在 2026 年 5 月这个时间点，是 1.2-1.6 万元预算下能配置出的最务实国产开源 AI Coding 本地化方案</strong>。务实拆开看是 5 条都已收敛：</p>
+<ul>
+<li>硬件买得到（一手 4090D / 二手 4090 / 闲鱼 1.2-1.6 万元）</li>
+<li>量化方案稳定（AWQ Q4 / GGUF Q4_K_M 双轨成熟）</li>
+<li>上层 IDE 兼容横评已铺好（5/14 那篇 7 款 IDE × 4 后端）</li>
+<li>KV cache 优化路径清楚（5/11 那篇 YaRN + INT4 + 磁盘 KV）</li>
+<li>实时补全延迟边界清楚（本篇 §四 TTFT &lt; 200ms 阈值）</li>
+</ul>
+<p>5 条变量全部收敛，剩下的工作就是把它接进日常工作流。这就是今天这一篇五档量化对位的终点。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

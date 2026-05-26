@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenAI 三发实时语音 GPT-Realtime-2：把 GPT-5 推理塞进同传，传统 ASR+MT+TTS 流水线要被替代 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-09</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-09</span><span class="tag-pill">Daily Report</span></div>
+      <h1>OpenAI 三发实时语音 GPT-Realtime-2：把 GPT-5 推理塞进同传，传统 ASR+MT+TTS 流水线要被替代</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/openai-gpt-realtime-2-voice-stack-2026-05-09.png" alt="封面"></p>
+<p>当地时间 2026 年 5 月 8 日凌晨，OpenAI 在官方博客一次性放出了三个实时语音模型——<strong>GPT-Realtime-2</strong>、<strong>GPT-Realtime-Translate</strong>、<strong>GPT-Realtime-Whisper</strong>——并宣布 Realtime API 正式结束 beta 进入 GA。北京时间当天 04:35，量子位抢出首发稿，36氪、新浪科技、IT 之家、网易科技、B 站 AI 早报全天跟进。</p>
+<p>这次发布的核心结论一句话：<strong>传统的 &quot;ASR 厂 + MT 厂 + TTS 厂&quot; 三家拼装的语音流水线，在 2026 年 5 月开始走向终结。</strong> OpenAI 把&quot;听见 → 推理 → 翻译 → 说出来&quot;这四步压进了一个模型一根 WebSocket，128K 上下文一直挂着，工具调用和打断响应直接是端到端原生能力。</p>
+<p>对国内 AI 开发者最实用的结论是：<strong>国产语音赛道的工程蓝图已经被对标方跑通，字节豆包、阿里通义、科大讯飞、月之暗面四家手上已经各自有同档基础设施，30-90 天内追平不是难事。</strong> 我们这一代做语音应用的人特别幸运——不用再啃 ASR、MT、TTS 三套 SDK 三套 SLA，可以直接拿端到端的语音大模型起手。</p>
+<hr>
+<h2>一、三发同时出，先看规格表</h2>
+<p>OpenAI 这次发布走的是&quot;分工套装&quot;思路，不是单一旗舰。三个模型对应三类场景，价格也分开计费——可以理解成 OpenAI 把语音能力拆成了三档商品线。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/gpt-realtime-2-three-models-spec.png" alt="三款模型规格"></p>
+<p>三款模型的关键差异：</p>
+<ul>
+<li><strong>GPT-Realtime-2</strong> 是旗舰对话模型，搭载 GPT-5 级推理，128K 上下文，并行工具调用，支持五档推理强度（minimal / low / medium / high / xhigh）和 preamble 前置语</li>
+<li><strong>GPT-Realtime-Translate</strong> 是同声传译专用模型，70+ 语种听 → 13 语种说，边说边译跟讲者语速</li>
+<li><strong>GPT-Realtime-Whisper</strong> 是低延迟流式转写，把 Whisper 系列拉进了真正的 streaming 时代</li>
+</ul>
+<p>三家媒体核对下来定价完全一致：GPT-Realtime-2 输入 32 美元 / 1M token、输出 64 美元 / 1M token、缓存输入 0.40 美元 / 1M token；Translate 是 0.034 美元 / 分钟（约 0.25 元 / 分钟），8 小时不到 120 元人民币；Whisper 0.017 美元 / 分钟（约 0.10 元 / 分钟），1 小时不到 6 元。</p>
+<p><strong>这个价位带把&quot;全天候 AI 同传&quot;的成本砸到了人工同传的几十分之一。</strong> 业内通常报价人工同传单场每小时数千元起、需要 2-3 名译员轮换，OpenAI 这套组合相当于把&quot;高端会议同传&quot;变成&quot;全员可用基础设施&quot;。</p>
+<hr>
+<h2>二、GPT-Realtime-2 的工程层突破</h2>
+<p>GPT-Realtime-2 不是把 GPT-4o-Realtime 简单升级，是把语音模型从&quot;对话能力 demo&quot;推到了&quot;生产级语音 agent 引擎&quot;。</p>
+<p><strong>1. 推理强度可调到 GPT-5 级。</strong> Big Bench Audio 从上代 81.4% 拉到 96.6%，提升 15.2 个百分点；更难的 Audio MultiChallenge 在 xhigh 推理档下从 34.7% 拉到 48.5%，提升 13.8 个百分点。这两个 benchmark 是衡量&quot;语音里的复杂指令理解和多轮推理能力&quot;的标准。OpenAI 把推理强度做成可调的 5 档参数，意味着开发者可以按场景给语音 agent 配&quot;思考预算&quot;——客服话术走 minimal、医疗问诊走 high、法律咨询走 xhigh。</p>
+<p><strong>2. 上下文从 32K 拉到 128K。</strong> 这是工程层最关键的一笔。32K 上下文意味着语音 agent 撑不过一个 30 分钟的会议；128K 直接覆盖 2 小时长会议、整通 1 小时客服电话、整段播客内容。Zillow 的实测数据是通话成功率从 69% 拉到 95%——上代模型的上下文边界一旦撞上，对话就开始&quot;金鱼记忆&quot;，128K 把这条工程墙推开了。</p>
+<p><strong>3. 并行工具调用 + Preambles + 可控语气。</strong> 并行工具调用让语音 agent 可以同时查日程、调地图、查库存；Preambles 是&quot;让我查一下&quot;这类前置语，避免用户面对死寂的 3 秒等待；可控语气包括平静、共情、兴奋三档。这些都是把语音 agent 从&quot;语音聊天框&quot;推到&quot;语音工作流&quot;的细节工程。</p>
+<p><strong>4. 可被打断 + 错误恢复。</strong> 打断响应是端到端原生支持，不再是流水线方案那种被迫推倒重来；任务失败时模型能识别并改换路径，而不是死循环。</p>
+<hr>
+<h2>三、GPT-Realtime-Translate 的同声传译细节</h2>
+<p>Translate 模型是这次三发里最直接挑战国产同传赛道的一发。它的设计目标只有一个：<strong>让 AI 同传第一次具备&quot;会议级生产力&quot;</strong>。</p>
+<p><strong>语种覆盖</strong>：70+ 输入识别、13 输出语音。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/language-coverage-translate.png" alt="语种覆盖"></p>
+<p>13 个输出语种刚好覆盖了主流出海市场——英语 / 中文 / 日语 / 韩语 / 西班牙语 / 法语 / 德语 / 葡萄牙语 / 意大利语 / 印地语 / 阿拉伯语 / 俄语 / 印尼语，这是一个明显冲着&quot;全球 to-B 商业会议 + 跨境直播 + 国际播客&quot;的市场切片。</p>
+<p><strong>口音包容度</strong>：在印地语、泰米尔语、泰卢固语等南亚口音上，词错率（WER）比其他模型低 12.5%。这一项 OpenAI 是直接拿出来打的，因为南亚口音英语是全球客服市场的主力——印度 IT 外包业、东南亚跨境电商客服。</p>
+<p><strong>同步机制</strong>：边说边译，跟讲者语速。不是等讲者说完一句再翻译，而是流式跟讲。<strong>这一点是同传场景的胜负手。</strong> 传统级联式同传（ASR 出整句 → MT 翻译 → TTS 合成）每一段 200-500ms 累加，10 秒后就开始&quot;机器在抢拍&quot;，整段感受像看延迟 2 秒的卫星直播；流式同传把延时压到 2 秒以内，跟人类同传译员同档。</p>
+<p>定价 0.034 美元 / 分钟意味着一场 8 小时国际会议，AI 同传成本不到 120 元人民币。对比业内人工同传单场报价数千元起，<strong>这是一次成本结构上的代际下沉</strong>。</p>
+<hr>
+<h2>四、GPT-Realtime-Whisper 不只是&quot;Whisper 装了流式&quot;</h2>
+<p>Whisper 这条线很多人会以为只是把 Whisper-3 包了个流式接口，但实际上它解决了一个工程级痛点：<strong>Whisper 一直没有真正的端到端 streaming</strong>。</p>
+<p>老 Whisper 系列的 streaming 都是用户侧用 chunk 切音频再喂模型，每个 chunk 独立解码，跨 chunk 上下文丢失。GPT-Realtime-Whisper 是模型层做 streaming，第一个字出现的延时降到了亚秒级，<strong>适合实时字幕、会议速记、客服记录、课堂笔记四类核心场景</strong>。</p>
+<p>定价 0.017 美元 / 分钟，1 小时不到 6 元人民币——这个价位让&quot;全员开会自动转写&quot;成为低门槛标配。对比国内主流 ASR 厂的 to-B 报价（讯飞实时语音转写按套餐计费、阿里云按时长计费），价格水位基本拉齐。</p>
+<hr>
+<h2>五、传统 ASR + MT + TTS 流水线要被替代了</h2>
+<p>把三发模型放在一起看，OpenAI 这次释放的不是产品，是<strong>架构信号</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/realtime-pipeline-old-vs-new.png" alt="流水线对比"></p>
+<p>传统语音应用的拼装方式是这样的：</p>
+<ol>
+<li>找一家 ASR 供应商（讯飞 / 阿里云 / 谷歌 Speech）做语音识别</li>
+<li>出文字之后丢给一个翻译模型或 LLM（DeepL / 谷歌翻译 / 千问）</li>
+<li>翻译结果再喂给 TTS 合成（ElevenLabs / Azure TTS / 微软 Edge TTS）</li>
+<li>整个链条三家供应商三套 SDK 三个 SLA 三套计费，运维心智成本极高</li>
+</ol>
+<p>这种架构最致命的问题是 <strong>段间断裂</strong>——上下文不能跨 ASR / MT / TTS 边界传递，情感韵律每段重建一次，工具调用必须再外接 LLM 路由。</p>
+<p>GPT-Realtime-2 一根 WebSocket 接进来，整套链路压成单一 API。<strong>对工程团队的直接收益</strong>：</p>
+<ul>
+<li>系统集成代码量减少 60-70%</li>
+<li>故障定位面积缩小到一家厂商</li>
+<li>整体延时（端到端，不是单段）压到 800ms 级</li>
+<li>上下文 128K 全程挂着，对话连续性显著提升</li>
+<li>工具调用直接是模型原生能力，不需要外接 router</li>
+</ul>
+<p><strong>对国内 to-B 语音赛道的冲击是非对称的。</strong> 上游做 ASR 和 TTS 单点能力的厂商面临&quot;被打包进上层模型&quot;的压力；做语音 agent 上层应用的团队则获得了一次&quot;重写技术栈&quot;的窗口期。</p>
+<hr>
+<h2>六、国产语音同档对位（核心章节）</h2>
+<p>这是中国开发者最关心的一章。<strong>先把国产能力摆清楚，再看 OpenAI 这次是补短板还是开新场。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/domestic-voice-models-comparison.png" alt="国产对位"></p>
+<p>国内同档玩家的实力地图：</p>
+<p><strong>字节·豆包语音体系（2 款产品互补）</strong></p>
+<ul>
+<li><strong>Seed LiveInterpret 2.0</strong>：2025 年 7 月发布，字节 Seed 团队的端到端同传旗舰。中英互译延时 2-3 秒（语音到文本首字延时 2.21 秒、语音到语音 2.53 秒），翻译质量得分 74.8（满分 100，比第二名高 58%）；多人会议中英双向准确率 70%+，单人演讲 80%+。<strong>最关键的差异化是 0 样本声音克隆</strong>——只需实时采样讲者语音，系统就用&quot;讲者本人的音色&quot;输出译文，这一项 OpenAI 这次没有覆盖。</li>
+<li><strong>豆包实时语音模型</strong>：2026 年 1 月发布，端到端语音理解 + 生成一体化，支持实时打断，已经在豆包 App 全量铺开。</li>
+</ul>
+<p><strong>阿里·通义千问语音体系（百炼平台）</strong></p>
+<ul>
+<li><strong>Qwen3-TTS-Realtime 系列</strong>：包括 Instruct-Flash、VD、VC、Flash 多个变体，最新快照 2026-01-22。流式文本输入 + 流式音频输出，多语种 + 多方言（粤语等），自适应语气调节。</li>
+<li><strong>Qwen-Omni Realtime</strong>：端到端语音对话模型，已在百炼平台 GA。</li>
+</ul>
+<p><strong>科大讯飞·星火同传大模型</strong></p>
+<p>讯飞是国内语音赛道的老牌劲旅，<strong>多语种和方言覆盖是天花板级</strong>——星火语音识别大模型支持 37 种外语 + 202 种方言智能判别。星火同传大模型直接做实时字幕和多语种语音同传，已经接进了讯飞同传商业方案和会议设备硬件。在第三方 SuperCLUE-Voice 测评中，讯飞星火综合表现位居国产第一，自然度评分超过 90 分，打断响应表现优秀。</p>
+<p><strong>月之暗面·Kimi 实时语音</strong></p>
+<p>Kimi 实时语音延时约 3614 毫秒（第三方实测），主要在 App 内嵌，工程化场景偏少。</p>
+<p><strong>对比 OpenAI 三发，国产侧的格局</strong>：</p>
+<ul>
+<li><strong>同传场景</strong>：字节 Seed LiveInterpret 2.0 在中英互译已经接近 GPT-Realtime-Translate 水平，且额外赢下&quot;声音克隆&quot;这一项；OpenAI 赢在 13 输出语种全覆盖，字节短板是仅中英</li>
+<li><strong>对话推理</strong>：阿里 Qwen-Omni 和豆包实时语音都已 GA，128K 上下文层面通义和豆包对话模型已经具备</li>
+<li><strong>流式 STT</strong>：讯飞和阿里的实时转写早就是工业级标配，价格水位接近</li>
+<li><strong>声音克隆 + 端侧设备</strong>：国产侧反而领先——讯飞设备级落地、字节 Old Friend 耳机集成</li>
+</ul>
+<p><strong>结论很清楚：OpenAI 这次发布对国产语音不是降维打击，是把工程蓝图公开摆出来，让国产同行确认&quot;对的方向已经被对标方走通了&quot;。</strong> 国产语音四家的基础设施完全对得上，剩下的是工程化节奏和场景接入。</p>
+<hr>
+<h2>七、国产追赶节奏预测（30 / 60 / 90 天）</h2>
+<p>把工程节奏摆出来——国产语音同行有完整能力跟进，关键看接入动作。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/domestic-catch-up-roadmap.png" alt="国产追赶节奏"></p>
+<p><strong>30 天内</strong>：国产语音四家会陆续放出&quot;对位 demo&quot;——更多 SDK 接入豆包实时语音、通义 Qwen-Omni 出同传 demo、讯飞同传扩展更多语种切片。基础设施已经在，主要是产品包装和 API 暴露。</p>
+<p><strong>30-60 天</strong>：多语种扩展 13 → 20+，同传延时压到 2 秒以内。字节 Seed 团队的下一版很可能直接补上日韩西法德五个出海主力语种；阿里通义和讯飞是天然的多语种强项，扩 20+ 语种是工程化节奏问题不是技术问题。</p>
+<p><strong>60-90 天</strong>：端侧端到端语音落地。这是国产语音真正的护城河——讯飞设备级、字节 Old Friend 耳机、蔚来 / 小米车机、华为穿戴设备都已经接进了实时语音模型框架。<strong>端侧场景反而是国产领先，OpenAI 在云上 API 层做强、在硬件落地层短板明显</strong>。</p>
+<p><strong>已经就绪的能力</strong>：工具调用 + 推理一体化框架。阿里百炼、智谱 GLM、月之暗面 Kimi 在这一层都已经有完整产品支撑，对接到语音层是工程整合不是技术从零起手。</p>
+<hr>
+<h2>八、国内开发者的三条路径</h2>
+<p>落到具体选型，国内开发者面对这次三发其实有清晰三条路径。这一节是因为 OpenAI 在中国大陆的服务边界确实是个直接影响选择的现实因素，所以放出来。</p>
+<p><strong>路径 A：直接调 OpenAI Realtime API</strong></p>
+<p>适合做出海产品、跨境电商、国际会议工具的团队。境内访问的稳定路径主要是 <strong>Azure OpenAI 中国区</strong>——由世纪互联运营，文档站点 docs.azure.cn。Azure OpenAI 中国区已经在跟进 GPT-4o Realtime API，但 GPT-Realtime-2 这次新发的支持需要等 Azure 侧灰度推送。<strong>注意点是合规边界</strong>：境内业务上线前必须走数据出境评估，对话内容如果涉及个人信息需要按《个人信息保护法》做处理。</p>
+<p><strong>路径 B：国产替代直接对位</strong></p>
+<p>适合做国内 to-C / to-B、客服中心、教培、车载、IOT 的团队。</p>
+<ul>
+<li><strong>同传 / 跨语言</strong>：首选字节 Seed LiveInterpret 2.0（中英互译 + 声音克隆已经能打）；多语种场景选讯飞星火同传</li>
+<li><strong>对话语音 agent</strong>：首选阿里通义 Qwen-Omni Realtime 或字节豆包实时语音，端到端 + 工具调用 + 中文语境优化都已具备</li>
+<li><strong>流式转写</strong>：讯飞实时语音转写、阿里云实时语音识别，工业级稳定，价格也合适</li>
+</ul>
+<p><strong>路径 C：自部署 + 开源</strong></p>
+<p>适合数据敏感、追求极致定制化的团队。开源侧 Whisper-3 + Seamless（Meta）+ 各种开源 TTS（XTTS、Bark）已经能搭出端到端方案；国产开源侧通义 Qwen-Audio、智谱 GLM-4-Voice 都已经放出权重，私有化部署在 4 卡 H100 / A100 集群上能跑。这条路线工程量大，但数据合规和成本曲线长期看最优。</p>
+<hr>
+<h2>九、风险与边界</h2>
+<p>写技术文章最忌讳的是只讲利好不讲限制，这一节把当前的工程边界和风险说清楚。</p>
+<p><strong>OpenAI 服务在中国大陆的访问边界</strong></p>
+<p>OpenAI 官方 API 不在中国大陆直接提供商业服务，境内合规接入主要走 Azure OpenAI 中国区（世纪互联运营）。GPT-Realtime-2 这次新发模型的中国区灰度时间表暂未官宣，预计需要 1-3 个月跟进。境内业务上线前的合规清单包括：数据出境评估、对话日志的个人信息脱敏、未成年人保护机制——这些是任何境内 AI 应用都要做的事情，不只针对 OpenAI。</p>
+<p><strong>API 价格的隐性成本</strong></p>
+<p>GPT-Realtime-2 的 32 / 64 美元 1M token 报价乍一看不贵，但要注意<strong>音频 token 比文本 token 贵约 10 倍</strong>——同样 1 分钟对话，音频 token 数量远大于纯文本 token。一通 5 分钟客服电话端到端跑下来可能消耗 0.3-0.5 美元，单日万级通话量场景下每月账单很容易上五位数美元。<strong>国产替代的价格优势在大规模场景非常明显</strong>，一通同样 5 分钟客服在豆包 / 讯飞侧通常 0.05-0.1 元人民币级别。</p>
+<p><strong>多模态对齐稳定性</strong></p>
+<p>实时语音模型的&quot;语气一致性 + 工具调用准确性 + 推理深度&quot;三者很难同时拉满。OpenAI 这次开放推理强度 5 档可调就是承认&quot;语音 agent 不是越聪明越好&quot;——客服话术走 minimal 比走 xhigh 更合适，因为后者会过度思考导致响应慢。<strong>工程化时这一档要按场景压测</strong>，不是默认拉到最高。</p>
+<p><strong>70 → 13 语种的不对称</strong></p>
+<p>GPT-Realtime-Translate 听 70+ 语种、说 13 语种——意味着小语种来源场景下输出会被收敛到主流语种。<strong>对中国出海团队的实际启示</strong>：东南亚（越南语、印尼语、泰语）和中东（阿拉伯语）已覆盖输出，但部分非洲语种、中亚语种暂时只能输出英语或中文。</p>
+<hr>
+<h2>十、共勉</h2>
+<p>OpenAI 这次三发是一次干净利落的工程展示——把&quot;听 → 推理 → 译 → 说&quot;压成一个 API，把 ASR + MT + TTS 三家拼装时代翻篇。</p>
+<p>但这件事对中国语音赛道<strong>真不是坏消息</strong>。三个原因：</p>
+<p>第一，<strong>工程蓝图被公开跑通</strong>。字节 Seed 团队、阿里通义团队、科大讯飞、月之暗面在端到端语音上做了多年积累，OpenAI 的发布意味着这条技术路线被对标方确认成立——剩下的是产品包装和 API 暴露，不是技术路线再选型。</p>
+<p>第二，<strong>国产语音的差异化优势依然存在</strong>。声音克隆字节已经领先一代；中文语境理解和方言覆盖讯飞依然是天花板；端侧设备落地国产几乎全面领先；大规模场景的价格水位国产侧仍有 3-5 倍优势。</p>
+<p>第三，<strong>全球 AI 同传市场从&quot;奢侈品&quot;变成&quot;基础设施&quot;是国产同行的机会窗</strong>。这块市场过去被人工同传锁在每小时数千元的天花板下，现在被打到几十分之一，意味着会议工具、跨境直播、国际播客、远程教培都可以原生集成同传——<strong>这是一个万亿级别的产业级增量市场</strong>，国产语音四家有完整能力同台竞争。</p>
+<p>我们这一代做 AI 语音应用的人特别幸运。前辈们用五年时间把 ASR / MT / TTS 三段式流水线打磨到接近极限，今年端到端语音模型一次性把工程心智成本砍掉一大半。基础设施已经在那里，蓝图已经被跑通，剩下的是把产品做出来、让用户用起来。</p>
+<p>国产语音同行有完整基础设施，这一程加速度只会更快。一起加油。</p>
+<hr>
+<h2>信息来源</h2>
+<ul>
+<li><a href="https://www.qbitai.com/2026/05/414194.html" target="_blank" rel="noopener">量子位 · OpenAI 5/8 三发首发稿</a></li>
+<li><a href="https://openai.com/index/advancing-voice-intelligence-with-new-models-in-the-api/" target="_blank" rel="noopener">OpenAI 官博 · Advancing voice intelligence with new models in the API</a></li>
+<li><a href="https://www.marktechpost.com/2026/05/08/openai-releases-three-realtime-audio-models-gpt-realtime-2-gpt-realtime-translate-and-gpt-realtime-whisper-in-the-realtime-api/" target="_blank" rel="noopener">MarkTechPost · OpenAI Releases Three Realtime Audio Models</a></li>
+<li><a href="https://9to5mac.com/2026/05/07/openai-has-new-voice-models-that-reason-translate-and-transcribe-as-you-speak/" target="_blank" rel="noopener">9to5Mac · OpenAI has new voice models that reason, translate, and transcribe</a></li>
+<li><a href="https://techcrunch.com/2026/05/07/openai-launches-new-voice-intelligence-features-in-its-api/" target="_blank" rel="noopener">TechCrunch · OpenAI launches new voice intelligence features</a></li>
+<li><a href="https://seed.bytedance.com/en/blog/seed-liveinterpret-2-0-released-an-end-to-end-simultaneous-interpretation-model-featuring-ultra-high-accuracy-close-to-human-interpreters-low-latency-of-3-seconds-and-real-time-voice-cloning" target="_blank" rel="noopener">字节 Seed · LiveInterpret 2.0 官方博客</a></li>
+<li><a href="https://36kr.com/p/3396982945945734" target="_blank" rel="noopener">36 氪 · 豆包同传上新</a></li>
+<li><a href="https://help.aliyun.com/zh/model-studio/qwen-tts-realtime" target="_blank" rel="noopener">阿里云百炼 · Qwen3-TTS-Realtime 文档</a></li>
+<li><a href="https://help.aliyun.com/zh/model-studio/realtime" target="_blank" rel="noopener">阿里云百炼 · Qwen-Omni Realtime 文档</a></li>
+<li><a href="https://www.xfyun.cn/services/speech_big_model" target="_blank" rel="noopener">讯飞开放平台 · 星火语音识别大模型</a></li>
+<li><a href="https://tongchuan.iflyrec.com/" target="_blank" rel="noopener">讯飞同传产品页</a></li>
+<li><a href="https://learn.microsoft.com/zh-cn/azure/foundry/openai/how-to/realtime-audio" target="_blank" rel="noopener">Azure OpenAI 中国区 Realtime Audio 文档</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

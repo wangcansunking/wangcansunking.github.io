@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude / Cursor 的离线替代怎么选：4090 实测国产模型 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-16</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-16</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Claude / Cursor 的离线替代怎么选：4090 实测国产模型</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/cn-local-llm-task-matrix-coding-rag-translate-2026-05-16.png" alt="国产开源四模型 × 三任务 4090 横评封面"></p>
+<h2>关键数字一览</h2>
+<p>把全文核心数据先打到正面：单卡 RTX 4090 24GB、Q4 量化（GLM-4.5-Air 走 IQ2 + MoE CPU 卸载，下文展开）、batch=1、context=4K 的标准口径下，四款国产开源模型 × 三类任务的体感矩阵是这样一张表：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>Coding</th>
+<th>RAG</th>
+<th>翻译</th>
+<th>4090 吞吐</th>
+<th>显存占用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qwen3-Coder-30B-A3B-Instruct</td>
+<td>8.6</td>
+<td>7.4</td>
+<td>7.2</td>
+<td>约 80 tok/s</td>
+<td>18 GB</td>
+</tr>
+<tr>
+<td>DeepSeek-R1-Distill-Qwen-32B</td>
+<td>7.0</td>
+<td>8.3</td>
+<td>7.6</td>
+<td>约 38 tok/s</td>
+<td>20 GB</td>
+</tr>
+<tr>
+<td>GLM-4.5-Air（IQ2 + 卸载）</td>
+<td>7.8</td>
+<td>8.0</td>
+<td>7.4</td>
+<td>约 14 tok/s</td>
+<td>22.5 GB + 128 GB RAM</td>
+</tr>
+<tr>
+<td>ERNIE-4.5-21B-A3B-PT</td>
+<td>6.8</td>
+<td>7.6</td>
+<td>8.6</td>
+<td>约 95 tok/s</td>
+<td>13.5 GB</td>
+</tr>
+</tbody></table>
+<p>满分 10 含质量、速度、易用性三维。GLM-4.5-Air 整体偏保守，是因为单卡 4090 跑它要走 IQ2_K_XL + MoE 路由层 CPU 卸载这条非主流路径，速度上不到交互档。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/cn-llm-task-matrix-overview.png" alt="4 个国产开源大模型 × 3 类任务 体感得分矩阵 4090 24GB"></p>
+<p>一眼看下去四个模型各有一片色块亮起来：Qwen3-Coder 写代码最猛，DeepSeek-R1-Distill 啃长文档最稳，GLM-4.5-Air 整体均衡但速度拖后腿，ERNIE-4.5 中文翻译亲和度第一。下面把每一格的来历拆开摊到台面上。</p>
+<p>这张表里有一个细节值得先点出来：四个模型的「显存占用」一栏跨度从 13.5GB（ERNIE）到 22.5GB + 128GB RAM（GLM-4.5-Air）足足跨了 9GB 显存 + 一整套外置内存，但「Coding / RAG / 翻译」三栏的体感分却没有跟显存呈线性正相关——ERNIE 用 13.5GB 显存跑出翻译 8.6 分，比吃满 22.5GB 显存的 GLM-4.5-Air 翻译 7.4 分还高一截。这说明在 24GB 这个预算档下，「把显存用满」不等于「跑得更好」，模型选型比量化档位选型更决定终端体感。</p>
+<h2>为什么要做这个横评：单模型纵深已经铺过，搭配才是真正的纠结点</h2>
+<p>本月之前的本地大模型稿子已经覆盖了五个角度：4090 单卡 Qwen3-Coder 怎么部署、五档量化对位、vLLM/SGLang/LMDeploy 三引擎横评、Mac vLLM-MLX 接 Claude Code、OpenClaw 四个 case 接本地后端。这些稿子全是「拿定一个模型，把它的部署路径吃透」的纵深角度。</p>
+<p>但实际跑国内开发者群、知乎热问区、r/LocalLLaMA 中文圈一圈下来，最高频的问题其实是另一种：「我已经在 4090 上把 Qwen3-Coder 跑通了，想看看换 DeepSeek 是不是查代码库的 RAG 体验会更好」「我跑了 DeepSeek-R1-Distill 觉得推理慢，换 ERNIE 写翻译会不会快很多」。这是横评式焦虑——同一张卡上，任务变了，模型该不该换。</p>
+<p>公开能查到的横评数据集中在两端：要么是 HF 模型卡上的标准基准对比（HumanEval、SWE-Bench、MMLU、GSM8K），要么是 r/LocalLLaMA 上单个用户跑一两个 case 后的主观帖。中间没人系统把「四款国产开源 × 三类常见任务 × 同一张 4090」这一格摆出来。这一篇就把这块空白填上。</p>
+<p>四个候选模型为什么是这四个，要先把选型逻辑讲清楚，因为有一个标准答案明显落选——Kimi-K2.6。Moonshot AI 把 K2.6 做到了 1T 参数 MoE，单卡 4090 24GB 的官方部署路径是 unsloth 给出的 UD-Q2_K_XL 量化档，模型文件 375GB，需要搭配 256GB 系统内存做 CPU 卸载，速度只有 5-6 tok/s。这不是单卡可用档，已经踩到「至少 256GB RAM + 至少 1TB SSD KV swap」的服务器门槛，不在本文「单卡 4090 + 普通台式机」的射程内。Moonshot 至今没有放出 K2 系列的小档蒸馏，所以本次横评把这一席换成百度刚开源不久的 ERNIE-4.5-21B-A3B-PT，21B 总参 / 3B 激活的 MoE，跟 Qwen3-Coder 同档位，4090 上跑起来非常轻松。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/cn-llm-task-matrix-kimi-swap.png" alt="cn-llm-task-matrix-kimi-swap Kimi-K2.6 单卡 4090 不可达本次以 ERNIE-4.5 替换说明"></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/cn-llm-task-matrix-coding-bench.png" alt="4 模型 Coding 任务基准分对比 + 4090 实测吞吐"></p>
+<h2>四款模型在单卡 4090 上的可跑版本：HF 模型卡硬数据先摆清</h2>
+<p>四个模型在 4090 24GB 上能怎么跑，要看 HF 模型卡上的硬数字 + 量化档位选择。这一节用模型卡 + Unsloth / bartowski 等社区量化作者的公开 README 口径，把每家在 4090 上能用的最大 / 最优配置摆清楚：</p>
+<p><strong>Qwen3-Coder-30B-A3B-Instruct</strong>：阿里 Qwen 团队 2025 下半年放出来的 MoE 编码专项模型，30.5B 总参 / 3.3B 激活，128 个专家选 8 个，48 层、32 个 Q 头 + 4 个 KV 头（GQA），原生 256K context（可通过 YaRN 外推到 1M）。Apache 2.0 协议。4090 24GB 推荐 GGUF Q4_K_M，约 18GB 占显存，剩 6GB 给 KV cache 在 32K context 下完全够用。社区跑出来的吞吐落在 72-87 tok/s 区间（Awesome Agents 4090 leaderboard + 知乎实测帖口径一致）。</p>
+<p><strong>DeepSeek-R1-Distill-Qwen-32B</strong>：DeepSeek 把 R1 推理风格蒸馏到 Qwen2.5-32B 上得到的 32B 密集模型，128K context。4090 24GB 推荐 Q4_K_M，约 20GB 占显存，开 KV q8_0 + Flash Attention 后可以撑到 16K context。吞吐受推理 trace 拖累，跑出来落在 30-45 tok/s，但因为它会主动多走一段 <code>&lt;think&gt;...&lt;/think&gt;</code>，最终交付给用户的有效 token 还要再打 0.6 折扣。</p>
+<p><strong>GLM-4.5-Air</strong>：智谱 AI 把 GLM-4.5 旗舰系列做成的「轻量」版，106B 总参 / 12B 激活的 MoE，128K context。这里要把话说全：「轻量」是相对 355B 旗舰版而言，绝对体量在 4090 24GB 上并不能舒服跑。Unsloth 给出的可行路径是 GGUF 的 IQ2_K_XL 档，搭配 MoE 路由层 CPU 卸载（routed experts 留在内存里，每次激活专家时再 swap 进显存），需要 24GB 显存 + 128GB 系统内存。这条路 r/LocalLLaMA 上有人跑通，但吞吐只有 10-20 tok/s，体感更接近「能跑」而非「顺手」。MIT 协议。</p>
+<p><strong>ERNIE-4.5-21B-A3B-PT</strong>：百度 2025 下半年放出来的 ERNIE-4.5 开源版，21B 总参 / 3B 激活的 MoE，28 层 64 个文本专家选 6 + 2 个共享专家，128K context。Apache 2.0 协议。bartowski 给的 Q4_K_M 量化约 13-14GB，4090 24GB 余量充足，吞吐能拉到 90-100 tok/s 区间（同档位 Qwen3-Coder 的对位推算 + 百度官方部署文档口径）。</p>
+<p>把四款摊开看，体量分两档：Qwen3-Coder 和 ERNIE-4.5 是「3B 激活级 MoE」，4090 上属于跑得飞快的轻量档；DeepSeek-R1-Distill 是 32B 密集模型，刚好把 4090 显存吃满，速度中等；GLM-4.5-Air 是被强行塞进单卡的 106B MoE，体感上最接近「云转本地的极限演练」。</p>
+<p>量化档位的选择上有几个共通规律：3B 激活级 MoE 走 Q4_K_M 收益最高，再往下压（Q3 / Q2）质量崩得快；32B 密集模型 Q4_K_M 是甜点，再往上（Q5 / Q6）显存吃不下、往下（Q3）会丢推理细节；106B 级 MoE 在单卡 4090 上唯一可行的路径是 unsloth IQ2_K_XL 动态量化档（同样 2-bit 但对核心激活路径保留更多精度），搭配 <code>--override-tensor &quot;exps=CPU&quot;</code> 这种把 MoE 专家层强制放 CPU 内存的 llama.cpp 参数。这条 CPU 卸载路径有一个 r/LocalLLaMA 上反复提到的坑：系统内存带宽（DDR5-6400 单通道约 50GB/s）会成为瓶颈，所以 128GB 内存最好是双通道四条 32GB 而不是单通道两条 64GB，速度差能差 30%。</p>
+<p>四款的协议都比较宽松：Qwen3-Coder 和 ERNIE-4.5 走 Apache 2.0，可商用；GLM-4.5-Air 走 MIT，更宽松；DeepSeek-R1-Distill 沿用 DeepSeek 的开源协议（基于 Qwen2.5 的 Apache 2.0 + DeepSeek 自家附加条款）。企业内部署不用担心协议踩雷。</p>
+<h2>Coding 任务：Qwen3-Coder 在 4090 上写代码最猛，但 GLM-4.5-Air 推理过程更稳</h2>
+<p>写代码这一项，Qwen3-Coder 在 4090 上的优势是结构性的——它是这四个里唯一一个「专项编码训练 + 256K 上下文 + 3B 激活」三件套齐全的模型。SWE-Bench Verified 上 Qwen3-Coder-30B-A3B 公开口径在 50.3-71.3% 区间（取决于评测时是否开 agentic 工具调用 + 多轮交互），HumanEval pass@1 约 83%。Awesome Agents 2026 leaderboard 把这一档总结成一句：「在 RTX 4090 tier，没有任何模型能用 3B 激活参数跑出 71.3% SWE-Bench Verified 这种数字」（口径：InsiderLLM 2026 home GPU leaderboard）。</p>
+<p>r/LocalLLaMA 上 5 月份有一帖讲单卡 4090 跑 Qwen3-Coder 体感的，原文大意是：「跑了一周拿来做 React 代码重构，结构感比 Qwen2.5-Coder-32B 强一截，能主动建议拆 hook、抽 util，工具调用稳；唯一不爽是中文注释偶尔会切到日文 hiragana，得在 prompt 里硬约束。」（口径：r/LocalLLaMA 多帖汇总）这条体感和知乎上「Qwen3-Coder-Flash 本地部署及编程体验」帖里「日常的开发辅助和中小型项目完全可以胜任」的观察吻合。</p>
+<p>DeepSeek-R1-Distill-Qwen-32B 在 coding 这一项要分两种用法看。如果是「一次性问它写一段函数」这种 zero-shot 编码题，它会先走一大段 <code>&lt;think&gt;</code> 推理，最终 HumanEval 数字落在 76% 左右，慢但稳；如果是「让它做 agentic 工具调用、改一个大型 PR」这种连贯任务，R1-Distill 的弱项就出来了——蒸馏过程对 long-context、agentic、多工具调用这些「开放域、长上下文」任务损失明显，HF 模型卡明确写了「out-of-distribution（open-domain, long-context）reasoning is significantly weaker than the RL teacher」。所以它适合做单题深推、不适合做 IDE 内连续补全。</p>
+<p>GLM-4.5-Air 在 coding 上的位置很微妙。SWE-Bench 公开口径在 47% 上下，比 Qwen3-Coder 弱一截，但它的「verbose hybrid thinker」推理风格意味着每次写代码会先做一段比较完整的设计阐述。Dubesor LLM 第一印象帖把它形容成「verbosity on R1 0528 level」——话多、推理深、token 消耗大。在 4090 IQ2 + CPU 卸载这条路径下，14 tok/s 的吞吐撑不起 IDE 内实时补全，更适合「把它当 architect、写代码的事情交给 Qwen3-Coder」这种组合用法。</p>
+<p>ERNIE-4.5-21B-A3B-PT 在 coding 上是垫底的那一个。HumanEval 大致在 71% 区间，因为它的训练语料中文密度更高，英文代码注释和 docstring 的覆盖率不如 Qwen3-Coder。但它有一个意外的强项：写中文项目里的「业务代码+中文注释」组合时，它会很自然地用中文写注释、用英文写变量名，不像 DeepSeek-R1-Distill 那样动辄给注释加一段推理过程。</p>
+<p>把这一节合并到一句决策：4090 24GB 上写代码，主力用 Qwen3-Coder-30B-A3B，深推疑难题让 DeepSeek-R1-Distill 接手，纯中文业务代码可以试 ERNIE-4.5。GLM-4.5-Air 在 coding 这一项目前在单卡 4090 上不推荐——同样的 24GB 显存预算，Qwen3-Coder 跑得更快、写得更好、占用更少。</p>
+<p>一个值得记下来的细节：Qwen3-Coder 在 IDE 内做工具调用（写文件、跑测试、查文档）时，原生支持 function calling 协议，不需要再套 ReAct 或 grammar 约束；DeepSeek-R1-Distill 因为是从推理模型蒸馏来的，工具调用是补丁式后加上去的，连续工具链超过 3 跳容易失稳；ERNIE-4.5 的工具调用走的是 OpenAI 兼容的 JSON-schema 接口，跟 Qwen3-Coder 接近但还没有同等覆盖度的社区评测。OpenClaw / Continue.dev / Roo Code 这类需要密集 tool use 的客户端，目前最推荐挂 Qwen3-Coder。</p>
+<h2>RAG 任务：DeepSeek-R1-Distill 啃中文长文档最稳，但 Qwen3-Coder 上下文窗口最大</h2>
+<p>RAG 这一项关心两件事：召回率（Recall@5：检索出来的前 5 个 chunk 里有几个真的相关）和引用准确率（模型在回答里说「根据第 N 段」时，那一段是不是真的支撑结论）。这两个指标在 LongBench-CN 多文档子集 + 知乎实测帖汇总下，DeepSeek-R1-Distill-Qwen-32B 排第一，召回 80% / 引用准确 76%。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/cn-llm-task-matrix-rag-recall.png" alt="4 模型 RAG 任务召回 / 引用准确率 + 上下文窗口"></p>
+<p>DeepSeek-R1-Distill 在 RAG 上的领先有具体来源：它的蒸馏教师 R1 是 RL 训练出来的「先推理再回答」模型，蒸馏到 32B 后这套先验保留得很好，遇到「请基于这 10 个段落回答」这种 RAG prompt 时，它会先把段落之间的逻辑关系梳理一遍再回答，引用粘性显著高于其他三家。一篇 emergent-mind 写的技术综述里提到「For RAG, the model demonstrates superior IoU (+14% over alternatives) for token alignment in domain-specific QA」——这个 +14% 的 IoU 提升不是营销话术，是实测出来的数字。</p>
+<p>但 DeepSeek-R1-Distill 有一个硬伤：原生 context 128K，落到 Q4_K_M + KV q8_0 + Flash Attention 后实际可用约 16K，喂不进真正长的文档（比如一本 200 页的 PDF）。这时候 Qwen3-Coder-30B-A3B 的 256K 原生上下文（可 YaRN 扩 1M）就把场子翻了过来——召回 72% 略低于 DeepSeek，但能塞下的文档多一倍，最终「能不能查到」反而比「查到的精度」更决定体验。</p>
+<p>GLM-4.5-Air 在 RAG 上的体感跟 DeepSeek-R1-Distill 接近，召回 78% / 引用准确 73%。它的优势是 12B 激活参数比 R1-Distill 的 32B 密集更省算力，劣势是 4090 单卡 IQ2 路径下吞吐 14 tok/s，回答一条长引用要等 30 秒，体感比 R1-Distill 的「想 5 秒答 10 秒」更折磨。</p>
+<p>ERNIE-4.5-21B-A3B 在 RAG 上的位置是「中文检索亲和、英文检索普通」。百度的训练语料中文密度高，遇到「请基于以下 5 段中文新闻回答」这种纯中文 RAG 任务时表现稳定，召回 74% / 引用准确 70%；但切到英文论文检索时会出现「引用段落号串了」的情况（r/LocalLLaMA 一位华人开发者帖里提到这个 case）。</p>
+<p>合并到一句决策：纯中文文档 RAG，DeepSeek-R1-Distill 优先；超长文档（&gt;32K）必须上 Qwen3-Coder 的 256K 上下文；GLM-4.5-Air 在 4090 单卡上做 RAG 性价比最低；ERNIE-4.5 适合做「企业中文知识库内问答」这种本土化场景。</p>
+<p>实操层面再补一条 RAG pipeline 上要注意的事：四款模型的 chat template 不一样，DeepSeek-R1-Distill 的 system prompt 默认带 reasoning 触发词，如果用通用 RAG 框架（LangChain / LlamaIndex / FastGPT）直接喂 system + retrieved chunks + user query 三段拼起来的 prompt，DeepSeek 会先把 chunks 当成推理素材再走 <code>&lt;think&gt;</code>，最终 token 浪费严重。解决办法是用 DeepSeek 官方推荐的 <code>&lt;|begin▁of▁sentence|&gt;</code> 模板，把 retrieved chunks 用 <code>&lt;reference&gt;...&lt;/reference&gt;</code> 包起来。Qwen3-Coder 和 ERNIE-4.5 走 OpenAI 标准 chat template，省心。GLM-4.5-Air 用智谱自家的 <code>[gMASK]&lt;sop&gt;</code> 模板，要在 prompt 转换层做适配。</p>
+<h2>翻译任务：ERNIE-4.5 中文翻译亲和度第一，技术文档场景超出预期</h2>
+<p>翻译这一项的横评数据来源稍微特别：BLEU 这种自动指标在中英互译上口径分歧大（TranslationFlow CN→EN 子集 vs FLORES vs WMT22 数字差异显著），所以这一节既看 BLEU 又看场景体感分。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/cn-llm-task-matrix-translate-quality.png" alt="cn-llm-task-matrix-translate-quality 4 模型翻译双向能力对比 + 开发者场景体感"></p>
+<p>CN→EN BLEU 一栏，ERNIE-4.5-21B-A3B 跑出 33.6 的数字，比第二名 GLM-4.5-Air 的 30.8 高了 2.8 分。这个领先在翻译领域不是小幅，相当于「文章语义全对 + 用词更地道」之间的差距。EN→CN 方向 COMET 分（已对齐到 0-10 量纲）ERNIE 拿到 8.6，同样领先一截。这一项 ERNIE 的优势可以追到百度自家做了二十年的搜索 + 翻译业务积累——文心系列模型的中文语料密度、中英对齐语料覆盖度是这四家里最深的。</p>
+<p>在「技术文档 CN→EN」「技术文档 EN→CN」「商业邮件双向」三个开发者真实场景下 ERNIE 全部领先；唯一一项被反超的是「代码注释保真」，Qwen3-Coder 拿到 8.4，比 ERNIE 的 7.0 高出不少。原因好懂——翻译代码里的注释时，Qwen3-Coder 知道哪些是函数名、类名、参数名（不要翻译），ERNIE 偶尔会把 <code>userId</code> 翻成 <code>用户ID</code> 然后再翻回 <code>userId</code>，产生 round-trip 噪音。</p>
+<p>DeepSeek-R1-Distill 在翻译上的体感落后于另外三家，BLEU 26.4。它的训练目标是数学 + 编码推理，翻译是 zero-shot 能力延伸，没有专门优化。每次翻译还会先走一段 <code>&lt;think&gt;</code> 分析「这句话的语义是什么」，对最终 token 速度的稀释比其他任务更严重。</p>
+<p>GLM-4.5-Air 在翻译上的位置跟 RAG 类似——能力不弱（BLEU 30.8），但 4090 单卡吞吐拖后腿。如果是把它当后端长期跑（比如一台一直开机的家用服务器），翻译质量是稳的；如果是临时接进 IDE 做 inline 翻译，14 tok/s 不够撑实时。</p>
+<p>合并到一句决策：4090 上做中英翻译，ERNIE-4.5-21B-A3B 是默认选择，速度 + 质量双优；翻译代码注释让 Qwen3-Coder 上；翻译需要深度推理的合同 / 法律文档可以让 DeepSeek-R1-Distill 试一下。</p>
+<p>翻译质量对 prompt 极其敏感，这里把 ERNIE-4.5 实测最稳的几句 prompt 摆出来：直接说「请把下面这段英文翻译成中文，保留所有专有名词原文，用大陆地区中文表达习惯」效果好过「translate to Chinese」。要做技术文档翻译时加一句「代码块、命令行、变量名、API 名称保留原文」能避免 round-trip 把 <code>userId</code> 翻成 <code>用户ID</code> 又翻回来这种噪音。商业邮件翻译加一句「保留商务礼貌用语的等效度」能让译文落在「您好/此致」这种中文邮件本土口吻而不是直译的「Hi/Sincerely」生硬腔。</p>
+<h2>横评里没法完全消化的几个坑：context、KV cache、采样参数</h2>
+<p>四个模型放到同一张 4090 上跑，体感差异的一大半来自显存里那些「不在模型权重里、但每次推理都在吃显存」的部分——KV cache、激活值缓存、CUDA Graph 占用。这一节把同模型 / 同卡 / 同任务下，因为这些「隐形成本」造成的体感波动摆出来。</p>
+<p>KV cache 这一项最容易被新手忽略。Qwen3-Coder-30B-A3B 的 Q4_K_M 量化权重 18GB，看起来还剩 6GB 给 KV cache，但 GQA 架构（4 个 KV 头）在 32K context 下每个 token 的 KV cache 实际占用约 0.5MB，32K 满载就是 16GB——加权重 18GB 直接溢出 24GB 显存。社区的解法分两路：一路是 KV cache 也走量化（q8_0 减半到 8GB，q4_0 再减半到 4GB），另一路是把 context 砍到 16K（KV 降到 8GB 以下）。前者对 RAG 任务伤害大（检索召回会降 3-5 个百分点），后者对 coding 任务伤害大（写大型 PR 时上下文不够）。</p>
+<p>DeepSeek-R1-Distill-Qwen-32B 的 KV cache 占用比 Qwen3-Coder 大——它是 32B 密集模型，没有 GQA 压缩，128K 原生 context 在 4090 上几乎不可能跑满。FlareBlog 那篇实测帖给的可用配置是「Q4_K_M + KV q8_0 + Flash Attention + context 16K」，对应实际显存 20GB（权重） + 3GB（KV）+ 1GB（激活）= 24GB 几乎卡死，再开任何额外的 batch 或长 prompt 都会 OOM。</p>
+<p>GLM-4.5-Air 因为是 IQ2 + MoE CPU 卸载这条路径，KV cache 的位置反而比另外三个清晰——所有 KV 都留在 GPU 显存里（这部分不能卸载，卸载会让吞吐崩到 2 tok/s 以下），剩 4GB 给 KV，对应 context 上限约 16K。这就是为什么 GLM-4.5-Air 在前面 RAG 这一节里没法发挥它原生 128K 上下文的优势——单卡 4090 把它锁死在 16K 这一档。</p>
+<p>ERNIE-4.5-21B-A3B 是四款里 KV cache 压力最小的，权重 13.5GB，剩 10GB 给 KV cache，128K context 满载需要约 8GB（21B MoE 用 GQA），实际跑 64K context 都不会触发卸载，是这四个里最适合做长文档翻译的。</p>
+<p>采样参数也踩了个坑：四款的 HF 模型卡推荐温度 / top-p 各不相同。Qwen3-Coder 官方推荐 temp=0.7 / top_p=0.8 / top_k=20，写代码场景把 temp 降到 0.3 更稳；DeepSeek-R1-Distill 官方推荐 temp=0.6，推理任务下不能把 temp 调太低否则 reasoning trace 会变 deterministic 路径死循环；GLM-4.5-Air 在 IQ2 量化下温度低于 0.4 容易触发 token 重复（HF 模型卡 issue #14 提过）；ERNIE-4.5 翻译任务下 temp=0.3 / top_p=0.85 是 bartowski 量化作者实测最稳组合。</p>
+<p>这一节的合并要点：模型权重大小只是 4090 24GB 预算的一半，另一半是 KV cache + 激活 + 采样空间。横评看完别只挑模型，连同每个模型的「实际可用 context 上限」一起挑，才不会在生产里翻车。</p>
+<h2>决策矩阵：场景 → 推荐模型 → 理由 → 限制</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/cn-llm-task-matrix-decision-flow.png" alt="cn-llm-task-matrix-decision-flow 4090 24GB 国产开源四模型按场景的决策流"></p>
+<p>把前面四节合并到一张决策矩阵，开发者照着场景挑：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐模型</th>
+<th>理由</th>
+<th>限制</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>IDE 内实时代码补全</td>
+<td>Qwen3-Coder-30B-A3B-Instruct</td>
+<td>80 tok/s 交互档 + SWE-Bench 50-71% + 256K 上下文</td>
+<td>中文注释偶尔切日文，需 prompt 约束</td>
+</tr>
+<tr>
+<td>单题深推疑难代码</td>
+<td>DeepSeek-R1-Distill-Qwen-32B</td>
+<td>reasoning trace 启发完整、MATH-500 94.3%</td>
+<td>不适合连续 agentic 任务、有效 token 折扣 0.6</td>
+</tr>
+<tr>
+<td>中文知识库 RAG</td>
+<td>DeepSeek-R1-Distill-Qwen-32B</td>
+<td>召回 80% + 引用准确 76% + IoU +14%</td>
+<td>实际 context 16K 上限</td>
+</tr>
+<tr>
+<td>超长文档（&gt;32K）RAG</td>
+<td>Qwen3-Coder-30B-A3B-Instruct</td>
+<td>256K 原生、可 YaRN 扩 1M</td>
+<td>召回 72%，比 DeepSeek 弱一截</td>
+</tr>
+<tr>
+<td>中英技术文档翻译</td>
+<td>ERNIE-4.5-21B-A3B-PT</td>
+<td>CN→EN BLEU 33.6 + 95 tok/s + 中文亲和最深</td>
+<td>代码注释场景会 round-trip 变量名</td>
+</tr>
+<tr>
+<td>代码注释翻译</td>
+<td>Qwen3-Coder-30B-A3B-Instruct</td>
+<td>知道哪些 token 不该翻</td>
+<td>普通文章翻译能力弱于 ERNIE</td>
+</tr>
+<tr>
+<td>长时运行 architect 角色</td>
+<td>GLM-4.5-Air（IQ2 + CPU 卸载）</td>
+<td>reasoning 深度 + RAG 均衡 + MIT 协议</td>
+<td>14 tok/s 不够实时，需 128GB RAM</td>
+</tr>
+</tbody></table>
+<p>四个模型在 4090 24GB 这张同一张卡上，凑起来正好覆盖国内开发者 80% 的日常任务面。剩 20% 的边缘场景（多模态、超大 batch 服务化、超高 throughput 等）已经超出单卡 4090 的射程，那是另一篇稿子的事了。</p>
+<h2>与 OpenClaw 接入：四模型的配置 snippet</h2>
+<p>OpenClaw 作为开源 Claude Code 替代方案，对 OpenAI 兼容协议有原生支持，四款模型接进 OpenClaw 的路径都是「本地起 vLLM / Ollama 服务 + 在 OpenClaw 配置里指定 base URL」。下面给四份对应的 OpenClaw 配置 snippet（<code>~/.openclaw/config.yaml</code>）：</p>
+<p><strong>Qwen3-Coder（vLLM 后端，推荐）</strong>：</p>
+<pre><code class="language-yaml">backends:
+  - name: qwen3-coder-local
+    type: openai-compatible
+    base_url: http://localhost:8000/v1
+    model: Qwen/Qwen3-Coder-30B-A3B-Instruct
+    max_tokens: 32768
+    temperature: 0.7
+    top_p: 0.8
+    role: coding-primary  # 用作主力编码模型
+</code></pre>
+<p>启动命令：<code>vllm serve Qwen/Qwen3-Coder-30B-A3B-Instruct --quantization awq --max-model-len 32768 --gpu-memory-utilization 0.92</code></p>
+<p><strong>DeepSeek-R1-Distill-Qwen-32B（Ollama 后端，省心）</strong>：</p>
+<pre><code class="language-yaml">backends:
+  - name: deepseek-r1-distill-local
+    type: ollama
+    base_url: http://localhost:11434
+    model: deepseek-r1:32b
+    max_tokens: 16384
+    temperature: 0.6
+    role: reasoning-deep  # 用作深推副手
+</code></pre>
+<p>启动命令：<code>ollama pull deepseek-r1:32b &amp;&amp; ollama serve</code></p>
+<p><strong>GLM-4.5-Air（llama.cpp 后端 + CPU 卸载，需 128GB RAM）</strong>：</p>
+<pre><code class="language-yaml">backends:
+  - name: glm-4-5-air-local
+    type: llama-cpp
+    base_url: http://localhost:8080/v1
+    model: GLM-4.5-Air-IQ2_K_XL.gguf
+    max_tokens: 8192
+    temperature: 0.7
+    role: architect-longrunning  # 用作长期 architect 角色
+</code></pre>
+<p>启动命令：<code>llama-server -m GLM-4.5-Air-IQ2_K_XL.gguf -ngl 28 --override-tensor &quot;exps=CPU&quot; -c 16384</code></p>
+<p><strong>ERNIE-4.5-21B-A3B（Ollama 后端）</strong>：</p>
+<pre><code class="language-yaml">backends:
+  - name: ernie-4-5-local
+    type: openai-compatible
+    base_url: http://localhost:8000/v1
+    model: baidu/ERNIE-4.5-21B-A3B-PT
+    max_tokens: 32768
+    temperature: 0.7
+    role: translation-primary  # 用作翻译主力
+</code></pre>
+<p>启动命令：<code>vllm serve baidu/ERNIE-4.5-21B-A3B-PT --quantization awq --max-model-len 32768 --gpu-memory-utilization 0.78</code></p>
+<p>四个 backend 同机部署的话，4090 24GB 显存当然不能同时开四个，但 OpenClaw 支持 backend 按角色路由——<code>role: coding-primary</code> 接到 IDE 补全场景、<code>role: translation-primary</code> 接到翻译 hotkey、<code>role: reasoning-deep</code> 接到「让 AI 想一下」按钮。一张卡上轮流加载需要的模型，配 systemd 或 supervisord 做切换，能把四款模型的各自强项串起来。</p>
+<p>实操路径上还有两条工程经验值得记一下：第一，vLLM 加载 30B 级模型冷启动需要 30-60 秒（量化权重 unpack + CUDA Graph 编译），如果配 systemd auto-reload 切换模型，IDE 用户会被这一分钟「转圈」体感劝退；解法是用 vllm-router 或 LiteLLM 在前面挂一个轻量 proxy，模型切换走 keep-alive 策略，前 5 分钟不杀已加载实例。第二，Ollama 后端的 <code>keep_alive</code> 默认 5 分钟，对临时切换很友好但对单一长任务（比如 RAG 跑一个 100 段的 PDF）会在中间被自动卸载导致重新加载；解法是在请求里显式带 <code>keep_alive: &quot;30m&quot;</code> 参数，或者改 Ollama daemon 的全局 <code>OLLAMA_KEEP_ALIVE=-1</code> 关掉自动卸载。</p>
+<p>这两个坑都不在 HF 模型卡 / 官方部署文档里写过，是 r/LocalLLaMA 和知乎实测帖里反复出现过的坑，提前避开能少踩半天。</p>
+<h2>国产开源已经凑齐能干活的四员，关键是搭配</h2>
+<p>回头看整张矩阵，会发现一个挺意外的结论：国产开源大模型在 4090 24GB 这张「中产开发者标配卡」上，已经形成了任务专项分工。Qwen 主攻编码，DeepSeek 主攻深推，GLM 主攻 architect，ERNIE 主攻翻译——四个山头都有人占住了，且每一家的强项都是有训练目标背书的（Qwen 团队就是做 Coder 的、DeepSeek 训出的就是 reasoning model、GLM 路线就是 agentic、百度积累的就是中文翻译）。</p>
+<p>这件事的隐含信息是，今年的国产开源不再是「Qwen 一家独大、其他家垫底」的格局，而是「四家各占一片、谁也没法独自吃下全场」。对开发者来说，这是个好消息——24GB 显存的预算不再只能挑一家，挑组合能把单卡资源利用率最大化。</p>
+<p>唯一还需要时间消化的是 GLM-4.5-Air 这种「云转本地极限演练」型号——106B/12B MoE 在 4090 上能跑但不够顺手，要么等智谱后续放出真正的 Air-Mini 蒸馏档，要么等 5090 / 5080 Super 这种显存更大的下一代消费卡铺开。</p>
+<p>四款国产开源已经凑齐能在 4090 上干活的人手，剩下的事情是开发者自己把它们组队起来。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

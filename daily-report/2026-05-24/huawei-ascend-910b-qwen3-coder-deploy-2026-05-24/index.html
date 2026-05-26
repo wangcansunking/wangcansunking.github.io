@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>昇腾 910B 跑通 Qwen3-Coder：一次真实部署的工程账 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-24</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-24</span><span class="tag-pill">Daily Report</span></div>
+      <h1>昇腾 910B 跑通 Qwen3-Coder：一次真实部署的工程账</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/huawei-ascend-910b-qwen3-coder-deploy-2026-05-24.png" alt="昇腾 910B 跑通 Qwen3-Coder 封面"></p>
+<h2>30 秒速览</h2>
+<p>国内能买到的国产 AI 训练推理卡，过去一年最常被工程师挂在嘴边的就是华为昇腾 910B。这周日把一份真实的部署账摆开看：910B 不是一张卡，而是 B1 / B2 / B3 / B4 四个子型号 + 上一代 910A / 下一代 910C / 边缘款 310P 一整族；一台 Atlas 800I A2 标准 4U 整机里装 8 张 910B4，单卡 HBM2 64 GB / FP16 算力 280 TFLOPS / 整机峰值功耗 4× 2.6 kW。</p>
+<p>整卡渠道价从 2024 上半年的 7 万元，已经爬到 2025 年官方挂牌的 12 万元一档；整机租赁市场上，910B3 整机一个月 1.32–1.50 万元，910B4 整机一个月 1.06–1.20 万元。把 Qwen3-Coder-Next（基于 Qwen3-Next-80B-A3B）真实跑起来需要 CANN 8.x、Triton Ascend 3.2、vLLM-Ascend v0.14.0rc1 三个软件版本对齐，并且必须把模型权重的 bf16 改成 fp16 才能在 910B 上跑通。</p>
+<p>最让人意外的一笔是：MindIE 2.1.RC1 在 8 卡 910B、384 并发下把 Qwen3-30B-A3B 做到 <strong>8702.98 tok/s</strong>，单卡 RTX 4090 在同一模型上单并发约 <strong>196 tok/s</strong>——8 卡国产整机和单卡消费级在不同负载档位上各自打出了自己的真实价值。本文围绕这一台机器，从硬件家族、价格分层、推理引擎选型、Qwen3-Coder 官方支持现状、一次真实跑通的关键三步、4090 单卡 vs 整机的选型矩阵、到 Qoder CN（前通义灵码）企业版接入路径，给国内工程师一份能照着抄的真实账。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/ascend-atlas-800i-a2-banner.png" alt="Atlas 800I A2 整机 banner（华为官方产品页 hero）"></p>
+<h2>一、910B 不是一张卡，是一个家族</h2>
+<p>最早接触昇腾的工程师，往往把「910B」当成一个单品来理解；真正下单或拉清单的时候才发现，<strong>910B 是一个由 B1 / B2 / B3 / B4 四个子型号组成的家族</strong>，每个子型号在显存、算力、制程、整机配套上都不一样。把 910A 的上一代、910C 的下一代和边缘款 310P 一起摆出来看，整张表才完整。</p>
+<table>
+<thead>
+<tr>
+<th>子型号</th>
+<th>显存</th>
+<th>FP16 算力</th>
+<th>INT8 算力</th>
+<th>TDP</th>
+<th>制程</th>
+<th>整机/配套</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>910A</td>
+<td>32 GB HBM2</td>
+<td>256 TFLOPS</td>
+<td>512 TOPS</td>
+<td>310 W</td>
+<td>台积电（前代）</td>
+<td>Atlas 800-9000</td>
+</tr>
+<tr>
+<td><strong>910B1</strong></td>
+<td><strong>64 GB HBM2</strong></td>
+<td><strong>414 TFLOPS</strong></td>
+<td><strong>828 TOPS</strong></td>
+<td>310 W</td>
+<td>台积电</td>
+<td>训练旗舰</td>
+</tr>
+<tr>
+<td><strong>910B2</strong></td>
+<td>64 GB HBM2</td>
+<td>376 TFLOPS</td>
+<td>752 TOPS</td>
+<td>310 W</td>
+<td>台积电</td>
+<td>训练 / 推理混合</td>
+</tr>
+<tr>
+<td><strong>910B3</strong></td>
+<td>64 GB HBM2</td>
+<td>313 TFLOPS</td>
+<td>626 TOPS</td>
+<td>310 W</td>
+<td>中芯国际</td>
+<td>Atlas 800T A2 训练机</td>
+</tr>
+<tr>
+<td><strong>910B4</strong></td>
+<td>32 GB HBM2</td>
+<td>280 TFLOPS</td>
+<td>560 TOPS</td>
+<td>310 W</td>
+<td>中芯国际</td>
+<td><strong>Atlas 800I A2 推理机</strong></td>
+</tr>
+<tr>
+<td>910C</td>
+<td>128 GB</td>
+<td>800 TFLOPS</td>
+<td>1600 TOPS</td>
+<td>待定</td>
+<td>中芯国际</td>
+<td>2025Q1 发布（下一代）</td>
+</tr>
+<tr>
+<td>310P</td>
+<td>24 GB</td>
+<td>70 TFLOPS</td>
+<td>140 TOPS</td>
+<td>72 W</td>
+<td>—</td>
+<td>边缘推理</td>
+</tr>
+</tbody></table>
+<p>从这张表能读出几件具体的事情。</p>
+<p>第一，<strong>910B1 / B2 用的是台积电制程</strong>，是 2023 年之前已经流片的库存版本；<strong>910B3 / B4 是中芯国际制程</strong>，是 2024 年开始走量的国产工艺版本。今天市场上能采购到的新卡，主要是 B3 / B4 这两档；B1 / B2 多见于早期出货客户或者云厂内部存量。</p>
+<p>第二，<strong>910B4 是 32 GB HBM2，显存只有 B1/B2/B3 的一半</strong>。这件事在选型时极其关键：一台 Atlas 800I A2 推理机配 8 张 910B4，整机总显存是 8 × 32 = 256 GB；如果是 8 张 B3 则是 8 × 64 = 512 GB。Qwen3-30B-A3B FP16 模型权重约 60 GB，张量并行 TP=8 切下来每卡占 8 GB 出头，B4 的 32 GB 完全够；但如果想本机起 DeepSeek V3.1（约 671B MoE，FP8 权重 ~600 GB），B4 整机就吃力。</p>
+<p>第三，<strong>INT8 算力是 FP16 的 2 倍，是模型推理量化的真实收益线</strong>。MindIE 与 vLLM-Ascend 在 W8A8 量化下能直接吃满 INT8 通道；这也是为什么国内做大模型工程化部署的同行，大多数情况会把权重做一遍 SmoothQuant / GPTQ-W8A8 再上昇腾，比 FP16 直跑能多吃出一倍的并发头部。</p>
+<p>Atlas 800I A2 这台 4U 整机的具体参数，<strong>关系到机房上架与电源预算</strong>：4U 标准机架；4 颗鲲鹏 920 CPU；32 个 DDR4 插槽，主频 3200 MT/s；8 个 200GE QSFP RoCE 端口（做多机 RDMA 互联）；4 路 2.6 kW 电源；标配 8 张 910B4。整机峰值功耗按 4× 2.6 = 10.4 kW 估，机柜 PDU 必须按 32A 三相单独走线；普通办公楼标配 16A 单相电从一开始就喂不饱这台机器。</p>
+<p>和友商同档位卡做个对位，可以让 910B 在心里有一把尺。</p>
+<table>
+<thead>
+<tr>
+<th>卡 / 显存</th>
+<th>厂商</th>
+<th>FP16 算力</th>
+<th>INT8 算力</th>
+<th>显存</th>
+<th>TDP</th>
+<th>流通价位</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>910B1 64 GB</strong></td>
+<td>华为</td>
+<td>414 TFLOPS</td>
+<td>828 TOPS</td>
+<td>64 GB HBM2</td>
+<td>310 W</td>
+<td>7–12 万元（渠道）</td>
+</tr>
+<tr>
+<td>H100 SXM 80 GB</td>
+<td>NVIDIA</td>
+<td>989 TFLOPS（TF32 稀疏）</td>
+<td>3958 TOPS</td>
+<td>80 GB HBM3</td>
+<td>700 W</td>
+<td>海外水货 25–28 万元</td>
+</tr>
+<tr>
+<td>H20 96 GB</td>
+<td>NVIDIA（对华专供）</td>
+<td>148 TFLOPS（FP16）</td>
+<td>296 TOPS</td>
+<td>96 GB HBM3</td>
+<td>400 W</td>
+<td>~11 万元（渠道）</td>
+</tr>
+<tr>
+<td>RTX 4090 24 GB</td>
+<td>NVIDIA</td>
+<td>82 TFLOPS</td>
+<td>661 TOPS</td>
+<td>24 GB GDDR6X</td>
+<td>450 W</td>
+<td>1.5–1.8 万元</td>
+</tr>
+<tr>
+<td>RTX 6000 Ada 48 GB</td>
+<td>NVIDIA</td>
+<td>91 TFLOPS</td>
+<td>728 TOPS</td>
+<td>48 GB GDDR6</td>
+<td>300 W</td>
+<td>5.5–6.5 万元</td>
+</tr>
+</tbody></table>
+<p>这张对位表读完，910B1 的工程定位就清楚了：<strong>FP16 算力是 H20 的 2.8 倍，是 RTX 6000 Ada 的 4.5 倍，是 RTX 4090 的 5 倍，仅次于 H100</strong>。显存与 H100 在同一档（64 GB vs 80 GB），整卡功耗也接近（310 W vs 700 W，H100 更高）。这是过去一年国内大模型私有化项目最常用 910B 直接对位 H100 / H20 的根本原因——单看 FP16 / 显存这两个对模型推理最重要的指标，910B1 是国产卡里唯一进入这一档的产品。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/vllm-ascend-gh-card.png" alt="vLLM-Ascend 仓库 GitHub OG 卡片"></p>
+<h2>二、价格的三个分层：整卡、整机、整机租赁</h2>
+<p>谈昇腾 910B 价格的时候，最容易混的就是「整卡」、「整机」、「整机租赁」三个口径搅在一起。三层分开摆，才不会算错账。</p>
+<p><strong>第一层，整卡渠道价。<strong>2024 年上半年智东西的报道里，910B 整卡的市场价大约在 <strong>7 万元</strong>一张；进入 2025 年，极云科技整理的市场行情里，910B 整卡官方挂牌价已经爬到 <strong>12 万元</strong>一档。整卡价从 7 万爬到 12 万的曲线，背后是两件事：一是 2024 年下半年开始 B3 / B4 中芯版本起量，中芯国际产能爬坡阶段单卡分摊成本高；二是国内大模型私有化采购需求爆发，整卡现货长期处于供不应求状态。这层价格的特点是</strong>官方不直接对外报价，需要向华为代理咨询</strong>——北京飞途昇腾、全爱科技、ICT 数通中心是几家比较常被同行点到名的代理；闲鱼 / 京东散卡市场至今几乎没有流通，京东商城上能查到的只有整机销售页，且不标价。</p>
+<p><strong>第二层，整机出厂价。<strong>Atlas 800I A2 整机出厂价同样</strong>官方未公开报价</strong>。整机里除了 8 张 910B4，还有 4 颗鲲鹏 920 CPU、32 条 DDR4 内存、8 个 200GE QSFP 网卡、4 路 2.6 kW 电源和整套机箱+散热系统。按 8 张 B4 卡 × 7-12 万元 / 张折算，光卡部分整机就是 56–96 万元；加上 CPU / 内存 / 电源 / 整机制造 + 渠道毛利，单台 Atlas 800I A2 的市场报价在 90 万元 ~ 150 万元区间走是合理估计。<strong>真实下单前必须找代理拿正式 quotation</strong>，不要按这个区间直接做财务预算。</p>
+<p>**第三层，整机租赁。**这是国内绝大多数中小团队真正用得起的入口。anygpu.cn 上挂出的真实长租价位是这样的：910B3 整机（8 卡 64 GB）会员价 <strong>1.32 万元/月</strong>、非会员 <strong>1.50 万元/月</strong>；910B4 整机（8 卡 32 GB）会员价 <strong>1.06 万元/月</strong>、非会员 <strong>1.20 万元/月</strong>。按一年长租算，910B4 整机一年成本 12.7 万元，相当于自购一张整卡的钱就能租一年整机；如果是 3 年长租 38 万元，依然显著低于自购整机。这条曲线决定了大量「想试一下昇腾真实推理体验」的国内团队，<strong>不是去自购整卡或整机，而是直接在 anygpu / 京东云 / 华为云 / 国内 IDC 上租整机</strong>。</p>
+<p>把整卡 / 整机 / 整机租赁三层与同档进口卡做个并排：</p>
+<table>
+<thead>
+<tr>
+<th>选型</th>
+<th>整机配置</th>
+<th>一次性 / 月度</th>
+<th>显存合计</th>
+<th>FP16 算力合计</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>8 卡 910B3 自购整机</strong></td>
+<td>8× 910B3 64GB</td>
+<td>估 110–150 万元</td>
+<td>512 GB</td>
+<td>2504 TFLOPS</td>
+</tr>
+<tr>
+<td><strong>8 卡 910B4 自购整机</strong></td>
+<td>8× 910B4 32GB</td>
+<td>估 90–120 万元</td>
+<td>256 GB</td>
+<td>2240 TFLOPS</td>
+</tr>
+<tr>
+<td><strong>8 卡 910B3 整机租赁</strong></td>
+<td>8× 910B3 64GB</td>
+<td>1.32–1.50 万元/月</td>
+<td>512 GB</td>
+<td>2504 TFLOPS</td>
+</tr>
+<tr>
+<td><strong>8 卡 910B4 整机租赁</strong></td>
+<td>8× 910B4 32GB</td>
+<td>1.06–1.20 万元/月</td>
+<td>256 GB</td>
+<td>2240 TFLOPS</td>
+</tr>
+<tr>
+<td>8 卡 H20 整机</td>
+<td>8× H20 96GB</td>
+<td>估 100–130 万元</td>
+<td>768 GB</td>
+<td>1184 TFLOPS</td>
+</tr>
+<tr>
+<td>单卡 RTX 4090</td>
+<td>1× 4090 24GB</td>
+<td>1.5–1.8 万元</td>
+<td>24 GB</td>
+<td>82 TFLOPS</td>
+</tr>
+<tr>
+<td>单卡 RTX 6000 Ada</td>
+<td>1× 6000 Ada 48GB</td>
+<td>5.5–6.5 万元</td>
+<td>48 GB</td>
+<td>91 TFLOPS</td>
+</tr>
+</tbody></table>
+<p>把 910B4 整机租赁 1 万元出头/月与 8 卡 H20 整机 100 万元自购同档放一起，<strong>国产卡的整机租赁路径，在月度现金流上几乎只有自购的 1%</strong>。这条价格曲线，是过去半年中小团队真正能跑出来「先在 910B 上试一周再决定要不要自购」这种工程节奏的基础。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/qwen3-coder-gh-card.png" alt="Qwen3-Coder 仓库 GitHub OG 卡片"></p>
+<h2>三、MindIE / vLLM-Ascend / LMDeploy 三家推理引擎选哪一个</h2>
+<p>昇腾 910B 上跑大模型推理，<strong>软件栈是真实门槛比硬件更高的一段</strong>。CANN（Compute Architecture for Neural Networks）是底层算子库与运行时，对应 NVIDIA 的 CUDA；目前主流可用版本是 2024 年 10 月华为全联接大会发布的 CANN 8.0（stable）、过渡版本 CANN 8.2.RC1 / 8.3.RC1、以及 vllm-ascend 文档最新引用到的 CANN 8.5.1。CANN 之上，三家推理引擎分别是华为自研的 MindIE、社区主推的 vLLM-Ascend、与商汤系的 LMDeploy。</p>
+<p><strong>MindIE 2.1.RC1</strong>，是华为自研的高性能推理引擎，闭源，以镜像方式分发。它在工程优化上做了相当多昇腾原生的工作：PagedAttention 算子在 NPU 上深度优化、对 Qwen / DeepSeek / LLaMA 三系模型有专门的图融合策略、TP=8 全连接通信用了昇腾原生的 HCCL（Huawei Collective Communication Library）。MindIE 的最大限制是<strong>不支持 bfloat16</strong>——这一点会在第六节真实部署里反复出现，因为今天大部分 HuggingFace 上的开源权重默认是 bf16，跑 MindIE 必须先把 torch_dtype 改成 float16。</p>
+<p><strong>vLLM-Ascend v0.14.0rc1</strong>，是 vLLM 主项目的官方昇腾分支，由华为 / 昇腾团队与 vLLM 社区共同维护，开源。它把 vLLM 主线的 PagedAttention、连续 batching、量化兼容等全套机制带到了昇腾，<strong>单卡延迟（TTFT, Time To First Token）非常低</strong>——单并发 TTFT 在 0.25 秒附近，对 agent 类首字段响应敏感的场景，体验非常顺滑。社区 0.11 → 0.14 的迭代速度也很快，对最新模型支持比 MindIE 稍快一拍。</p>
+<p><strong>LMDeploy / TurboMind Ascend</strong>，是 OpenMMLab 系（商汤）的国产卡推理后端，对应 NVIDIA 上的 TurboMind。它在吞吐量上对外宣称是 vLLM 主线的 <strong>1.36–1.85 倍</strong>；昇腾版本社区维护节奏与 vLLM-Ascend 在伯仲之间，对于做大批量离线推理（评测、合成数据、批量摘要）的团队是一个真实可选项。</p>
+<p>把三家在同一台机器（8× 910B4 / Atlas 800I A2 / TP=8）跑 Qwen3-30B-A3B、1024 输入 256 输出、显存利用率 0.9 的实测数据并排摆，能看到非常具体的差异：</p>
+<table>
+<thead>
+<tr>
+<th>并发</th>
+<th>MindIE 2.1.RC1（tok/s）</th>
+<th>vLLM-Ascend v0.11（tok/s）</th>
+<th>MindIE TTFT（秒）</th>
+<th>vLLM-Ascend TTFT（秒）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>229.09</td>
+<td>225.49</td>
+<td>0.096</td>
+<td><strong>0.258</strong></td>
+</tr>
+<tr>
+<td>16</td>
+<td>2198.19</td>
+<td>1623.35</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>64</td>
+<td>5727.42</td>
+<td>3900.77</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>128</td>
+<td>7896.73</td>
+<td>4491.86</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>384</strong></td>
+<td><strong>8702.98</strong></td>
+<td>6652.27</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>448</td>
+<td>8498.06</td>
+<td>4731.14（接近崩溃临界）</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody></table>
+<p>数据来自 CSDN 用户 INSNNP_LZM 与博客园 ljbguanli 在 2025 年 12 月的实测帖，环境完全相同，唯一变量是推理引擎。这张表读下来有三个非常直接的结论。</p>
+<p><strong>第一，单并发 / 低并发场景下 MindIE 与 vLLM-Ascend 几乎打平</strong>，229 vs 225 tok/s，差距不到 2%。如果团队的真实负载是 agent 任务、单次长上下文对话、单人 IDE 补全这种典型低并发场景，<strong>选哪一家差别都不大</strong>，更应该看团队对开源闭源的偏好与运维能力。</p>
+<p><strong>第二，并发提到 64 以上 MindIE 优势开始拉开</strong>。64 并发时 MindIE 比 vLLM-Ascend 快 47%，128 并发时快 76%，384 并发时 8702.98 vs 6652.27，MindIE 快 31%。<strong>做企业内部高并发推理服务（客服机器人、搜索增强、批量摘要），MindIE 在工程稳定性与吞吐峰值上仍是更稳的选择</strong>。</p>
+<p><strong>第三，vLLM-Ascend 在 448 并发时已经接近崩溃临界</strong>——吞吐从 384 并发的 6652 tok/s 下降到 4731 tok/s，下降 29%。这一段是社区版本仍在迭代的真实状态；选 vLLM-Ascend 的团队，<strong>生产环境要把 max-num-seqs 卡在 384 以内</strong>，给上限留出安全余量。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/ascend-mindie-vs-vllm-throughput.png" alt="MindIE vs vLLM-Ascend 8 卡并发吞吐对比线图（自制 chart）"></p>
+<h2>四、Qwen3-Coder-Next 在昇腾的官方支持现状</h2>
+<p>Qwen3-Coder-Next 是 2026 年 2 月 10 日由 MindSpeed 团队在魔乐社区（modelers.cn/models/MindSpeed/Qwen3-Coder-Next）发布的昇腾原生教程，基于阿里千问的 Qwen3-Next-80B-A3B 基座，专门为代码生成 / 补全场景做了适配。</p>
+<p>魔乐仓库给出的官方口径，<strong>逐字引用</strong>是这样的：「Currently for early experience only, performance optimization in progress」——目前仅供早期体验，性能优化进行中。这句话的工程含义非常具体：</p>
+<p>第一，<strong>仓库公开了完整的 vLLM-Ascend 启动命令与依赖矩阵</strong>，工程师可以按文档跑通，不是 demo level；
+第二，<strong>官方暂未公开 tok/s 性能数字</strong>，意味着团队自己跑出来的吞吐不会被列入官方对外宣传的基准线，但也不会被刻意藏起来；
+第三，<strong>Bug 反馈通道开放</strong>——issue / discussion 都在仓库内活跃，几个核心维护者会在 24 小时内回复。</p>
+<p>依赖矩阵里几个版本号必须对齐，否则跑不通：</p>
+<ul>
+<li>机型：<strong>Atlas A2 / A3</strong> 系列（A2 即本文 Atlas 800I A2 + 910B4 这一档；A3 是 910C 那一档）</li>
+<li>CANN：<strong>8.5.1 或以上</strong>（vllm-ascend docs 最新引用版本）</li>
+<li>Triton Ascend：<strong>3.2.0</strong>（昇腾原生 Triton，做 kernel 即时编译）</li>
+<li>vLLM-Ascend：<strong>v0.14.0rc1</strong>（社区昇腾分支，对应 vLLM 主线 v0.6.x 时期）</li>
+<li>Python：3.11</li>
+<li>OS：openEuler 24.03 LTS aarch64</li>
+</ul>
+<p>离线推理跑通参数（魔乐仓库示例 verbatim）：</p>
+<pre><code class="language-python"># tensor_parallel_size=4, max_model_len=10000, dtype=float16
+# 80B-A3B MoE 模型，8 个专家活跃 3 个，等效活跃参数 ~3B
+</code></pre>
+<p>在线 serve 模式（魔乐仓库示例 verbatim）：</p>
+<pre><code class="language-bash">vllm serve /path/to/Qwen3-Coder-Next \
+  --tensor-parallel-size 4 \
+  --max-model-len 32768 \
+  --dtype float16
+</code></pre>
+<p>注意三件事：tensor-parallel-size 默认是 4（不是 8），因为 80B-A3B 这一档模型 4 卡切已经够；max-model-len 在线模式默认拉到 32768，离线评测时压到 10000 是为了快速 sanity check；dtype 必须显式写 float16，<strong>不能让框架自动从模型 config.json 读默认的 bf16</strong>，原因看下一节。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/triton-ascend-gh-card.png" alt="Triton Ascend 仓库 GitHub OG 卡片"></p>
+<h2>五、真实部署一次跑通的关键三步</h2>
+<p>把上述材料汇总到一份「在 8 卡 910B4 整机上把 Qwen3-Coder-Next 跑通」的工程清单上，关键是三步。</p>
+<p>**第一步，CANN 8.x Toolkit + Kernel 安装。**昇腾驱动与 CANN Toolkit 是两件事，必须分开装。驱动版本要与 firmware 对齐，CANN Toolkit 装在 root 用户的 <code>/usr/local/Ascend/ascend-toolkit</code> 默认路径下。装完跑一遍 <code>npu-smi info</code>，能看到 8 张 910B4 + 各自的 HBM 占用 + 健康状态，才算驱动 + CANN 真的对齐。如果 npu-smi info 报「device not found」，9 成是驱动与 firmware 版本错位，需要走华为售后申请重刷固件。</p>
+<p><strong>第二步，ATC 模型转换或 vLLM 直接加载。<strong>昇腾的传统部署路径是 ATC（Ascend Tensor Compiler），把模型权重从 PyTorch / ONNX 编译成昇腾原生的 OM（Offline Model）格式。但 vLLM-Ascend v0.14 之后</strong>已经支持直接加载 HuggingFace safetensors 权重</strong>——这一步可以省掉，对应 NVIDIA 上 vLLM 直接 <code>--model meta-llama/Llama-3-70B</code> 的体验。模型权重既可以从 HuggingFace 拉，也可以走国内镜像（魔乐社区 modelers.cn / 魔搭 ModelScope / hf-mirror.com / AtomGit AI 社区），后者对国内网络更稳。</p>
+<p>**第三步，启动推理服务 + bf16 必改 fp16。**这一步是 910B 上最容易踩坑的一步。CSDN 用户「略胜亿筹」在 2025 年 7 月 31 日发的「Qwen3-32B 昇腾 910B4 部署」帖里，<strong>verbatim</strong> 写明了这个坑：</p>
+<blockquote>
+<p>Huawei 910B server does not support bfloat16</p>
+</blockquote>
+<p>整张 Qwen3 家族（包括 Qwen3-30B-A3B、Qwen3-Coder-Next、Qwen3-32B）的 HuggingFace 权重 config.json 默认 <code>torch_dtype: bfloat16</code>，直接送进 MindIE 启动会立刻报错。修复方法是把模型目录下的 <code>config.json</code> 中 <code>torch_dtype</code> 改成 <code>&quot;float16&quot;</code>；同时还要把模型目录权限递归改为 750，<code>config.json</code> 单文件权限改为 640（默认权限 MindIE 服务用户读不到）。这两条没做的工程师，往往会卡在「模型加载 0%」的报错画面上半天找不到根因。</p>
+<p>这三步用一张流程图汇总：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/ascend-deploy-pipeline-flow.png" alt="昇腾 910B 部署 Qwen3-Coder 流程图（自制 chart）"></p>
+<p>启动 MindIE 服务的命令（参考 MindIE 2.1.RC1 官方镜像 README）：</p>
+<pre><code class="language-bash">docker run --rm -it \
+  --device=/dev/davinci0..7 \
+  --device=/dev/davinci_manager \
+  --device=/dev/hisi_hdc \
+  -v /usr/local/Ascend/driver:/usr/local/Ascend/driver \
+  -v /path/to/Qwen3-Coder-Next:/models/qwen3-coder-next \
+  -p 1025:1025 \
+  swr.cn-south-1.myhuaweicloud.com/ascendhub/mindie:2.1.RC1-800I-A2-aarch64 \
+  /opt/mindie/bin/mindie-service start \
+    --model /models/qwen3-coder-next \
+    --tp 8 --dtype float16 --max-num-seqs 256
+</code></pre>
+<p>启动 vLLM-Ascend 的等价命令：</p>
+<pre><code class="language-bash">docker run --rm -it \
+  --device=/dev/davinci0..7 \
+  --device=/dev/davinci_manager \
+  -v /usr/local/Ascend/driver:/usr/local/Ascend/driver \
+  -v /path/to/Qwen3-Coder-Next:/models/qwen3-coder-next \
+  -p 8000:8000 \
+  quay.io/ascend/vllm-ascend:v0.14.0rc1 \
+  vllm serve /models/qwen3-coder-next \
+    --tensor-parallel-size 4 \
+    --max-model-len 32768 \
+    --dtype float16
+</code></pre>
+<p>两个端口分别是 MindIE 的 1025（OpenAI 兼容 REST API）与 vLLM 的 8000（OpenAI 兼容 REST API + Prometheus metrics）。这两个端口是后续 IDE 与 agent 工具接入的入口。</p>
+<p>显存这块还有一个工程师常被劝退的点——<strong>昇腾的显存占用比 NVIDIA 同档高出一截</strong>。CSDN 用户 qq_14845119 在 vLLM-Ascend v0.8.5rc1 镜像（quay.io/ascend/vllm-ascend:v0.8.5rc1）上做的实测数据：Qwen3-0.6B 单卡占 25 GB，Qwen3-4B 单卡占 21 GB，Qwen3-8B 双卡占 46 GB，DeepSeek-R1-Distill-Qwen-7B 双卡占 32 GB。作者<strong>verbatim</strong> 原话：「华为 atlas 比英伟达的显存占用高出很多」。这部分差距主要来自昇腾原生算子的 KV cache 分配策略与默认 gpu-memory-utilization 设定。生产环境上要把 <code>--gpu-memory-utilization 0.8</code> 显式压一档，留出余量。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/ascend-vram-vs-4090.png" alt="昇腾 vs RTX 4090 显存占用对比柱状图（自制 chart）"></p>
+<h2>六、4090 单卡 vs 8 卡 910B 整机：什么场景选谁</h2>
+<p>把 RTX 4090 单卡与 8 卡 910B 整机摆在一起看，初看是「玩具 vs 生产」，但仔细把不同负载档位拆开，画面会有趣得多。</p>
+<p><strong>单并发场景</strong>：4090 单卡跑 Qwen3-30B-A3B Q4 量化版本（约 16.8 GB 显存占用），实测吞吐约 <strong>196 tok/s</strong>（数据来自 awesomeagents.ai 评测）；8 卡 910B 整机 FP16 跑同一模型，并发 1 时 MindIE <strong>229.09 tok/s</strong>、vLLM-Ascend <strong>225.49 tok/s</strong>。<strong>8 卡国产整机和单卡消费级，在单并发上几乎打平</strong>。</p>
+<p>这件事第一次看反直觉，但工程上很合理：单并发场景下，瓶颈是模型权重读取 + KV cache 的逐 token 自回归延迟，<strong>不是算力</strong>。4090 用 Q4 量化把 30B 模型压到 16.8 GB 单卡装下，避免了多卡通信开销；910B 整机 TP=8 切下来，每次生成一个 token 都要做 8 卡之间的 AllReduce，通信延迟反而拖了后腿。这条曲线说明：<strong>如果团队需求是『一个人用、一个 agent 跑、单并发够快』，单卡 4090 + Q4 量化是性价比最高的方案</strong>，5000 万元也能做到 196 tok/s。</p>
+<p><strong>Qwen3-Coder-30B-A3B（代码补全专用）单卡 4090</strong> 的实测数字是 <strong>73–87 tok/s</strong>（willitrunai.com 评测），比通用 Qwen3-30B 慢——原因是代码补全的输入 prompt 通常更长（带完整文件上下文），KV cache 与 attention 计算量都比短问答多。这条数字对评估「单人本地代码补全体验」是关键指标：70 tok/s 出头的速度，对应到 IDE 里大约是「每秒生成 4–6 行代码」，体感顺滑度仅次于 Claude Code Max / Cursor Ultra 的云端速度。</p>
+<p><strong>高并发场景</strong>：4090 单卡 max-num-seqs 顶多撑到 8–16 个并发请求（KV cache 显存会爆），同时服务超过 4 个工程师就开始排队；8 卡 910B4 整机 384 并发吞吐 <strong>8702.98 tok/s</strong>，等效每个并发拿到 22.7 tok/s 的稳定输出。<strong>10 人小团队同时用本地代码补全</strong>，4090 撑不住，910B 整机能稳稳跑。</p>
+<p>这条曲线画成一张选型矩阵：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>一次性投入</th>
+<th>每月成本</th>
+<th>工程师上限</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>个人 + 1–2 个 agent</td>
+<td>4090 单卡 + Q4</td>
+<td>1.5–1.8 万元</td>
+<td>电费 ~200 元</td>
+<td>1–2</td>
+</tr>
+<tr>
+<td>3–5 人小团队 + IDE 共享</td>
+<td>RTX 6000 Ada 单卡 + Q4</td>
+<td>5.5–6.5 万元</td>
+<td>电费 ~300 元</td>
+<td>3–5</td>
+</tr>
+<tr>
+<td><strong>5–15 人团队 + 私域知识库 + 多 agent</strong></td>
+<td><strong>8 卡 910B4 整机租赁</strong></td>
+<td>—</td>
+<td><strong>1.06–1.20 万元/月</strong></td>
+<td><strong>10–15</strong></td>
+</tr>
+<tr>
+<td>15–30 人团队 + 高并发推理</td>
+<td>8 卡 910B3 整机租赁</td>
+<td>—</td>
+<td>1.32–1.50 万元/月</td>
+<td>20–30</td>
+</tr>
+<tr>
+<td>30 人以上 + 企业自有 IDC</td>
+<td>8 卡 910B3 整机自购</td>
+<td>110–150 万元</td>
+<td>电费 + 运维 ~5000 元</td>
+<td>40+</td>
+</tr>
+</tbody></table>
+<p>读这张矩阵能得出一个工程师友好的判断：<strong>910B4 整机租赁这一档（1 万元出头/月）是过去半年国内 5–15 人技术团队真正能跑起来「全员本地代码补全 + 私域知识库 + Agent 工作流」的甜蜜点</strong>。一次性投入是 0，月度现金流相当于 1.5 个高级工程师的午餐预算，而能支撑的工程师上限是 10–15 人，覆盖了国内大多数创业团队与中型公司的研发部门规模。</p>
+<h2>七、接入 Qoder CN / OpenClaw 的实操路径</h2>
+<p>把昇腾本地推理服务跑起来只是第一步，国内工程师真正关心的是：<strong>怎么把它接到日常 IDE 与 agent 工具里</strong>。</p>
+<p><strong>Qoder CN 企业专属版</strong>——阿里云通义灵码自 <strong>2026 年 5 月 20 日起更名为 Qoder CN</strong>，企业专属版在 VPC 内部署，支持「自有推理服务 API 接入」与 SFT 微调。配置入口在阿里云帮助文档 <code>lingma/user-guide/enterprise-inference-service-configuration</code> 里，<strong>OpenAI 兼容协议 + 三字段（base_url / api_key / model_id）</strong> 直接接入。把 MindIE 的 1025 端口或 vLLM-Ascend 的 8000 端口暴露给 Qoder CN 企业控制台，路径是这样的：</p>
+<pre><code class="language-yaml"># Qoder CN 企业控制台 → 自有推理服务配置
+推理服务类型: OpenAI 兼容
+Base URL: http://ascend-inference.your-vpc.internal:1025/v1
+API Key: &lt;自定义&gt;
+Model ID: qwen3-coder-next
+</code></pre>
+<p>注意 Qoder CN 企业版<strong>没有提供昇腾后端的「官方一键脚本」</strong>——也就是说没有「点一下就完成 Ascend 部署」的快捷入口；但通过 OpenAI 兼容协议这条标准路径，<strong>间接对接已经完全可用</strong>。这条路径对希望把「Qoder IDE 体验 + 昇腾本地推理后端」组合起来的团队是最干净的选择。</p>
+<p><strong>OpenClaw 主仓库</strong>是国内开源的个人 AI 助手项目（MIT 协议），它在客户端层（client）提供了 23 个通道，覆盖了主流 API 协议。OpenClaw 自身<strong>没有 Ascend topic 标签、README 也没有 NPU 后端章节</strong>，但因为它的 personal AI 路由本质上是 OpenAI 兼容协议路由器，<strong>间接支持任何暴露 OpenAI 兼容 endpoint 的推理服务</strong>。把 vLLM-Ascend 的 8000 端口配进 OpenClaw 的 provider 配置，整套服务就跑通了：</p>
+<pre><code class="language-yaml"># OpenClaw provider config（YAML 示意）
+providers:
+  - name: ascend-local
+    type: openai-compatible
+    base_url: http://localhost:8000/v1
+    model_id: qwen3-coder-next
+    api_key: dummy
+</code></pre>
+<p><strong>LlamaFactory</strong> 是国内做 SFT 微调最常用的开源工具，<strong>官方明确支持 Ascend</strong>——<code>pip install -r requirements/npu.txt</code> 装好 NPU 依赖，再装 CANN Toolkit，就能在 910B 上做 LoRA / QLoRA / 全参微调。这意味着「在 910B 上做模型推理 + 在 910B 上做模型微调」这条完整路径，国内开源工具栈已经全打通。</p>
+<p>模型权重下载推荐走国内源，<strong>避免 HuggingFace 网络问题</strong>：魔乐社区（modelers.cn）是华为系，对 MindSpeed / Qwen3-Coder-Next 等昇腾原生模型的首发支持最及时；ModelScope 魔搭（modelscope.cn）是阿里云系，Qwen 全系第一时间同步；hf-mirror.com 是社区镜像，覆盖 HuggingFace 全站；AtomGit AI 社区是中科院计算所牵头的国产开源仓库。日常工程师下载主流大模型权重，<strong>这四个源轮换用一遍，从来不会被网络问题卡住</strong>。</p>
+<h2>八、写在后面</h2>
+<p>这一台 Atlas 800I A2 跑通 Qwen3-Coder-Next 的整套账拢回来，画面已经很清楚：<strong>国产 AI 基础设施已经成熟到工程师可以买、可以用、可以照着教程跑通</strong>这一档了。</p>
+<p>一年前我们写昇腾相关文章，还要花一半篇幅解释「910B 到底能不能跑大模型」；今天我们能直接把 384 并发下 8702 tok/s 的实测数字摆桌上，把 CSDN 上工程师踩过的 bf16 改 fp16 这种细节用 verbatim 引用写进文章里，把 1 万元出头/月的整机租赁这种现金流摆出来给中小团队做财务决策。这条曲线，过去 18 个月走得比绝大多数同行预期都要快。</p>
+<p>更让人愿意继续往下走的，是软硬协同的节奏。CANN 8.0 → 8.5.1 的迭代、MindIE 2.1.RC1 的吞吐、vLLM-Ascend 从 v0.8 到 v0.14 的功能补齐、Triton Ascend 3.2 把昇腾 kernel 编程门槛拉到与 CUDA Triton 相近的水准、Qwen3-Coder-Next 在魔乐社区维持「早期体验、性能优化进行中」的稳健口径——每一条单看都不大，合起来是一张越来越完整的国产推理软件栈拼面。</p>
+<p>对国内工程师来说，这一切的意义在于：<strong>今天想做一个本地大模型工程的中国团队，不再需要绕海外渠道、不再需要担心 H100 / H20 的进口约束、不再需要把所有信心赌在单一供应商身上</strong>。我们手上有了一张能在 FP16 / 显存这两个最重要的指标上与 H100 同档的国产卡，有了一台能在工程师常用预算下跑起来的整机，有了一套国产社区维护得越来越好的推理栈，有了 Qoder CN / OpenClaw / LlamaFactory 这一组与昇腾完整对接的开源工具。</p>
+<p>技术圈最让人踏实的从来不是「我们终于赶上了」，而是「我们已经可以照着真实账本往下走」。这一台 Atlas 800I A2，这一份 384 并发 8702 tok/s 的吞吐表，这一条 1.06 万元/月的整机租赁价格曲线——它们合起来就是这份账本。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

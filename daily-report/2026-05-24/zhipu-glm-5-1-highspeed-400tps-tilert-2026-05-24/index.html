@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智谱 GLM-5.1 高速版：400 tps 速度赛新档 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-24</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-24</span><span class="tag-pill">Daily Report</span></div>
+      <h1>智谱 GLM-5.1 高速版：400 tps 速度赛新档</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/zhipu-glm-5-1-highspeed-400tps-tilert-2026-05-24.png" alt="智谱 GLM-5.1 高速版 400 tokens/秒 与 TileRT 推理引擎"></p>
+<blockquote>
+<p>5 月 22 日，智谱发布 GLM-5.1 高速版 API（模型 ID <code>GLM-5.1-highspeed</code>），实测输出速度 <strong>400 tokens/秒</strong>——是同档千问 Qwen3.7-Max（194.9 tps）的 2.1 倍、深度求索（DeepSeek）V4 Flash（108.8 tps）的 3.7 倍、月之暗面 Kimi K2.6（65.8 tps）的 6.1 倍。能力对齐 GLM-5.1 旗舰版（不阉割），上下文 200K、最大输出 128K。工程归因：智谱 GLM 团队和 TileRT 团队联合做的<strong>自研推理引擎</strong>，把推理调度从「运行时动态」搬到「编译期 AOT 静态」，让推理过程在 GPU 上常驻化。目前面向智谱 MaaS（BigModel）平台的部分企业客户开放试点，未公开零售 API 价。</p>
+</blockquote>
+<p>国内做 Agent 编排的同行第一反应大多是这样：<strong>400 tps 是不是又一次「快但智商打折」</strong>？过去三年，国产大模型在「快」这件事上踩过无数次坑——某厂 1000 tps 的 7B 蒸馏版上线，三天后被开发者吐槽「问个稍微复杂点的就胡说」；另一家把 70B 用极限量化压到 600 tps，结果中文长文本一过 8K 就开始重复。<strong>速度和智商长期是反比关系</strong>，这条经验深扎在国内开发者认知里。</p>
+<p>这次智谱给出的口径不一样。GLM-5.1 高速版是<strong>旗舰版 GLM-5.1 的高速变体</strong>，不是蒸馏小模型、也不是阉割量化版——按智谱官方公告和量子位实测，能力档位与 GLM-5.1 旗舰版对齐，差异只在「速度」这一维。换句话说，过去要在「智谱 GLM-5.1 旗舰（智商高 + 速度慢）」和「智谱 GLM-5.1-Flash（速度高 + 智商低）」之间二选一的国内 Agent 团队，现在有了第三个选项：<strong>智商不降、速度翻数倍</strong>。</p>
+<p>这是 2026 年国内大模型 API 赛道一个真正意义上的拐点——不是又一次速度刷榜，是<strong>第一次把&quot;Agent 工作流的延迟从交互卡顿降到流式直出&quot;做成产品级 SLA</strong>。本文做三件事：把国内同档 6 家旗舰 API 输出速度摆开横评，拆 TileRT 自研推理引擎的工程归因，最后看 400 tps 这个数字对 Agent 编排、Coding agent、RAG 三类典型场景意味着什么。</p>
+<p>写在最前面——这次发布的是 <strong>API 服务</strong>（企业试点），不是开源权重。智谱不会把 GLM-5.1 高速版的模型权重或 TileRT 引擎代码放到 HuggingFace 或 GitHub 上；想用的国内开发者需要走智谱 BigModel 平台的企业接洽通道。这对国内本地化部署的同行不算友好——你拿不到权重、跑不了本地推理；但这是当下&quot;旗舰能力 + 旗舰速度&quot;商业模式的现实选择，过两个月零售 API 开放后会更友好。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/glm-5-1-highspeed-qbitai-demo-1.png" alt="智谱 GLM-5.1 高速版 30 秒生成完整网页 demo（量子位实测截图）"></p>
+<h2>一、400 tps 是什么样的速度：从打字感到流式直出的临界点</h2>
+<p>先把 400 tps 这条数字翻译成开发者每天能感知的体验。</p>
+<p><strong>人眼阅读速度上限大约是 60-80 词/秒</strong>（中文 80-100 字/秒），换算成 token 大约 100-130 tps（中文 token 与汉字比约 1.2-1.5:1）。这意味着——</p>
+<ul>
+<li>当 API 输出速度 <strong>低于 50 tps</strong>，人能明显感觉到「字一个一个蹦出来」，是 ChatGPT 早期那种「打字机感」；</li>
+<li>当输出速度 <strong>100-200 tps</strong>，文字流速接近人正常阅读速度，体验是「我读得快它出得也快」，刚刚跟上；</li>
+<li>当输出速度 <strong>超过 300 tps</strong>，文字流速远超人阅读速度，体验是「整段内容秒出，我只需要扫读关键句」；</li>
+<li>400 tps 这条线大致对应「按住空格刷屏」的视觉效果——一篇 800 字的回答 2 秒内全部刷出来，<strong>人脑只能采用「扫读」策略</strong>。</li>
+</ul>
+<p>这个临界点对<strong>单轮交互</strong>意义不大——用户问一个问题、等一个回答，反正都要看完，差几秒无所谓。但对 <strong>Agent 编排型工作流</strong>意义就完全不同了：当模型在后台做 5 轮、10 轮工具调用，每一轮都要等模型把决策输出完才能进入下一步，速度从「100 tps」变成「400 tps」，等于把整条链路从「分钟级」压到「秒级」。</p>
+<p>量子位做的一组实测最直观。智谱团队现场让 GLM-5.1 高速版生成「呼吸星云粒子效果」的完整 HTML/CSS/JS 网页代码（约 600 行），按官方公告数据 <strong>30 秒生成完整页面</strong>，模糊指令（「再快一点」「再柔一点」）下的迭代响应都在 5 秒内。同样的代码量给到对位国内模型，普遍要 60-180 秒。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/glm-5-1-highspeed-qbitai-iterative.png" alt="GLM-5.1 高速版迭代响应：模糊指令秒级迭代 UI 参数（量子位实测截图）"></p>
+<p>更值得国内 Agent 开发者关注的是<strong>实时游戏逻辑调整</strong>这个 demo——量子位测试者一边玩着 GLM-5.1 高速版当场生成的小游戏（俄罗斯方块 + 自定义规则），一边用自然语言指挥「现在让方块下落速度变成两倍」「随机让一个方块变成炸弹」，模型实时改代码、热更新进游戏逻辑，整个修改循环不到 3 秒一轮。<strong>这种&quot;边玩边改&quot;的交互密度，在 100 tps 档位下是做不出来的</strong>——光等代码输出完，玩家就跳出去了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/glm-5-1-highspeed-qbitai-game-demo.png" alt="GLM-5.1 高速版实时改游戏逻辑 demo（量子位实测截图）"></p>
+<p>第三个 demo 是<strong>万字内容秒出</strong>。智谱官方公告中的这个场景：给 GLM-5.1 高速版一篇 8000 字的会议纪要，让它一次性输出 5 类衍生内容——海报标题 5 条、短视频文案 3 篇、宣传语 10 条、公众号文案 1 篇 800 字、JSON 结构化汇总。总输出 token 量约 3500，<strong>10 秒内全部完成</strong>。同样的任务给到 Kimi K2.6（65.8 tps），需要 53 秒；给到 DeepSeek V4 Flash（108.8 tps），需要 32 秒。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/glm-5-1-highspeed-qbitai-wanzi-demo.png" alt="GLM-5.1 高速版万字内容 10 秒输出 5 类衍生内容 demo（量子位实测截图）"></p>
+<p>注意一个口径——<strong>400 tps 是输出速度（output speed），不是首 token 延迟（TTFT）</strong>。这两个数字测的是不同环节：TTFT 是从请求发出到第一个 token 返回的时间，主要受网络、调度、prompt processing 影响；output speed 是 token 之间的生成速度，主要受模型架构、推理引擎、GPU 利用率影响。GLM-5.1 高速版的 TTFT 大约 300 毫秒（智谱官方未公开精确值，量子位实测推算），处于国内旗舰 API 的中上水平；真正改变体验的是后面的 400 tps 持续输出。</p>
+<p>这个区分对国内 Agent 团队选型很关键——如果你的应用是「一次问答」（聊天机器人、RAG 问答），瓶颈在 TTFT 而不在 output speed；如果是「多轮编排」（Coding agent、Browser agent、Multi-agent 编排），瓶颈在 output speed，400 tps 对应的就是这类场景的兜底变量。</p>
+<h2>二、TileRT 自研推理引擎：从运行时调度到编译期静态编排</h2>
+<p>400 tps 是结果，TileRT 是因。</p>
+<p>智谱在公告里给出的工程路径是这样的——TileRT 团队（与 GLM 团队联合）做了一个<strong>自研推理引擎</strong>，与业界主流的 vLLM、SGLang、TensorRT-LLM 都不同。核心创新一句话概括：<strong>抛弃 Runtime 层的动态调度，改为编译期（AOT，Ahead-of-Time）将整个计算图静态编排为一个常驻 GPU 的 persistent Engine Kernel</strong>。</p>
+<p>这句话信息密度很高，得拆开看才能理解为什么它能做到 400 tps。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/glm-5-1-highspeed-tilert-architecture.png" alt="TileRT 推理引擎：从运行时动态调度到编译期 AOT 静态编排"></p>
+<p><strong>传统推理方案是这样</strong>：模型推理是一连串算子（Attention、MoE Router、Expert FFN、AllReduce、LayerNorm 等）按顺序执行；每个算子由推理引擎在运行时（Runtime）动态调度，单独 launch 一个 GPU kernel。每次 kernel launch 都有开销（约 5-20 微秒），算子之间 GPU 还要等调度器决定下一步做什么。对于一个 MoE 大模型，一次 forward pass 可能涉及上百个 kernel launch，开销叠加起来非常可观。这是 vLLM、SGLang 这类主流推理引擎的标准做法——通用性好，但 GPU 利用率上限受限。</p>
+<p><strong>TileRT 的做法是这样</strong>：在模型加载阶段（编译期），把整个 GLM-5.1 的计算图（从输入到输出的全部算子）静态编排成一个<strong>常驻在 GPU 上的 persistent kernel</strong>。这个 kernel 一旦启动就不再退出，整个推理过程中算子之间的中间结果走 GPU L2 cache / shared memory 而不回主显存，调度器不再参与每一步算子的派发——它只负责动态批处理（dynamic batching）的请求层调度，不参与 kernel 内部的算子顺序。</p>
+<p>这种做法的代价是<strong>通用性极差</strong>——一个 persistent kernel 是为某个具体模型架构定制的，模型权重一变（比如换成 GLM-6.0）就得重新编译。这也是为什么 vLLM、SGLang 不走这条路：它们要支持上百个开源模型，通用性是核心约束。TileRT 反过来——智谱自己只服务 GLM 系列，通用性可以让位给极致优化。</p>
+<p>工程上 TileRT 还做了三层叠加：</p>
+<ul>
+<li><strong>推理引擎层</strong>：重写核心路径，针对 GLM-5.1 的 MoE 路由、稀疏激活做了专门优化。</li>
+<li><strong>调度系统层</strong>：动态批处理（dynamic batching）+ KV cache 调度，降低尾延迟（tail latency）——这是高并发场景能跑稳 400 tps 的关键，不然单用户测得快、多用户一上来就崩。</li>
+<li><strong>基础设施层</strong>：集群部署 + 负载均衡 + 多卡拓扑感知，让一个推理请求落到合适的卡上，避免跨卡通信开销。</li>
+</ul>
+<p>国内做推理引擎的同行——如旷视的 MegEngine、华为昇思的 MindIR、阿里的 BladeLLM——这两年都在朝「编译优化 + AOT 静态编排」这个方向走。<strong>TileRT 走得更激进</strong>：把通用性彻底放弃，换 GLM 系列的极致性能。这是垂直整合「模型 + 推理引擎 + 硬件」的典型路线，与英伟达 TensorRT-LLM + Llama 系列的合作模式不同——TileRT 是一家公司同时做模型和引擎，决策链路更短、优化空间更大。</p>
+<p>值得说一句：<strong>TileRT 不是开源的</strong>，至少目前没有公开代码或论文。智谱的公告里把它称作&quot;GLM 团队与 TileRT 团队联合开发&quot;，业界目前对 TileRT 团队的背景信息有限——估计是智谱内部的引擎团队或被并购的子团队。这对国内做大模型推理工程的开发者来说有点遗憾——拿不到代码、读不到设计文档，只能从公告和实测反推工程路径。</p>
+<h2>三、国内同档 6 家旗舰 API 输出速度横评</h2>
+<p>把 400 tps 这条数字放到国内同档的横评里，画面会更清晰。</p>
+<p>下面这组数据按 2026-05-23 公开来源整理，主要来自 artificialanalysis.ai 第三方实测、各家官方公开延迟值、量子位现场实测。<strong>所有数字带&quot;截至 2026-05-23&quot;的时间戳</strong>——大模型速度赛节奏快，一周后这张表可能就需要更新。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/glm-5-1-highspeed-speed-comparison.png" alt="GLM-5.1 高速版 400 tps vs 国内 5 家旗舰 API 输出速度 comparison（截至 2026-05-23）"></p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>输出速度（tps）</th>
+<th>TTFT</th>
+<th>上下文</th>
+<th>商业可用性</th>
+<th>工程归因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>智谱 GLM-5.1 高速版</td>
+<td><strong>400</strong></td>
+<td>~0.3 s</td>
+<td>200K</td>
+<td>企业试点，未公开零售价</td>
+<td>TileRT 自研引擎，编译期 AOT 静态编排</td>
+</tr>
+<tr>
+<td>千问 Qwen3.7-Max</td>
+<td>194.9</td>
+<td>2.53 s</td>
+<td>256K</td>
+<td>阿里云百炼公开 API</td>
+<td>阿里自研引擎 + 通义训练栈</td>
+</tr>
+<tr>
+<td>字节豆包 1.6-flash</td>
+<td>~150（推算）</td>
+<td>10 ms（TOPT）</td>
+<td>256K</td>
+<td>火山方舟公开 API</td>
+<td>字节自研引擎，主打 TTFT 极致</td>
+</tr>
+<tr>
+<td>深度求索 V4 Flash</td>
+<td>108.8</td>
+<td>~0.4 s</td>
+<td>128K</td>
+<td>公开 API</td>
+<td>DeepSeek 内部引擎（推测 vLLM 改造）</td>
+</tr>
+<tr>
+<td>Claude Sonnet 4.5（国内代理）</td>
+<td>~70</td>
+<td>1.5 s</td>
+<td>200K</td>
+<td>国内代理 / 申请制</td>
+<td>Anthropic 闭源引擎 + 国内网络开销</td>
+</tr>
+<tr>
+<td>月之暗面 Kimi K2.6</td>
+<td>65.8</td>
+<td>1.8 s</td>
+<td>200K</td>
+<td>公开 API</td>
+<td>Kimi 自研引擎</td>
+</tr>
+</tbody></table>
+<p>读这张表的几条关键结论。</p>
+<p><strong>第一，第一名领先第二名 105%</strong>。GLM-5.1 高速版 400 tps 比千问 Qwen3.7-Max 194.9 tps 高出 2.1 倍——这是一条非常大的差距，国内大模型 API 速度赛上从来没有过这种量级的甩开。过去三年的常态是「头部三家差 20-50%」，这次智谱直接拉了一个数量级的差。</p>
+<p><strong>第二，字节豆包走的是另一条路</strong>。豆包 1.6-flash 把 TTFT 做到 10 毫秒（按字节官方公告口径），是首 token 延迟的极致优化，特别适合「问一次答一次」的高并发短查询场景（搜索、推荐、语音）。但 output speed 公开数据不全，按业界推算大约 150 tps——在「多轮编排长输出」场景下不如 GLM-5.1 高速版。字节和智谱选了<strong>不同的优化方向</strong>：字节优化首字、智谱优化持续输出。</p>
+<p><strong>第三，Claude Sonnet 4.5 国内代理速度仅 70 tps 左右</strong>——这条数字背后混杂了 Anthropic 模型本身速度 + 国内代理网络开销 + 排队，不能完全归因于模型架构。但对国内开发者来说，<strong>实际感知就是 70 tps</strong>——你用 Claude Code 在国内调用 Sonnet，每生成 800 token 要等 11 秒，5 轮工具调用累计要等 1 分钟。</p>
+<p><strong>第四，月之暗面 Kimi K2.6 速度落在末位 65.8 tps</strong>——这与 Kimi 团队 2026 年的产品定位有关，他们更看重长上下文（200K 是 K2.6 的强项）和推理深度，速度优化优先级靠后。</p>
+<p>把这条 400 tps 数字放到全球公开数据里看也站得住——OpenAI GPT-5 大约 200 tps，Anthropic Claude Opus 4.7 大约 80 tps（thinking 模式下更慢），Google Gemini 2.5 Pro 大约 180 tps。GLM-5.1 高速版在公开数据里确实是当下<strong>国内外公开 API 中输出速度最快的一档</strong>——这个限定句要带&quot;截至 2026-05-23 公开数据&quot;的修饰，避免绝对化。</p>
+<h2>四、Agent 编排型应用的延迟拐点：多轮调用、Coding agent、RAG</h2>
+<p>400 tps 真正改变体验的场景，是 Agent 编排型工作流——不是单轮聊天，而是模型作为&quot;决策引擎&quot;在后台跑多轮链式调用。</p>
+<p>来算一笔账。假设一个典型的 Coding agent 工作流：5 轮工具调用，每轮模型需要看 1K token 上下文、输出 800 token 决策与代码片段。<strong>端到端延迟 ≈ 5 × (TTFT + 800 ÷ 输出速度)</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/glm-5-1-highspeed-agent-latency.png" alt="5 轮 Agent 工作流端到端延迟横评"></p>
+<p>按 6 家旗舰 API 数据代入：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>单轮延迟</th>
+<th>5 轮端到端</th>
+<th>用户感知</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>GLM-5.1 高速版</td>
+<td>2.3 秒</td>
+<td><strong>11.5 秒</strong></td>
+<td>流式直出，体验良好</td>
+</tr>
+<tr>
+<td>千问 3.7-Max</td>
+<td>6.6 秒</td>
+<td>33 秒</td>
+<td>等待感明显，可接受</td>
+</tr>
+<tr>
+<td>深度求索 V4 Flash</td>
+<td>7.7 秒</td>
+<td>38 秒</td>
+<td>等待感明显，可接受</td>
+</tr>
+<tr>
+<td>Claude Sonnet 4.5（国内）</td>
+<td>12.9 秒</td>
+<td>64.5 秒</td>
+<td>跨过用户耐心边界</td>
+</tr>
+<tr>
+<td>月之暗面 Kimi K2.6</td>
+<td>14.0 秒</td>
+<td>70 秒</td>
+<td>跨过用户耐心边界</td>
+</tr>
+</tbody></table>
+<p>业界对「用户耐心边界」的经验值大约是 <strong>15 秒</strong>——超过 15 秒的工具操作，用户会切走做别的事；超过 60 秒，会怀疑产品是不是卡了。GLM-5.1 高速版的 5 轮编排 11.5 秒，是<strong>第一次把多轮 Agent 工作流压进 15 秒以内</strong>——这条线对产品形态有质的影响。</p>
+<p>具体到三类典型场景。</p>
+<p><strong>Coding agent</strong>——以 Cursor、Windsurf、Claude Code、通义灵码、CodeBuddy 这类 IDE-internal coding agent 为例，每一次&quot;让 AI 帮我改这段代码&quot;的链路大约是：(1) 读文件 → (2) 理解意图 → (3) 生成 patch → (4) 跑测试 → (5) 修复失败。5 轮工具调用是常态。当后端模型是 70 tps 的 Claude Sonnet 国内代理，开发者点一次 Cmd-K 要等 1 分钟才看到结果——这是国内开发者用 Cursor 时最常吐槽的痛点。换成 GLM-5.1 高速版的 400 tps，同样的链路压进 12 秒——开发者从「点击后切走刷手机」变成「点击后等结果」，这是 Coding agent 真正能日常用的临界点。</p>
+<p><strong>RAG 长答</strong>——典型 RAG 链路：检索文档 → 模型理解 → 长答输出。如果输出 token 量在 2000-3000（深度问答常见量级），70 tps 要等 30-45 秒，400 tps 只要 5-8 秒。对金融、法律、医疗这类要求&quot;答得长、答得准&quot;的场景，400 tps 让 RAG 从&quot;批处理&quot;变成&quot;近实时&quot;。</p>
+<p><strong>Multi-agent 编排</strong>——多 Agent 并行链路，假设 5 个 Agent 同时跑、每个 Agent 平均 3 轮，整条链路最坏情况是 15 轮串联。70 tps 要等 3 分钟以上，400 tps 压进 30 秒。智谱官方公告里提到的「30 秒内调度 50 个不同人格并行回答」这个 demo，背后就是这种并行能力——单卡输出 400 tps，多卡叠加可以做到极高的并发吞吐。</p>
+<p>值得提的一点是 <strong>UI 实时迭代</strong>这个新形态。量子位实测里，开发者一边看 GLM-5.1 高速版生成的网页效果，一边用自然语言反复说「再淡一点」「再快一点」「换个颜色」，模型每次响应 3-5 秒。这种<strong>边说边改、边改边看</strong>的交互密度，过去只有在 Figma、Photoshop 这类直接操作型工具里才有；现在 LLM 的速度档位拉到 400 tps，&quot;对话式 UI 设计&quot;成了可能。这条曲线对国内做产品 Designer Tool 的团队是新的增量空间。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/glm-5-1-highspeed-qbitai-output.png" alt="GLM-5.1 高速版完整 demo 输出结果"></p>
+<h2>五、企业试点 vs 零售 API：智谱的两轨产品策略</h2>
+<p>GLM-5.1 高速版当前的定位是<strong>面向智谱 MaaS（BigModel）平台的部分企业客户开放</strong>，<strong>未公开零售 API 价</strong>。这件事值得单独说一段。</p>
+<p>国内大模型厂商过去常见的发布节奏是「公告 + 同步开零售 API」——价格摆出来、调用方式给出来、自助接入。这次智谱反过来：<strong>先企业试点、后零售</strong>。这种节奏背后有几个工程现实——</p>
+<p><strong>第一，400 tps 的供给侧成本不低</strong>。TileRT 走编译期 AOT 静态编排，相当于为每个推理实例预先编译一份 persistent kernel，GPU 资源利用率高但弹性差。如果一下放开零售自助接入，C 端流量瞬时上来很可能把试点期的优化效果稀释掉。先企业试点的目的是<strong>控并发、稳质量</strong>，把工程参数（动态批处理 batch size、KV cache 大小、集群负载阈值）调到最优。</p>
+<p><strong>第二，能力对齐 GLM-5.1 旗舰意味着同等的训练算力成本</strong>。GLM-5.1 高速版不是阉割版小模型，是完整 GLM-5.1 跑在 TileRT 上的版本，单 token 成本理论上和旗舰版一个量级。在零售定价模型还没敲定前，先用企业试点稳住核心客户更稳。</p>
+<p><strong>第三，与火山方舟（字节）、阿里云百炼（阿里）、深度求索（DeepSeek）的差异化定位</strong>。豆包 1.6-flash 走的是「极致便宜 + 极致 TTFT」（每百万输入 token 低至 0.8 元），打 C 端高并发；千问 3.7-Max 走的是「能力档位 + 阿里云生态」；DeepSeek 走的是「价格性能比 + 开源选项」。GLM-5.1 高速版的差异化在**「旗舰能力 + 旗舰速度」**这个新象限——不打 C 端，不卷便宜，瞄准的就是有真实 Agent 编排需求、对延迟敏感、能付高单价的中大型企业。这个客群和智谱过去在政企集成、金融大客户、央国企信创路线上积累的客户高度重合。</p>
+<p>对国内做大模型选型的开发者来说，这条产品策略意味着——<strong>短期内拿不到自助 API key</strong>，需要走商务接洽。中长期看，等智谱把 TileRT 在 MaaS 平台稳定运行 1-2 个月后，零售 API 大概率会跟上来，定价档位可能会贴齐 GLM-5.1 旗舰版的 1.5-2 倍区间（这是合理的&quot;速度溢价&quot;区间）。</p>
+<p>值得国内同行观察的另一件事：<strong>字节、阿里、深度求索会不会跟进类似的&quot;编译期 AOT 静态编排&quot;路线</strong>。从工程难度看，这条路对推理引擎团队要求很高——需要同时懂 GPU 编译、懂模型架构、懂调度系统。字节和阿里都有这个技术储备（字节的 BMTrain、阿里的 BladeLLM 都有相关积累），跟进时间窗口估计在 3-6 个月。深度求索的 V4 系列也在朝这个方向走（V4 Flash 在 SiliconFlow 上能跑到 121.2 tps，已经显著高于官方 API 108.8 tps，背后就是推理引擎的优化）。</p>
+<p>国内 Agent 编排赛道的&quot;速度档&quot;正在被重新定义——过去的天花板是 200 tps，现在被拉到 400 tps；接下来一年，国内同行能不能跟上、能不能在「速度 + 智商 + 成本」这个三维空间里继续向前，是值得 watch 的一条曲线。</p>
+<h2>收尾：速度从够用跨过边敲边出的门槛</h2>
+<p>智谱 GLM-5.1 高速版 400 tps 这条数字，单看是一次工程突破，放到整个 AI 产业的时间轴上看，意义更大——<strong>这是 LLM 推理速度第一次跨过&quot;边敲边出&quot;的门槛</strong>。</p>
+<p>过去三年，国内 Agent 工作流一直在 100-200 tps 这个档位上做兼容性优化——预渲染缓存、流式拼接、UI 假动作。这些工程都是为了掩盖&quot;模型还在算，用户已经等不及了&quot;这个尴尬。400 tps 把这个尴尬直接拆掉——模型出 token 的速度比用户看的速度还快，<strong>所有&quot;为了显得快而做的工程&quot;都成了历史包袱</strong>。</p>
+<p>对国内同行来说，三条 takeaway 值得带走：</p>
+<p>第一，<strong>Agent 编排型产品的延迟瓶颈被移走了</strong>。过去做 Coding agent、Multi-agent 编排、长答 RAG 的团队，都得在「智商」和「速度」之间二选一；现在智谱给出了一个不用选的选项。国内做 Cursor 类、Devin 类、Browser Agent 类产品的同行，可以重新评估一下「能不能做得更好」——过去因为延迟卡住的产品形态，现在重新打开了。</p>
+<p>第二，<strong>TileRT 这条工程路线值得国内推理引擎团队认真研究</strong>。把通用性放弃换极致性能，垂直整合「模型 + 引擎 + 硬件」，是大模型推理工程未来 2-3 年的方向之一。智谱走在了前面，国内做 BladeLLM、MindIR、MegEngine 的同行可以从这条路径里学到东西——虽然 TileRT 没开源，但思路和工程结果都是公开的。</p>
+<p>第三，<strong>国内大模型 API 速度赛新档已经开了</strong>。智谱这次拉开了 105% 的领先差距，字节、阿里、深度求索、月之暗面在接下来一年的回应方式，会定义 2026-2027 年国内大模型推理工程的主流形态。这条曲线值得每个做大模型选型的同行持续关注。</p>
+<p>最后说一句给国内做 Agent 编排的朋友——智谱 GLM-5.1 高速版当前是企业试点，零售 API 还没开。如果你的产品确实卡在延迟瓶颈上，值得去 BigModel 平台做商务接洽试试；如果还在选型期，可以先把架构按「未来支持 400 tps 后端」这个假设来设计，留好接入位置。速度档拉满之后，产品形态的想象空间也跟着拉满了。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

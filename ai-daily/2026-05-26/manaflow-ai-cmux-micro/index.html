@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>cmux 重塑终端：专为 Claude Code 等 AI 编程代理设计的调度台 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-26</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-26</span><span class="tag-pill">AI Daily</span></div>
+      <h1>cmux 重塑终端：专为 Claude Code 等 AI 编程代理设计的调度台</h1>
+<blockquote>
+<p>ai-daily · 2026 年 5 月 26 日 08:22 · 来源：GitHub Trending any</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-26/manaflow-ai-cmux-micro/head.png" alt=""></p>
+<p>凌晨两点十七分，我盯着屏幕上七个并排打开的 Ghostty 窗口，每个里面都跑着一个 AI coding agent。Claude Code 的 macOS 通知弹出来——“Claude is waiting for your input”——但到底是哪个窗口、哪个项目、哪个 agent 在等我？通知标题被挤压成省略号，我只能一个一个切过去找。</p>
+<p>这不是某个开发者的个人崩溃瞬间，这是 cmux 的创始人写下 README 时的真实场景。他同时跑着大量 Claude Code 和 Codex 会话，Ghostty 的 split panes 铺满屏幕，macOS 原生通知却只给了一句毫无上下文的“Claude 在等你”。GUI orchestrator 们又大多是 Electron 套壳，性能让他抓狂。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-26/manaflow-ai-cmux-micro/content-1.png" alt="manaflow-ai/cmux — Ghostty-based macOS terminal with vertical tabs and notificat"></p>
+<p>于是他做了件很“程序员”的事——自己写一个终端。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-26/manaflow-ai-cmux-micro/content-2.png" alt="cmux screenshot"></p>
+<p><strong>最好的开发者从不等待工具，他们自己就是工具链的最后一环。</strong></p>
+<h2>这不是又一个终端模拟器，这是给 AI agent 配的“调度台”</h2>
+<p>cmux 的核心卖点写在名字里：它是基于 Ghostty 的 macOS 原生终端，但真正让它从一众终端里跳出来的，是两样东西——垂直标签页侧边栏，和一套专门为 AI coding agent 设计的通知系统。</p>
+<p>侧边栏里每个 workspace 的标签页会显示 git 分支、关联的 PR 状态和编号、工作目录、监听的端口号，以及最新的通知文本。当一个 agent 在等待你输入时，对应的 pane 边缘会出现蓝色光环，标签页也会在侧边栏亮起。按 Cmd+Shift+U，直接跳到最近一条未读通知的来源窗口。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-26/manaflow-ai-cmux-micro/schematic-1.png" alt="cmux 主界面截图，侧边栏垂直标签页显示 git 分支和 PR 状态，pane 边缘的蓝色通知光环点亮"></p>
+<p>这套通知机制不是简单的 UI 糖衣。它用捕获终端序列（OSC 9/99/777）来感知 agent 状态，还提供了一个 <code>cmux notify</code> CLI 命令，可以接入 Claude Code、OpenCode 等 agent 的 hook 系统。也就是说，agent 的任何状态变化都可以被映射成 cmux 里的通知事件——不再是一句干瘪的“Claude is waiting”，而是带着上下文、带着项目信息的可操作提示。</p>
+<p>让我愣神的是那个通知面板（notification panel）的设计。它不是 macOS 通知中心的复刻，而是内嵌在终端里、可以一键呼出的聚合视图。所有待处理的通知列在一起，你可以逐个查阅、标记未读、跳转到最紧急的那个。这东西放在 IDE 里不稀奇，但放在终端里，就有点“终端正在变成新的 IDE”的味道了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-26/manaflow-ai-cmux-micro/schematic-2.png" alt="cmux 通知面板界面，展示聚合的 agent 通知列表和跳转操作"></p>
+<h2>内置浏览器 + SSH + Claude Code Teams：终端正在吃掉协作层</h2>
+<p>cmux 的另一个差异化武器是内置浏览器。它从 manaflow-ai 自家的 agent-browser 项目移植了一套脚本化 API，agent 可以在这个浏览器里截取 accessibility tree、获取元素引用、点击、填表、执行 JS。你可以在终端旁边 split 一个浏览器 pane，让 Claude Code 直接跟你的 dev server 交互。</p>
+<p>这个设计指向一个更深的趋势：当 agent 需要“看”你的前端页面时，传统的做法是截图或 DOM 抓取，但 cmux 给了一个原生的、可编程的浏览器 surface，agent 可以直接操控它。这比 headless browser 更直观，比 Electron 套壳更轻量。</p>
+<p>SSH 支持也做得很有意思。<code>cmux ssh user@remote</code> 会为远程机器创建一个完整的 workspace，浏览器 pane 的流量会用远程网络路由，localhost 直接可用。你甚至可以把一张图片拖进远程会话，cmux 会自动走 scp 上传。这不是简单的 SSH 客户端，这是在把远程开发环境当成一等公民来对待。</p>
+<p>然后是 Claude Code Teams。一条命令 <code>cmux claude-teams</code> 就能启动 Claude Code 的 teammate 模式，每个 teammate 以原生 split 的形式出现，侧边栏里带着自己的元数据和通知。不需要 tmux 来管理多窗口布局，cmux 自己就是那个编排层。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-26/manaflow-ai-cmux-micro/schematic-3.png" alt="Claude Code Teams 在 cmux 中的多 split 布局，每个 teammate pane 带有独立的侧边栏信息和通知状态"></p>
+<p>把这些拼在一起看——终端渲染用 libghostty（GPU 加速）、UI 层用 Swift + AppKit（不是 Electron）、通知系统监听终端序列、内置浏览器可编程、SSH 和 agent teams 原生支持——cmux 在做的事，是把 AI coding agent 时代开发者实际需要的所有交互界面，整合进一个 macOS 原生应用里。</p>
+<p>而且它读你现有的 <code>~/.config/ghostty/config</code>，字体、主题、配色全部继承。你不需要重新配置一个终端，你只是在原来的 Ghostty 上加了一层 agent 调度能力。</p>
+<h2>那些被 README 一笔带过但值得放大的细节</h2>
+<p>cmux 的 session restore 机制设计得很克制。退出时保存窗口/workspace/pane 布局、工作目录、终端 scrollback、浏览器 URL 和导航历史，但<strong>不</strong> checkpoint 任意 live process 的状态。tmux、vim、shell 这些不支持的应用重新打开时就是普通终端。支持的 agent session 则用 hook 保存的 native session ID 来恢复——Claude Code、Codex、Grok、OpenCode、Pi、Amp、Cursor CLI、Gemini、Rovo Dev、Copilot、CodeBuddy、Factory、Qoder 都在支持列表里。</p>
+<p>敏感信息处理也做了：tokens、passwords、secrets、API keys 这些环境变量在 resume binding 存储前会被自动丢弃。恢复时只跑被标记为 trusted 的命令，比如 live process 检测到的 tmux binding 或用户手动批准的前缀命令。</p>
+<p>浏览器导入功能覆盖了 Chrome、Firefox、Arc 以及 20+ 款浏览器，cookie、历史记录、session 一起导入，这样浏览器 pane 打开时就已经是认证状态。自定义命令用 <code>cmux.json</code> 定义项目级操作，从 command palette 启动。</p>
+<p>整件事的哲学被写在&quot;The Zen of cmux&quot;里，其中最关键的一句是：</p>
+<blockquote>
+<p>cmux is a primitive, not a solution.</p>
+</blockquote>
+<p><strong>给一百万个开发者可组合的 primitive，他们会比任何产品团队自上而下设计更快地找到最高效的工作流。</strong></p>
+<p>这话说得挺狂，但逻辑自洽。没人真正搞清楚跟 AI agent 协作的最佳方式是什么，封闭产品的团队也没搞清楚。离代码库最近的开发者会先找到答案。cmux 不预设工作流，它给你终端、浏览器、通知、workspace、splits、tabs、CLI，剩下的你自己组装。</p>
+<p>项目用 GPL-3.0-or-later 开源协议，同时提供商业授权给无法合规的企业。还有一个 Founder&#39;s Edition 付费计划，承诺优先 feature 请求、早期体验 cmux AI（给每个 workspace/tab/panel 提供上下文）、iOS app（桌面和手机终端同步）、Cloud VMs、Voice mode，甚至“我的个人 iMessage/WhatsApp”——创始人直接跟你沟通。</p>
+<p>坦白说，cmux 目前还是个非常“程序员为自己写工具”气质的产品。它的受众画像极其清晰：macOS 上重度使用 CLI agent、对 Electron 性能不满、愿意折腾配置、同时跑多个 agent session 的开发者。这个圈子不大，但足够垂直，而且这群人恰恰是工具传播的关键节点。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-26/manaflow-ai-cmux-micro/schematic-4.png" alt="cmux 架构示意——libghostty 终端渲染层 + Swift/AppKit UI 层 + 通知系统 + 脚本化浏览器 + CLI/Socket API 的分层关系"></p>
+<p>至于它能不能从“创始人的个人工具”变成“一群开发者的日常工具”，取决于社区能不能围绕可组合 primitive 长出足够多的 workflow。一个终端模拟器加通知系统本身不是护城河，但如果在它上面跑起来的 agent 协作模式被验证有效，那 Electron orchestrator 们可能真的要紧张一下了。</p>
+<p>不过话说回来，当你需要同时哄着七八个 AI agent 干活、又不想被 Electron 吃掉半个内存条的时候，有人帮你把 Ghostty 改造成了 agent 调度台，还开源——这本身就已经是一份不错的礼物了。</p>
+<h2>参考来源</h2>
+<ul>
+<li><a href="https://github.com/manaflow-ai/cmux" target="_blank" rel="noopener">https://github.com/manaflow-ai/cmux</a></li>
+<li><a href="https://cmux.com/docs/session-restore" target="_blank" rel="noopener">https://cmux.com/docs/session-restore</a></li>
+</ul>
+<p>#Ghosttybased #AI #科技</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-26/manaflow-ai-cmux-micro/content-3.png" alt="Vertical tabs and split panes"></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

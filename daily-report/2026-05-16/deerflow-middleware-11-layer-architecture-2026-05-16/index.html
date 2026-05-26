@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LangChain 的国产对手到齐：字节 DeerFlow — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-16</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-16</span><span class="tag-pill">Daily Report</span></div>
+      <h1>LangChain 的国产对手到齐：字节 DeerFlow</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/deerflow-middleware-11-layer-architecture-2026-05-16.png" alt="DeerFlow 11 层中间件架构主视觉：等距风格的分层根基"></p>
+<h2>先把这篇和五月七号那篇分开</h2>
+<p>5 月 7 日本报发过一篇《字节 deer-flow 满一周年：65,827 颗星撑起的国产 super agent 根基》，那一篇是发布稿——讲项目从 2025 年 5 月 7 日创建到 65k 星的出圈曲线、讲 v2.0 是 ground-up rewrite、讲 skills / sub-agents / sandbox / memory 四块核心特性是什么。<strong>这一篇不是续集，是工程深度拆解</strong>。本周国内技术圈把 DeerFlow 重新顶起来的核心动力，不是 star 数又涨了，是 5 月 15 日火山引擎开发者社区那篇《DeerFlow 2.0 中间件架构解析》引爆的一轮&quot;我应该自己写一个 Agent 框架，但 12 层中间件该装什么？&quot;的工程讨论。知乎、博客园、53AI 当天跟进，话题进入二次热度拐点。</p>
+<p>这个仓的关键数据：</p>
+<ul>
+<li>Star：<strong>67,895</strong>（5 月 7 日还是 65,827，9 天涨 2,068）</li>
+<li>Fork：<strong>9,035</strong>（9 天涨 342）</li>
+<li>License：MIT</li>
+<li>主语言：Python 3.12+，前端 TypeScript</li>
+<li>上次 push：<strong>2026-05-15 22:30</strong>（还在每天 active 改）</li>
+<li>默认分支 main，v1 框架挂在 <code>main-1.x</code> 分支上接受贡献</li>
+</ul>
+<p>这一篇要做的事拆成四段：</p>
+<ul>
+<li><strong>一、11 阶段中间件链注册顺序</strong>：按源码读 <code>_build_middlewares()</code> 函数走一遍——这是火山引擎深度文里讲到一半、53AI 跟稿里讲了 11 个层、博客园跟稿里讲了 12 层，三家说法不一致的真正答案。</li>
+<li><strong>二、每层挂的 5 个钩子</strong>（before_agent / before_model / after_model / wrap_model_call / wrap_tool_call）：LangGraph 1.0 原生 middleware 范式的核心面。</li>
+<li><strong>三、本周国产 Agent 中间件横评</strong>：5 月 14 日阿里悟空（编排）+ 5 月 15 日腾讯 Agent Memory（记忆层）+ DeerFlow（harness），三件凑齐根基。</li>
+<li><strong>四、Lead Agent 动态衍生 sub-agent 的三条隔离工程红线</strong>，以及&quot;为什么自己加第 12 层中间件容易翻车&quot;。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/deerflow-repo-snapshot.png" alt="DeerFlow 仓库快照：67,895 star / 9,035 fork / 18 个中间件源文件 / 时间线"></p>
+<hr>
+<h2>一、11 阶段中间件链：按源码顺序摆全</h2>
+<p>这部分内容市面所有中文测评都没把它讲对——火山引擎那篇说 11 层、博客园那篇说 12 层、53AI 跟稿数到一半就乱了。原因很简单：DeerFlow 的中间件链是<strong>有条件分支的注册过程</strong>，不是写死的 11 项或 12 项；最短链路 11 层，开启所有可选项后到 16 层左右。</p>
+<p>唯一的事实来源是 <code>backend/packages/harness/deerflow/agents/lead_agent/agent.py</code> 里的 <code>_build_middlewares()</code> 函数，外加 <code>tool_error_handling_middleware.py</code> 里那个 <code>build_lead_runtime_middlewares()</code> 工厂函数。两段读下来，注册顺序就是中间件链的执行顺序，下面这张图按这个顺序画。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/deerflow-middleware-chain.png" alt="DeerFlow Lead Agent 中间件链路：11 个阶段按注册顺序 + 每层挂的钩子面"></p>
+<p>按源码顺序，主链 11 个阶段：</p>
+<ol>
+<li><strong>ThreadDataMiddleware</strong>：建本次会话的线程目录结构，注入 thread_id 到 runtime config。代码里写得很死：&quot;必须排第一，否则后面拿不到 thread_id&quot;。</li>
+<li><strong>UploadsMiddleware</strong>：把用户本次新上传的文件挂进沙箱 workspace。条件性挂载，没新文件就跳过。</li>
+<li><strong>SandboxMiddleware</strong>：分配或复用沙箱（Local / Docker 容器 / K8s pod 三选一），具体走哪条看 <code>config.yaml</code> 的 <code>sandbox.use</code> 字段。</li>
+<li><strong>DanglingToolCallMiddleware</strong>：补全断尾的 tool_call → ToolMessage 配对。这是上一轮对话如果中途崩溃，模型历史里会有一条 tool_call 没有对应 ToolMessage 应答，下一轮直接喂给模型会被 OpenAI 兼容协议拒收。这一层就是补这个洞。</li>
+<li><strong>LLMErrorHandlingMiddleware + ToolErrorHandlingMiddleware</strong>：把模型异常和工具异常包装成可恢复的 ToolMessage，给上层中间件留重试空间。</li>
+<li><strong>DynamicContextMiddleware</strong>：按 agent_name 注入运行时上下文。这一层是给 sub-agent 用的——主 Lead Agent 走它的全套，每个 sub-agent 走精简上下文。</li>
+<li><strong>DeerFlowSummarizationMiddleware</strong>（可选）：上下文超阈值时自动压缩，保留最近若干个 skill 的全文。这一层是国产 128k–200k 窗口模型（DeepSeek V4、千问 3、Kimi 2.5）的命根子——窗口被沙箱里读出来的长文件塞爆，没这层会直接 502。</li>
+<li><strong>TodoMiddleware</strong>（plan 模式可选）：注入 <code>write_todos</code> 工具，让模型在复杂任务里结构化拆 step。</li>
+<li><strong>Title + TokenUsage + MemoryMiddleware</strong>：分别负责自动起会话标题、累计 token 计量、跨会话写入长期记忆。MemoryMiddleware 必须排在 TitleMiddleware 之后，注释里写得明确——记忆条目里要带标题做索引。</li>
+<li><strong>ViewImage / DeferredToolFilter / SubagentLimit / LoopDetection</strong>（条件性）：视觉模型才挂 ViewImage、有 deferred 工具才挂 DeferredToolFilter、按 <code>max_concurrent_subagents</code> 做子智能体限流、有 loop_detection 配置才做死循环熔断。</li>
+<li><strong>ClarificationMiddleware</strong>（永远最后）：拦截&quot;我需要澄清这一步&quot;这种用户交互工具调用，把控制权交还前端，等用户手动应答。注释里写得很重：&quot;should always be last&quot;。</li>
+</ol>
+<p>源码注释里有一段对中间件次序的总结写得很值得抄一下，给后面要自己魔改的同行：</p>
+<blockquote>
+<p>ThreadDataMiddleware must be before SandboxMiddleware to ensure thread_id is available. UploadsMiddleware should be after ThreadDataMiddleware to access thread_id. DanglingToolCallMiddleware patches missing ToolMessages before model sees the history. SummarizationMiddleware should be early to reduce context before other processing. TitleMiddleware generates title after first exchange. MemoryMiddleware queues conversation for memory update (after TitleMiddleware). ViewImageMiddleware should be before ClarificationMiddleware to inject image details before LLM. ToolErrorHandlingMiddleware should be before ClarificationMiddleware to convert tool exceptions to ToolMessages. ClarificationMiddleware should be last to intercept clarification requests after model calls.</p>
+</blockquote>
+<p>每一句话都是一条工程上踩过坑后才写下来的硬约束。</p>
+<hr>
+<h2>二、每层挂的钩子：LangGraph 1.0 原生 5 钩子面</h2>
+<p>排序讲完，下一个问题是：每个中间件具体在 agent 主循环的哪个时间点跑？答案是 LangGraph 1.0 提供的 <code>AgentMiddleware</code> 基类预留的 5 个钩子方法——<code>before_agent</code>、<code>before_model</code>、<code>after_model</code>、<code>wrap_model_call</code>、<code>wrap_tool_call</code>。每个中间件子类按需 override 其中一个或几个，没 override 的就直接透传。</p>
+<p><strong>这是 DeerFlow 和上一代 Agent 框架（CrewAI / AutoGen 早期 / 自研 prompt + tool calling 那种）最大的工程差异</strong>：上一代框架要么是&quot;把所有插桩点都堆在一个 agent.run() 里写 if/else&quot;，要么是&quot;装饰器 + 回调函数到处散&quot;。LangGraph 1.0 把 5 个钩子做成正式 OOP 接口后，DeerFlow 第一个把 18 个中间件类全部按这套接口实现一遍，整个 chain 的执行流可预测。</p>
+<p>每个钩子的工程语义这一节单独讲清楚：</p>
+<ul>
+<li><strong>before_agent</strong>：agent 主循环开始之前一次性副作用。例：建目录、挂沙箱、注入 thread_id。前 4 层（ThreadData / Uploads / Sandbox / DanglingToolCall）几乎全靠这个钩子。</li>
+<li><strong>before_model</strong>：每次调模型之前重写消息历史。例：上下文压缩、视觉图注入、错断 tool_call 补全。一次 agent 会话里这个钩子会被调多次，每次模型推理前都会跑一遍。</li>
+<li><strong>after_model</strong>：模型回应之后修订或扩写。例：写记忆、生标题、累计 token、限并发 sub-agent。这个钩子也是每轮跑一次。</li>
+<li><strong>wrap_model_call</strong>：整包裹一次模型调用（自带 before + after + 异常重试）。例：异常重试、loop 检测、token 计量。语义类似 Python 装饰器。</li>
+<li><strong>wrap_tool_call</strong>：整包裹一次工具调用。例：工具异常恢复、Clarification 截流。</li>
+</ul>
+<p>举一个具体例子：ClarificationMiddleware 是怎么实现的？翻 <code>clarification_middleware.py</code>，它只 override 了一个方法——<code>wrap_tool_call</code>。意思是：当模型决定调&quot;我需要澄清&quot;这个工具时，这一层会把工具调用整包拦下，不真的去执行，而是直接把澄清请求作为 ToolMessage 写回历史并 break 主循环。这就是为什么这层必须排最后——它一旦截流，后面所有 wrap_tool_call 都不会跑了。</p>
+<p>工程上的好处很明显：要给 Agent 加新能力，不再是改 <code>agent.run()</code> 那个 1000 行的核心函数，而是写一个 <code>AgentMiddleware</code> 子类、override 其中一两个钩子、把它 append 到 <code>_build_middlewares()</code> 返回值末尾（在 Clarification 前面）。整个变更面收敛在新文件里，不动任何已有代码。</p>
+<p>国内自研 Agent 框架的团队读到这里大概率会有一种&quot;哦原来该这么搞&quot;的感受——很多 Agent 框架的项目早期都是从一个 <code>run(messages, tools)</code> 函数滚雪球出来的，跑到大概第三个月就会撞到&quot;每加一个能力就要改主循环&quot;的天花板。LangGraph 1.0 的钩子面 + DeerFlow 的中间件链是绕过这堵墙的一条工程范式，不一定是最优解，但已经有 67k 颗星的社区在实战验证。</p>
+<hr>
+<h2>三、本周国产 Agent 中间件横评：harness + 编排 + 记忆 三块凑齐了</h2>
+<p>DeerFlow 的中间件链值得专门写一篇深度文，原因不只是它自己漂亮——而是放在本周国产 Agent 中间件的整体语境里，它是补齐&quot;harness&quot;这一块的最后一项。</p>
+<p>时间线很清楚：5 月 14 日阿里<strong>悟空智能体编排平台</strong>开源了它的 Java 系编排框架（Spring AI Alibaba 项目，截至发稿 9,621 star、Apache-2.0），把&quot;多 agent 调度 / 路由 / 工作流&quot;这块铺好；5 月 15 日上午<strong>腾讯 Agent Memory</strong>开源，把&quot;短期 + 长期分层记忆 + 多 agent 共享会话&quot;这块铺好（详见本报今日另一篇 5/15 腾讯 Agent Memory 专题）；5 月 15 日下午火山引擎深度文把 DeerFlow 的&quot;super agent harness&quot;——也就是中间件链 + 沙箱 + skills + sub-agent 这一整套——重新摆到台面上。<strong>三块根基在两周内被三家厂同时开源</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/deerflow-n3-middleware-compare.png" alt="国产 Agent 中间件 / 编排 / 记忆 N=3 横评：DeerFlow / Spring AI Alibaba / 腾讯 Agent Memory + 海外对照"></p>
+<p>把这五个项目放在一张表里横向看，几个观察值得圈出来：</p>
+<ul>
+<li><strong>三家国产项目定位互补不打架</strong>。DeerFlow 是 harness（&quot;挽具&quot;——把模型套进可控执行环境）；Spring AI Alibaba 是编排（多 agent 之间怎么走流程）；腾讯 Agent Memory 是记忆层（跨会话怎么留东西）。三件叠在一起就是一个完整的 Agent 平台根基——上层应用比如 Coze、千问 Agent、灵光、通义灵码可以选自己缺哪一块就装哪一块，不用一锅端。</li>
+<li><strong>许可证全部偏自由</strong>。DeerFlow MIT、阿里 Apache-2.0、腾讯 Apache-2.0。没有任何一家走&quot;开源版功能砍半 + 商业版补全&quot;的路线，源代码就是商业代码。这对国内做 ToB 智能体平台的厂商是好事——可以直接拉源码改，不用担心未来某个版本突然加 commercial clause。</li>
+<li><strong>对国产模型的兼容性是这一轮的核心卖点</strong>。DeerFlow README 里专门有一段叫&quot;Recommended Models&quot;，列了豆包-Seed-2.0-Code、DeepSeek v3.2、Kimi 2.5 三个推荐配置；阿里悟空原生 ChatClient 接通义千问；腾讯 Agent Memory 原生混元和元器。这一点比 LangGraph / AutoGen 这些海外项目对国产开发者友好得多——后者需要自己写 adapter，且文档主体在英文。</li>
+<li><strong>短板也明确</strong>：统一的 trace / observability 还没人接。DeerFlow 自带 LangSmith + Langfuse 集成、阿里悟空可接 Spring Boot Actuator、腾讯 Agent Memory 走自家平台监控，三家都没对接到一套国产的 OpenTelemetry-friendly 方案。这是下一个值得国产团队补的工程坑，估计 6 月就会有项目出来。</li>
+</ul>
+<p>横向放到海外项目对照，DeerFlow 67k 星已经超过 Microsoft AutoGen（58k）和 LangChain 主仓的 LangGraph 子项目（32k），目前是国产 Agent 框架里 star 数最高的开源项目。Microsoft 也在做类似定位的 agent-framework 新仓（10k 星），但口径更偏 .NET / Python 双语 + 企业内 workflow，跟 DeerFlow 的&quot;个人 / 团队 super agent&quot;定位是错开的。</p>
+<hr>
+<h2>四、Lead Agent 动态衍生 sub-agent：三条隔离红线</h2>
+<p>最后这一段讲 sub-agent。</p>
+<p>DeerFlow 的 Lead Agent 不直接干所有活——它把任务派给 sub-agent。这一点之前的写作里讲过，但工程上的隔离机制值得专门拆一次。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/deerflow-lead-subagent-topology.png" alt="Lead Agent 动态衍生 sub-agent 的拓扑 + 三条隔离红线"></p>
+<p>按源码读，sub-agent 跟 Lead Agent 共用同一套 <code>create_agent()</code> 创建函数，但传进去的 <code>agent_name</code> 不一样，结果就是：</p>
+<ul>
+<li><strong>不共享上下文</strong>：sub-agent 看不到 Lead Agent 的完整对话历史，只拿任务 prompt + 该 sub-agent 自己的 skill 文档 + 必要的运行时变量。意思是 Lead Agent 跟用户聊了 50 轮的 token 不会污染 sub-agent 的窗口，sub-agent 可以专心干自己一小段任务。</li>
+<li><strong>不共享 workspace</strong>：每个 sub-agent 跑在独立沙箱（或者沙箱里的独立 per-thread 目录），文件 IO 互不相通。这意味着负责画图的 sub-agent 不能误改负责查资料的 sub-agent 写的中间文件，也就不会出现&quot;A 步骤把 B 步骤的临时文件覆盖了&quot;那种诡异 bug。</li>
+<li><strong>不共享中间件链</strong>：sub-agent 用的是精简版中间件栈——没有 TitleMiddleware（sub-agent 任务不需要起标题）、可选关闭 MemoryMiddleware（sub-agent 跑完即焚不写长期记忆）、SubagentLimit 在父级 Lead Agent 一层就限了，子级再嵌套就被 truncate。</li>
+</ul>
+<p>这三条工程红线值得每一个准备自己写 Agent 框架的国内团队抄进 PRD。原因不复杂——这是字节内部团队把 DeerFlow 跑到 67k 颗星之前踩过的真坑总结，等于免费帮你做了一轮架构 review。</p>
+<p>那为什么&quot;自己加第 12 层中间件&quot;容易翻车？因为 11 层的次序是字节工程师在踩过若干次&quot;thread_id 没建好就启动沙箱&quot;、&quot;记忆写在标题之前结果索引错位&quot;、&quot;Clarification 排中间结果后面的 wrap_tool_call 全不触发&quot;这种坑之后才确定下来的。<strong>自己加新中间件，关键不是&quot;加什么&quot;，是&quot;加在哪一层之间&quot;</strong>。注释里那段&quot;X must be before Y because Z&quot;是工程师在写一段段血泪后留给后人的路标。建议的做法是：要么按已有钩子语义把新逻辑插到对应位置（before_model 的事归到 before_model 那一档），要么写成 <code>custom_middlewares</code> 在 ClarificationMiddleware 之前注入——这是源码里专门留给二次开发的口子，已经包好了。</p>
+<hr>
+<h2>收束</h2>
+<p>DeerFlow 的 11 层中间件链不是&quot;又一个国产 Agent 框架的卖点列表&quot;——是国产 Agent 工程从&quot;裸跑 prompt + tool calling&quot;走向&quot;中间件分层 + Lead Agent 动态生成 sub-agent&quot;的范式拐点。本周阿里悟空 + 腾讯 Agent Memory + DeerFlow 三件凑齐根基后，国产 Agent 平台层的根基基本拼上了。下一步缺的是统一 trace / observability，等下个月再写一篇。</p>
+<p>对国内做 Agent 应用 / Agentic Coding / 工作流自动化的同行而言，5 月 15 日这一波讨论的真正价值，不是&quot;字节又开源一个超级 Agent 框架&quot;——是这一套中间件链在 67k 颗星社区里实战验证过两个月之后，把工程红线沉淀成了源码注释。读这一份注释，比读十篇国内 Agent 平台白皮书都有用。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

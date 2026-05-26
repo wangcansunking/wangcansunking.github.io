@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code 的 48 天、3% 掉分、9.5k 星：Anthropic 补锅，社区已经魔改上瘾 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-04-24</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-04-24</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Claude Code 的 48 天、3% 掉分、9.5k 星：Anthropic 补锅，社区已经魔改上瘾</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/24/claude-ecosystem-anthropic-cover.png" alt="Anthropic 4/23 postmortem 封面"></p>
+<blockquote>
+<p><strong>3 月 4 日到 4 月 20 日，Claude Code 被三个独立改动叠加打到 eval 掉 3%；Anthropic 在 4 月 23 日深夜出了 postmortem，HN 冲上 668 赞 / 507 条评论。</strong> 道歉本身不算新鲜，更值得看的是同一周里，三个社区魔改工具在 GitHub 并排拔到 9,591、8,632、6,031 stars——<code>context-mode</code> 从创建到这个量级只用了 2 个月。下面把 postmortem、这三件工具、HN 上那场「爱之深责之切」的群起讨伐放在一起看。</p>
+</blockquote>
+<hr>
+<h2>48 天里的三个独立改动叠加到一起</h2>
+<p>Postmortem 列了三个完全独立的改动，时间跨度 48 天：</p>
+<table>
+<thead>
+<tr>
+<th>日期</th>
+<th>改动</th>
+<th>受影响直到</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>2026-03-04</td>
+<td>默认 reasoning effort 从 <code>high</code> 降到 <code>medium</code>（为了延迟）</td>
+<td>2026-04-07 回滚</td>
+</tr>
+<tr>
+<td>2026-03-26</td>
+<td>缓存优化 bug：<code>idle 超过 1 小时清一次 thinking history</code> 被错误实现成 <code>每轮都清</code></td>
+<td>2026-04-10 回滚</td>
+</tr>
+<tr>
+<td>2026-04-16</td>
+<td>加 system prompt：工具调用之间 ≤25 词，最终回复 ≤100 词</td>
+<td>2026-04-20 回滚</td>
+</tr>
+</tbody></table>
+<p>三件事交织起来的后果，Anthropic 自己写得最准：</p>
+<blockquote>
+<p>&quot;Claude would continue executing, but increasingly without memory of why it had chosen to do what it was doing.&quot;</p>
+</blockquote>
+<p>Claude 会继续执行，但越来越不记得自己当初为什么要这么做。这正是那段时间 Claude Code 用户最常抱怨的症状——一个跑了一小时的重构任务，突然开始「忘掉目标」，一边还在改代码一边说不出改这行的理由。</p>
+<p>Anthropic 披露的量化影响：在内部的广义 eval 上，<strong>Opus 4.6 和 4.7 都出现 3% 的得分下降</strong>。3 个百分点听着小，但在 coding 场景下意味着每 33 个任务多一个翻车——Claude Code 的典型用户一天要发十几次任务。</p>
+<h3>Opus 4.7 自己 debug 出了自己被改坏的 bug</h3>
+<p>Postmortem 里埋着一句话，后来被 HN 和 Twitter 反复截图：</p>
+<blockquote>
+<p>&quot;When provided the code repositories necessary to gather complete context, Opus 4.7 found the bug, while Opus 4.6 didn&#39;t.&quot;</p>
+</blockquote>
+<p>给它完整代码仓库的上下文之后，Opus 4.7 找出了这个 bug，Opus 4.6 没找到。</p>
+<p><strong>Opus 4.7 自己 debug 出了自己被改坏的 bug</strong>。这句话同时传两个信号——强模型真能自救；也是 Anthropic 在反复强调「模型本身没退化」的间接证据。</p>
+<p>更戏剧性的是 4 月 16 日那条 system prompt，原文直接贴了出来：</p>
+<blockquote>
+<p>&quot;Length limits: keep text between tool calls to ≤25 words. Keep final responses to ≤100 words unless the task requires more detail.&quot;</p>
+</blockquote>
+<p>让 Claude 在工具调用之间最多说 25 个词，最终回复最多 100 词。听起来是让它「少废话」的好主意——但对一个强制简短的 reasoning 模型，短到一定程度就开始丢失中间思考。<strong>强行闭嘴反而害死了模型。</strong></p>
+<hr>
+<h2>HN 的 507 条评论：用户骂的不是 bug，是半个月的沉默</h2>
+<p>Postmortem 上线几个小时内，HN 就冲到 668 赞 / 507 条评论。评论区的情绪光谱很清楚——<strong>用户不是在骂 Anthropic 有 bug，是在骂 Anthropic 半个月内一直没承认</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/24/claude-ecosystem-anthropic-reasoning.png" alt="Anthropic reasoning effort 指标对比"></p>
+<p>摘几条有代表性的：</p>
+<p><strong>@troupo</strong>（最尖锐的一条）：</p>
+<blockquote>
+<p>&quot;Anthropic literally advertises long sessions, 1M context, high reasoning etc … while silently changing how the product works.&quot;</p>
+</blockquote>
+<p>Anthropic 嘴上宣传长 session、1M context、高 reasoning，背地里却默默改产品行为。</p>
+<p><strong>@CjHuber</strong>（用户续费决策被伤到）：</p>
+<blockquote>
+<p>&quot;I would not have renewed my subscription if I knew that they started doing this … they&#39;re just throwing most the relevant stuff out all out without any notice when I resume my session after a few days? This is insane.&quot;</p>
+</blockquote>
+<p>早知道他们这么干我就不续费了。session 隔几天回来他们默默把相关 context 全扔了？这太离谱了。</p>
+<p><strong>@BoppreH</strong>（直接把阴谋论摆上台面）：</p>
+<blockquote>
+<p>&quot;Isn&#39;t that exactly what people had been accusing Anthropic of doing, silently making Claude dumber on purpose to cut costs?&quot;</p>
+</blockquote>
+<p>这不就是一直以来大家指控 Anthropic 在干的事吗——为了省成本悄悄把 Claude 变笨？</p>
+<p><strong>@mtilsted</strong>（文档与产品自相矛盾的段子）：</p>
+<blockquote>
+<p>&quot;Claude Code answered: &#39;No. A 2-hour gap doesn&#39;t change my output … The prompt cache may expire (5 min TTL).&#39; This answer directly contradict your post.&quot;</p>
+</blockquote>
+<p>我问 Claude Code「session 隔 2 小时有影响吗」，它回答「不会，只是 prompt cache 5 分钟过期」——这直接跟 Anthropic 这篇 post 矛盾。</p>
+<p>这条被点赞特别高，原因简单——<strong>一个 AI 产品自己的 Chat 回答，直接证伪了自己公司的官方工程 blog</strong>。</p>
+<h3>507 条评论里几乎没人提替代品</h3>
+<p>翻完这 507 条会发现一件事：<strong>几乎没人把矛头指向替代产品</strong>。</p>
+<p>没人说「那我换 Cursor 吧」、没人说「Aider 更好」、没人说「Copilot Agent mode 可以顶」。愤怒全部集中在 Anthropic 一家。这种分布暗示一个事实——在这批重度开发者眼里，Claude Code 目前<strong>没有真正的替代品</strong>。这 507 条评论里是「爱之深责之切」的怒气，不是「我随时可以走」的怒气。</p>
+<p>正是这种「走不了」的状态，催生了这一周最真实的变化——不是开发者换工具，而是开发者<strong>自己动手改工具</strong>。</p>
+<hr>
+<h2>同一个周末，三个魔改工具冲上 GitHub Trending 前三页</h2>
+<p>每一个都在解决 Anthropic 自己承认的问题的某一部分。</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>Stars (live)</th>
+<th>角度</th>
+<th>解决什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>context-mode</code> (mksglu)</td>
+<td>9,591</td>
+<td>Tool output 压缩</td>
+<td>Playwright snapshot 56 KB 变 299 B，98% 缩减</td>
+</tr>
+<tr>
+<td><code>claude-context</code> (zilliztech)</td>
+<td>8,632</td>
+<td>代码库语义搜索</td>
+<td>给 agent 一次性灌整个代码库</td>
+</tr>
+<tr>
+<td><code>free-claude-code</code> (Alishahryar1)</td>
+<td>6,031</td>
+<td>Provider 切换</td>
+<td>2 个环境变量把 Claude Code 后端换成 NIM / OpenRouter / 本地</td>
+</tr>
+</tbody></table>
+<p>三件事放一起看，像一份「当 Anthropic 掉链子时，社区自发补齐的 TODO 列表」。</p>
+<h3>claude-context：给 Claude Code 装一个语义搜索大脑</h3>
+<p><code>claude-context</code> 解决的是所有 AI coding agent 都绕不开的问题——<strong>agent 反复 grep 同一个 codebase，token 烧得心疼</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/24/claude-ecosystem-context-architecture.png" alt="claude-context 架构图"></p>
+<p>本质是一个 MCP server。装上后 Claude Code 能调 4 个工具：</p>
+<ul>
+<li><code>index_codebase</code> — 给整个仓库建语义索引</li>
+<li><code>search_code</code> — 自然语言搜「把消息发到 Slack 的那个重试逻辑在哪儿」</li>
+<li><code>clear_index</code> — 清索引</li>
+<li><code>get_indexing_status</code> — 进度查询</li>
+</ul>
+<p>技术上做了三件事：用 OpenAI <code>text-embedding-3-small</code>（或 VoyageAI/Ollama/Gemini）做 embedding，用 Milvus 或 Zilliz Cloud 存向量，Merkle tree 做增量索引——只有改过的文件才重新算 embedding。</p>
+<p>README 给的数字是 <strong>~40% token reduction under the condition of equivalent retrieval quality</strong>——同等检索质量下节省 40% token。</p>
+<p>装起来是一行 MCP 命令：</p>
+<pre><code class="language-bash">claude mcp add claude-context \
+  -e OPENAI_API_KEY=sk-... \
+  -e MILVUS_ADDRESS=your-zilliz-cloud-endpoint \
+  -e MILVUS_TOKEN=your-zilliz-cloud-api-key \
+  -- npx @zilliz/claude-context-mcp@latest
+</code></pre>
+<p><code>zilliz</code> 是做 Milvus 向量数据库的公司，<code>claude-context</code> 本质是他们的<strong>商业化触角</strong>——免费的 Milvus 自托管能用，但托管的 Zilliz Cloud 才好接进 AI agent 生态。「工具免费、向量库导流」是开源 RAG 产品最近一年最清晰的商业 pattern 之一。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/24/claude-ecosystem-context-efficiency.png" alt="claude-context 效率分析图"></p>
+<h3>context-mode：给 Claude Code 装一个会压缩废话的沙箱</h3>
+<p><code>claude-context</code> 在解决「怎么给 agent 塞进更多东西」，<code>context-mode</code> 解决的是<strong>完全相反的问题</strong>——</p>
+<blockquote>
+<p>&quot;Every MCP tool call dumps raw data into your context window. A Playwright snapshot costs 56 KB. Twenty GitHub issues cost 59 KB. One access log — 45 KB. After 30 minutes, 40% of your context is gone.&quot;</p>
+</blockquote>
+<p>每个 MCP 工具调用都往 context 里倾倒原始数据。Playwright 快照 56 KB，20 个 GitHub issue 59 KB，一份访问日志 45 KB。半小时后 40% 的 context 就没了。</p>
+<p>作者的头屏 pitch 叫这个是 <strong>&quot;the other half of the context problem&quot;</strong>——context 问题的另一面。塞进去的不是代码不够多，是工具 output 太废话。</p>
+<p>做法是：</p>
+<ol>
+<li><strong>Sandbox tool output</strong>：原始数据跑在隔离子进程里，只让 stdout 进入 context window</li>
+<li><strong>FTS5 索引</strong>：output 超过 5 KB 时，全量索引进 SQLite FTS5</li>
+<li><strong>BM25 检索</strong>：对话压缩时不把原数据 dump 回 context，用 BM25 搜索只取相关片段</li>
+</ol>
+<p>这套机制带来的具体数字（README 原文）：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>原始大小</th>
+<th>压缩后</th>
+<th>节省</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Playwright 快照</td>
+<td>56.2 KB</td>
+<td>299 B</td>
+<td>99%</td>
+</tr>
+<tr>
+<td>20 条 GitHub issues</td>
+<td>58.9 KB</td>
+<td>1.1 KB</td>
+<td>98%</td>
+</tr>
+<tr>
+<td>500 个请求的访问日志</td>
+<td>45.1 KB</td>
+<td>155 B</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>完整 session</td>
+<td>315 KB</td>
+<td>5.4 KB</td>
+<td>98%</td>
+</tr>
+</tbody></table>
+<p>315 KB 变 5.4 KB，session 平均时长从 30 分钟延长到 3 小时。这把 Anthropic 自己在 postmortem 里承认的「idle&gt;1h 清 thinking history」那个根本矛盾，从另一端解决掉。</p>
+<p>支持的平台列表也值得一看：Claude Code、Gemini CLI、VS Code Copilot、Cursor、OpenCode、KiloCode、OpenClaw、Codex CLI、Antigravity、Kiro、Zed、Pi Coding Agent——<strong>12 个</strong>，覆盖了几乎所有主流 AI coding agent。从生态位上看，<code>context-mode</code> 不是「Claude Code 插件」，是<strong>AI coding agent 的通用肠胃</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/24/claude-ecosystem-context-mode-demo.jpg" alt="context-mode demo 缩略图"></p>
+<p>两个月，9,591 stars。项目 <strong>2026 年 2 月 23 日才创建</strong>。同期的 <code>claude-context</code> 从 2025 年 6 月创建到现在也才 8,632 stars。9.5k 这个数字不是平静增长，是<strong>被 postmortem 爆雷前后这波恐慌直接打上去的</strong>。</p>
+<p>装起来也很简单：</p>
+<pre><code class="language-bash">npm install -g context-mode
+</code></pre>
+<p>数据不出本机。README 原文：</p>
+<blockquote>
+<p>&quot;Nothing leaves your machine. No telemetry, no cloud sync, no usage tracking, no account required.&quot;</p>
+</blockquote>
+<h3>free-claude-code：给 Claude Code 装一个「换 provider 开关」</h3>
+<p>前两件工具都在「让 Claude Code 更好用」。第三件更干脆——<strong>让 Claude Code 不用 Anthropic</strong>。</p>
+<p><code>free-claude-code</code> 是一个 proxy，劫持 Claude Code 发给 <code>api.anthropic.com</code> 的请求，转发到任意一个兼容的后端：</p>
+<ul>
+<li><strong>NVIDIA NIM</strong>——40 req/min 免费档</li>
+<li><strong>OpenRouter</strong>——几百个模型，有免费有收费</li>
+<li><strong>DeepSeek</strong>——直连官方 API</li>
+<li><strong>LM Studio</strong>——本地</li>
+<li><strong>llama.cpp</strong>——本地，Anthropic endpoint 兼容</li>
+</ul>
+<p>README 原文的 pitch 是：</p>
+<blockquote>
+<p>&quot;Drop-in Replacement: Set 2 env vars. No modifications to Claude Code CLI or VSCode extension needed.&quot;</p>
+</blockquote>
+<p>两个环境变量搞定。不用改 Claude Code CLI 或 VSCode 插件本体。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/24/claude-ecosystem-free-claude-code-nim.png" alt="free-claude-code NIM demo"></p>
+<p>还有一个更激进的玩法——<strong>Discord bot 集成</strong>。步骤：</p>
+<ol>
+<li>Discord Developer Portal 建 bot 拿 token</li>
+<li>打开 Message Content Intent</li>
+<li>配 <code>.env</code>：<code>MESSAGING_PLATFORM=&quot;discord&quot;</code>、<code>DISCORD_BOT_TOKEN</code>、<code>ALLOWED_DISCORD_CHANNELS</code></li>
+<li>起 proxy</li>
+<li>用 OAuth2 URL 把 bot 拉进服务器</li>
+</ol>
+<p>把 Claude Code 扔进 Discord 群里当聊天机器人。这个项目 fork 率 16.6%（1,004 forks / 6,031 stars），偏高得离谱——意味着<strong>非常多人在自己部署、自己魔改</strong>。</p>
+<p>⚠️ <strong>有一个风险要讲清楚</strong>：<code>free-claude-code</code> 的 README 从头到尾<strong>没有任何 Anthropic ToS 的合规说明</strong>。走 NIM / OpenRouter / 本地模型这些后端本身合规（你在买他们的服务），但项目名字叫 &quot;free-claude-code&quot;、宣传语是 &quot;No Anthropic API key required&quot;，读到的人容易误以为可以「白嫖 Anthropic」。最准确的法律定位是——<strong>把 Claude Code 的客户端能力解耦给用户</strong>。客户端是 Anthropic 开源的（去年随 Claude Code 公开），但绕过 Anthropic API 这件事本身不是它授权的用法。重度用户最好先评估清楚。</p>
+<hr>
+<h2>为什么三个项目一起在这一周爆发</h2>
+<p><strong>2026 年 4 月的 Claude Code 用户画像，和一年前不是同一批人。</strong></p>
+<ul>
+<li>一年前：个人开发者 hobbyist、curious 早期用户、想玩玩 AI coding 的研究员</li>
+<li>现在：每天上 8 小时 Claude Code、在重构 50k 行代码库的资深工程师、在跑 devops 自动化脚本的 SRE</li>
+</ul>
+<p>这批人的特征：</p>
+<ol>
+<li><strong>愿意付钱但不愿意忍工具掉链子</strong>——已经把 Claude Code 编排进 git workflow、CI、incident response 流程</li>
+<li><strong>有能力自己魔改</strong>——知道 MCP 是什么、会写 proxy、看 Milvus 文档不费力</li>
+<li><strong>信任系数高但记忆也长</strong>——这次掉分事件他们会记三个月</li>
+</ol>
+<p><code>claude-context</code> 从去年 6 月开始慢热、<code>context-mode</code> 两个月冲到 9.5k、<code>free-claude-code</code> 创建于今年 1 月——这个时间梯度恰好对齐<strong>重度用户群从 curious 过渡到 reliant 的速度</strong>。Postmortem 爆雷只是点了火，柴早就堆好了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/04/24/claude-ecosystem-anthropic-metrics.png" alt="Anthropic 监控指标面板"></p>
+<p>Anthropic 在 postmortem 的最后一段写了三条承诺：</p>
+<blockquote>
+<p>&quot;we&#39;ll ensure that a larger share of internal staff use the exact public build of Claude Code&quot;</p>
+</blockquote>
+<p>让更多内部员工用和公众完全一样的 Claude Code build（dogfooding）。</p>
+<blockquote>
+<p>&quot;expand the evaluations we run … ensuring that we evaluate changes on each model we serve independently&quot;</p>
+</blockquote>
+<p>扩大 eval 覆盖范围，每个对外提供的模型独立评测。</p>
+<blockquote>
+<p>&quot;audit tooling&quot;</p>
+</blockquote>
+<p>给 prompt 修改加审计工具。</p>
+<p>加上 4 月 23 日给所有订阅用户 usage limit 重置一次作为补偿。</p>
+<p>三条承诺本身没毛病。507 条 HN 评论里最让我意外的是——<strong>没人对这三条承诺表达信心</strong>。大部分评论的潜台词是「我姑且信你一次」，不是「问题解决了」。</p>
+<p>重度用户在 48 天里失去的不是 3% 的 eval 分——是<strong>相信 Anthropic 默认配置是合理的</strong>这件事。这件事不能靠 postmortem 挽回，只能靠接下来六个月 Anthropic 不再静默改产品来挽回。</p>
+<hr>
+<h2>对国内开发者意味着什么</h2>
+<h3>魔改上瘾是健康的</h3>
+<p>三个工具全部开源，都能在国内直接装上用（<code>context-mode</code> 和 <code>claude-context</code> 的 npm 包都能拉到，<code>free-claude-code</code> 一行 <code>uv tool install</code> 就行）。<code>context-mode</code> 是最没风险、最直接有感的那一个——一行 <code>npm install -g context-mode</code> 装完，下一次对话能跑的时间直接从半小时延长到几个小时。</p>
+<h3>Postmortem 比宣传稿可信</h3>
+<p>Anthropic 这份 postmortem 写得很干，日期、代码级 bug、eval 数字都贴出来了。它同时也是一个模板——<strong>国内云厂商和大模型公司基本没有这种级别的公开 postmortem 文化</strong>。下次看到一个模型「悄悄变聪明了」或「悄悄变笨了」，问自己一句：<strong>上次看到国内厂商写这么具体的故障复盘是哪年？</strong></p>
+<h3>MCP 生态已经在打扫 Anthropic 的烂摊子</h3>
+<p><code>claude-context</code> 是一个 MCP、<code>context-mode</code> 支持 12 个平台全是通过 MCP。Anthropic 2024 年推出 MCP 时很多人觉得是噱头——2026 年 4 月这一周证明了 MCP 是真的在解决问题。国内做 agent 生态的厂商，<strong>是否把 MCP 支持做扎实</strong>，接下来半年会是一个分水岭。</p>
+<hr>
+<h2>这 48 小时在 AI coding 历史上的位置</h2>
+<p>一份写得干净的 postmortem、三个冲起来的社区工具、一场清醒的 HN 讨论。2026 年 4 月 23-24 日这 48 小时，大概等同于 2020 年 10 月 Stack Overflow 封 GPT-3 的那个周末——那时候我们看到 AI 写代码的边界，现在我们看到 AI 写代码工具的边界。</p>
+<p>真正让人乐观的是：<strong>无论 Anthropic 接下来一年做得怎样，<code>context-mode</code> 和 <code>claude-context</code> 这种项目都已经长出来了</strong>。社区魔改的底座一旦搭成，用户从任何一个 provider 身上摔下来，都能站得住。这就是开源 AI coding 生态从 2026 年开始最不一样的地方。</p>
+<hr>
+<p><strong>本文数据</strong>：Anthropic postmortem 原文（2026-04-23）；HN item 47878905（668 pts / 507 comments，2026-04-23 17:48 UTC）；GitHub API live 数据（2026-04-24 UTC+8 抓取）：<code>mksglu/context-mode</code> 9,591 stars / 660 forks / 34 open issues、<code>zilliztech/claude-context</code> 8,632 stars / 672 forks / 112 open issues、<code>Alishahryar1/free-claude-code</code> 6,031 stars / 1,004 forks / 23 open issues。所有英文引语来自原始 Anthropic blog / HN 评论原文。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

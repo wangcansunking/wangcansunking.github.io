@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文心 5.1 预训练成本砍到 6%：对位 DeepSeek — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-10</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-10</span><span class="tag-pill">Daily Report</span></div>
+      <h1>文心 5.1 预训练成本砍到 6%：对位 DeepSeek</h1>
+<blockquote>
+<p>2026 年 5 月 9 日下午两点，百度发布文心 5.1。Arena 搜索榜 1223 分（全球第四、国内第一），文本榜 Preview 版 1476 分（前 15 名唯一国产），总参数从 5.0 的 2.4 万亿压到约 8000 亿（1/3），激活参数从约 70B 压到约 35B（1/2），预训练成本只用同规模模型 6%。</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/10/baidu-ernie-5-1-low-cost-pretrain-2026-05-10.png" alt="文心 5.1 低成本预训练登顶国内"></p>
+<p>5/9 当天下午，新浪财经两稿、IT 之家、量子位、凤凰、网易、ChinaZ、百度官博 6 家以上同步出稿。值得记一笔的不是某次单独登顶榜单，而是国产基础模型这次同时把参数小一截、成本低一档、分数还在涨这三件事摆上了同一张桌。这个组合 2025 年是分头出现的——DeepSeek 主打低成本，千问主打开源，智谱主打多模态，字节主打规模化。文心 5.1 把这条收敛路径在 2026 年 5 月跑通了。</p>
+<p><a href="https://yiyan.baidu.com/blog/zh/posts/ernie-5.1-0508-release/" target="_blank" rel="noopener">百度官博 5/8 原文</a>给的技术口径是「Once-for-All 弹性训练框架」——弹性深度（动态跳过 Transformer 层）+ 弹性宽度（动态屏蔽 MoE 专家）+ 弹性稀疏度（可变 Top-k 路由）三档同时压缩。这套方法在文心 5.0 时（<a href="https://ernie.baidu.com/blog/posts/ernie5.0/" target="_blank" rel="noopener">官博</a>）就提出了概念——「一次训练，处处部署」——5.1 是把它在工程层完整跑了一遍：从 2.4 万亿参数的 5.0 蒸馏继承到约 8000 亿的 5.1，预训练只花了同规模模型 6% 的钱。</p>
+<p>这篇要回答四件事：1223 / 1476 / 1/3 / 6% 这四个数字怎么读、多维弹性预训练在工程层做了什么、和 DeepSeek V4 Pro / 千问 3.6 Max / GLM-5.1 / 豆包 1.5 / Mistral Medium 3.5 横评长什么样、千帆 API 今天怎么调。文末给出 Python SDK + curl 调用示例。</p>
+<h2>一、四个数字一次说完</h2>
+<p><a href="https://arena.ai/leaderboard" target="_blank" rel="noopener">arena.ai 当前榜单</a> 5/9 的两份原始数据先摆出来。</p>
+<p><strong>搜索榜 Top 5（截至 2026-05-09）</strong></p>
+<table>
+<thead>
+<tr>
+<th>排名</th>
+<th>模型</th>
+<th>厂商</th>
+<th>分数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>claude-opus-4-6-search</td>
+<td>Anthropic（美国）</td>
+<td>1255</td>
+</tr>
+<tr>
+<td>2</td>
+<td>gpt-5.5-search</td>
+<td>OpenAI（美国）</td>
+<td>1242</td>
+</tr>
+<tr>
+<td>3</td>
+<td>claude-opus-4-7</td>
+<td>Anthropic（美国）</td>
+<td>1236</td>
+</tr>
+<tr>
+<td><strong>4</strong></td>
+<td><strong>ernie-5.1</strong></td>
+<td><strong>百度（中国）</strong></td>
+<td><strong>1223</strong></td>
+</tr>
+<tr>
+<td>5</td>
+<td>claude-sonnet-4-6-search</td>
+<td>Anthropic（美国）</td>
+<td>1221</td>
+</tr>
+</tbody></table>
+<p><strong>文本榜（Text Arena）Preview 版</strong>：1476 分，国内第一，前 15 名里唯一一家国产。前 15 的其他位置由 Claude Opus 4.7、Gemini 3.1 Pro、GPT-5.5、Grok 4.20、Muse Spark 等海外模型占据。</p>
+<p>第三个数字是参数压缩比。和 5.0 比，总参数从 2.4 万亿压到约 8000 亿（1/3），激活参数从约 70B 压到约 35B（1/2）。这两个比值是百度 5/8 官博原文照录：「将总参数压缩至约 1/3、激活参数压缩至约 1/2」。</p>
+<p>第四个数字是预训练成本压缩比——「仅使用业界同规模模型约 6% 的预训练成本」。这一句是百度自报，没有第三方独立复核。同规模头部模型预训练耗资数千万到上亿美元，把这个量级压到 6%，意味着原本 9000 多万美元的盘子只动用了不到 600 万美元。这是把弹性框架用到极致的产物。</p>
+<p>四个数字串成一句话——国产基础模型在 2026 年 5 月第一次同时跑出「分数追平海外第二梯队 + 参数小三分之二 + 训练成本只到对手 6%」。这件事的产业含义比单独看一次榜单要厚。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/10/ernie-5-1-vendor-comparison.png" alt="国产基础模型横评 · 2026 年 5 月在榜分数"></p>
+<p>把分数和价格一起读，国产模型当下的性价比锚点就出来了。文心 5.1 在搜索榜里和 Claude / GPT 同场过招，输入价 4 元、输出价 18 元（每百万 token），比 GPT-5.5 / Claude Opus 这一档便宜一个数量级；千问 3.6 Max 与 GLM-5.1 在开源 + 长上下文上更激进；DeepSeek V4 Pro 守 1M 长上下文 + MIT 协议；Mistral Medium 3.5 守欧洲合规市场。各跑各的强项，互相不撞车。</p>
+<h2>二、多维弹性预训练：训练一次，得一族模型</h2>
+<p>弹性训练这个概念学术圈早有 NestNet、Once-for-All（<a href="https://arxiv.org/abs/1908.09791" target="_blank" rel="noopener">原论文</a>）等先驱方法，核心思路是一次训练得到一族模型，部署时按需抽子模型。文心 5.1 把这个思路从 CV 圈搬进 LLM，并把宽度、深度、稀疏度三档同时改造成可弹性的训练目标。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/10/ernie-5-1-elastic-pretrain.png" alt="多维弹性预训练 · 三维度同时压缩"></p>
+<h3>弹性深度：随机抽样 Transformer 层</h3>
+<p>工程实现是相对成熟的思路——训练时按概率跳过部分 Transformer 层（Stochastic Depth），让模型在前向传播时见到不同深度的网络，逼每一层都成为相对独立的功能单元。推理时按需选层数，长文本任务跑全 96 层，短问答任务跑 48 层，硬件占用直接砍半。</p>
+<p>这一档对训练侧的难点在路由策略——不能完全随机，否则浅层模型会因为后续层缺位而退化。文心 5.1 没公开技术报告，工程惯例上大概率是分布式概率掩蔽 + 课程学习（Curriculum）相结合。</p>
+<h3>弹性宽度：MoE 专家容量动态屏蔽</h3>
+<p>文心 5.0 是稀疏 MoE 架构，每层有几十到上百个专家，每次前向只激活其中一小部分。弹性宽度就是在这里做文章——训练时随机屏蔽一部分专家容量，让剩下的专家承担更多负载，模型学会在不同专家容量下都能给出可用输出。推理时按硬件配置激活专家数，4 卡部署用全量专家，单卡部署只激活 1/3 专家，模型自动降维。</p>
+<p>这对 MoE 路由器（Router）是高难度的训练目标——同一份权重必须在不同专家容量下都路由出合理决策。这是 5.1 把激活参数压到 1/2 的关键工程突破。</p>
+<h3>弹性稀疏度：可变 Top-k 路由</h3>
+<p>MoE 训练时通常 Top-k 是固定常数，比如每个 token 激活 2 个专家。可变 Top-k 让 k 在训练中动态浮动，模型同时见过 k=1、k=2、k=4 的训练目标。推理时按延迟预算选 k，对延迟敏感的 Agent 任务用 k=1 跑得飞快，对推理深度要求高的复杂任务用 k=4 跑得稳。</p>
+<p>三个维度同时压缩，工程效果是一次预训练流程产出一族不同尺寸、不同深度、不同稀疏度的模型。这就是百度官博给出的核心承诺：「将一次训练成本均摊到多个商业模型上，把单模型 GPU 小时数压到同规模 6%」。</p>
+<p>多维弹性预训练真正的卖点不是「压缩」，而是「训练一次摊到一族模型」的成本会计。同样的预训练算量，原本只能产出一个模型，现在能产出 5-8 个不同尺寸的子模型，单模型成本就被天然摊薄。这是和 DeepSeek 走低成本单点突破、千问走开源摊销不一样的第三条路——百度走的是「模型工厂」。</p>
+<h2>三、6% 怎么算：从蒸馏继承到知识下沉</h2>
+<p>百度 6% 这个数字单看吓人，拆开是几条相对扎实的工程惯例叠加。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/10/ernie-5-1-cost-breakdown.png" alt="6% 预训练成本如何算 · 同规模模型成本结构"></p>
+<h3>成本来源拆解</h3>
+<p><strong>第一档：5.0 知识下沉</strong>。文心 5.0 在 2026 年 2 月发布时已经训完，2.4 万亿参数沉淀的知识是 5.1 的免费起点。5.1 没有从零预训练，而是基于 5.0 的 checkpoint 做参数压缩 + 蒸馏 + 增量预训练。这一档直接砍掉了「冷启动」阶段最贵的几十万 GPU 小时。</p>
+<p><strong>第二档：弹性框架摊薄</strong>。多维弹性预训练让一次训练流程产出一族模型，单模型的 GPU 小时数被天然摊薄。如果一次训练同时产出 8 档子模型，单档成本就只剩 1/8。这一档是百度 5.0→5.1 的工程主线。</p>
+<p><strong>第三档：增量数据 + 去重过滤</strong>。从 5.0 到 5.1 之间，需要补的数据主要是 2026 年 2 月之后的新增语料 + 5.0 暴露出的弱项数据。全量重训不必要——补差量数据 + 加强弱项 SFT 即可。</p>
+<p><strong>第四档：弹性宽度释放卡时</strong>。MoE 专家屏蔽训练时，前向计算量本身比满 MoE 小，单步 GPU 时间被压缩。这一档贡献相对小，但叠加起来不可忽视。</p>
+<p>四档加起来，从 100% 砍到 6%——量级上是讲得通的。前提是 5.0 已经训完，5.1 站在 5.0 肩膀上往上压。这个工程逻辑也回答了一个常见质疑：「文心 5.1 是不是只是 5.0 的瘦身版？」部分是、部分不是。瘦身是事实，但同时获得了一次训练产出多档模型的部署能力，并通过增量数据补强解决了 5.0 的部分弱项。</p>
+<h3>文心 5.0 → 5.1 一图看完</h3>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/10/ernie-5-0-vs-5-1.png" alt="文心 5.0 → 文心 5.1 · 参数压缩 + 性能不退"></p>
+<p>把 5.0 和 5.1 摆在一张表里看，能看出几条隐含信号。</p>
+<p><strong>信号一</strong>：API 价格随参数压缩同步下降。≤32K 上下文输入价从 6 元/百万 token 降到 4 元/百万 token（−33%），输出价从 24 元降到 18 元（−25%）。这是把预训练成本省下的钱直接让给开发者——降价不是被市场逼的，是工程降本的自然下传。</p>
+<p><strong>信号二</strong>：上下文窗口保持 128K 不变。在国产模型纷纷往 256K-1M 扩窗的当下，文心 5.1 守 128K 是一种克制——窗口长不一定好用，长上下文质量退化是行业普遍痛点。文心 5.1 选择「在 128K 窗口里把每个 token 都用透」，是务实的产品决策。</p>
+<p><strong>信号三</strong>：搜索榜 1223 和文本榜 1476 这两个数字搭配读，给出的画像是文心 5.1 的真正强项在「搜索 + 内容生成 + Agent 应用」这个组合上，文本榜 Preview 版只能算「有竞争力」，搜索榜才是国产真正稳定登顶的位置。这一点和百度的产品定位一致——百度从搜索引擎起家，把搜索能力沉淀进基座大模型有天然优势。</p>
+<p>6% 不是营销口径，是 5.0 知识下沉 + 弹性框架摊销 + 增量数据策略 + MoE 单步成本下降四档叠加的合理结果。这个工程路径是可复用的——只要厂商有上一代基座大模型 + 多维弹性训练能力，下一代基座大模型的成本就能用同样的逻辑压下来。</p>
+<h2>四、和 DeepSeek / 千问 / GLM 横评：每家跑自己最强那一档</h2>
+<p>把文心 5.1 和当前国产基础模型 Top 5 + Mistral Medium 3.5 摆在同一张表里，2026 年 5 月国产基础模型生态的真实分布就出来了。</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>厂商</th>
+<th>总参数</th>
+<th>激活参数</th>
+<th>上下文</th>
+<th>API 输入价</th>
+<th>API 输出价</th>
+<th>开源协议</th>
+<th>强项</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>文心 5.1</strong></td>
+<td>百度（中国）</td>
+<td>约 800B</td>
+<td>约 35B</td>
+<td>128K</td>
+<td>4 元/M</td>
+<td>18 元/M</td>
+<td>否（千帆）</td>
+<td>搜索 + 内容生成 + Agent</td>
+</tr>
+<tr>
+<td><strong>DeepSeek V4 Pro</strong></td>
+<td>DeepSeek（中国）</td>
+<td>约 1T</td>
+<td>约 37B</td>
+<td>1M</td>
+<td>约 2 元/M</td>
+<td>约 8 元/M</td>
+<td>MIT</td>
+<td>编程 + 数学</td>
+</tr>
+<tr>
+<td><strong>千问 3.6 Max</strong></td>
+<td>阿里（中国）</td>
+<td>约 235B（35B-A3B 系列）</td>
+<td>约 3B</td>
+<td>256K（可扩 1M）</td>
+<td>约 2 元/M</td>
+<td>约 12 元/M</td>
+<td>部分 Apache 2.0</td>
+<td>中文综合 + 多模态</td>
+</tr>
+<tr>
+<td><strong>GLM-5.1</strong></td>
+<td>智谱（中国）</td>
+<td>约 754B</td>
+<td>约 45B</td>
+<td>约 256K</td>
+<td>约 4 元/M</td>
+<td>约 16 元/M</td>
+<td>MIT</td>
+<td>Agent + 工具调用</td>
+</tr>
+<tr>
+<td><strong>豆包 1.5</strong></td>
+<td>字节（中国）</td>
+<td>未公开</td>
+<td>未公开</td>
+<td>约 256K</td>
+<td>约 1.5 元/M</td>
+<td>约 6 元/M</td>
+<td>否</td>
+<td>C 端规模化 + 多模态</td>
+</tr>
+<tr>
+<td><strong>Mistral Medium 3.5</strong></td>
+<td>Mistral（法国）</td>
+<td>未公开</td>
+<td>未公开</td>
+<td>256K</td>
+<td>约 0.6 美元/M</td>
+<td>约 1.5 美元/M</td>
+<td>否</td>
+<td>欧洲合规 + 函数调用</td>
+</tr>
+</tbody></table>
+<p>数据来源：<a href="https://www.cnblogs.com/itech/p/19918243" target="_blank" rel="noopener">博客园 itech 开源大模型五国杀</a>、<a href="https://cloud.tencent.com/developer/article/2660044" target="_blank" rel="noopener">腾讯云开发者四强同台横评</a>、<a href="https://cloud.baidu.com/doc/qianfan/s/wmh4sv6ya" target="_blank" rel="noopener">千帆模型刊例价</a>、<a href="https://arena.ai/leaderboard" target="_blank" rel="noopener">arena.ai 当前榜单</a>。部分数字为公开来源综合估算，已在表中标注约值。</p>
+<h3>数据出处与口径说明</h3>
+<p>5 家国产模型 + Mistral 的横评数字，先把出处和精度交代清楚——</p>
+<ul>
+<li><strong>文心 5.1 的 1223 / 1476</strong>：来自 arena.ai 5/9 当前榜单，可独立复核，是硬数据</li>
+<li><strong>DeepSeek V4 Pro 的 SWE-Bench 83.7% / AIME 99.4%</strong>：来自 <a href="https://github.com/deepseek-ai/DeepSeek-V4" target="_blank" rel="noopener">DeepSeek 官方 GitHub README</a> 自报数据，<a href="https://www.cnblogs.com/itech/p/19918243" target="_blank" rel="noopener">博客园 itech 五国杀</a> 做了综合横评对照</li>
+<li><strong>千问 3.6 Max 的 35B-A3B</strong>：35B 总参 / 3B 激活，是阿里官方系列命名约定，公开可查</li>
+<li><strong>GLM-5.1 的 754B 总参 / 45B 激活 / MIT 协议</strong>：智谱在多家技术公众号发布，<a href="https://cloud.tencent.com/developer/article/2660044" target="_blank" rel="noopener">腾讯云开发者四强同台</a>有交叉引用</li>
+<li><strong>豆包 1.5 的参数 / 价格</strong>：字节官方未完整披露，表中数字为公开 API 文档与开发者社区综合估算</li>
+<li><strong>Mistral Medium 3.5 的 256K 上下文 / 美元定价</strong>：Mistral 官方文档可查</li>
+<li><strong>API 价格</strong>：千帆是 <a href="https://cloud.baidu.com/doc/qianfan/s/wmh4sv6ya" target="_blank" rel="noopener">百度官方刊例价</a> 实价；其他四家是公开市场价综合估算，实际签约可能有企业折扣</li>
+</ul>
+<p>把数据精度边界画清楚，比凑出一张「完美对比表」更负责任。这些数字大方向稳定，单 token 价格 ±20% 浮动不影响「国产基础模型已经走出多元化生态」这条结论。</p>
+<h3>各家厂商的「主战场」</h3>
+<p>横着读这张表，五家的战略定位就清晰了。</p>
+<ul>
+<li><strong>百度文心 5.1</strong>——主打「搜索 + 内容生成 + 创意 Agent」组合。1223 搜索榜分数 + 千帆平台 + 百度文库 / 百度搜索 / 百度智能云的产品矩阵打配合。开发者用文心 5.1 调创意生产 Agent，是相对明确的卡位。</li>
+<li><strong>DeepSeek V4 Pro</strong>——主打「极致性价比 + 编程数学专精」。<a href="https://github.com/deepseek-ai/DeepSeek-V4" target="_blank" rel="noopener">DeepSeek 官方 GitHub README</a> 自报 SWE-Bench Verified 83.7%、AIME 99.4%，开源协议 MIT 给开发者最大自由度。1M 上下文是为代码库级 RAG 准备的。</li>
+<li><strong>千问 3.6 Max</strong>——主打「中文综合 + 多模态 + 部分开源」。35B-A3B 这种小激活参数路线给端侧部署留足空间，部分模型 Apache 2.0 开源是阿里给国产生态的「基建税」。</li>
+<li><strong>GLM-5.1</strong>——主打「Agent + 工具调用 + MIT 开源」。智谱这一年押 Agent 押得很正，智谱官博给出 τ³-bench 类智能体评估的稳定结果。MIT 协议比 Apache 还开放一档。</li>
+<li><strong>豆包 1.5</strong>——主打「C 端规模化 + 多模态」。字节的渠道优势让豆包在 C 端跑出最大日活，模型能力在 B 端开发者圈讨论度相对低，但商业兑现稳定。</li>
+<li><strong>Mistral Medium 3.5</strong>——主打「欧洲合规市场 + 函数调用稳态」。法国厂商，欧盟数据驻留是天然卖点，跟国内五家不直接竞争。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/10/ernie-5-1-decision-matrix.png" alt="国产基础模型选型决策矩阵"></p>
+<p>读完这张表的真实结论不是「哪家最强」，而是国产基础模型生态在 2026 年 5 月已经走出了「全员对标 GPT」的初级阶段，开始分化成各有侧重的子赛道。文心 5.1 选了「搜索 + 创意 Agent」这条最贴合百度产品矩阵的路。这种分化对国内开发者是好事——选模型不再是「谁分数高就用谁」，而是「具体场景需要什么强项就选谁」。</p>
+<h3>文心 5.1 在搜索榜的真正含义</h3>
+<p>把搜索榜单独拎出来看一眼很必要。Arena 搜索榜（Search Arena）和文本榜（Text Arena）测的是两件不同的事——文本榜是开放式对话偏好投票，搜索榜是「模型 + 实时检索」组合的回答质量评估。前者考察基础对话能力，后者考察模型把检索结果整合 + 引用 + 回答的综合能力。</p>
+<p>搜索榜对国产模型的意义比文本榜更大——搜索榜的真实场景紧贴 C 端用户日常诉求（问问题、查资料、做决策），而不是开放式聊天。1223 这个分数在 5/9 当天的实际位置是比 Claude Sonnet 4.6 search 高 2 分（1221），跟 Gemini 3.1 Pro grounding（1217）拉开 6 分。这一档已经不是「国产追上海外第二梯队」，而是「国产稳住国际第一梯队尾部」。</p>
+<p>百度从搜索引擎起家，搜索能力沉淀进基座大模型有天然优势。文心 5.0 的搜索榜表现就已经稳定登顶国内，5.1 把海外排位往前推到了第四位。这条护城河别家国产厂商短期内难追上——智谱、DeepSeek、千问都没有原生搜索引擎的语料 + 检索基础设施。</p>
+<h2>五、千帆 API 实操：从 model_name 到代码示例</h2>
+<p>文心 5.1 通过百度千帆大模型平台对外提供 API 服务。开发者今天就能用，<a href="https://cloud.baidu.com/doc/qianfan/s/wmh4sv6ya" target="_blank" rel="noopener">千帆模型刊例价文档</a> 给出了完整价格表。</p>
+<h3>价格结构（≤32K vs 32K-128K 分档计费）</h3>
+<table>
+<thead>
+<tr>
+<th>上下文档位</th>
+<th>输入价</th>
+<th>输出价</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>≤32K tokens</td>
+<td>0.004 元/千 token = <strong>4 元/百万 token</strong></td>
+<td>0.018 元/千 token = <strong>18 元/百万 token</strong></td>
+</tr>
+<tr>
+<td>32K–128K tokens</td>
+<td>0.006 元/千 token = <strong>6 元/百万 token</strong></td>
+<td>0.022 元/千 token = <strong>22 元/百万 token</strong></td>
+</tr>
+</tbody></table>
+<p>按量计费、按小时从百度智能云账号扣减、无最低消费。比 5.0 同档位便宜约 25%-33%。</p>
+<h3>Python SDK 调用示例</h3>
+<p>先安装 SDK：<code>pip install qianfan</code>，然后：</p>
+<pre><code class="language-python">import os
+import qianfan
+
+os.environ[&quot;QIANFAN_AK&quot;] = &quot;your_access_key&quot;
+os.environ[&quot;QIANFAN_SK&quot;] = &quot;your_secret_key&quot;
+
+chat_comp = qianfan.ChatCompletion()
+resp = chat_comp.do(
+    model=&quot;ERNIE-5.1&quot;,          # 千帆 model_name 标识
+    messages=[
+        {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;用三段话介绍多维弹性预训练。&quot;},
+    ],
+    temperature=0.3,
+    top_p=0.8,
+)
+print(resp[&quot;body&quot;][&quot;result&quot;])
+</code></pre>
+<h3>curl 示例（OpenAI 兼容接口）</h3>
+<pre><code class="language-bash">curl -X POST &quot;https://qianfan.baidubce.com/v2/chat/completions&quot; \
+  -H &quot;Authorization: Bearer $QIANFAN_TOKEN&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{
+    &quot;model&quot;: &quot;ERNIE-5.1&quot;,
+    &quot;messages&quot;: [
+      {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;把一份 5000 字技术文档总结成 3 个要点。&quot;}
+    ],
+    &quot;temperature&quot;: 0.3
+  }&#39;
+</code></pre>
+<h3>配额与限流</h3>
+<p>千帆按 RPM（每分钟请求数）和 TPM（每分钟 token 数）双维度限流，新账号默认配额相对保守，需要在控制台申请提额。生产级调用建议提前规划——单 API key 的 QPS 上限对高并发应用场景需要预留余量。</p>
+<h3>创意生产智能体接入路径</h3>
+<p>百度官博明确提到：「文心 5.1 将在超过十个创意生产智能体平台上线」。最直接的接入方式有三档：</p>
+<ol>
+<li><strong>千帆 ModelBuilder</strong>——直接调 API，最灵活，适合自研产品集成。</li>
+<li><strong>AppBuilder</strong>——百度提供的低代码 Agent 编排平台，适合快速搭原型。</li>
+<li><strong>创意生产智能体（百度官方矩阵）</strong>——百度文库 / 百度搜索 / 百度智能云内嵌的 Agent 入口，适合 SaaS 化部署。</li>
+</ol>
+<p>值得做的一件事：注册千帆账号，跑一遍 ERNIE-5.1 的 hello world 调用，把搜索榜国内第一的能力在自家产品里试一下。免费额度足够把模型在自家场景跑透。</p>
+<h2>六、国产基础模型的工程化路径</h2>
+<p>把今天的事件放在 2025-2026 这两年的国产基础模型时间轴上看，能看到一条清晰的演化路径。</p>
+<pre><code>2024 H1  ─ 2024 H2  ─ 2025 H1  ─ 2025 H2  ─ 2026 H1
+&quot;参数堆砌&quot;→&quot;开源摊销&quot;→&quot;低成本单点&quot;→&quot;性能追平&quot;→&quot;参数压缩 + 成本压缩 + 分数不退&quot;
+   万亿俱乐部   Qwen Apache   DeepSeek V3    DeepSeek V4   文心 5.1
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/10/ernie-5-1-timeline.png" alt="国产基础模型演化路径 · 2024-2026"></p>
+<p>2024 上半年比的是「谁能上万亿参数」；2024 下半年阿里把 Qwen 用 Apache 2.0 开源了一大批，走「开源摊销」路线；2025 上半年 DeepSeek 把成本压到极致，跑通「低成本单点突破」；2025 下半年国产模型在多个 benchmark 上追平海外第一梯队；2026 上半年开始进入「参数压缩 + 成本压缩 + 分数不退」的工程化路径。</p>
+<p>文心 5.1 是这条演化路径上的一个标志节点——不是「国产追上海外」那种对外叙事，而是国产基础模型工程能力的内部代际跃迁。这种跃迁的特征是——</p>
+<ul>
+<li>不再单点比 benchmark 分数，而是在分数、成本、参数、上下文、生态五个维度同时找帕累托最优</li>
+<li>不再依赖海外开源代码 / 开源预训练 checkpoint，从底层弹性训练框架到 MoE 路由器都是自研</li>
+<li>不再追求一次性发布大爆款，而是用「基座大模型 + 弹性子模型族」的方式服务多档场景</li>
+<li>不再把「低成本」和「高质量」对立，而是把弹性训练做成「训练一次产出一族模型」的成本会计</li>
+</ul>
+<p>这对国内开发者是结构性的好消息——基础模型层的「卷」开始转向「协作」，每家厂商把自己最擅长那一档做稳，开发者做集成的成本也跟着下降。文心 5.1 在搜索 + 创意生产 Agent 这条路上跑得稳，DeepSeek 在编程 + 数学跑得稳，千问在中文综合 + 多模态跑得稳，智谱在 Agent + 工具调用跑得稳，豆包在 C 端规模化跑得稳。这就是国产生态走向成熟的样子。</p>
+<h2>七、技术内涵补全：弹性训练和传统蒸馏的差别</h2>
+<p>补一句技术细节——多维弹性预训练和传统知识蒸馏（Knowledge Distillation）从结果上都能「做出小模型」，但工程逻辑是两条不同的路。</p>
+<p><strong>传统蒸馏</strong>：先训一个大教师模型，再训一个小学生模型，让学生模型对齐教师的输出分布。学生模型的尺寸是预先固定的，训完就定型。如果想要再小一档的学生，需要重新跑一次蒸馏。Llama 系列的蒸馏分支大致走这条路。</p>
+<p><strong>多维弹性预训练</strong>：训练时让模型同时见过不同深度、不同宽度、不同稀疏度的训练目标，一份权重内嵌一族子模型。部署时按需抽取，不需要重新训练。学术先驱是 <a href="https://arxiv.org/abs/1908.09791" target="_blank" rel="noopener">Once-for-All</a>（韩松团队 2019）和 BigNAS（Google 2020），但这两套方法当年都是 CV 圈的，针对图像分类。把弹性训练搬进 LLM、并把 MoE 专家容量也变成弹性维度，是工程层面的非平凡突破。</p>
+<p>两条路对比下来，弹性预训练在以下几个场景有显式优势——</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>传统蒸馏</th>
+<th>多维弹性预训练</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>端侧 / 云上多档部署</td>
+<td>需要分别蒸馏多个学生</td>
+<td>一份权重抽取多档子模型</td>
+</tr>
+<tr>
+<td>部署后还想再小一档</td>
+<td>需要重新蒸馏</td>
+<td>直接调降深度 / 宽度 / k 值</td>
+</tr>
+<tr>
+<td>单模型训练成本</td>
+<td>教师 + N 个学生</td>
+<td>一次训练得 N 档</td>
+</tr>
+<tr>
+<td>模型族一致性</td>
+<td>学生之间表现可能不一致</td>
+<td>同一份权重，子模型行为一致</td>
+</tr>
+</tbody></table>
+<p>文心 5.1 选弹性预训练而不是传统蒸馏，背后的产品诉求是清晰的——百度需要一族不同尺寸的基座大模型同时上线（千帆 ModelBuilder 旗舰档 + AppBuilder 中档 + 端侧 / 边缘端轻档），传统蒸馏的成本结构吃不消，弹性框架是天然契合。</p>
+<h2>八、ERNIE-Image 顺势开源：4090 也能跑 8B 文生图</h2>
+<p>5 月 9 日同一天，百度还把 ERNIE-Image 文生图模型用 Apache 2.0 协议在 Hugging Face 开源（<a href="https://www.ithome.com/0/939/251.htm" target="_blank" rel="noopener">IT 之家 5/9 报道</a>）。</p>
+<p>关键参数照录百度官博——参数量 8B，单流 Diffusion Transformer 架构，配套轻量级 Prompt Enhancer。<strong>24GB 显存的消费级显卡即可生成媲美顶级商业模型的超真实、复杂图像</strong>。百度官博自报「文字渲染能力达到开源模型最高水平、与商业模型 NanoBanana 系列同梯队」（<a href="https://www.ithome.com/0/939/251.htm" target="_blank" rel="noopener">IT 之家 5/9</a> 引）。支持中英日韩多语言生成，具备角色一致性和情绪表达能力。</p>
+<p>把 ERNIE-Image 的开源放在文心 5.1 发布同一天，能看出百度的多模态布局——文心 5.1 守住基座大模型的「分数 + 成本」双指标，ERNIE-Image 守住开源生态的「贡献者口碑」。两条路一起走，让百度在国产 AI 圈里的位置变得立体——不只是「搜索引擎厂商在做基础模型」，而是「基础模型 + 多模态 + 开源生态三件齐」的体系玩家。</p>
+<p>国内开发者 24GB 显存能跑这件事是关键——3090 / 4090 / 5090 都能跑，意味着个人开发者和小工作室都能在本地跑出商业级文生图。这一档对国内 AI 创意生产从业者是直接红利。</p>
+<h2>九、把 6% 这个数字记在键盘上</h2>
+<p>文心 5.1 给国产基础模型留下的最值得记住的一句话不是 1223 也不是 1476，而是 <strong>6%</strong>。</p>
+<p>这个数字背后的工程哲学是——基础模型的成本曲线第一次开始和摩尔定律同向。原本每代基础模型成本翻倍是行业默认假设，文心 5.1 用多维弹性预训练 + 知识下沉证明，下一代成本不一定翻倍，可以反而是上一代的 6% 量级。如果这条路径在 5.2、5.3 上继续验证，国产基础模型层的「训练成本曲线」会和海外厂商分化——海外大厂还在用算力暴力堆模型，国产已经开始用工程精巧度换算力。</p>
+<p>这种分化对中国 AI 产业是一笔长期红利。GPU 紧张是事实，出口管制是事实，电力消耗约束也是事实——但工程精巧度不受这些约束。把同样规模的智能压到 6% 的成本里，意味着同样的算力预算可以养更多代基础模型、可以让更多创业团队负担得起预训练、可以让更多场景用上基座大模型。这是产业层面的「通识能力下沉」。</p>
+<p>国内开发者今天能做的事情很具体——</p>
+<ul>
+<li>注册千帆账号，把 ERNIE-5.1 的 API 调一遍，看看 1223 搜索榜分数在自家场景里是什么手感</li>
+<li>把现有产品里调用 GPT-5.5 或 Claude 的入口，加一档 ERNIE-5.1 备选，做 A/B 对比</li>
+<li>关注百度的创意生产智能体平台，想清楚自己产品要不要接这条入口</li>
+<li>关注 5.2 / 5.3 是否在 6% 这条曲线上继续往下走——如果能，那就是国产基础模型成本结构的代际转折</li>
+</ul>
+<p>我们这一代开发者特别幸运。基座大模型的能力在涨、成本在降、可选项在多——文心 5.1、DeepSeek V4 Pro、千问 3.6 Max、GLM-5.1、豆包 1.5，每一家都把自己最强那一档做透。前辈们已经把弹性训练框架、MoE 路由、Token 经济这些底盘趟出来了，剩下的是把它们用在自己的场景里。</p>
+<p>国产基础模型工程化进入下一档，路在前面，共勉。</p>
+<hr>
+<p><strong>关键数字回扣</strong>：搜索榜 <strong>1223</strong>（全球第四 / 国内第一）· 文本榜 Preview <strong>1476</strong>（国内第一 / 前 15 唯一国产）· 总参数压到 5.0 的 <strong>1/3</strong>（≈800B）· 激活参数压到 <strong>1/2</strong>（≈35B）· 预训练成本同规模模型 <strong>6%</strong> · API 输入 <strong>4 元/百万 token</strong> · 输出 <strong>18 元/百万 token</strong> · 上下文 <strong>128K</strong>。</p>
+<p><strong>官方与权威源</strong>：<a href="https://yiyan.baidu.com/blog/zh/posts/ernie-5.1-0508-release/" target="_blank" rel="noopener">百度文心官博 5/8</a> · <a href="https://finance.sina.com.cn/tech/roll/2026-05-09/doc-inhxhqpf1482100.shtml" target="_blank" rel="noopener">新浪财经 5/9 长稿</a> · <a href="https://finance.sina.com.cn/tech/digi/2026-05-09/doc-inhxhcxm1651084.shtml" target="_blank" rel="noopener">新浪科技 5/9 跟稿</a> · <a href="https://arena.ai/leaderboard" target="_blank" rel="noopener">arena.ai 当前榜单</a> · <a href="https://cloud.baidu.com/doc/qianfan/s/wmh4sv6ya" target="_blank" rel="noopener">千帆模型刊例价</a> · <a href="https://ernie.baidu.com/blog/posts/ernie5.0/" target="_blank" rel="noopener">文心 5.0 官博</a> · <a href="https://www.ithome.com/0/939/251.htm" target="_blank" rel="noopener">ERNIE-Image 开源 IT 之家</a>。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

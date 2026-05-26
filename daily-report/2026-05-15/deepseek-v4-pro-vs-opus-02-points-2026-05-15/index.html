@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeepSeek V4 Pro 80.6 vs Claude Opus 4.7 80.8：开源端到端 0.2 分背后是 8 个月极限优化 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-15</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-15</span><span class="tag-pill">Daily Report</span></div>
+      <h1>DeepSeek V4 Pro 80.6 vs Claude Opus 4.7 80.8：开源端到端 0.2 分背后是 8 个月极限优化</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/deepseek-v4-pro-vs-opus-02-points-2026-05-15.png" alt="cover"></p>
+<p>把数字直接摆到桌面上：在 akitaonrails 上周整理的 LLM Benchmarks Part 3 综合实测里，SWE-bench Verified（业内默认的编码任务已验证子集）这一项，Anthropic Claude Opus 4.7 拿到 80.8%，DeepSeek V4 Pro 拿到 80.6%，差距 0.2 分。同一张表里，Opus 综合分 97 居全场首位，DeepSeek V4 Pro 综合分 89 排在 Kimi K2.6 之上，Claude Sonnet 4.6 综合分排在 V4 Pro 之后。价格那一栏看得更清楚——Opus 的 API 报价是输入 5 美元、输出 25 美元每百万 token，DeepSeek V4 Pro 是输入 1.74 美元、输出 3.48 美元每百万 token，进价位档接近三分之一。</p>
+<p>8 个月前的 2025 年 9 月，DeepSeek V3.2 在同一张评测表里和 Opus 至少差两档。8 个月，闭着眼算账，是这家公司把价格按到 1/3 同时把分数追到 0.2 分。这不是模型层的奇迹，是工程层的极限压榨——KV 缓存压到 V3.2 的 10%、单 token 浮点算力降到 V3.2 的 27%、1.6T 总参数只激活 49B 的混合专家（MoE，Mixture of Experts）经济学，全套叠在一起。这篇文章把 8 个月里发生的事拆开看，包括一件不能回避的诚实事——V4 Pro 在 opencode 等主流编排框架（harness）里目前还有协议坑，开源端到端的&quot;端到端&quot;四个字要带着前提读。</p>
+<h2>评测摆桌：0.2 分的差距长什么样</h2>
+<p>先把整张表摆完整。下面这张是基于 akitaonrails 2026-04-24 发布的 LLM Benchmarks Part 3 的 SWE-bench Verified 实测和综合评分汇总，价格数据来自 llm-stats 的对位矩阵和 codersera 2026-04-24 的 V4 Pro 评测文章。</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>SWE-bench Verified</th>
+<th>综合分</th>
+<th>输入价 / 百万 token</th>
+<th>输出价 / 百万 token</th>
+<th>国别</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Claude Opus 4.7（Anthropic）</td>
+<td>80.8%</td>
+<td>97</td>
+<td>5 USD</td>
+<td>25 USD</td>
+<td>美国</td>
+</tr>
+<tr>
+<td>GPT-5.5 xHigh（OpenAI）</td>
+<td>96.0%</td>
+<td>—</td>
+<td>n/a</td>
+<td>n/a</td>
+<td>美国</td>
+</tr>
+<tr>
+<td><strong>DeepSeek V4 Pro</strong></td>
+<td><strong>80.6%</strong></td>
+<td><strong>89</strong></td>
+<td><strong>1.74 USD</strong></td>
+<td><strong>3.48 USD</strong></td>
+<td><strong>中国</strong></td>
+</tr>
+<tr>
+<td>Kimi K2.6（Moonshot）</td>
+<td>—</td>
+<td>87</td>
+<td>约 0.30 USD / 次</td>
+<td>同左</td>
+<td>中国</td>
+</tr>
+<tr>
+<td>Claude Sonnet 4.6（Anthropic）</td>
+<td>79.6%</td>
+<td>—</td>
+<td>3 USD</td>
+<td>15 USD</td>
+<td>美国</td>
+</tr>
+<tr>
+<td>Grok 4.3（xAI）</td>
+<td>—</td>
+<td>72</td>
+<td>n/a</td>
+<td>n/a</td>
+<td>美国</td>
+</tr>
+<tr>
+<td>Qwen3-Coder 480B-A35B（阿里）</td>
+<td>69.6%</td>
+<td>—</td>
+<td>0.22 USD</td>
+<td>1.80 USD</td>
+<td>中国</td>
+</tr>
+</tbody></table>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/deepseek-v4-pro-bench-vs-price-2026-05-15.png" alt="DeepSeek V4 Pro vs Claude Opus 编码评测与价格对比"></p>
+<p>读这张表需要分两层。第一层是绝对位置：80.6 和 80.8 在 SWE-bench Verified 的方差里完全在噪声之内，业界把超过 0.5 分才算可解读差异。从分项指标看，DeepSeek V4 Pro 第一次跨进 Anthropic 旗舰这一档，不是擦边——它把 Sonnet 4.6 的 79.6% 留在了后面。</p>
+<p>第二层是性价比：综合分 89 + 输入价 1.74 美元的组合，在表里没有第二个对手。Qwen3-Coder 480B 价格更低（输入 0.22 美元），但 SWE-bench 只有 69.6%，差着十一个百分点；Kimi K2.6 综合分接近，但走的是定额计费路径，不是 token 价路径，不能直接横比。Opus 4.7 综合分高 8 分，价格高近 7 倍。每多一分综合分要多付多少钱，开发者心里要会算这笔账。</p>
+<p>akitaonrails 原文里有一句话写得很冷静——</p>
+<blockquote>
+<p>&quot;Every viable open source ... landed at Tier C or worse.&quot; — akitaonrails</p>
+</blockquote>
+<p>中文转译：这张评测表里能用的开源模型基本全落在 C 档及以下。原文给出的例外只有两个——Kimi K2.6，以及接上 DeepClaude 编排框架的 DeepSeek V4 Pro。后半句对国内开发者特别要紧：V4 Pro 进 Tier A 不是裸跑进去的，是配合特定编排框架进去的，这一点后面会专门拆。</p>
+<h2>KV 缓存压到 10%：单 token 27% 浮点算力是怎么挤出来的</h2>
+<p>Simon Willison 在 4 月 24 日发布当天写的评测里有一段话被业内反复转引——</p>
+<blockquote>
+<p>&quot;DeepSeek-V4-Pro the new largest open weights model... attains only 27% of the single-token FLOPs and 10% of the KV cache size [compared to V3.2].&quot;</p>
+</blockquote>
+<p>转译成中文：DeepSeek V4 Pro 是当前开放权重领域参数规模最大的模型。相比 V3.2，它每生成一个 token 只用 27% 的浮点算力（FLOPs 即浮点运算次数），KV 缓存（注意力机制里存放 key/value 张量的那块显存）也只占 10%。这两个数字单独看都不算离谱，叠在一起就是工程上的极限优化——同样 1M 上下文长度、同样推理质量，显存吃掉的存量只有上一代的 1/10，每个 token 算的乘加只有 27%。</p>
+<p>KV 缓存压到 10% 这件事对长上下文应用是分水岭。过去 1.6T 参数级模型跑 1M 上下文，瓶颈不是算力是显存——一张 80 GB 的卡光 KV 就要占 80 GB 以上，连模型权重的边都摸不到。压到 10% 之后，1M 上下文的全量 KV 在单机集群里能装下，意味着代码库级的长上下文检索、整本仓库的 RAG（Retrieval-Augmented Generation，检索增强生成）这一类工作流，在 V4 Pro 上不再是显存炼狱。</p>
+<p>单 token 27% 浮点算力则直接对应 API 报价。DeepSeek V3.2 输出 API 是 8.40 美元每百万 token，V4 Pro 是 3.48 美元每百万 token，比 V3.2 便宜 58.6%，下降幅度和 FLOPs 下降幅度（73%）大体对得上。模型层省下来的算力，最终走到开发者账单上。</p>
+<p>这套优化的底子是 MoE 架构经济学。V4 Pro 总参 1.6T，单 token 推理只激活 49B，活跃比例 3.06%。HuggingFace 上 deepseek-ai/DeepSeek-V4-Pro 的模型卡把这一点写得很直接——不是参数堆得多就贵，是参数堆得多但只激活一小撮，每次推理付的是 49B 的钱、拿的是 1.6T 的能力。这套数学过去 Mistral 8x7B、Mixtral 8x22B 都尝试过，但 DeepSeek 是第一家把 MoE 经济学推到旗舰编码任务能与闭源旗舰打平这一档。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/deepseek-v4-pro-moe-flow-2026-05-15.png" alt="DeepSeek V4 Pro MoE 架构与推理算力流程"></p>
+<h2>编排框架协议坑：opencode 跑 V4 Pro 是会卡的</h2>
+<p>把&quot;开源端到端&quot;的故事讲完整，必须讲第二件事——akitaonrails 在评测里专门写了一段——</p>
+<blockquote>
+<p>&quot;In opencode, V4 Pro hits a protocol incompatibility... The ai-sdk that opencode uses underneath strips that field.&quot;</p>
+</blockquote>
+<p>转译：在 opencode 这个开源编排框架里跑 V4 Pro，会撞上协议层不兼容；opencode 底层用的 ai-sdk 在传递请求时把 DeepSeek V4 需要的某个字段（akitaonrails 推测是 reasoning 相关的 tool 调用扩展字段）默认剥掉了，结果就是模型实际跑的不是它该跑的那条路径，表现塌方。</p>
+<p>这件事在国内圈里没多少人关注，但对真要把 V4 Pro 嵌进自己 agent 栈的开发者是头号坑。akitaonrails 的临时解法是改走 DeepClaude 这个专门为 DeepSeek 系做的编排框架，它没有 ai-sdk 这层抽象，请求字段完整保留。这也是文章前面说&quot;V4 Pro 进 Tier A 是配合特定编排框架进去的&quot;的原因——裸接 ai-sdk 这一类通用 SDK，跑出来的不是 80.6 分的 V4 Pro。</p>
+<p>工程上理解这件事很简单：DeepSeek V4 在原生 API 协议里加了一组新字段（用于 chain-of-thought 中间步骤的显式回传），而 Vercel ai-sdk 这种瞄准 OpenAI 兼容协议做的通用 SDK，schema 校验时会把它不认识的字段悄悄丢掉。这不是 DeepSeek 的锅，也不是 ai-sdk 的锅，是开源生态里多协议并存阶段的标准痛点——LLaMA 时代有过、Anthropic Tool Use 1.0 升 2.0 时也有过。短期内的工程对策是显式选择编排框架：跑生产用 DeepClaude 或直连官方 API，验证用裸 SDK 时把表现下降归因到协议层而不是模型层。</p>
+<p>把这两段连起来看：DeepSeek V4 Pro 的&quot;端到端开源能力&quot;在 2026 年 5 月这个时间点上是有前提的——前提是你用对了编排框架，前提是你愿意把适配工作做完整。这件事三个月后会变得很简单，主流 SDK 会陆续把新字段加上；但今天写代码的人需要知道。</p>
+<h2>8 个月把价格按到 1/3 同时追到 0.2 分</h2>
+<p>回到工程压力本身。</p>
+<p>2025 年 9 月 DeepSeek V3.2 发布时，SWE-bench Verified 在 Aider 评测口径下大概在 65% 这一档，距离 Opus 4.4 的 75% 差 10 分；输出 API 报价 8.40 美元每百万 token，是 Opus 输入价（5 美元）的 1.68 倍。8 个月后的今天，V4 Pro 把 SWE-bench Verified 推到 80.6%，把输出 API 压到 3.48 美元每百万 token——分数追了 15 分，价格降了 58.6%。</p>
+<p>这背后的工程节奏是高强度的。期间 DeepSeek 公开发布过 V3.2-Exp 的稀疏注意力实验、V4-Preview 的 KV 压缩白皮书、V4 正式版的混合上下文路由设计文档。每一步都不是单点优化，是从注意力机制、MoE 路由、显存编排到 API 协议的全链条调整。</p>
+<p>Simon Willison 在评测里没有捧场，他写得很克制——</p>
+<blockquote>
+<p>&quot;Its performance falls marginally short of GPT-5.4 and Gemini-3.1-Pro.&quot;</p>
+</blockquote>
+<p>转译：V4 Pro 的性能与 GPT-5.4、Gemini-3.1-Pro 相比仍小幅落后。这两个是 2026 年初闭源前沿模型的位置，V4 Pro 追平的是 Opus 4.7 这一档（Anthropic 的旗舰），但与 GPT-5.5 xHigh 的 96 分 SWE-bench Verified、Gemini-3.1-Pro 的多模态优势相比，开放权重阵营仍落后约 3-6 个月。这是诚实的位置——既不要妄自菲薄说还差十年，也不要喊&quot;超越 GPT&quot;。</p>
+<p>国内开发者读这件事的姿势可以更平稳一点。DeepSeek 团队把开放权重的工程上限第一次顶到与闭源旗舰打平的位置，这件事本身就是过去两年最值得记下来的工程事件之一。和闭源最前沿的 3-6 个月差距不是退步，是稳定追赶的节奏——按 V3 到 V3.2 到 V4 的迭代速度，下一档对位窗口大概率在 2026 年底前出现。这个节奏对国内开发者意味着两件事：一是开源端到端的方案越来越能扛真实生产负载，二是闭源服务的议价空间会被持续压窄。</p>
+<h2>哪些场景值得切到 V4 Pro，哪些场景再等等</h2>
+<p>把场景拆开看会更清楚。</p>
+<p>成本敏感的场景值得直接切。代码补全、批量重构、文档生成、长上下文摘要这一类高调用量任务，把账单从 Opus 的输入 5 / 输出 25 美元每百万 token 降到 V4 Pro 的 1.74 / 3.48 美元每百万 token，按一家中型团队月调用 5 亿 token 估算，月度账单从约 7500 美元降到约 1300 美元，省下来的钱够覆盖一名工程师的部分薪酬。</p>
+<p>合规敏感的场景值得切。开放权重意味着可以走私有化部署，国内的算力栈（昇腾、寒武纪、海光在 4 月 24 日发布当天就完成 Day-0 适配）已经能稳定接住 V4 Pro 的推理负载。涉及金融、政务、医疗的数据不出域场景，开放权重模型的边界比闭源 API 清楚得多。</p>
+<p>长上下文场景值得切。KV 缓存压到 V3.2 的 10% 让 1M 上下文成本断崖式下降，整库代码理解、整本财报分析这一类任务，V4 Pro 是当前性价比最高的选择。</p>
+<p>但有几类场景还要再等。一是需要最前沿推理能力的研究类任务——复杂数学证明、多步规划、未见过的难题分布，GPT-5.5 xHigh 的 96 分 SWE-bench Verified 仍是天花板。二是重度多模态——图像理解、视频生成、语音合成的端到端打通上，Gemini 系仍走在前面。三是对编排框架成熟度依赖高的复杂 agent 系统——前文提到的 ai-sdk 协议坑短期还在，跑生产前要做一轮兼容性回归。</p>
+<p>工程上更稳的姿势是混合栈：批量任务、成本敏感任务走 V4 Pro，关键路径上需要 reasoning 上限的任务保留 Opus 4.7 或 GPT-5.5 调用，按任务复杂度做路由。</p>
+<h2>第一次真的进入 Tier A 牌桌</h2>
+<p>回到 0.2 分这件事。</p>
+<p>放在 2025 年初看，开源模型 SWE-bench Verified 能上 70% 已经算大事；放在 2025 年底看，能上 75% 是国内开发者圈里的话题；放在 2026 年 4 月 24 日 DeepSeek V4 Pro 发布这一天看，开源模型与 Anthropic 旗舰 80.8% 之间只剩 0.2 分。在 akitaonrails 整理的综合评分表里，V4 Pro 的 89 分排在 Kimi K2.6 之上、Sonnet 4.6 之上，第一次让&quot;国产开源端到端&quot;四个字以工程实证而不是口号的姿态出现在 Tier A 这张牌桌上。</p>
+<p>8 个月，27% 的浮点算力，10% 的 KV 缓存，1.6T 参数里只激活 49B，输出价从 8.40 美元每百万 token 压到 3.48 美元——这是 DeepSeek 团队在 2025 年 9 月到 2026 年 4 月之间交出的工程账。0.2 分的差距下半年可能被开源阵营反超、也可能在 Opus 5 出来时被重新拉开，但 Tier A 这张牌桌一旦坐上去，开源阵营就有了下一轮迭代的位置。这对国内开发者来说，是值得记一笔的工程坐标。</p>
+<h2>参考链接</h2>
+<ul>
+<li>Simon Willison, &quot;DeepSeek V4 evaluation&quot;（2026-04-24）：<a href="https://simonwillison.net/2026/Apr/24/deepseek-v4/" target="_blank" rel="noopener">https://simonwillison.net/2026/Apr/24/deepseek-v4/</a></li>
+<li>akitaonrails, &quot;LLM Benchmarks Part 3: DeepSeek, Kimi, MiMo&quot;（2026-04-24）：<a href="https://akitaonrails.com/en/2026/04/24/llm-benchmarks-parte-3-deepseek-kimi-mimo/" target="_blank" rel="noopener">https://akitaonrails.com/en/2026/04/24/llm-benchmarks-parte-3-deepseek-kimi-mimo/</a></li>
+<li>llm-stats, &quot;Claude Sonnet 4.6 vs Qwen3-Coder 480B-A35B Instruct&quot;：<a href="https://llm-stats.com/models/compare/claude-sonnet-4-6-vs-qwen3-coder-480b-a35b-instruct" target="_blank" rel="noopener">https://llm-stats.com/models/compare/claude-sonnet-4-6-vs-qwen3-coder-480b-a35b-instruct</a></li>
+<li>HuggingFace DeepSeek V4 Pro 模型卡：<a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro" target="_blank" rel="noopener">https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro</a></li>
+<li>DeepSeek API news 2026-04-24：<a href="https://api-docs.deepseek.com/news/news260424" target="_blank" rel="noopener">https://api-docs.deepseek.com/news/news260424</a></li>
+<li>codersera, &quot;DeepSeek V4 Pro Review: Benchmarks &amp; Pricing 2026&quot;：<a href="https://codersera.com/blog/deepseek-v4-pro-review-benchmarks-pricing-2026/" target="_blank" rel="noopener">https://codersera.com/blog/deepseek-v4-pro-review-benchmarks-pricing-2026/</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

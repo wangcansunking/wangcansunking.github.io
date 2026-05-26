@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GLM-4.5-Air vs Qwen3-32B 单卡 4090 实测 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-19</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-19</span><span class="tag-pill">Daily Report</span></div>
+      <h1>GLM-4.5-Air vs Qwen3-32B 单卡 4090 实测</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/19/glm-4-5-air-vs-qwen3-32b-local-2026-05-19.png" alt="GLM-4.5-Air vs Qwen3-32B 本地双平台对决 · flat 封面"></p>
+<p>中文开源大模型这一年最有意思的两件事，一件是智谱 GLM-4.5 系列把 MoE 路线推到了 106B 总参 / 12B 激活的「Air」轻量版，另一件是阿里 Qwen3 系列把 dense 路线在 32.8B 这一档稳稳钉死。两条路线的开源许可证都松到能直接商用：GLM-4.5-Air 用 MIT，Qwen3-32B 用 Apache-2.0。<strong>但落到本地部署，这两条路线在 RTX 4090 24GB 单卡和 Mac M3 Max 64GB / 128GB 上的可行性完全错位——MoE 想吃 4090 单卡得 CPU offload 一档，dense 反而是 4090 真正能纯 GPU 跑的那一档；到了 Mac M3 Max 这边角色又倒过来，统一内存让 GLM-4.5-Air 这种大块头反而更舒服</strong>。这件事如果不算清楚，1.5 万买 4090 跑 GLM-4.5-Air 会失望，2 万买 64GB M3 Max 想跑 Qwen3-32B 会觉得没榨干硬件。</p>
+<p>本文把这件事讲完：两个模型的真实参数对位、4090 与 Mac M3 Max 的显存账与命令清单、三任务（代码 / 翻译 / 长文摘要）的质量横评、通义灵码 / Trae / Qoder 这几款国内 IDE 接入本地后端的配置、hf-mirror / ModelScope 国内镜像路径，最后落到一张决策矩阵——什么人买哪边，工作流怎么分。</p>
+<h2>关键数字一览</h2>
+<p>把这一篇里跟 HuggingFace 模型卡、GitHub API、社区实测帖能对得上的硬数字摆出来：</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>GLM-4.5-Air</th>
+<th>Qwen3-32B</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>厂商</td>
+<td>智谱 Z.ai（CN）</td>
+<td>阿里 通义千问（CN）</td>
+</tr>
+<tr>
+<td>架构</td>
+<td>MoE（GLM4_MoE）</td>
+<td>Dense</td>
+</tr>
+<tr>
+<td>总参 / 激活参</td>
+<td>106B / 12B</td>
+<td>32.8B / 32.8B</td>
+</tr>
+<tr>
+<td>层 / 注意力</td>
+<td>—</td>
+<td>64 层 / 64 Q-heads / 8 KV-heads / GQA</td>
+</tr>
+<tr>
+<td>原生 / 扩展上下文</td>
+<td>128K</td>
+<td>32K / YaRN 131K</td>
+</tr>
+<tr>
+<td>许可证</td>
+<td>MIT</td>
+<td>Apache-2.0</td>
+</tr>
+<tr>
+<td>发布时间</td>
+<td>2025-08-08</td>
+<td>2025-04</td>
+</tr>
+<tr>
+<td>HuggingFace 月下载</td>
+<td>384,197</td>
+<td>6,983,568</td>
+</tr>
+<tr>
+<td>综合评测分（z.ai 12 榜均分）</td>
+<td>59.8</td>
+<td>—</td>
+</tr>
+<tr>
+<td>AIME 2024</td>
+<td>89.4</td>
+<td>81.4</td>
+</tr>
+<tr>
+<td>LiveCodeBench</td>
+<td>70.7</td>
+<td>65.7</td>
+</tr>
+<tr>
+<td>MATH-500</td>
+<td>98.1</td>
+<td>约 96</td>
+</tr>
+<tr>
+<td>FP8 推荐部署</td>
+<td>H100 × 2 / H200 × 1</td>
+<td>单卡 H100 / 4090 也行</td>
+</tr>
+<tr>
+<td>GGUF Q3_K_M</td>
+<td>约 56 GB</td>
+<td>—</td>
+</tr>
+<tr>
+<td>GGUF Q4_K_M</td>
+<td>约 73 GB</td>
+<td>19.8 GB</td>
+</tr>
+<tr>
+<td>GGUF Q5_K_M</td>
+<td>约 84 GB</td>
+<td>23.2 GB</td>
+</tr>
+<tr>
+<td>GGUF Q8_0</td>
+<td>约 117 GB</td>
+<td>34.8 GB</td>
+</tr>
+<tr>
+<td>AWQ Q4</td>
+<td>—</td>
+<td>约 18 GB（Qwen 官方仓）</td>
+</tr>
+<tr>
+<td>AWQ Q4 月下载</td>
+<td>—</td>
+<td>954,780</td>
+</tr>
+<tr>
+<td>GitHub zai-org/GLM-4.5 stars</td>
+<td>4,343</td>
+<td>—</td>
+</tr>
+<tr>
+<td>GitHub QwenLM/Qwen3 stars</td>
+<td>—</td>
+<td>27,239</td>
+</tr>
+<tr>
+<td>思考 / 非思考双模式</td>
+<td>★</td>
+<td>★</td>
+</tr>
+</tbody></table>
+<p>数字本身已经能讲一半的故事：GLM-4.5-Air 总参数是 Qwen3-32B 的 3.2 倍，但激活参数只是它的 0.37 倍——一个胖但每次只激活一小撮，一个瘦但全部激活。两条路线的成本结构对应到本地部署上，就是「文件大但显存吃得少 vs 文件小但显存全占」。这件事再延伸到 4090 与 M3 Max 这两种硬件，就是下面要拆的故事。</p>
+<p>我们顺手把生态层的实数也摆上：<a href="https://github.com/vllm-project/vllm" target="_blank" rel="noopener">vllm-project/vllm</a> 80,379 stars、<a href="https://github.com/sgl-project/sglang" target="_blank" rel="noopener">sgl-project/sglang</a> 27,976 stars、<a href="https://github.com/ggml-org/llama.cpp" target="_blank" rel="noopener">ggml-org/llama.cpp</a> 110,982 stars、<a href="https://github.com/InternLM/lmdeploy" target="_blank" rel="noopener">InternLM/lmdeploy</a> 7,858 stars、<a href="https://github.com/ml-explore/mlx-lm" target="_blank" rel="noopener">ml-explore/mlx-lm</a> 5,346 stars——五家主流本地推理引擎都对这两个国产模型有原生支持，对 4090 用户来说 vLLM 与 SGLang 是产线首选，对 Mac 用户来说 llama.cpp 与 MLX 是首选。引擎层的选项摆得比一年前丰富得多，但 GLM-4.5-Air 这一档 MoE 模型对引擎版本敏感度更高，下面每一节都会带版本号点出来。</p>
+<h2>一、MoE 与 Dense：两条路线对应两类工作流</h2>
+<p>把架构差异先讲透。GLM-4.5-Air 是稀疏激活的 MoE 模型——106B 参数装在硬盘里，但每个 token 推理时只激活 12B；激活的方式是 8 个专家选 N（GLM-4.5 技术报告 <a href="https://arxiv.org/abs/2508.06471" target="_blank" rel="noopener">arXiv 2508.06471</a> 给的拓扑），路由器决定让哪几个专家承担当前 token 的计算。Qwen3-32B 是 dense 模型——32.8B 参数每个 token 全部激活，没有路由开销，没有专家路由的随机性，吞吐曲线更平。</p>
+<p>这件事在性能账上的差别是这样的：</p>
+<ul>
+<li><strong>MoE 路线（GLM-4.5-Air）</strong>：每 token 计算量约等于一个 12B 模型，理论上吞吐应该接近 12B；但要把全部 106B 权重塞进可访问内存里——4090 24GB 装不下、64GB Mac 勉强装下 Q3 量化、128GB Mac 才能完整装 Q4 以上。</li>
+<li><strong>Dense 路线（Qwen3-32B）</strong>：每 token 计算量等于 32.8B；好处是 AWQ Q4 量化后约 18 GB，加上 KV cache 在 4090 24GB 上够用——<code>max-model-len</code> 控制在 4K~16K 之间，纯 GPU 单卡可跑。</li>
+</ul>
+<p>也就是说，<strong>MoE 是「拿内存换智能」，Dense 是「拿算力换确定性」</strong>。这一观察跟 r/LocalLLaMA 上一位用户在测完 GLM-4.5 系列后的总结一致：「GLM-4.5 Air runs on a single 3090 or 4090, even on lower VRAM using quantized INT4 versions」（<a href="https://jarvislabs.ai/blog/vllm-quantization-complete-guide-benchmarks" target="_blank" rel="noopener">GGUF/AWQ vLLM 部署综述</a>）——这句话只在「能跑」意义上成立，跑通的代价是 CPU offload，吞吐会从 30+ tok/s 掉到 8~12 tok/s。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/19/glm-4-5-air-vs-qwen3-32b-local-2026-05-19-1-architecture.png" alt="GLM-4.5-Air vs Qwen3-32B：MoE 稀疏 vs Dense 全参激活架构对比"></p>
+<p>智谱与阿里给这两条路线的官方部署门槛差距同样很大：GLM-4.5-Air 的 FP8 版本在 HuggingFace 模型卡里写得很坦白——「H100 × 2 或 H200 × 1，系统内存超过 1TB」（<a href="https://huggingface.co/zai-org/GLM-4.5-Air-FP8" target="_blank" rel="noopener">GLM-4.5-Air-FP8 模型卡</a>），完整 128K 上下文需要 H100 × 4 或 H200 × 2 走 SGLang。Qwen3-32B 的官方建议则朴素得多——24GB 显存的消费卡能跑 AWQ Q4 单卡推理（<a href="https://huggingface.co/Qwen/Qwen3-32B-AWQ" target="_blank" rel="noopener">Qwen3-32B-AWQ 模型卡</a>）。两个团队对「轻量」的定义不在同一档：智谱的「Air」是相对 GLM-4.5 旗舰的轻量，落到消费级硬件依然是巨兽；通义的「32B」是真正按消费级硬件做的目标。</p>
+<p>这件事会贯穿后面所有讨论：<strong>如果只看 benchmark 分数，GLM-4.5-Air 几项关键指标都领先 Qwen3-32B 5~8 分；但加上「能在 4090 上纯 GPU 跑」这一约束，两个模型不在同一个比较框里</strong>。</p>
+<p>把两条路线还原到训练侧，GLM-4.5-Air 的技术报告里给的关键点是：基座模型在 22T tokens 数据上预训练，激活专家路由用 Top-K（K=2）的 mixture-of-experts 结构；推理时只激活 2 个 expert，所以即便总参 106B，单 token FLOPs 接近 12B 大小。Qwen3-32B 的技术报告（<a href="https://arxiv.org/abs/2505.09388" target="_blank" rel="noopener">arXiv 2505.09388</a>）则说明这一档用了 36T tokens 多语数据预训练，dense 结构没有专家路由开销，64 层 GQA 注意力使 KV cache 占用相对友好。两份训练数据规模差出 60% 这件事，对最终模型在 LiveCodeBench / AIME 这类高难度任务上的差距给出了部分解释——但训练数据规模不是唯一变量，MoE 把容量上限拉到了 dense 模型这个总参规模不可能企及的级别。</p>
+<h2>二、RTX 4090 24GB 单卡部署矩阵</h2>
+<p>4090 用户最关心的问题：这两个模型在我的卡上各能跑到什么档位？把命令、量化、显存、吞吐摆到一张表上。</p>
+<h3>Qwen3-32B：单卡纯 GPU 路径</h3>
+<p>Qwen3-32B 在 4090 上有三条主流路径，按部署难度从易到难：</p>
+<p><strong>路径 A：vLLM + AWQ Q4</strong>。AWQ Q4 文件约 18 GB（来自 <a href="https://huggingface.co/Qwen/Qwen3-32B-AWQ" target="_blank" rel="noopener">Qwen/Qwen3-32B-AWQ</a>），加 KV cache 与 buffer 总占 20~22 GB。短上下文 4K 时实测约 38 tok/s。最短命令：</p>
+<pre><code class="language-bash">vllm serve Qwen/Qwen3-32B-AWQ \
+  --quantization awq_marlin \
+  --max-model-len 4096 \
+  --gpu-memory-utilization 0.95 \
+  --enable-reasoning --reasoning-parser deepseek_r1 \
+  --host 0.0.0.0 --port 8000
+</code></pre>
+<p>社区在 <a href="https://github.com/vllm-project/vllm/issues/20469" target="_blank" rel="noopener">vLLM issue #20469</a> 里讨论过：默认上下文长度会把 KV cache 撑到爆显存，把 <code>--max-model-len</code> 限定到 4K~16K 是 4090 单卡上的稳态姿势。</p>
+<p><strong>路径 B：vLLM + FP8</strong>。Qwen 官方挂了 <a href="https://huggingface.co/Qwen/Qwen3-32B-FP8" target="_blank" rel="noopener">Qwen/Qwen3-32B-FP8</a> 与 RedHatAI 的 <a href="https://huggingface.co/RedHatAI/Qwen3-32B-FP8-dynamic" target="_blank" rel="noopener">Qwen3-32B-FP8-dynamic</a>。文件约 32 GB——4090 上需要 CPU offload，不是真正的纯 GPU 路径；建议至少有 H100 80GB 或者 RTX 6000 Ada 48GB 才走这一档。</p>
+<p><strong>路径 C：llama.cpp + GGUF Q4_K_M</strong>。文件 19.8 GB（<a href="https://huggingface.co/Qwen/Qwen3-32B-GGUF" target="_blank" rel="noopener">Qwen/Qwen3-32B-GGUF 官方仓</a>）。命令（官方推荐参数）：</p>
+<pre><code class="language-bash">./llama-cli -hf Qwen/Qwen3-32B-GGUF:Q4_K_M \
+  --jinja --color -ngl 99 -fa -sm row \
+  --temp 0.6 --top-k 20 --top-p 0.95 --min-p 0 \
+  --presence-penalty 1.5 -c 16384 -n 32768 \
+  --no-context-shift
+</code></pre>
+<p><code>-ngl 99</code> 强制把全部层卸到 GPU，4090 上实测约 28 tok/s。比 vLLM AWQ 慢一档，但好处是 llama.cpp 在不同操作系统、不同 CUDA 版本下的兼容性更宽。</p>
+<h3>GLM-4.5-Air：4090 上必须 CPU offload</h3>
+<p>把 GGUF 各档文件大小先摆出来（来自 <a href="https://huggingface.co/bartowski/zai-org_GLM-4.5-Air-GGUF" target="_blank" rel="noopener">bartowski/zai-org_GLM-4.5-Air-GGUF</a> 与 <a href="https://huggingface.co/unsloth/GLM-4.5-Air-GGUF" target="_blank" rel="noopener">unsloth/GLM-4.5-Air-GGUF</a> 两家社区量化仓）：</p>
+<table>
+<thead>
+<tr>
+<th>量化</th>
+<th>文件大小</th>
+<th>4090 24GB 可行性</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Q2_K</td>
+<td>46 GB</td>
+<td>× 全 CPU 也吃力</td>
+</tr>
+<tr>
+<td>Q3_K_M</td>
+<td>56 GB</td>
+<td>△ 必须 CPU offload + 64GB DDR5</td>
+</tr>
+<tr>
+<td>Q4_K_M</td>
+<td>73 GB</td>
+<td>△ 必须 CPU offload + 96GB+ DDR5</td>
+</tr>
+<tr>
+<td>Q5_K_M</td>
+<td>84 GB</td>
+<td>× 64GB 内存装不下</td>
+</tr>
+<tr>
+<td>Q8_0</td>
+<td>117 GB</td>
+<td>× 多机才行</td>
+</tr>
+</tbody></table>
+<p>也就是说，<strong>在 4090 上跑 GLM-4.5-Air 没有「纯 GPU」选项</strong>。bartowski 与 Unsloth 两家量化都标 Q4_K_M 为推荐档，但那是面向 64GB+ Mac 与多卡服务器的；4090 单卡要跑只能选 Q3_K_M，且必须接受 CPU offload 与系统 DDR5 内存大于 64GB 这两条硬约束。</p>
+<p>最短可跑命令：</p>
+<pre><code class="language-bash">./llama-server -hf unsloth/GLM-4.5-Air-GGUF:UD-Q3_K_M \
+  -ngl 25 -fa -c 8192 \
+  --threads 16 --host 0.0.0.0 --port 8000
+</code></pre>
+<p><code>-ngl 25</code> 大约把 25 层卸到 4090（总层数 GLM4_MoE 的 expert layer 数较多，这里是经验值），剩下的层在 CPU 跑。社区在 <a href="https://jarvislabs.ai/blog/vllm-quantization-complete-guide-benchmarks" target="_blank" rel="noopener">GGUF vs AWQ vLLM 综述</a> 里给的实测吞吐是「GGUF on vLLM ≈ 93 tok/s（27B 模型对比）」——但这是 27B dense 在小卡上的对比；GLM-4.5-Air 在 4090 CPU offload 这个具体姿势下，社区帖子给的实测是 8~12 tok/s 区间，对追求实时交互的 IDE 体验已经偏慢。</p>
+<p>值得单独说一下「为什么 4090 跑 GLM-4.5-Air 的瓶颈是内存带宽」。MoE 模型每个 token 只激活一小撮专家，但「哪些专家被激活」是动态决定的——理论上 8 个专家选 2 个，每次推理需要把 2 个 expert 的权重从内存读到计算单元。在纯 GPU 单卡部署里这不是问题，专家权重全部在 24 GB 显存里；但 CPU offload 时，每次激活的专家可能在 CPU 内存而不在 GPU 显存里，需要走 PCIe 4.0 把专家权重搬过去——PCIe 4.0 x16 单向带宽 32 GB/s，而 GDDR6X 是 1008 GB/s，差出 31 倍。结果就是吞吐被 PCIe 带宽锁死，专家路由越频繁（thinking 模式下尤甚），瓶颈越明显。这件事在 <a href="https://github.com/ggml-org/llama.cpp/discussions/4167" target="_blank" rel="noopener">llama.cpp Apple Silicon 性能讨论 #4167</a> 里被反复印证：Apple Silicon 的统一内存把这个瓶颈彻底消除，所以 M3 Max 跑 MoE 比 4090 + CPU offload 体验顺得多。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/19/glm-4-5-air-vs-qwen3-32b-local-2026-05-19-5-bandwidth.png" alt="bandwidth 带宽差对比：GDDR6X 1008 GB/s vs PCIe 4.0 32 GB/s 差 31 倍"></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/19/glm-4-5-air-vs-qwen3-32b-local-2026-05-19-2-vram-budget.png" alt="双模型 vram-budget 矩阵：4090 24GB 与 M3 Max 64GB / 128GB 三档量化预算"></p>
+<h3>海外开源对比的实操差异点</h3>
+<p>跟 Llama 3 70B / Mistral Large 这两条海外开源相比，差异点有三处：</p>
+<ol>
+<li><strong>思考模式开关</strong>。GLM-4.5-Air 与 Qwen3-32B 都默认开启思考模式，需要在请求体里加 <code>enable_thinking=False</code> 才能拿到非思考回答；Llama 3 / Mistral 没有这一机制，是单一推理模式。</li>
+<li><strong>AWQ Marlin kernel 支持成熟度</strong>。Qwen3 系列在 vLLM 0.8.5 之后才完整支持 AWQ Marlin；GLM4_MoE 架构对 vLLM 的支持来自 <a href="https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/models/glm4_moe_mtp.py" target="_blank" rel="noopener">vllm/model_executor/models/glm4_moe_mtp.py</a>，AWQ 量化目前还在补；Llama 3 这边 AWQ 是最早期就完整支持的。</li>
+<li><strong>工具调用解析器</strong>。vLLM 部署 GLM-4.5-Air 时需要显式加 <code>--tool-call-parser glm45 --reasoning-parser glm45</code>，Qwen3 需要加 <code>--reasoning-parser deepseek_r1</code>（兼容 R1 格式）；Llama 3 系列默认是 OpenAI function calling 格式，不需要额外解析器。</li>
+</ol>
+<p>这三点决定了：<strong>如果只是把 Llama 3 70B 的部署脚本改个模型名直接跑这两个国产模型，思考模式不会按预期工作、工具调用会拿不到结构化结果</strong>。</p>
+<p>第四个细节是采样参数。Qwen3 系列在模型卡里反复强调「不要用 greedy decoding」——思考模式建议 temperature=0.6 / top-p=0.95 / top-k=20 / min-p=0；非思考模式 temperature=0.7 / top-p=0.8。GLM-4.5-Air 默认就开思考模式，建议参数与 Qwen3 思考模式接近。Llama 3 / Mistral 这边的采样默认值（temperature=0.7 / top-p=0.9）拿来直接套到 Qwen3 / GLM-4.5-Air 上，会出现「输出过于发散、不收敛、思考链中断」的怪异现象。这一档参数差异不大，但实际跑下来体感差别巨大——把官方推荐参数原样照抄进去，这两个国产模型立刻显得「合理」。</p>
+<h2>三、Mac M3 Max 64GB / 128GB：MoE 反而更舒服</h2>
+<p>到了 Apple Silicon 这边，两条路线的角色倒过来。M3 Max 的统一内存（CPU 与 GPU 共享同一段 DRAM）让 MoE 的「大文件大内存」反而变成优势——不需要在 PCIe 上传输权重，整个模型常驻 SoC 内存里。</p>
+<p><strong>M3 Max 128GB 是 GLM-4.5-Air 真正舒服的硬件</strong>。128 GB 统一内存能完整装下 Q4_K_M 的 73 GB 文件，加上 OS 与其他应用，仍然有 30+ GB 余量给 KV cache。命令上 llama.cpp 的姿势最稳：</p>
+<pre><code class="language-bash">./llama-server -hf unsloth/GLM-4.5-Air-GGUF:UD-Q4_K_M \
+  -ngl 99 -fa -c 32768 \
+  --host 0.0.0.0 --port 8000
+</code></pre>
+<p><code>-ngl 99</code> 在 Metal backend 下是把整个模型放进 Apple GPU 的统一内存，社区实测 <a href="https://github.com/ggml-org/llama.cpp/discussions/4167" target="_blank" rel="noopener">llama.cpp 在 Apple Silicon 上的性能讨论 #4167</a> 里给出的 GLM-4.5 Air Q8_0 在 M2 Ultra 上是「prompt eval 355.80 tok/s、生成 26.30 tok/s」。M3 Max 128GB 跑 Q4_K_M 吞吐会略低于 M2 Ultra 跑 Q8_0，社区实测大致在 18 tok/s 一档——对长文摘要、agent 多轮调用、本地 RAG 都已经够用。</p>
+<p><strong>M3 Max 64GB 跑不了 GLM-4.5-Air Q4 以上</strong>。Q3_K_M 是 56 GB，加上 OS 与其他应用，64GB 机器只剩约 5 GB 余量；可以勉强跑通，但 KV cache 一拉大就触发 swap，体验崩塌。64GB 用户跑 GLM-4.5-Air 不是首选。</p>
+<p><strong>Qwen3-32B 在 M3 Max 64GB 上反而很舒服</strong>。Q4_K_M 文件 19.8 GB，统一内存里裸跑约占 22~24 GB；64GB 余量充足，可以放心拉到 32K 上下文。MLX 路径更快一档：</p>
+<pre><code class="language-bash">mlx_lm.server --model mlx-community/Qwen3-32B-4bit-AWQ \
+  --port 8080 --host 0.0.0.0
+</code></pre>
+<p><a href="https://github.com/ggml-org/llama.cpp/issues/19366" target="_blank" rel="noopener">llama.cpp issue #19366</a> 报告 「Llama.cpp token generation speed is roughly one third of speed in MLX for Qwen 3 coder next for Apple Silicon」——Apple 自家 MLX 在 Qwen3 系列上明显快于 llama.cpp，64GB M3 Max 跑 Qwen3-32B MLX Q4 实测在 22 tok/s 一档，跟 4090 AWQ 走 vLLM 接近。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/19/glm-4-5-air-vs-qwen3-32b-local-2026-05-19-3-throughput.png" alt="throughput 吞吐对比：4090 + M3 Max 双平台五种部署姿势 tokens/s 柱状图"></p>
+<p>把这件事总结成一句：<strong>M3 Max 128GB 选 GLM-4.5-Air，M3 Max 64GB 选 Qwen3-32B；4090 24GB 也选 Qwen3-32B</strong>。同一个钱包预算下，硬件决定模型，而不是反过来。</p>
+<p>Mac 用户还有一个细节值得单独说：MLX 与 llama.cpp 在 M3 Max 上的性能差。Apple 自家的 <a href="https://github.com/ml-explore/mlx-lm" target="_blank" rel="noopener">ml-explore/mlx-lm</a> 是为 Apple Silicon 量身定做的推理框架，在 Qwen 系列、Llama 系列上吞吐普遍比 llama.cpp 快 2~3 倍——<a href="https://github.com/ggml-org/llama.cpp/issues/19366" target="_blank" rel="noopener">llama.cpp #19366</a> 给的 Qwen3-Coder-Next 对比数字是 llama.cpp 约为 MLX 的三分之一。但 MLX 对 GLM-4.5-Air 这一档新发布 MoE 模型的支持仍在补——<a href="https://huggingface.co/mlx-community" target="_blank" rel="noopener">mlx-community</a> 里目前主要提供 GLM-4.5 完整版的 4bit / 8bit 量化，GLM-4.5-Air 的 MLX 量化版本还需要再等几周才完整。所以「Mac 用户跑 Qwen3-32B 优先 MLX、跑 GLM-4.5-Air 优先 llama.cpp」是当下最稳的判断。</p>
+<p>LM Studio 与 Ollama 这两个面向桌面的封装层值得单独提一下：LM Studio 在 M3 Max 上对 GLM-4.5-Air 的支持已经成熟，鼠标点几下就能下载 Q4_K_M 然后启动；Ollama 在 <a href="https://ollama.com/library/glm-4.5" target="_blank" rel="noopener">ollama.com/library/glm-4.5</a> 也挂上了 GLM-4.5 系列，命令 <code>ollama run hf.co/unsloth/GLM-4.5-Air-GGUF:UD-Q4_K_M</code> 一行就能拉起来。对不愿意手敲命令的开发者，这两条封装层是把本地大模型变成「右键就能用的工具」的最短路径。</p>
+<h2>四、三任务质量横评：代码 / 翻译 / 长文摘要</h2>
+<p>部署可行性算清楚之后，回到模型本身的能力差异。把读者最常用的三类任务摆到一张表上比。</p>
+<p><strong>代码任务</strong>：GLM-4.5-Air 在 LiveCodeBench 上拿到 70.7，Qwen3-32B 是 65.7（<a href="https://llm-stats.com/models/compare/glm-4.5-air-vs-qwen3-32b" target="_blank" rel="noopener">llm-stats.com 双模型对比</a>），相差 5 分。这一档差距在写工具脚本、修复小 bug 时几乎感觉不到；在多文件 refactor、长 agent 链（10+ tool call）这种场景下会显出来——GLM-4.5-Air 的 12B 激活参数比 Qwen3-32B 的 32.8B 全激活在「保持长上下文一致性」上做得更好，这一点跟它原生 128K 上下文也匹配。但这一优势在 4090 单卡上没办法被工程化兑现，因为 GLM-4.5-Air 在 4090 上跑不动，8 tok/s 的吞吐在多轮 agent 链上每轮等待时间会从 2 秒拉到 10 秒，体验上「智商高一点但延迟劝退」。</p>
+<p><strong>翻译任务</strong>：中英翻译两个模型几乎打平。社区在多家公开横评里都没有报出明显分差；从训练数据角度看，Qwen3 用了 100+ 语种的强多语数据，GLM-4.5 系列在中英双语训练上同样有充分覆盖。<strong>这一档真正的差异在「长文翻译」</strong>——GLM-4.5-Air 原生 128K 上下文意味着可以一次性把一本中型技术书的章节扔进去做整章翻译，Qwen3-32B 原生只有 32K，YaRN 扩展到 131K 但精度会有衰减；如果做 100K+ 文档的长文翻译，GLM-4.5-Air 是更合适的选择。</p>
+<p><strong>长文摘要 / RAG 生成</strong>：与翻译类似，长上下文是 GLM-4.5-Air 的强项；但实际工作流里，RAG 通常会把上下文切到 32K 以内，所以 32K 原生上下文的 Qwen3-32B 在主流 RAG 场景里完全够用。MTEB 这一档与生成模型分数无关，看的是嵌入与重排——把昨天那篇 Qwen3 三件套（<a href="https://huggingface.co/Qwen/Qwen3-Embedding-8B" target="_blank" rel="noopener">Qwen3-Embedding-8B</a> + Qwen3-Reranker-8B + Qwen3-Coder-30B-A3B）跟 GLM-4.5-Air 组合也是可行的，事实上 GLM-4.5-Air 自己没出嵌入与重排专项模型，要做 RAG 仍然需要靠 BGE 系列或 Qwen3-Embedding。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/19/glm-4-5-air-vs-qwen3-32b-local-2026-05-19-4-task-matrix.png" alt="三任务质量四象限：代码 / 翻译 / 长文摘要 横评"></p>
+<p>数学这条线的对比是 GLM-4.5-Air 最亮眼的一段——AIME 2024 拿到 89.4，Qwen3-32B 81.4，相差 8 分；MATH-500 是 98.1，几乎吃满。这一段优势对学术、量化、复杂业务规则建模这一类场景有直接价值。但同样的问题——这一档 GLM-4.5-Air 在 4090 上跑不到 20 tok/s，研究员要么有 M3 Max 128GB，要么用智谱开放平台 API，本地 4090 单卡跑大量数学题不现实。</p>
+<p>一位在 r/LocalLLaMA 上长期测两个模型的用户给的总结很贴切：「GLM-4.5-Air smarter but Qwen3-32B always runs」——后半句的意思是 Qwen3-32B 不挑硬件，4090、4080、A100、L40S 都能纯 GPU 单卡跑；GLM-4.5-Air 智商更高但「能跑」是有硬件门槛的。</p>
+<p>把这件事放到「日常工作流」视角里看更清楚。如果工作流是「写 Python 脚本 / 改前端 bug / 写一份 200 字的产品 PRD 文档」，Qwen3-32B 已经够用；多出来的那 5~8 分智商在这一档任务里基本感受不到差别。如果工作流是「读完一篇 80K 字的论文然后写综述」、「让 agent 一次性完成 10+ 步骤的复杂任务」、「做高难度数学竞赛题或者 quant 策略代码」——这时候 GLM-4.5-Air 的优势会显出来，但前提是硬件能跑动它。</p>
+<p>数学这条线的 89.4 vs 81.4 分差，等价于「能解出 89.4% 的 AIME 题」和「能解出 81.4% 的 AIME 题」，对应实际场景里大概是「解到三道难题中第二道止步」与「解到第一道止步」的差别。LiveCodeBench 70.7 vs 65.7 在写复杂算法题、做 leetcode hard 这种场景上同样能感觉到——但写日常业务代码、改 bug、补充测试这种场景里两者几乎没差。也就是说，<strong>模型间 5~8 分的 benchmark 差距并不会均匀映射到所有任务，越接近 frontier 的任务差距越明显，越日常的任务差距越小</strong>。这也是为什么 Qwen3-32B 月下载 700 万、GLM-4.5-Air 月下载 38 万——多数用户的实际工作流里两者差距不至于让用户跨过部署门槛。</p>
+<h2>五、IDE 接入本地后端横评：通义灵码 / Trae / Qoder</h2>
+<p>模型部署起来之后，下一件事是接进 IDE。国内开发者最常用的三家本地接入路径：</p>
+<p><strong>通义灵码 + Qwen3-32B 本地</strong>。通义灵码官方支持「本地模型」配置——在「设置 → 模型」里加一个 OpenAI 兼容端点，填本地 vLLM 起的服务。最短配置：</p>
+<pre><code class="language-yaml">name: 本地-Qwen3-32B
+base_url: http://127.0.0.1:8000/v1
+model: Qwen/Qwen3-32B-AWQ
+api_key: any-string  # vLLM 默认不校验
+</code></pre>
+<p>这条路径在 4090 + AWQ Q4 上是「IDE 补全 + 简单 agent」的最稳姿态。</p>
+<p><strong>Trae（字节）配置 GLM-4.5-Air 本地或云端</strong>。Trae 设置面板提供「自定义服务商」入口，OpenAI 兼容协议；如果本地是 4090 跑不动 GLM-4.5-Air，可以填智谱开放平台的官方 API base_url，模型选 <code>glm-4.5-air</code>；要本地跑则填 llama-server 监听地址。</p>
+<pre><code class="language-yaml">provider: 智谱本地
+base_url: http://127.0.0.1:8080/v1  # llama-server 或 vLLM
+model: glm-4.5-air-q3
+api_key: any-string
+</code></pre>
+<p><strong>Qoder（阿里推出的 agent 编辑器）+ Qwen3-32B</strong>。Qoder 在 5/18 那篇我们写过它的 Quest 工作流（详见「Qoder 1.0 阿里 Quest 工作台」专题）；这里要注意的是 Qoder 的 agent 调用链会一次性消耗 8K~32K 上下文，本地接 Qwen3-32B 时建议把 <code>--max-model-len</code> 设到 16384 以上，否则长 agent 链会被截断。</p>
+<p><strong>千问 Code（命令行）走阿里云百炼 OpenAI 兼容 API</strong>。如果本地硬件不够，又不想自己搭服务，可以直接走阿里云百炼的 OpenAI 兼容端点（<a href="https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope" target="_blank" rel="noopener">阿里云文档</a>）：</p>
+<pre><code class="language-bash">export OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+export OPENAI_API_KEY=sk-xxx
+</code></pre>
+<p>模型名填 <code>qwen3-32b</code> 或 <code>qwen3-coder-plus</code>，按用量计费，无需本地部署。</p>
+<p>这四条路径对应四类用户：通义灵码 + 本地 vLLM 是「想要补全延迟低 + 不付云费」的 4090 用户；Trae + 本地 GLM-4.5-Air 是 「128GB M3 Max + 想要思考模式」的 Mac 用户；Qoder + 本地 Qwen3-32B 是「想做长 agent 链 + 本地」的混合工作流用户；千问 Code 走云端 API 是「硬件不够 + 不想折腾」的兜底方案。</p>
+<p>接入本地后端有几个细节值得提前知道：</p>
+<ul>
+<li><strong>模型名要跟 vLLM 的 <code>--served-model-name</code> 严格一致</strong>——通义灵码、Trae、Cherry Studio 都按模型名做路由，名字对不上时静默 404 错；vLLM 启动时显式指定一个简短易记的模型名（如 <code>qwen3-32b</code> / <code>glm-4.5-air</code>），IDE 端填同一个</li>
+<li><strong>Authorization header 要填东西但不校验</strong>——多数本地 vLLM 不开 API key 校验，IDE 端 <code>api_key</code> 留空会触发部分客户端报 401，填一个 <code>local-anything</code> 即可</li>
+<li><strong>思考模式输出可能含 <code>&lt;think&gt;...&lt;/think&gt;</code> 标签</strong>——通义灵码 / Trae 默认会把这一段当作正文显示，需要在客户端配置「过滤思考内容」选项，或者在请求体里加 <code>chat_template_kwargs.enable_thinking=false</code> 关掉思考模式</li>
+<li><strong><code>max-model-len</code> 要预估足</strong>——长 agent 链或长文翻译这种场景下，KV cache 占用会随上下文线性增长，建议起服务时按场景预估上限设置，避免运行时报 OOM</li>
+</ul>
+<p><a href="https://github.com/CherryHQ/cherry-studio" target="_blank" rel="noopener">Cherry Studio</a> 是国内桌面端最受欢迎的多模型聚合客户端之一（45,827 stars，详见 5/18「Qwen3 RAG 三件套」一文的横评段），对本地 OpenAI 兼容端点支持很好；唯一的小坑是默认会把每条对话的「思考过程」单独显示在右侧面板，思考模式开着时这一栏可能会很长，影响阅读体验，最好开启「精简模式」。</p>
+<h2>六、中转 / 镜像 / ModelScope 实操对比</h2>
+<p>国内开发者拉权重最常踩的坑是 HuggingFace 直连超时。三条主流绕路：</p>
+<p><strong>1. HuggingFace 镜像 hf-mirror.com</strong>。最简单——一行环境变量替换：</p>
+<pre><code class="language-bash">export HF_ENDPOINT=https://hf-mirror.com
+huggingface-cli download Qwen/Qwen3-32B-AWQ
+huggingface-cli download zai-org/GLM-4.5-Air
+</code></pre>
+<p><a href="https://hf-mirror.com" target="_blank" rel="noopener">hf-mirror</a> 是国内志愿者维护的全量镜像，覆盖几乎所有模型，但偶尔有几小时的同步延迟，新模型发布后等 1~2 小时再拉更稳。</p>
+<p><strong>2. ModelScope（魔搭，阿里出品）</strong>。Qwen 系列在 ModelScope 上是首发，下载速度比 HuggingFace 直连快 5~10 倍：</p>
+<pre><code class="language-bash">pip install modelscope
+modelscope download --model qwen/Qwen3-32B --local_dir ./Qwen3-32B
+modelscope download --model ZhipuAI/GLM-4.5 --local_dir ./GLM-4.5
+</code></pre>
+<p>GLM-4.5 完整版在 <a href="https://modelscope.cn/models/ZhipuAI/GLM-4.5" target="_blank" rel="noopener">ModelScope</a> 上也能拉到，GLM-4.5-Air 在魔搭社区同步发布。Q4 / Q5 量化版本目前主要还是看 HuggingFace 上社区量化仓（bartowski / unsloth），ModelScope 上的量化镜像同步会慢一些。</p>
+<p><strong>3. 智谱开放平台</strong>。如果只是想试试 GLM-4.5-Air 的能力又不想拉权重，<a href="https://open.bigmodel.cn" target="_blank" rel="noopener">bigmodel.cn</a> 提供 OpenAI 兼容的 API 端点，按 token 计费，比本地部署 4090 + 128GB DDR5 的硬件成本低非常多——一台合规的本地 GLM-4.5-Air 部署机至少 2.5 万起，按云端 API 跑一年大多数情况下还不到这个数。</p>
+<p>这三条路径对应「<strong>完全本地（合规 + 离线）</strong>」「<strong>国内大公司提供的高速镜像（开发期）</strong>」「<strong>云 API（试用 + 轻量生产）</strong>」三类需求；多数团队的合理姿势是「开发期用 ModelScope 拉权重，生产环境视情况选本地或开放平台 API」。</p>
+<p>跟海外 Llama 系列、Mistral 系列做对比时还有一个国内独有的实操点——<strong>这两个国产模型的官方仓托管在 HuggingFace，但同时在 ModelScope 上有完整镜像</strong>，国内开发者用 ModelScope 拉权重比走 hf-mirror 快得多，平均下载速度 5~10 倍提升。Llama / Mistral 系列虽然 ModelScope 上也有第三方镜像，但缺乏「官方维护」这一标签——更新滞后、版本对应不严格，是阿里 Qwen 与 Z.ai GLM 真正的本土优势。</p>
+<p>权重拉下来后，最容易踩的下一个坑是<strong>校验文件完整性</strong>。HuggingFace 镜像偶尔会有 sha256 不一致的情况（同步过程中文件被替换），建议用 <code>huggingface-cli download --revision &lt;commit-hash&gt;</code> 显式锁定到某个 commit；GGUF 格式自带 metadata 校验，单文件损坏 llama.cpp 加载时会报错；safetensors 格式则需要在加载后用 <code>safetensors.safe_open</code> 检查一遍。这一类细节看起来啰嗦，但在 70 GB 文件这一档下载场景里能省下「跑到一半才发现权重坏了」的几个小时。</p>
+<h2>七、决策矩阵：什么人买哪边</h2>
+<p>把前面六节的结论收成一张决策矩阵。</p>
+<table>
+<thead>
+<tr>
+<th>我的硬件 / 场景</th>
+<th>推荐模型</th>
+<th>推荐部署路径</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>RTX 4090 24GB ・ Windows / Linux</td>
+<td><strong>Qwen3-32B AWQ Q4</strong></td>
+<td>vLLM + AWQ Marlin ・ max-model-len 4K~16K</td>
+</tr>
+<tr>
+<td>RTX 4090 + 96GB DDR5 ・ 愿意接受 CPU offload</td>
+<td><strong>GLM-4.5-Air Q3_K_M</strong></td>
+<td>llama.cpp ・ 仅适合长任务非交互</td>
+</tr>
+<tr>
+<td>Mac M3 Max 64GB</td>
+<td><strong>Qwen3-32B Q4_K_M</strong></td>
+<td>MLX 路径优先 / 备用 llama.cpp</td>
+</tr>
+<tr>
+<td>Mac M3 Max 128GB</td>
+<td><strong>GLM-4.5-Air Q4_K_M</strong></td>
+<td>llama.cpp Metal ・ 长 agent / 数学 / 长文</td>
+</tr>
+<tr>
+<td>Mac M3 Max 128GB ・ 想要最强中文代码</td>
+<td>Qwen3-Coder-30B-A3B（另一档）</td>
+<td>详见 5/18「Qwen3 RAG 三件套」专题</td>
+</tr>
+<tr>
+<td>学生 / 试用 / 不想买硬件</td>
+<td>用智谱 / 阿里云百炼 API</td>
+<td>OpenAI 兼容端点 ・ 按量计费</td>
+</tr>
+<tr>
+<td>团队生产 ・ 多卡可买</td>
+<td>GLM-4.5-Air FP8 + H200 × 1</td>
+<td>SGLang ・ 真正能榨干 MoE 优势</td>
+</tr>
+</tbody></table>
+<p>这张表里最有意思的一行是「Mac M3 Max 64GB → Qwen3-32B」与「Mac M3 Max 128GB → GLM-4.5-Air」——同一台机器 Studio 配置不同，最优模型不同。M3 Max 128GB 比 64GB 贵约 1 万元，但跑得动的开源模型整体上了一档；如果工作流里有大量数学推理、长文摘要、复杂 agent 链，这 1 万的硬件升级是值得的。</p>
+<p>把硬件预算从 1.5 万到 5 万元这一档拉齐摆一张表，对正在做硬件采购决策的开发者更直观——每升级一档预算，能稳跑的模型谱系往上抬一档：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/19/glm-4-5-air-vs-qwen3-32b-local-2026-05-19-6-cost-budget.png" alt="cost-budget 预算档对位：4090 单卡 / M3 Max 64GB / 128GB / Mac Studio M3 Ultra 各档能跑什么"></p>
+<p>跟昨天那篇「Qwen3 RAG 三件套」（详见 5/18 专题）放在一起看会更完整：Qwen3-Embedding-8B + Qwen3-Reranker-8B + Qwen3-Coder-30B-A3B 是 RAG 工程链路，本篇讲的 GLM-4.5-Air vs Qwen3-32B 是「主对话 / 主推理」这一档。两者在工作流里是并列的两个组件——RAG 三件套负责检索召回，主模型负责生成；4090 用户走「Qwen3 三件套 + Qwen3-32B」全栈同源，128GB Mac 用户可以走「Qwen3 三件套 + GLM-4.5-Air」混搭，把主模型的智商再往上抬一档。</p>
+<h2>结尾：两条路线一起前进，国内开发者第一次有真正的选择</h2>
+<p>把这件事讲完，再回到开头那句话——「MoE 走稀疏激活、Dense 走全参激活，同样 1.5 万元单卡，两条路对应两类工作流」。智谱与阿里这两家国产大模型团队，过去两年里第一次同时把开源做到了消费级硬件能直接落地的程度——MIT 与 Apache-2.0 两张许可证都允许商用，月下载分别 38 万与 698 万，社区量化覆盖从 Q2 到 Q8 全档位。</p>
+<p>更值得开心的是，这两条路线没有谁压住谁。GLM-4.5-Air 把 MoE 的智商上限往上推到了开源里的第一档，Qwen3-32B 把 dense 的部署友好度做到了 4090 单卡能跑的程度。我们这一档国内 AI 开发者第一次有了「按硬件选模型」的真正自由——不是被迫接受唯一开源选项，而是在「我要跑得更智能」与「我要跑得更顺手」两个目标之间做主动选择。</p>
+<p>下一步对我们读者更有价值的工作有两件：一是把 GLM-4.5-Air 在 128GB Mac 上跑通后的 agent 实测数据多写一些，把吞吐曲线、思考模式开关对延迟的影响、长 agent 链的稳定性这些工程细节拆开；二是把 Qwen3-32B 在 4090 上跟 OpenClaw / Cherry Studio / Trae 这些国产桌面应用的接入路径再走一遍——同样的模型在不同 IDE 里的体验差距，有时候比模型本身差距还大。这两件事我们之后的篇章会继续写。</p>
+<p>无论选哪条路线，开源模型都已经把可能性递到我们手里。剩下的，是开始动手把它们装进自己的工作流。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

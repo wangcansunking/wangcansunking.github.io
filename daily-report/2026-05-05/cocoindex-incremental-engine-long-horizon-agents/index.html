@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CocoIndex 给 Agent 装一台增量索引引擎 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-05</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-05</span><span class="tag-pill">Daily Report</span></div>
+      <h1>CocoIndex 给 Agent 装一台增量索引引擎</h1>
+<blockquote>
+<p>200MB 代码库每改一行都要全量重 embed 一遍，18074 个 chunks 一次不落地重新计算？cocoindex 给的答案是只动那 12 个真正变了的——子秒级传播、99.9% 缓存命中、向量直追源字节。</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/05/cocoindex-incremental-engine.png" alt="CocoIndex 增量引擎封面"></p>
+<h2>一、先看一个让所有 RAG 工程师扎心的场景</h2>
+<p>一个 200MB 的代码仓库，2410 个文件，切完块大约 18074 个 chunks。每次接入 RAG 都要给每个 chunk 算一次 embedding，写进向量库——一次全量大约要打 18074 次 embedding API。如果模型选的是 OpenAI text-embedding-3-large，一次大约几美元；选阿里千问（Qwen）的 text-embedding-v3，几块钱人民币也跑得起。</p>
+<p>问题不在第一次。问题在<strong>长 horizon agent 跑起来之后</strong>——开发者每天在这个仓库里改十来个文件，每个文件平均改两三行。按 LangChain 默认的 RecursiveDocumentLoader + Chroma 这条链路，最朴素的做法是定时全量重做一遍，18074 个 chunks 每次都重新切、重新打 embedding、重新写库。哪怕真正变了的 chunk 只有 12 个。</p>
+<p><strong>99.9% 的算力浪费在重新算昨天已经算过的内容上。</strong></p>
+<p>cocoindex 这个项目要解决的就是这件事。GitHub 仓库 cocoindex-io/cocoindex 截至本周已经 8007 个 star，587 个 fork，1732 个 commits，近一周冲上 GitHub Trending Python 榜，单日 +204 star。仓库 75.1% Python、24.4% Rust 写成，最新版本是 2026 年 4 月 29 日发布的 v1.0.2，距 v1.0 正式发布刚好一周。</p>
+<p>它给自己的定位是一句话：<strong>Incremental engine for long horizon agents</strong>——给长 horizon agent 用的增量数据引擎。</p>
+<h2>二、cocoindex 是什么：把 React 的协调思想搬到 LLM 数据管道</h2>
+<p>cocoindex 不是 RAG 框架，也不是 agent 框架。它的位置在两者之间——<strong>数据持续同步层</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/05/cocoindex-landscape-table.png" alt="cocoindex 与同行边界"></p>
+<p>它给开发者的核心抽象，可以用一个等式概括：<strong>Target = F(Source)</strong>。你声明一份目标状态——&quot;我希望我的代码库里每个函数都有一行向量索引、每个跨文件调用都有一条图边&quot;——然后把映射函数 F 写出来。剩下的事情交给 cocoindex：source 端任何一处变化，它自己算出<strong>最小重做集</strong>，把变化精确传播到 target 端。</p>
+<p>这个思路和前端工程师每天在用的 React 是同源的。React 给你 UI = f(state) 的承诺，state 变了，框架自己 diff 出真正需要更新的 DOM 节点。cocoindex 给你<strong>数据管道版的同款承诺</strong>——source 变了，引擎自己 diff 出真正需要重做的 chunk、embedding、图节点、检索行。</p>
+<p>具体到工程实现上，三件事是 cocoindex 的核心：</p>
+<p><strong>第一，子秒级新鲜度。</strong> 官方给的承诺是源端任何一次变化在 1 秒内传播到 target。这是给长 horizon agent 用的——一个 agent 在跑长任务时，用户刚刚改完的代码、刚刚开完的会议纪要、刚刚发到 Slack 的一条消息，要立刻进入它的可检索上下文，不能等下一次 cron job。</p>
+<p><strong>第二，10 倍成本效率。</strong> 官方页面给的数字是 99.9% 的未变数据会命中缓存被直接跳过，重做集只覆盖真正变了的内容。一份生产环境的 pipeline 报告显示 94% 的步骤会复用上一次的中间结果。</p>
+<p><strong>第三，完整可追溯。</strong> 每一个进入 vector database 的向量、每一个进入 knowledge graph（知识图谱）的节点，都能精确追溯到它来自哪个源文件的哪几个字节。这一点对企业级 audit 和 explainability（可解释性）是硬要求。</p>
+<h2>三、它解决的真实问题：长 horizon agent 的「实时新鲜上下文」</h2>
+<p>要理解 cocoindex 为什么这周冲到 GitHub Trending Python 榜前列，得先看 2025 下半年到 2026 上半年这一波 agent 浪潮里大家集体踩到的同一个坑——<strong>长 horizon 任务里的上下文新鲜度</strong>。</p>
+<p>一个写代码的 agent，跑一个完整 issue 修复任务大约要 30 分钟到 4 小时。在这段时间里，开发者本人可能在另一个分支改了相关函数，团队同事可能合并了一个 PR 改了同一个模块的接口，CI 可能跑出了一份新的测试报告。如果 agent 用的是任务开始时打好的那份静态索引，它跑到一半时看到的代码库已经和真实状态偏离。</p>
+<p>过去一年大家的处理方式有三种：</p>
+<p><strong>第一种</strong>，每次 agent 启动都全量重 embed。简单粗暴，但成本不能看。一个 1000 万行的中型代码仓库每次跑一次 agent 全量索引一次，OpenAI embedding API 账单按月报账时财务会打电话过来。</p>
+<p><strong>第二种</strong>，定时 cron 重建索引。每 30 分钟全量跑一次，agent 拿到的是 30 分钟前的快照。短任务可以接受，长 horizon 任务就经常会撞上&quot;我看到的代码和真实代码不一样&quot;的诡异 bug。</p>
+<p><strong>第三种</strong>，自己写增量逻辑。用 git diff、文件 mtime、watchdog 监听，对每个变化的文件单独重 chunk + embedding + 写库。能跑，但每个公司都得自己写一遍，且很容易漏掉&quot;一个文件被改名&quot;、&quot;一个目录被整体移动&quot;、&quot;一个函数被跨文件搬家&quot;这类边角情况。</p>
+<p>cocoindex 把第三种方式抽象成一个引擎。开发者只写声明式的 source → transform → target 映射，引擎自己处理变更检测、依赖追踪、版本对齐、缓存失效、重试和 dead-letter queue。</p>
+<h2>四、增量算法机制：版本指纹 + 内容哈希 + 谱系追踪</h2>
+<p>cocoindex 的增量算法分三层。把这三层串起来理解，整个引擎的工作方式就清楚了。</p>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Sources[源端]
+        FS[文件系统]
+        S3[S3 / 对象存储]
+        SLK[Slack]
+        PG[(PostgreSQL)]
+        KFK[Kafka]
+    end
+
+    subgraph Engine[增量引擎 · Python + Rust]
+        WATCH[变化捕获]
+        CACHE[内容哈希 + 函数版本双指纹缓存]
+        LINEAGE[谱系图 · 精确重做集]
+        SCHED[调度器 · 重试 · DLQ]
+        WATCH --&gt; CACHE --&gt; LINEAGE --&gt; SCHED
+    end
+
+    subgraph Targets[目标端]
+        VDB[(向量库)]
+        KG[(知识图谱)]
+        MQ[消息队列]
+        FS_T[特征存储]
+    end
+
+    FS --&gt; WATCH
+    S3 --&gt; WATCH
+    SLK --&gt; WATCH
+    PG --&gt; WATCH
+    KFK --&gt; WATCH
+
+    SCHED --&gt; VDB
+    SCHED --&gt; KG
+    SCHED --&gt; MQ
+    SCHED --&gt; FS_T
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/05/cocoindex-architecture-flow.png" alt="CocoIndex 架构与数据流"></p>
+<p><strong>第一层，源端变化捕获。</strong> 文件系统、S3、Slack、PostgreSQL、Kafka 这五类源都有适配器。文件系统这一类直接用 OS 级 watch；S3 用对象版本号；Slack 用 events API；PostgreSQL 走逻辑复制流；Kafka 走 consumer offset。每个 source 适配器只负责一件事——告诉引擎&quot;哪些 record 在上次同步之后变了&quot;。</p>
+<p><strong>第二层，内容哈希 + 函数版本双指纹缓存。</strong> 每一个 transform 函数（比如 chunking、embedding、entity extraction）的每一次调用，cocoindex 都会用 (函数代码哈希, 输入内容哈希) 这一对作为 cache key。两件事任意一个变了——开发者改了 chunking 函数、源文件内容变了——这个 cache 才会失效。一个文件改名但内容没变，关联的 embedding cache 全部命中，不重新计算。一段代码被搬到新文件，cache 同样命中。</p>
+<p><strong>第三层，谱系图驱动的精确重做。</strong> 整条 pipeline 里的每一步——文件 → chunks → embeddings → 向量库行 / 图节点——都会写入 lineage（数据谱系）记录。引擎用这张谱系图反向推导：哪些目标行依赖哪些中间步骤，哪些中间步骤依赖哪些源文件。源端 12 个文件变化进来时，引擎沿谱系图反向 fan-out，得到精确的重做集，不多不少。</p>
+<p>把这三层叠在一起的效果，是 cocoindex 官方页面上那组数据的来源——&quot;一个 2410 文件 / 18074 chunks 的 codebase，开发者改完一个文件之后只需要重新处理 12 个 delta chunks&quot;。这就是把 99.9% 的工作量省掉的具体出处。</p>
+<h2>五、和增量 vs 全量：一组让国内 RAG 团队心动的数字</h2>
+<p>把传统全量 RAG 和 cocoindex 的增量方式放在一张表里直观对比一下。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/05/cocoindex-incremental-vs-full-table.png" alt="增量 vs 全量成本对比"></p>
+<p>embedding API 调用次数从 18074 次降到 12 次，是直接的成本数字差。OpenAI text-embedding-3-large 按 token 计费，按 200MB 代码库每个 chunk 平均 200 token 算，一次全量大约 36 万 token——按 $0.13/M 价格大约 $0.05 每次。听起来不多，但一个 agent 团队 100 个开发者每天每人触发 10 次 agent 任务，一年下来就是几万美元的 embedding 账单全部花在重新算昨天的 chunk 上。换成千问的 text-embedding-v3 大约人民币几千元，绝对值小，但浪费比例同样是 99.9%。</p>
+<p>新鲜度从分钟级到子秒级，是另一个维度的体验差。RAG 工程师都知道，向量库重建期间 agent 拿到的检索结果是不稳定的，常常出现&quot;我刚改完的代码 agent 找不到&quot;。子秒级的传播让这个问题消失——开发者按下 Cmd-S，1 秒后 agent 已经看得到。</p>
+<p>可追溯性这一项是企业级场景的硬约束。一个金融行业的合规 RAG，被监管追问&quot;这个回答里引用的条款来自哪个文件的哪一行&quot;——cocoindex 的 lineage 字段直接给出源字节范围。传统的&quot;chunk 索引到文件路径&quot;颗粒度回答这个问题就显得粗糙。</p>
+<h2>六、和 LangGraph / LlamaIndex / CDC 横评：cocoindex 的位置在哪</h2>
+<p>国内开发者现在用得最多的两个 agent / RAG 相关框架，是 LangChain 体系下的 LangGraph 和独立发展的 LlamaIndex。cocoindex 出来之后，第一个常见疑问是——它和这两个是什么关系？</p>
+<p><strong>和 LangGraph 是互补关系。</strong> LangGraph 是 agent 编排框架，关心的是 &quot;agent 一步一步怎么走、什么时候调工具、什么时候终止&quot;。它的输入是一份已经准备好的上下文和工具集，输出是一条 agent 决策路径。cocoindex 的位置在 LangGraph 上游——它负责把 codebase / 知识库 / 会议记录持续同步成 agent 可检索的形态，再交给 LangGraph 节点去用。两者是 layer 关系，不是替代。一个生产级长 horizon agent 系统的典型组合是 cocoindex + LangGraph + 自选向量库。</p>
+<p><strong>和 LlamaIndex 是场景重叠 + 关注点不同。</strong> LlamaIndex 早期定位是 &quot;LLM data framework&quot;，包含数据接入、chunking、检索、re-ranking 一整套。它的强项在检索抽象和 query engine。cocoindex 比 LlamaIndex 更靠下层——只管&quot;持续同步&quot;，不管&quot;怎么检索&quot;。一个清晰的分工是 cocoindex 负责把数据写到 vector database，LlamaIndex 负责从 vector database 里召回。两者都在做开源，社区互相导流。</p>
+<p><strong>和数据库 CDC（Debezium / Fivetran）是同源思路 + 扩到了 embedding 端。</strong> Debezium 是 PostgreSQL / MySQL 的 CDC 工具，把 OLTP 的行级变化流式同步到下游数仓。Fivetran 是商业版的同类型产品。cocoindex 的核心算法逻辑——源端变化捕获、增量传播、目标端原子更新——和 CDC 是一脉相承的，区别在 cocoindex 把 CDC 思路扩展到了 chunk、embedding、向量库、知识图谱这种&quot;AI 时代的目标存储&quot;。可以说，cocoindex 是把 OLTP 时代成熟的 CDC 工程哲学，照搬给 LLM 时代的数据管道。</p>
+<h2>七、国内对位：DeepSeek 团队的 Engram 是另一条路</h2>
+<p>国内今年在&quot;长 horizon 知识查询&quot;这个问题上的代表性工作，是 DeepSeek 团队 1 月联合北京大学开源的 Engram。把 Engram 和 cocoindex 摆在一起看，能看清两个层级上完全不同但相辅相成的解法。</p>
+<p><strong>Engram 走的是模型架构内嵌路线。</strong> 它在 Transformer 主干旁边挂一张 1000 亿参数的哈希查表，训练时学习哈希函数 H(token)，推理时按地址直接读出 K 行向量融合回主干。Engram-27B 在 MMLU 上 +3.4、BBH 上 +5.0、Multi-Query NIAH 从 84.2% 跳到 97.0%。这是一种把&quot;长 horizon 知识&quot;内化到模型参数空间的做法——知识活在模型里。</p>
+<p><strong>cocoindex 走的是模型外的数据管道路线。</strong> 它不动模型，知识活在外部的 vector database / knowledge graph 里，由引擎负责持续同步。模型保持小、保持快、保持通用，需要什么知识就检索什么。</p>
+<p>两条路在产业含义上是互补的，不是竞争的。Engram 解决的是&quot;模型本身的长 horizon 知识容量&quot;，cocoindex 解决的是&quot;模型外的实时新鲜知识&quot;。一个生产环境的长 horizon agent 完全可能同时用上——基础模型用带 Engram 哈希查表的版本来承载稳定的世界知识，业务相关的实时数据（codebase、会议、文档）由 cocoindex 持续同步进 vector database 给 agent 检索。两条稀疏轴 + 一条同步层 = 完整的长 horizon 数据架构。</p>
+<p>国内开发者读 cocoindex 时，可以把它放在和 Engram 同一张架构图的不同层级上理解：Engram 在模型内，cocoindex 在模型外，两者都在解&quot;长 horizon agent 怎么处理大量异构知识&quot;这个共同命题。</p>
+<h2>八、三个真实使用场景</h2>
+<p>cocoindex 仓库里现在收录了 20 多个工作示例，覆盖 RAG、知识图谱、代码索引、PDF-RAG、播客处理等方向。挑三个国内开发者最容易直接用上的场景展开讲。</p>
+<h3>场景 A：实时代码库索引给 AI Coding agent 用</h3>
+<p>这是 cocoindex 自己博客 4 月 28 日 Kafka 集成那篇文章里强调的主战场。一份完整的代码库 → AST 结构提取 → 函数级 chunk → embedding → vector database 的 pipeline，从用 Tree-sitter 做语法感知切分到最后写入 pgvector 大约 5 分钟可以跑通。</p>
+<p>它的价值在长 horizon 跑起来之后——开发者改一个文件，cocoindex 1 秒内把新版本 chunk 推到向量库，AI Coding agent 下一次查询就能拿到。配合 Cursor / Claude Code / 通义灵码这类工具自己的索引层，能把&quot;agent 看到的代码版本和工程师本地的代码版本不一致&quot;这个 long-tail bug 消除。</p>
+<p>国内开发者直接用阿里千问的 text-embedding-v3 + 自部署 pgvector，整套链路全部在境内可控，没有合规摩擦。</p>
+<h3>场景 B：会议纪要 → 自动更新的知识图谱</h3>
+<p>这是 cocoindex 4 月 2 日博客里给出的一个完整 demo。每周一开的产品会议、技术评审、客户访谈，纪要陆续进来——用 LLM 抽取出（人物、行动、决策、时间）四元组，写进 Neo4j 这类知识图谱。下次再有新纪要进来时只更新涉及到的那几条边和节点，不重建整张图。</p>
+<p>国内的应用场景是显而易见的。一家 100 人规模的产品团队，一周平均开 30 场会，纪要分散在飞书文档、企业微信群、邮件里。把这些源都接到 cocoindex 上，新会议的纪要落地后 1 秒，整个产品团队的知识图谱就更新完了——&quot;产品组在 4 月做出用千问替换上一代基座模型&quot;这条决策边自动写进图，CTO 用 agent 检索&quot;我们今年模型选型的关键决策&quot;时能直接调出来。</p>
+<h3>场景 C：PDF / 视频 / 播客 → RAG 索引</h3>
+<p>cocoindex 支持 ColPali 这种 patch 级图像 embedding（不需要 OCR，直接对 PDF 截图本身做向量化），覆盖论文、扫描合同、产品截图这类传统 OCR 处理效果差的场景。</p>
+<p>播客 / 视频处理那篇博客给的链路是：YouTube 视频 → Whisper 转写 → LLM 抽取（speaker, statement, entity）三元组 → knowledge graph。每天新播客进来 1 秒之后，知识图谱里就多了今天嘉宾说的话。这对内容创作者、研究人员、媒体从业者是一个直接可用的工具链。</p>
+<h2>九、国内开发者怎么把它接进来</h2>
+<p>环境层面，cocoindex 是 Python + Rust 构建的，安装方式是 <code>pip install -U cocoindex</code>，依赖 Python 3.10+ 和一份 Rust 工具链（pip 装时会自动调 cargo 构建 native 部分）。在国内 PyPI 镜像（清华源、阿里源）上都能拉到。</p>
+<p>性能预期方面，cocoindex 自己的 README 给出的数据是 H800 单卡跑常规 embedding pipeline 大约能撑 PB 级数据。对国内大多数团队来说，单机起步、内存里跑 PostgreSQL + pgvector + cocoindex，覆盖几十 GB 到几 TB 量级的代码库 / 文档 / 会议记录是完全够用的。生产环境扩到分布式时，cocoindex 的核心组件（live caching、pipeline catalog、version tracking、lineage、scheduler、metrics）都已经在 Rust 层实现过持久化和重试。</p>
+<p>可能踩的坑有三处。</p>
+<p>第一，<strong>Rust 编译依赖</strong>。<code>pip install -U cocoindex</code> 在没有 cargo 的机器上会失败。提前 <code>curl --proto &#39;=https&#39; --tlsv1.2 -sSf https://sh.rustup.rs | sh</code> 装好 rustup，或者直接用 cocoindex 提供的预编译 wheel。</p>
+<p>第二，<strong>source 适配器对国内 SaaS 的覆盖</strong>。当前内置 source 主要是文件系统、S3、Slack、PostgreSQL、Kafka，如果团队主力沟通在企业微信 / 飞书 / 钉钉，需要自己写一个 source 适配器。好在适配器接口很薄——实现&quot;列出当前所有 record + 给定时间点之后变化的 record&quot;两个方法即可。</p>
+<p>第三，<strong>LLM 调用的 API 兼容</strong>。cocoindex 的 transform 函数里调 LLM 时，默认是 OpenAI / Anthropic 兼容接口。要换成国产模型，把 base_url 指到 DashScope / 智谱 / 火山引擎方舟提供的 OpenAI 兼容端点即可——千问、GLM、豆包都开了 OpenAI 兼容协议，迁移成本基本为零。</p>
+<p>整套链路在境内自部署的复杂度，相当于装一个 PostgreSQL + 一个 Python 项目，比想象中要轻。一线 AI 团队上手一个下午就能跑通完整的代码库索引 demo，再花一周时间做生产化。</p>
+<h2>十、写在最后</h2>
+<p>GitHub Trending Python 榜单上每周都会出现新名字。能留下来的项目，多半是因为它给了一个<strong>之前没有标准答案的问题一个清晰的答案</strong>。</p>
+<p>cocoindex 给的答案是——<strong>长 horizon agent 不需要每次启动都全量索引一遍知识，也不需要每个团队自己造一遍增量轮子</strong>。一份声明式的 source → transform → target 映射写下来，引擎负责把&quot;实时新鲜上下文&quot;这件事做对、做快、做便宜。</p>
+<p>国内 AI 开发者看 cocoindex 时，更值得关注的不是 8007 个 star 这个数字，而是这条数据持续同步层的范式正在和大家的日常工作贴近——AI Coding agent、企业内部知识库、客服 RAG、智能问答，本质上都是在解同一个&quot;实时新鲜上下文&quot;问题。这个问题在 2025 年还是各家自己写脚本，到 2026 年开始有了共享的工程抽象。</p>
+<p>DeepSeek 的 Engram 在模型内做记忆，cocoindex 在模型外做同步——两条路同时打开，意味着我们这一代国内 AI 开发者<strong>有更完整的工具链可选</strong>，可以专注做业务，不用再花精力去重新发明每个团队都得发明一遍的同步算法。前辈把工程抽象趟出来了，剩下的事情是把它用好。</p>
+<h2>十一、参考资料</h2>
+<ul>
+<li>cocoindex 项目主页：<a href="https://cocoindex.io" target="_blank" rel="noopener">https://cocoindex.io</a></li>
+<li>cocoindex 博客（v1.0 发布、Kafka 集成、知识图谱、代码库索引等技术文章）：<a href="https://cocoindex.io/blogs/" target="_blank" rel="noopener">https://cocoindex.io/blogs/</a></li>
+<li>cocoindex 知识图谱 + 文档实时同步：<a href="https://cocoindex.io/blogs/knowledge-graph-for-docs/" target="_blank" rel="noopener">https://cocoindex.io/blogs/knowledge-graph-for-docs/</a></li>
+<li>cocoindex 代码库实时索引：<a href="https://cocoindex.io/blogs/index-code-base-for-rag/" target="_blank" rel="noopener">https://cocoindex.io/blogs/index-code-base-for-rag/</a></li>
+<li>cocoindex 会议纪要 → 自动更新知识图谱：<a href="https://cocoindex.io/blogs/meeting-notes-graph/" target="_blank" rel="noopener">https://cocoindex.io/blogs/meeting-notes-graph/</a></li>
+<li>PyPI 包页：<a href="https://pypi.org/project/cocoindex/" target="_blank" rel="noopener">https://pypi.org/project/cocoindex/</a></li>
+<li>Engram 论文（DeepSeek + 北京大学，2026-01）：通讯作者梁文锋，相关解读见量子位 5-3 报道</li>
+<li>LangGraph 官方文档：<a href="https://langchain-ai.github.io/langgraph/" target="_blank" rel="noopener">https://langchain-ai.github.io/langgraph/</a></li>
+<li>LlamaIndex 官方文档：<a href="https://docs.llamaindex.ai/" target="_blank" rel="noopener">https://docs.llamaindex.ai/</a></li>
+<li>Debezium CDC 项目：<a href="https://debezium.io/" target="_blank" rel="noopener">https://debezium.io/</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

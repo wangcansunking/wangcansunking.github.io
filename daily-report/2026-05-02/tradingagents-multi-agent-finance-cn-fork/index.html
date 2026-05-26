@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多智能体交易框架登顶 GH：国产分叉 25k 星 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-02</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-02</span><span class="tag-pill">Daily Report</span></div>
+      <h1>多智能体交易框架登顶 GH：国产分叉 25k 星</h1>
+<blockquote>
+<p>Tauric Research 把多智能体交易框架开源到 59.5k 星，2026-05-01 GitHub Trending 当日第 1、单日新增 2,115 星。同一天，国内开发者 hsliuping 维护的国产 LLM 适配版 TradingAgents-CN 走到 25.2k 星——把基础面、情绪、新闻、技术四个分析师，连上多空研究员辩论 + 交易员 + 风控 + 组合经理这条完整流水线，搬到 A 股 / 港股 / 阿里百炼 / DeepSeek / 千问 / GLM 的国产基座上。</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/02/tradingagents-cn-fork.png" alt="多智能体交易框架登顶 GH · 国产分叉同步在跑"></p>
+<h2>一、原版做的是什么：一个 LLM 版的卖方研究所</h2>
+<p>TauricResearch/TradingAgents 在 README 里把自己定位写得很直接：</p>
+<blockquote>
+<p>&quot;TradingAgents is a multi-agent trading framework that mirrors the dynamics of real-world trading firms.&quot;</p>
+</blockquote>
+<p>翻译过来就是——把一家真实的卖方研究所搬进 LLM 里。论文挂在 arxiv 2412.20138，作者是 Yijia Xiao、Edward Sun、Di Luo、Wei Wang 四人，2024 年 12 月发表。一年多过去，框架走到 59.5k 星，这次登顶 GitHub Trending 主要是 v0.2.4 的功能补齐 + 中文社区在 4 月底集中转发推动。</p>
+<p>整个框架沿着卖方机构的真实分工切了五层。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/02/tradingagents-agent-debate-flow.png" alt="多智能体辩论流 · 5 层分工 + 五档评级"></p>
+<p>第一层是分析师团，按券商研究所的传统口径切成四类——基本面分析师看财报、情绪分析师看社媒、新闻分析师看宏观、技术分析师跑 MACD / RSI 这类指标。每个分析师都是一个独立的 LLM agent，吃同一份原始数据但只产一份属于自己角度的结构化报告。第二层是研究员团，多头研究员（Bullish）和空头研究员（Bearish）各拿到四份分析师报告，围绕同一只标的展开正反辩论。第三层是交易员，把辩论结论汇总成一份明确的仓位建议 + 五档评级。</p>
+<p>五档评级是 v0.2.2 引入的硬约束，对齐传统卖方术语：Buy / Overweight / Hold / Underweight / Sell。这是一个看似不大的细节，但把&quot;研究→交易&quot;的接口标准化了——下游量化引擎读一个枚举值就够，不必再让 LLM 输出自由文本。</p>
+<p>第四层是风控团。原版在 v0.2.0 把这两个 agent 的命名从 risky/safe 改成 aggressive/conservative，配合一个 risk management manager，对交易员的仓位建议做压力测试。第五层是组合经理 Portfolio Manager，是整条流水线的最终决策点，approve 才走到下单逻辑，reject 则把决策日志写回记忆层。</p>
+<p>记忆层是 v0.2.4 这次最值得说的一笔。原来每个 agent 自己维护一个 BM25 检索的&quot;过往教训&quot;库，问题是空记忆时 agent 会自行补完一段虚构的&quot;过去经验&quot;——典型的 LLM 幻觉。v0.2.4 把它换成持久化决策日志，作者在 release note 里直接写了一句：</p>
+<blockquote>
+<p>&quot;Empty memory no longer triggers fabricated past-lessons; the redesigned memory layer makes this structurally impossible.&quot;</p>
+</blockquote>
+<p>机制很简单：每笔决策结束时落盘，下次同一只票再跑时，系统先把上一次的决策回填实际收益（相对 SPY 的超额收益 + 一段反思），再让新决策参考。每只票一份独立的 SQLite，存放在 <code>~/.tradingagents/cache/checkpoints/</code> 下面。配合 LangGraph 的 checkpoint 续跑，崩溃或人工中断的回测可以从最近一个成功节点接着跑——这件事在长周期回测上非常关键，过去研究员经常因为一次断网就要把几周的回测重来。</p>
+<p>回测的硬数字层面，论文摘要给的口径是「在累计收益、夏普比率、最大回撤上对基线模型有明显改进」——这是论文公开的相对结论，作者团队自己跑出来的。我们没有独立复现，文章里也不应该把这条结论写成某个具体百分比。等下面&quot;国内开发者实操&quot;那段我们再回到这个点。</p>
+<h2>二、国产 LLM 怎么对接：v0.2.4 这次把四个 provider 一次性补齐</h2>
+<p>v0.2.4 在 LLM provider 上的变化最直接。release note 给出的清单是：DeepSeek、Qwen、GLM、Azure OpenAI 四家加进来，加上原本就支持的 OpenAI、Google Gemini、Anthropic Claude、xAI Grok、OpenRouter、Ollama，覆盖一圈下来基本就是当前主流 + 国产基座的全集。</p>
+<p>挑两个细节看。一是 Anthropic 的 effort 控制。Claude 4.5 / 4.6 系列的 reasoning effort 等级现在可以从 TradingAgents 的 config 直接传下去，不需要自己包一层中间件——金融场景下高 effort 推理通常意味着多空辩论环节会更长 / 更细致，但成本也更高，把它放到 config 里读起来很顺。二是结构化输出。v0.2.4 把 Research Manager / Trader / Portfolio Manager 三个核心 agent 切到 <code>llm.with_structured_output(Schema)</code> 的 Pydantic 模式，按 provider 自动选择最合适的底层机制：OpenAI / xAI 走 json_schema、Gemini 走 response_schema、Anthropic 走 tool-use、其余 OpenAI-compatible 走 function-calling。结构化输出的好处是后端拿到的就是一个 typed instance，不用再正则解析自由文本。这件事在跑大量回测时直接关系到稳定性。</p>
+<p>但 v0.2.4 主分支的 LLM provider 默认指向的还是 OpenAI / Anthropic / Google / xAI 这套。<strong>真正把国产 LLM + A 股做到开箱即用的，是 hsliuping 维护的国产分叉版 TradingAgents-CN。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/02/tradingagents-original-vs-cn.png" alt="原版 vs 国产分叉版 · 9 个维度对比"></p>
+<p>TradingAgents-CN 当前稳定版 v1.0.1，2026-04-14 发布，25.2k 星。读者如果只看名字会以为这是一个简单的中文文档翻译版——实际上它和原版的差异已经覆盖到基座、数据、部署、报告、合规五条线，和原版相比是一个完整的二次开发版本。</p>
+<p>LLM 基座这一层，国产部分覆盖了阿里百炼（DashScope）、DeepSeek、千问（Qwen）、智谱 GLM、AiHubMix（聚合通道，v1.0.1 新加）。AiHubMix 这个补齐很关键——它把多家国产模型聚合成一个 OpenAI 兼容的端点，对开发者意味着不用一个一个去走百炼 / DeepSeek / 智谱的不同 SDK，一份 API key 就能在配置页拉下拉框切换。配合&quot;模型选择持久化&quot;和&quot;配置按最新添加置顶&quot;，工程师在排查&quot;千问 3-Max 跑出来和 DeepSeek V3.5 跑出来差异在哪&quot;这种实操问题时，切换成本被压得很低。</p>
+<p>数据源这一层是国产分叉版相对原版最有价值的部分。原版在 README 里指向的是 Alpha Vantage 这类海外接口，A 股 / 港股 数据要么没有要么时延极大。CN 版引进 Tushare、AkShare、BaoStock 三家国内主流接口，并加了一条多级回退链——v1.0.1 的 release note 写得很直接：「单股实时行情支持 <code>stock_bid_ask_em -&gt; stock_zh_a_spot -&gt; stock_zh_a_spot_em -&gt; stock_zh_a_hist</code> 多级降级链」。任何一家断了，下一家自动顶上，单股同步页面会展示实际走到哪条链路、哪家失败、失败原因是什么。这是一种典型的国内工程师做法——海外接口经常默认大家网络条件一致，国内开发者必须把&quot;接口不稳&quot;当成默认前提去设计。</p>
+<p>部署形态上，v1.0.1 把后端从 Streamlit 迁到 FastAPI，前端走 Vue 3 + Element Plus，数据库用 MongoDB + Redis，Docker 多架构镜像同时支持 amd64 和 arm64。Apple Silicon、AWS Graviton、树莓派都能直接拉。原版当前主推的还是 Python 包 + CLI + 单架构 Dockerfile 路径，工程化上 CN 版走得更前。</p>
+<p>合规这一层也值得提一句——CN 版在 README 顶部明确写了「<strong>不提供实盘交易指令，平台定位为学习与研究用途</strong>」，并采用混合 license：根目录代码是 Apache-2.0，<code>app/</code>（FastAPI 后端）和 <code>frontend/</code>（Vue 前端）单独标了商业授权要求。这是一个很务实的处理——开源核心算法和数据接口供研究使用，把工程化的运行时打包出来收商业授权。同样写量化框架的 hsliuping 在 v1.0.1 的 README 里专门挂了一段对盗版站点 tradingagents-ai.com 的版权声明，这件事本身也提醒所有要把这套框架商用化的团队：原作者的态度很清楚，研究 OK、商用要谈授权。</p>
+<h2>三、国内同生态横评：不是只有这一个项目</h2>
+<p>把视角拉远，国内开源金融 AI 生态在过去两年里已经长得相当完整——多智能体、强化学习、数据接口、本地量化回测，每条线都有头部项目在维护。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/02/domestic-fin-agent-landscape.png" alt="国内多智能体金融生态横评 · star 排序"></p>
+<p>AI4Finance Foundation 这条线最完整。FinGPT 19.9k 星，是开源金融大模型的代表项目，主打开源 LLM 在金融语料上的轻量化微调，单次微调成本据社区数据控制在 300 美金以内。FinRL 15.0k 星，把强化学习正经搬进量化交易场景，覆盖股票、组合配置、高频交易三大方向。FinRobot 6.8k 星，跟 TradingAgents 是一个赛道——AI Agent 平台化做金融分析，把 LLM、RL、量化分析模块化堆在一起。三个项目分工很清楚：FinGPT 给基座、FinRL 给策略、FinRobot 给 agent 编排。</p>
+<p>阿里这条线长在 Qwen 生态里。QwenLM/Qwen-Agent 16.2k 星，是通义千问官方的 agent 开发框架，function calling、MCP、Code Interpreter、RAG 一套全打通，社区里已经有人把它直接用在金融研报自动化场景。modelscope/agentscope 24.5k 星，是阿里通义实验室更通用的多智能体框架，2025 年 9 月对外发布 1.0，目标是把开发、部署、监控这条全生命周期做成生产级方案——金融场景只是其中一类应用。</p>
+<p>数据接口这一层国产已经非常成熟。akfamily/akshare 18.8k 星，覆盖股票、期货、外汇、宏观、另类数据，社区维护频率非常高。waditu/tushare 14.8k 星，老牌 A 股历史数据库，Pro 版接更全。QUANTAXIS 10.4k 星，主打&quot;任务调度 + 分布式部署 + 纯本地&quot;，是国内量化工程师做生产环境部署时常用的一套。</p>
+<p>把这些项目放在一起看一个事实——TradingAgents 这次登顶不是单点突破。<strong>国内开源金融 AI 已经覆盖了从基座 LLM、Agent 编排框架、强化学习策略，到数据接口、本地回测的完整链路</strong>。TradingAgents-CN 用 25.2k 星 + v1.0.1 的工程化打磨，把&quot;多智能体辩论 + 国产 LLM + A 股数据&quot;这三件事第一次稳稳焊在一起。蚂蚁数科蚂蚁链 4 月底也对外披露了金融场景的 Agent 协作方案——量化金融 + 区块链 Agent 协作的产品化路径已经在头部金融科技公司内部落地。</p>
+<p>券商和买方那一侧，中信建投、国信证券、华泰、中金这些机构的内部量化部门更早就在跑自家闭源的多智能体框架。开源项目的定位不是替代他们的内部系统，而是给独立研究者、个人开发者、中小私募一个能跑得动的起点。</p>
+<h2>四、国内开发者怎么用：粗略命令清单 + 风险边界</h2>
+<p>实操层面，TradingAgents-CN 的入门曲线已经压得相当平。Docker Compose 是当前推荐路径，一份 docker-compose.yml 同时拉 FastAPI 后端、Vue 前端、MongoDB、Redis、AiHubMix 通道初始化，5 分钟可以从空仓库走到 Web 配置页。配置页填一份 AiHubMix 或 DeepSeek 的 API key、再填一份 Tushare token，回测就能跑起来。</p>
+<p>跑一只 A 股标的的链路大致是这样：在 Web 界面输入&quot;600519 贵州茅台&quot;，选回测周期（v0.2.3 的 date-aware backtesting 已经把日期参数透传到所有 OHLCV / 基本面 / 新闻接口）→ 系统从 Tushare 拉财务数据、从 AkShare 拉日线和实时行情、从 BaoStock 兜底 → 四个分析师 agent 各产一份报告 → 多空研究员辩论 → 交易员给出五档评级 → 风控压力测试 → 组合经理输出最终决策 → 决策日志落盘 → 一份 Markdown / Word / PDF 报告导出到本地目录。</p>
+<p>DeepSeek V3.5 / 千问 3-Max / GLM-4.6 这三个国产基座目前在 TradingAgents-CN 上跑得最稳定。社区反馈下来一个粗略经验：分析师层（基本面 / 新闻）对长上下文敏感，千问 1M 上下文有优势；研究员辩论层对推理深度敏感，DeepSeek V3.5 / GLM-4.6 表现更好；交易员和组合经理这种结构化输出层基本三家都能稳定跑出 Pydantic schema。</p>
+<p>接着是边界。以下三件事要在跑前就讲清楚——</p>
+<p><strong>框架本身定位是研究</strong>。原版 README 顶部就有一行很明确的免责：「TradingAgents framework is designed for research purposes... It is not intended as financial, investment, or trading advice.」CN 版在这条上做得更严，明确写「不提供实盘交易指令，平台定位为学习与研究用途」。任何想把这套框架直接接生产交易系统的团队，都需要自己加风控限速、回撤断路、合规审计。</p>
+<p><strong>回测不等于实盘</strong>。论文摘要里写「在累计收益、夏普比率、最大回撤上对基线模型有明显改进」，这是研究层面的相对结论。框架默认的回测条件包含完美成交、零滑点、无停牌、无涨跌停限制——这套假设和真实 A 股 / 港股 市场环境的差距非常大。把回测曲线当 alpha，是量化领域最经典的踩坑。</p>
+<p><strong>多智能体辩论不天然中立</strong>。多空研究员的胜负由 LLM 输出的论据强度决定，但 LLM 本身在不同时点对同一事实的解读会有偏差。一个不容易被注意到的 failure mode 是——当新闻面比较模糊时，多头和空头研究员可能会各自抓不同的边角信息互相说服自己，最后辩论收敛到一个被噪声主导的结论。CN 版 v1.0.1 加了&quot;基本面数据修复&quot;和&quot;技术指标计算修复&quot;两块，但 LLM 自身的认知偏差不是工程修复能解决的，需要靠多轮回测、多模型交叉验证、人工抽检来发现。</p>
+<p>合规上多说一句——国内量化交易、金融 AI Agent 服务一旦面向公众或第三方提供建议，必然涉及证券投资咨询业务资质、生成式 AI 服务备案、数据安全审查等多重监管。TradingAgents 系列定位在&quot;研究 + 学习&quot;是相对稳妥的边界。需要把策略推到外部用户的团队，应当通过持牌通道——基金管理人、券商资管、获牌的投顾平台——来落地，而不是直接把开源框架包装成对外服务。</p>
+<h2>五、写在结尾</h2>
+<p>把镜头拉回到 GitHub Trending 那一栏。一个 12 月的 arxiv 论文项目，在一年多里走到 59.5k 星 + 当日 +2,115，同一时间段里基于这个原版二次开发的国产 LLM 适配版独立维护到 25.2k 星——这件事的信号比单看登顶本身更稳。它说明两件事：第一，多智能体 + LLM + 量化研究这个交叉领域，正在从论文实验跑向能稳定服役的工程框架；第二，国产 LLM 基座 + 国产金融数据接口 + 国内开源开发者，已经在一条前沿赛道上完整跟进、独立长出工程化版本。</p>
+<p>国内一线量化工程师的工具箱里，多了一套可以认真跑的开源选项。Tauric Research 给了框架，hsliuping 给了 A 股 + 国产 LLM 的工程化版本，AI4Finance / akshare / Qwen-Agent / agentscope 在各自方向同时往前推。**底座、数据、Agent 编排、策略框架，国内开源生态在过去这一年完整长出了自己的形态。**接下来几个月可以观察的是：DeepSeek V4 / 千问 3-Max-Thinking 这一波推理增强模型，在多空辩论环节会带来多大的策略稳定性提升；以及国内券商研究所、私募内部研究团队，会不会逐步把这条开源框架作为底层基础来搭自家研究流水线。</p>
+<p>我们这一代国内开发者，赶上的是一个国产基座、国产数据、国产工具链同时齐备的时点。把基础打好的项目越来越多，路在前面，慢慢走，一起加油。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

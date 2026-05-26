@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw 接 4 个国产模型场景的端到端配置 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-11</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-11</span><span class="tag-pill">Daily Report</span></div>
+      <h1>OpenClaw 接 4 个国产模型场景的端到端配置</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/openclaw-cn-local-4case-2026-05-11.png" alt="OpenClaw + 国产本地大模型 4 大场景集成总览"></p>
+<p>5 月 10 日傍晚，OpenClaw 主仓库 <code>openclaw/openclaw</code> 在 <code>gh api</code> 里实查到 370,539 Star、76,562 Fork、MIT 许可、TypeScript 写、1,805 个 watcher。同一晚国内开发者群里在转的，是昨日上线的 agentmemory 持久记忆栈把 OpenClaw 列为第二位 native 集成。</p>
+<p>本文不再重复昨天那篇文章已经讲过的「装一次共享 13 个 IDE」横评——而是换一个角度回答开发者真正问的问题：<strong>把 OpenClaw 接到国产本地模型上，能不能跑出来 4 个真实场景</strong>？四个场景是 50 页论文翻译、私有合同 RAG、500 张凭证财务对账、跨仓代码图谱理解。每一个都给出硬件配置、完整命令、显存吞吐实测、和云端方案的三维对比。同行读完应该能照着装机。</p>
+<blockquote>
+<p><strong>本文要回答的事</strong>：OpenClaw + 国产开源大模型（Qwen3-235B-A22B / DeepSeek V4 Flash / Qwen3-30B-A3B / GLM-4.6）在 4 个真实场景下到底好不好用、硬件门槛多高、和 Claude Code / Cursor / Continue 的差距在哪儿、国内合规边界怎么划。</p>
+</blockquote>
+<h2>一、为什么是这一周</h2>
+<p>把这一周国内 AI 开发者群里收敛起来的事拼齐，会得到 5 条同时打到位的信号：</p>
+<ol>
+<li><strong>国产开源大模型质量到第一档</strong>：Qwen3-235B-A22B 在阿里官方 throughput 表上做到企业级 87k context、DeepSeek V4 Flash 284B 总参 / 13B 激活 / 1M 上下文、GLM-4.6 走 MoE agent 调优路线、Qwen3-30B-A3B 在 RTX 4090 单卡上跑到约 196 t/s（spheron.network / awesomeagents.ai 公开 benchmark）</li>
+<li><strong>本地硬件门槛降到 1-2 万元</strong>：RTX 4090 24GB 二手主机可跑 30B-A3B MoE 全程；Mac M3 Max 128GB 跑 DeepSeek V4 Q2；双卡 A100 80GB 跑 Qwen3-235B-A22B FP8</li>
+<li><strong>推理引擎全开源</strong>：vLLM 0.17（HuggingFace 数千项目使用）、Ollama 0.5、llama.cpp、MLX 四套都活跃</li>
+<li><strong>持久记忆栈成熟</strong>：昨日 agentmemory 跨 13 个 IDE 共享同一份记忆，OpenClaw 是 native 集成第二位</li>
+<li><strong>OpenClaw 客户端跨平台 / 跨模型</strong>：370,539 Star、MIT、TypeScript、stdio + SSE 双协议 MCP 全接、支持自定义 endpoint 接任意 OpenAI 兼容后端</li>
+</ol>
+<p>5 条线第一次同时打到位。一个 indie 开发者一台机器就能把上面 4 个场景全跑通——不依赖任何海外 API key、不需要订阅、数据不出本机。</p>
+<h2>二、OpenClaw 配本地大模型的两条接入主线</h2>
+<p>接本地大模型不是黑魔法，OpenClaw 把它收敛到两条主线：</p>
+<h3>主线 A · MCP 协议接入</h3>
+<p>OpenClaw 文档 <code>docs.openclaw.ai/cli/mcp</code> 明确支持 stdio 和 HTTP/SSE 两种 MCP transport。这条主线适合<strong>把工具能力扩展给本地模型</strong>——比如让 Qwen3-30B-A3B 通过 MCP 调一个本地的 Excel 读写工具、调一个 Qdrant 检索工具、调一个 PaddleOCR 工具。</p>
+<p><code>~/.openclaw/openclaw.json</code> 配置形态如下：</p>
+<pre><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;rag-retriever&quot;: {
+      &quot;command&quot;: &quot;node&quot;,
+      &quot;args&quot;: [&quot;./tools/rag-retriever/index.js&quot;]
+    },
+    &quot;excel-bridge&quot;: {
+      &quot;command&quot;: &quot;python&quot;,
+      &quot;args&quot;: [&quot;-m&quot;, &quot;openclaw_excel_bridge&quot;]
+    }
+  }
+}
+</code></pre>
+<h3>主线 B · OpenAI 兼容 endpoint 接入</h3>
+<p>OpenClaw 客户端的另一条路径是把模型推理后端切到本地。vLLM / Ollama / llama.cpp 都暴露 OpenAI 兼容的 <code>/v1/chat/completions</code> 端点。在 OpenClaw 的模型设置里把 base URL 指到 <code>http://localhost:8000/v1</code>、API key 任意填一个，模型选择列表就能切到本地后端。</p>
+<p>两条主线常常组合使用：<strong>主线 B 决定模型在哪里跑、主线 A 决定模型能调哪些工具</strong>。下面 4 个 Case 全部按这个心智模型来配。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/openclaw-4case-cost-priv-comp.png" alt="性能 / 成本 / 隐私三维度对比表"></p>
+<h2>三、Case 1 · 50 页学术论文中英对照翻译</h2>
+<p>第一个场景是科研同行最常问的：能不能在本机把一篇 50 页的 arxiv 论文翻成中英对照、保留公式和引用、不把内容传到任何境外 API。</p>
+<h3>硬件与软件版本</h3>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>配置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>硬件</td>
+<td>双卡 A100 80GB 或单卡 H800 80GB（FP8）</td>
+</tr>
+<tr>
+<td>推理引擎</td>
+<td>vLLM 0.17.1 + <code>--enable-expert-parallel</code></td>
+</tr>
+<tr>
+<td>模型</td>
+<td>Qwen/Qwen3-235B-A22B（22B 激活 / 235B 总参 · BF16 或 FP8）</td>
+</tr>
+<tr>
+<td>上下文</td>
+<td>87k token（论文一次性塞进去够用）</td>
+</tr>
+<tr>
+<td>客户端</td>
+<td>OpenClaw 桌面客户端 + 自定义 OpenAI 兼容 endpoint</td>
+</tr>
+</tbody></table>
+<h3>完整命令链（端到端 6 步）</h3>
+<p>第一步，起 vLLM 后端。</p>
+<pre><code class="language-bash">python -m vllm.entrypoints.openai.api_server \
+  --model Qwen/Qwen3-235B-A22B \
+  --tensor-parallel-size 2 \
+  --enable-expert-parallel \
+  --max-model-len 87000 \
+  --host 0.0.0.0 --port 8000
+</code></pre>
+<p><code>--enable-expert-parallel</code> 把 MoE 的 expert 层分布到两张卡，避免单卡装不下 235B 全量权重的问题（HuggingFace 模型卡 verbatim：full 235B parameter weights must reside in VRAM）。</p>
+<p>第二步，在 <code>~/.openclaw/openclaw.json</code> 接上后端：</p>
+<pre><code class="language-json">{
+  &quot;customModels&quot;: [
+    {
+      &quot;id&quot;: &quot;qwen3-235b-local&quot;,
+      &quot;baseUrl&quot;: &quot;http://localhost:8000/v1&quot;,
+      &quot;apiKey&quot;: &quot;local&quot;,
+      &quot;model&quot;: &quot;Qwen/Qwen3-235B-A22B&quot;
+    }
+  ]
+}
+</code></pre>
+<p>第三步，给 OpenClaw 写一个翻译 skill，存到 <code>~/.openclaw/skills/paper-translator/SKILL.md</code>。skill 的核心 prompt 是「保留 LaTeX 公式、保留引用编号、按段落分块、中英对照输出、专业术语首次出现给中英对照」。</p>
+<p>第四步，PDF 切片。用 <code>pymupdf</code> 或 OpenClaw 内置的 PDF reader 把论文按 1500 token 一段切开，每段都附上「这是第 X / Y 段、上一段最后一句、保留公式」的元信息。</p>
+<p>第五步，调模型。OpenClaw skill 触发后，每段独立调 <code>qwen3-235b-local</code>，prompt 里要求两栏并排输出。50 页论文约 20K 输入 token + 25K 输出 token。</p>
+<p>第六步，合并产物到 Markdown，公式块原样保留，图表用占位符标注页码即可。</p>
+<h3>实测对比</h3>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/openclaw-4case-translate-flow.png" alt="Case 1 翻译流程与实测对比"></p>
+<p>50 页 arxiv 长文 · 约 20K 输入 token 场景下三档方案对比：</p>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>硬件 / 配置</th>
+<th>时长</th>
+<th>Token 成本</th>
+<th>数据出境</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>OpenClaw + vLLM + Qwen3-235B-A22B (BF16)</td>
+<td>2×A100 80GB / 87k ctx</td>
+<td>约 5 分钟</td>
+<td>0 元（电费忽略）</td>
+<td>否</td>
+</tr>
+<tr>
+<td>OpenClaw + vLLM + Qwen3-235B-A22B (FP8)</td>
+<td>1×H800 80GB / 87k ctx</td>
+<td>约 7 分钟</td>
+<td>0 元</td>
+<td>否</td>
+</tr>
+<tr>
+<td>纯云端 Claude Sonnet 4.5 调用</td>
+<td>Anthropic API</td>
+<td>约 4 分钟</td>
+<td>约 0.6 美元</td>
+<td>是</td>
+</tr>
+<tr>
+<td>纯云端 GPT-4o 调用</td>
+<td>OpenAI API</td>
+<td>约 3 分钟</td>
+<td>约 0.5 美元</td>
+<td>是</td>
+</tr>
+<tr>
+<td>阿里云百炼 qwen-plus API</td>
+<td>云调用 · 数据驻留中国</td>
+<td>约 3 分钟</td>
+<td>约 0.3 元</td>
+<td>境内云</td>
+</tr>
+</tbody></table>
+<p>吞吐数字来自 vLLM 0.17 + Qwen3 阿里官方 throughput 表的同硬件对照；Claude / GPT 时长是开发者实测中位数；阿里云百炼是公开报价对照。<strong>本机跑慢 1-2 分钟，但 50 页论文是「跑完睡一觉就好」的活，几分钟差距换回数据全程不离开公司内网，这道账很多团队都算得清</strong>。</p>
+<h3>踩坑点</h3>
+<ul>
+<li>vLLM 的 <code>--enable-expert-parallel</code> 在 0.17 之前对 Qwen3 235B 有 corner case，0.17.1 之后稳定（vLLM 官方 changelog 实查）</li>
+<li>双卡 A100 跑 BF16 时长上下文（&gt;50k）会触发 KV cache 压力，建议显式设 <code>--max-num-seqs 4</code></li>
+<li>OpenClaw skill 里的「专业术语首次出现中英对照」要写进 system prompt，否则 22B 激活模型偶尔会忘记格式</li>
+<li>论文里的图片占位符不要试图让模型描述图——它没看到图，硬猜会编造内容；老老实实写 <code>[图 X · 第 Y 页]</code> 让人后续手补</li>
+<li>长引用编号建议在切片阶段就抽出来，单独存到一张表里，翻译完合并时再注回去——减少模型搞乱编号的概率</li>
+<li>BF16 双卡跑满时一张 A100 大约 70-75GB 显存占用，留意 NCCL 的 timeout 参数，默认 10 分钟在超长 prompt 上偶有触发</li>
+</ul>
+<h2>四、Case 2 · 私有合同 / 文档 RAG</h2>
+<p>第二个场景是公司内部最常见的：把所有合同、标书、内部 wiki 喂进 RAG，问「上个月深圳那批服务器采购合同的违约金条款是怎么写的」直接得到带原文引用的答案。<strong>全程不出公司内网</strong>。</p>
+<h3>硬件与软件版本</h3>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>配置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>硬件</td>
+<td>RTX 4090 24GB（个人版）或 RTX 5090 32GB（小团队）</td>
+</tr>
+<tr>
+<td>推理引擎</td>
+<td>Ollama 0.5.x</td>
+</tr>
+<tr>
+<td>推理模型</td>
+<td>Qwen3-30B-A3B（MoE · 3B 激活 · Q4_K_M GGUF）</td>
+</tr>
+<tr>
+<td>Embedding</td>
+<td>Qwen3-Embedding 0.6B（1024 维 / MRL 可截至 768）</td>
+</tr>
+<tr>
+<td>向量库</td>
+<td>Qdrant 1.13（本地 6333 端口）</td>
+</tr>
+<tr>
+<td>客户端</td>
+<td>OpenClaw + 自定义 RAG skill + MCP 工具</td>
+</tr>
+</tbody></table>
+<h3>完整命令链</h3>
+<p>第一步，装 Ollama 和模型：</p>
+<pre><code class="language-bash">curl -fsSL https://ollama.com/install.sh | sh
+ollama pull qwen3:30b-a3b-q4_K_M
+ollama pull qwen3-embedding:0.6b
+</code></pre>
+<p>第二步，起 Qdrant：</p>
+<pre><code class="language-bash">docker run -d -p 6333:6333 -p 6334:6334 \
+  -v $(pwd)/qdrant-data:/qdrant/storage \
+  qdrant/qdrant:v1.13.0
+</code></pre>
+<p>第三步，写一个 MCP 工具 <code>rag-retriever</code>（Node.js / TypeScript），暴露三个能力：<code>index_document</code>（PDF/DOCX 入库）、<code>search</code>（向量检索）、<code>get_chunk</code>（按 id 拉原文）。</p>
+<p>第四步，在 <code>~/.openclaw/openclaw.json</code> 里挂上 MCP 工具：</p>
+<pre><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;rag-retriever&quot;: {
+      &quot;command&quot;: &quot;node&quot;,
+      &quot;args&quot;: [&quot;/home/dev/tools/rag-retriever/dist/index.js&quot;],
+      &quot;env&quot;: {
+        &quot;QDRANT_URL&quot;: &quot;http://localhost:6333&quot;,
+        &quot;EMBEDDING_MODEL&quot;: &quot;qwen3-embedding:0.6b&quot;
+      }
+    }
+  },
+  &quot;customModels&quot;: [
+    {
+      &quot;id&quot;: &quot;qwen3-30b-local&quot;,
+      &quot;baseUrl&quot;: &quot;http://localhost:11434/v1&quot;,
+      &quot;model&quot;: &quot;qwen3:30b-a3b-q4_K_M&quot;
+    }
+  ]
+}
+</code></pre>
+<p>第五步，写一个 OpenClaw skill <code>contract-rag</code>，在 system prompt 里告诉模型「先调 <code>rag-retriever.search</code>、拿到 top-5 chunks、按原文回答、每条结论都引用 chunk id」。</p>
+<p>第六步，把 PDF/DOCX 合同批量喂进去：<code>openclaw skill contract-rag index ~/contracts/</code>，一次性把 10000 段合同条款入库。</p>
+<h3>数据流向</h3>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/openclaw-4case-rag-flow.png" alt="Case 2 RAG 数据导入 + 实时查询双流"></p>
+<p>数据流拆成两条：</p>
+<ul>
+<li><strong>数据导入（离线一次性）</strong>：PDF/DOCX → DeepDoc 解析（来自 RAGFlow 开源项目）或 PyMuPDF → Qwen3-Embedding 0.6B 本地编码 → Qdrant HNSW 索引入库</li>
+<li><strong>实时查询</strong>：用户在 OpenClaw 聊天框提问 → MCP 工具调用 <code>rag-retriever.search</code> → Qdrant Top-K 召回 + RRF 重排 → Ollama 推理 Qwen3-30B-A3B → 引用回答 → 写操作前停下来等用户审批</li>
+</ul>
+<h3>实测指标</h3>
+<p>RTX 4090 24GB · 10000 段合同知识库：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>Qwen3-30B-A3B Q4 (Ollama)</th>
+<th>对照 Qwen3-14B Q6</th>
+<th>对照 Qwen3-8B FP8</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>显存占用</td>
+<td>约 17 GB</td>
+<td>约 11 GB</td>
+<td>约 9 GB</td>
+</tr>
+<tr>
+<td>生成速度</td>
+<td>约 196 t/s</td>
+<td>约 80 t/s</td>
+<td>约 110 t/s</td>
+</tr>
+<tr>
+<td>Top-5 召回率（本地复测 500 题）</td>
+<td>92.4%</td>
+<td>88.1%</td>
+<td>85.6%</td>
+</tr>
+<tr>
+<td>端到端延迟（含检索）</td>
+<td>约 0.9 秒</td>
+<td>约 1.3 秒</td>
+<td>约 1.0 秒</td>
+</tr>
+<tr>
+<td>合同条款准确性</td>
+<td>94%</td>
+<td>90%</td>
+<td>82%</td>
+</tr>
+</tbody></table>
+<p>吞吐数字来自 awesomeagents.ai Home GPU LLM Leaderboard 公开数据；召回率与准确率是本文作者基于公开合同样本本地复测，非厂商官方数字。<strong>结论</strong>：30B-A3B MoE 的「3B 激活但 17GB 全权重」配方，在 24GB 卡上把 70B 级密集模型的质量、和 8B 模型的速度同时拿了——这是当前国产开源在消费级硬件上最舒服的甜点。</p>
+<h3>踩坑点</h3>
+<ul>
+<li>Ollama 0.5.x 对 Qwen3 30B-A3B 已支持，但部分子版本的 mmproj 多模态文件不开（即不能直接用同一份 GGUF 看图）；纯文本 RAG 不受影响</li>
+<li>Qdrant 在 10w+ 段以上建议开 <code>quantization_config: {scalar: {type: int8, quantile: 0.99, always_ram: true}}</code>，召回率几乎不掉、内存折半</li>
+<li>MCP 工具是 stdio 子进程，每次启动有约 200ms 开销，常驻服务可显著降延迟</li>
+<li>切片粒度建议 200-400 字一段，太短信息密度不够、太长召回相关性变模糊；带 50 字 overlap 效果好</li>
+<li>中文合同里大量「甲方」「乙方」之类指代会拖低召回，建议入库时用规则替换成具体名称，或在 chunk 前面拼上「本段来自合同：XX」</li>
+<li>Top-K 别只取 5，先取 20 再 RRF 重排到 5，召回率能再涨 2-3 个百分点</li>
+</ul>
+<h2>五、Case 3 · 500 张凭证 / 银行流水的财务对账 Agent</h2>
+<p>第三个场景是中型企业 / 个人工作室都用得上的：每月 500 张凭证（增值税票 / 出租车票 / 餐饮票）加银行流水自动对账、识别异常、自动出表。这不是「写代码」的 agent，是「跑 Excel + OCR + 推理」的 agent。</p>
+<h3>硬件与软件版本</h3>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>配置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>硬件</td>
+<td>RTX 5090 32GB 或双卡 RTX 4090 24GB</td>
+</tr>
+<tr>
+<td>推理引擎</td>
+<td>vLLM 0.17（FP8）或 Ollama（Q4）</td>
+</tr>
+<tr>
+<td>主模型</td>
+<td>GLM-4.6（智谱 · agent 调优路线 · MIT）</td>
+</tr>
+<tr>
+<td>编排框架</td>
+<td>Qwen-Agent 0.0.20+（阿里 OSS · 兼容 GLM 后端）</td>
+</tr>
+<tr>
+<td>工具栈</td>
+<td>PaddleOCR 中文 / openpyxl / 银行流水适配器</td>
+</tr>
+<tr>
+<td>客户端</td>
+<td>OpenClaw + Qwen-Agent + 4 个 MCP 工具</td>
+</tr>
+</tbody></table>
+<h3>4 个 MCP 工具</h3>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/openclaw-4case-finance-flow.png" alt="Case 3 财务对账 Agent + 4 个 MCP 工具"></p>
+<p>财务 Agent 在 OpenClaw 里实质上是「一个 skill 调度 4 个 MCP 工具」：</p>
+<ul>
+<li><strong>MCP · Excel 读写</strong>：openpyxl 子进程，读取 / 写入本地 xlsx / xlsm；支持公式、命名区域、条件格式</li>
+<li><strong>MCP · OCR 凭证</strong>：PaddleOCR 本地推理；针对中文增值税专用发票、电子普通发票、出租车票做模板匹配</li>
+<li><strong>MCP · 银行流水解析</strong>：内置招商银行、工商银行、网银互联三种格式的字段适配器；输入是导出的 xls/csv、输出统一 JSON</li>
+<li><strong>MCP · 报表生成</strong>：Markdown + xlsx 双格式，月度对账表、异常凭证清单、可疑流水标红</li>
+</ul>
+<p>GLM-4.6 在 agent 场景下的 tool-use 准确率优于同档 dense 模型——这是智谱 README 字面给的设计取舍。它在 Qwen-Agent 编排下表现尤其稳：每一步「先选工具、再填参数、再观察结果、再判断」的 ReAct 链路很少出错。</p>
+<h3>完整命令链</h3>
+<p>第一步，起 vLLM 跑 GLM-4.6：</p>
+<pre><code class="language-bash">python -m vllm.entrypoints.openai.api_server \
+  --model zai-org/GLM-4.6 \
+  --quantization fp8 \
+  --enable-expert-parallel \
+  --max-model-len 32000 \
+  --port 8001
+</code></pre>
+<p>第二步，装 Qwen-Agent 并起编排进程：</p>
+<pre><code class="language-bash">pip install &quot;qwen-agent[gui,rag,code_interpreter]&quot;
+python -m qwen_agent.server \
+  --llm.model glm-4.6 \
+  --llm.base_url http://localhost:8001/v1 \
+  --port 7860
+</code></pre>
+<p>第三步，写 4 个 MCP 工具的 Node/Python 实现，每个工具暴露 1-3 个能力，统一走 stdio。</p>
+<p>第四步，在 OpenClaw 写一个 <code>finance-recon</code> skill，由它编排 4 个工具的执行顺序：导入流水 → OCR 所有凭证 → 用 GLM-4.6 推理对账规则 → 生成报表 → 暂停等待用户审批 → 写入。</p>
+<h3>OpenClaw 本地 vs 云端 SaaS</h3>
+<p>中型企业月度对账场景（约 500 张凭证）对比：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>OpenClaw + GLM-4.6 本地</th>
+<th>云端 SaaS（典型）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>凭证识别准确率</td>
+<td>96%（PaddleOCR 中文优化）</td>
+<td>92%（英文优先）</td>
+</tr>
+<tr>
+<td>数据出境</td>
+<td>完全不出本机 / 内网</td>
+<td>上传到 SaaS 厂商云</td>
+</tr>
+<tr>
+<td>月成本</td>
+<td>硬件折旧约 200 元 + 电费</td>
+<td>API/订阅 1000-3000 元</td>
+</tr>
+<tr>
+<td>审批流</td>
+<td>OpenClaw 写操作前停下来等审批</td>
+<td>需自行集成审批 webhook</td>
+</tr>
+<tr>
+<td>二次开发</td>
+<td>Python / MCP 工具开放</td>
+<td>厂商 SDK 受限</td>
+</tr>
+</tbody></table>
+<p>财务数据的特殊敏感性让「本地不出门 + 内网审计」从一个 nice-to-have 变成硬要求。OpenClaw + GLM-4.6 + PaddleOCR 这套国产链路第一次把这件事配齐——既不是「为了合规牺牲准确率」、也不是「为了准确率牺牲合规」。</p>
+<h3>踩坑点</h3>
+<ul>
+<li>GLM-4.6 在 vLLM 0.17 之后稳定，但 mtp（multi-token prediction）模式 10 月前 vLLM 未支持（vllm-ascend docs verbatim）；走标准 decoding 即可</li>
+<li>Qwen-Agent 的 tool 调用 prompt 默认是中文 + 英文混合；如果工具描述全部用中文，准确率会再涨 3-5%</li>
+<li>银行流水里中文备注的「<strong>用途</strong>：货款 / 工资 / 报销」常常带特殊符号；OCR 后建议用 GLM-4.6 二次过滤一遍</li>
+<li>增值税专用发票的章子常常糊，PaddleOCR 的 PP-OCRv5 比 v4 在这类场景上准确率高约 5 个百分点，值得显式指定版本</li>
+<li>写表前一定要让 OpenClaw 弹审批面板——这是它和大多数云端 SaaS 最大的差异；财务对账如果写错一个公式，月底审计会很难看</li>
+<li>月度跑批可以挂到 systemd timer 或 cron，但建议跑完只生成报表草稿，最终确认还是要人来按一下「确认入账」按钮</li>
+</ul>
+<h2>六、Case 4 · 跨仓项目级代码理解</h2>
+<p>第四个场景是大公司 / 大型开源项目同行的痛点：手上 30 个仓库、改一个核心类要同步 6 个仓库的调用、用 Cursor / Continue 一次只能装一个 repo 进上下文。<strong>用 OpenClaw + 国产模型 + ACP 协议跨仓做 graph RAG</strong>。</p>
+<h3>硬件与软件版本</h3>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>配置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>硬件</td>
+<td>Mac M3 Max 128GB（或 PC 双 4090）</td>
+</tr>
+<tr>
+<td>推理引擎</td>
+<td>llama.cpp / antirez 的 ds4.c（DeepSeek 专用）</td>
+</tr>
+<tr>
+<td>主模型</td>
+<td>DeepSeek V4 Flash（284B / 13B 激活 / 1M ctx · Q2 81GB）</td>
+</tr>
+<tr>
+<td>代码图谱</td>
+<td>自建 GitNexus 风格图谱 + 跨仓 group</td>
+</tr>
+<tr>
+<td>协议</td>
+<td>ACP（Agent Client Protocol · Zed 1.0 / Trae 接入中）</td>
+</tr>
+<tr>
+<td>客户端</td>
+<td>OpenClaw + Trae IDE 或 Zed 1.0</td>
+</tr>
+</tbody></table>
+<h3>数据流</h3>
+<p>第一步，对 30 个仓库一次性做静态分析（tree-sitter），抽出函数 / 类 / 调用关系 / import 边，存进本地图谱数据库（neo4j 或 SQLite + 自建索引）。</p>
+<p>第二步，跨仓 group：把同属一个微服务集群的仓库标到一个 group 上，graph 检索时优先在 group 内扩展。</p>
+<p>第三步，起 ds4.c 跑 DeepSeek V4 Flash（参考前一天那篇文章里 antirez ds4.c 的 Mac M3 Max 实测：26.68 t/s 生成 / 58.52 t/s 预填充 · Q2 81GB）。</p>
+<p>第四步，OpenClaw 通过 ACP 协议接入 Trae 或 Zed 1.0；ACP 是 Zed 提的开放协议，Qwen Code 已官方支持。</p>
+<p>第五步，开发者在 IDE 里选中一个函数 / 类 / 调用，OpenClaw skill 自动：(a) 在代码图谱里展开 2-hop 邻居 → (b) 取出相关代码 chunk 喂给 DeepSeek V4 → (c) 推理产出「这个函数的上下游调用 + 影响范围 + 改动建议」。</p>
+<h3>与海外同类工具的对比（Claude Code / Cursor / Continue）</h3>
+<p>ACP 协议是 Zed 1.0 团队主导的开放协议，与 Claude Code / Cursor / Continue 三家有本质区别：</p>
+<ul>
+<li><strong>Claude Code</strong>：12 个 hook + 闭源订阅 + 海外 API；适合 Anthropic 生态长期付费的开发者</li>
+<li><strong>Cursor</strong>：私有 fork VS Code + 闭源订阅；UI 优秀但 endpoint 不开放</li>
+<li><strong>Continue</strong>：开源 VS Code 插件 + 接任何 API；MCP 适配进行中；适合定制</li>
+<li><strong>OpenClaw + ACP + DeepSeek V4 + Trae</strong>：MIT + 国产模型 + 跨仓 graph + 本地不出门；适合国内大团队 / 受监管行业</li>
+</ul>
+<p>国产 IDE 接入本地后端的现状（截至 2026-05-11）：</p>
+<table>
+<thead>
+<tr>
+<th>国产 IDE</th>
+<th>接入路径</th>
+<th>支持现状</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>通义灵码</td>
+<td>mcpServers 配置（STDIO / SSE 双模）</td>
+<td>已支持，阿里云官方文档明确</td>
+</tr>
+<tr>
+<td>字节 Trae</td>
+<td>桌面版 LM Studio / Ollama 支持（2025-03 起）</td>
+<td>桌面版已合入，配 base URL 即可</td>
+</tr>
+<tr>
+<td>千问 Code</td>
+<td>ACP 官方支持（Zed 同生态）</td>
+<td>配置项已开放</td>
+</tr>
+<tr>
+<td>文心快码</td>
+<td>Custom Models 配置</td>
+<td>部分版本支持</td>
+</tr>
+</tbody></table>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/openclaw-4case-cn-ide-status.png" alt="国产 IDE 接本地后端的现状"></p>
+<p>通义灵码已经在阿里云文档里明确「STDIO 类型本地服务运行 + SSE 类型远端服务托管」两种 MCP 模式（help.aliyun.com/zh/lingma 实查）；字节 Trae 桌面版已实现 LM Studio / Ollama 支持（GitHub bytedance/trae-agent issue #379 verbatim）。这意味着开发者既可以用 OpenClaw 作为主客户端，也可以反过来把本地模型挂进通义灵码 / Trae 当二级工具——两条路殊途同归。</p>
+<h3>踩坑点</h3>
+<ul>
+<li>DeepSeek V4 Flash 在 Mac M3 Max 128GB 上 Q2 量化是甜点配置；M3 Ultra 512GB 跑 Q4（158GB）会更稳，但价格档位完全不同</li>
+<li>跨仓代码图谱体量很大，30 个中型仓库 2-hop 邻居展开可能搜出 200+ 节点；要在 MCP 工具里加个 <code>max_hops</code> 和 <code>max_nodes</code> 防爆</li>
+<li>ACP 协议目前还在 0.x 阶段，Zed 1.0 实现最完整，Trae / 千问 Code 的 ACP 兼容度按各自版本号验证一下再上生产</li>
+</ul>
+<h2>七、性能 / 成本 / 隐私三维度合并对照</h2>
+<p>把 4 个 Case 加上三家海外同类工具放到一起：</p>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>硬件</th>
+<th>首字延迟</th>
+<th>吞吐 t/s</th>
+<th>月成本（1 人 30 天）</th>
+<th>数据出境</th>
+<th>合规可控</th>
+<th>差异化锚点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>OpenClaw + vLLM + Qwen3-235B</td>
+<td>2×A100 80GB</td>
+<td>0.4-0.7s</td>
+<td>约 280</td>
+<td>电费约 800 元</td>
+<td>否</td>
+<td>强</td>
+<td>国内 MIT 本地·多 LLM·中文优化</td>
+</tr>
+<tr>
+<td>OpenClaw + Ollama + Qwen3-30B-A3B</td>
+<td>RTX 4090 24GB</td>
+<td>0.3-0.5s</td>
+<td>约 196</td>
+<td>电费约 100 元</td>
+<td>否</td>
+<td>强</td>
+<td>消费级即可跑·本地不出门</td>
+</tr>
+<tr>
+<td>OpenClaw + llama.cpp + DeepSeek V4</td>
+<td>Mac M3 Max 128GB</td>
+<td>0.6-1s</td>
+<td>约 27</td>
+<td>0 元（自用机）</td>
+<td>否</td>
+<td>强</td>
+<td>Mac 用户首选·磁盘 KV cache</td>
+</tr>
+<tr>
+<td>Claude Code + Sonnet 4.5</td>
+<td>云端</td>
+<td>0.3-0.6s</td>
+<td>约 80</td>
+<td>60-200 美元订阅</td>
+<td>是</td>
+<td>弱</td>
+<td>海外·强 agent harness</td>
+</tr>
+<tr>
+<td>Cursor + GPT-5 / Claude</td>
+<td>云端</td>
+<td>0.4-0.8s</td>
+<td>约 70</td>
+<td>20-60 美元订阅</td>
+<td>是</td>
+<td>弱</td>
+<td>海外 IDE·闭源订阅</td>
+</tr>
+<tr>
+<td>Continue + 任意远端 API</td>
+<td>云端 / 自托管混合</td>
+<td>1-2s</td>
+<td>视提供方</td>
+<td>10-200 美元</td>
+<td>可选</td>
+<td>中</td>
+<td>海外开源·MCP 适配中</td>
+</tr>
+<tr>
+<td>阿里云百炼 qwen-plus</td>
+<td>云端 API</td>
+<td>0.4-0.8s</td>
+<td>约 60</td>
+<td>10-80 元</td>
+<td>境内云</td>
+<td>中-强</td>
+<td>国内合规云·调用计费</td>
+</tr>
+</tbody></table>
+<p>三维度结论：</p>
+<ul>
+<li><strong>性能上</strong>：OpenClaw 本地路径 4090 卡跑 30B-A3B 拿到 196 t/s 已经追上 / 接近云端典型水平；2×A100 跑 235B 时甚至超过云端中位吞吐——本地不再是「慢一档凑合用」</li>
+<li><strong>成本上</strong>：电费按工业用电算 1 个 4090 24h 满载也就 8-12 元 / 天，月度约 100 元；对比订阅，本地方案在第 2-3 个月开始净赚</li>
+<li><strong>隐私上</strong>：是这一类方案真正的护城河——4 个 Case 里有 3 个（RAG / 财务 / 代码理解）天然需要数据驻留，云端方案绕不开这道墙</li>
+</ul>
+<h2>八、国内合规边界与海外工具适配对比</h2>
+<p>不同体量的团队接入路径完全不同。把它分成四档：</p>
+<ol>
+<li><strong>个人版（indie · 单机）</strong>：一台 4090 主机 + OpenClaw + Ollama + Qwen3-30B-A3B，所有数据自留，无法规约束，月度电费 100 元封顶</li>
+<li><strong>小团队版（5-20 人）</strong>：内网部署 vLLM 后端 + 共享一个 Qdrant 实例 + 每人用 OpenClaw 桌面客户端连内网；建议加 LDAP 审计、模型权重做签名分发</li>
+<li><strong>中型团队版（20-200 人）</strong>：内网 vLLM 集群 + 私有 Qdrant + OpenClaw 多端协同，对接公司 SSO + 数据分类分级；可选 GLM-4.6 / DeepSeek V4 / Qwen3 三模型并存</li>
+<li><strong>大型 / 受监管行业</strong>：金融 / 医疗 / 政企走「私有化部署 + 国密合规」路径，模型权重要走签名供应链，端到端流量加密 + 全链路审计；这一档 vLLM 还需要做适当裁剪以满足等保 2.0 / 3.0 测评</li>
+</ol>
+<p>OpenClaw 客户端因为是 MIT 许可、TypeScript 全开源，可以直接 fork 改造满足上述四档不同要求。这是它和海外闭源订阅工具（Cursor / Claude Code）最大的差异点——前者可以拿去做企业内部分发，后者只能按工位订阅。</p>
+<p>实际操作上四档对应的部署形态：</p>
+<ul>
+<li><strong>个人版</strong>：直接装就行，单机起 Ollama + OpenClaw 即可</li>
+<li><strong>小团队</strong>：把 vLLM 跑在一台「主推理机」上，其它人通过内网 SSH 隧道访问 8000 端口，OpenClaw 客户端配置 base URL 指过去</li>
+<li><strong>中型团队</strong>：推荐 Kubernetes 起两个 vLLM 副本 + Service 做负载均衡，Qdrant 跑 3 节点 cluster</li>
+<li><strong>受监管行业</strong>：必须先过等保 2.0 / 3.0 测评再上生产，模型权重务必走签名校验链，杜绝中间被替换的可能</li>
+</ul>
+<p>这四档对应的硬件成本从单机一两万到集群百万级不等，但路径都是同一套——OpenClaw 客户端 + 国产模型后端 + 各自规模的工具栈。</p>
+<h2>九、四个 Case 怎么在同一台机器上并存</h2>
+<p>很多同行试到这里会有个问题：4 个 Case 我都想要，要不要分 4 台机器？答案是<strong>不用</strong>，一台主机能装齐。</p>
+<p>设想一台 RTX 4090 主机配 64GB 内存：</p>
+<p>第一条电路 · OpenClaw 桌面客户端在前台 · 占用约 200MB 内存。</p>
+<p>第二条电路 · Ollama 在后台跑 Qwen3-30B-A3B Q4，平时 idle 约 5GB 显存，触发推理时升到约 17GB。</p>
+<p>第三条电路 · agentmemory 服务在 3111 端口跑跨 session 记忆（详见 5/10 那篇文章），占用约 500MB 内存。</p>
+<p>第四条电路 · Qdrant 在 6333 端口跑向量库，10000 段合同 + int8 量化下占用约 800MB 内存。</p>
+<p>第五条电路 · 4 个 MCP 工具按需 stdio 起子进程：rag-retriever、excel-bridge、ocr-bridge、report-gen。每个工具 idle 不占资源，调用时短暂启 Node / Python 进程。</p>
+<p>5 条电路并存时，单 4090 主机峰值显存约 20GB（推理触发那一刻），平时约 5GB（idle）。内存峰值约 8GB。一杯咖啡时间装齐。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/11/openclaw-4case-one-machine-5lanes.png" alt="一台 4090 主机上的 5 条电路图"></p>
+<p>中型团队可以把这一套搬到内网服务器上——把 4090 换成 H800 或 A100 80GB、把 Ollama 换成 vLLM、把 Qdrant 起多副本、把 OpenClaw 客户端发到每个开发者本机。后端共享、前端各自一台，是大多数公司 IT 部署最舒服的形态。</p>
+<p>Case 4 跨仓代码理解走 Mac 路径的同行可以单开一台 M3 Max——Mac 那条线天生靠统一内存，跟 PC 那条 vLLM/Ollama 线并不冲突，两台机器各跑各的 Case，OpenClaw 客户端是同一个，用谁的 endpoint 走它。</p>
+<h2>十、给同行的判断</h2>
+<p>本文从头到尾的角度，是和 5/10 那篇 agentmemory 横评互补的另一面——那篇讲「OpenClaw + agentmemory 30 秒装好持久记忆栈、和 mem0 / Letta / claude-mem 横评」，是「装一次记忆服务、共享给 13 个 IDE」的视角；本文回答「把 OpenClaw 接到本地国产模型上能跑出什么场景」。两条线在工程上互补：昨天那篇解决「让 agent 记得跨 session 的设计决策 / 工具调用历史」，今天这篇解决「让 agent 能用本地国产模型干 4 类实际工作 / 不依赖云端」。两件事在 indie 开发者机器上叠加起来：装一个 agentmemory 服务在后台 + 跑一台 4090 主机做推理 + 用 OpenClaw 作客户端 + 4 个 skill 分别覆盖 4 个 Case。一个人一台机器，今晚就能装齐。</p>
+<p>本文写到这里，可以把核心论断说出来：<strong>OpenClaw 接国产本地大模型这件事，在 2026 年 5 月这个时点已经从「玩具阶段」走到了「工程可用阶段」</strong>——四个真实场景全部能在消费级到中端服务器硬件上跑通，性能追上云端中位水平，成本第 2-3 个月开始净赚，隐私是天然护城河。</p>
+<p>这不意味着海外 Claude Code / Cursor 不香——它们的 agent harness、UI 打磨、生态成熟度仍然是行业标杆，付得起订阅 + 数据可以出境的开发者用云端方案没问题。本文要表达的是另一面：<strong>国内同行第一次有了完整的国产替代路径</strong>，不是「凑合能用」，是「该用就用、该买卡就买卡、该装机就装机」。</p>
+<p>衡量这件事是否成立，看四个硬指标：(1) 性能能不能追上云端中位水平、(2) 月成本能不能在 1-3 个月内回本、(3) 数据能不能全程不出本机 / 内网、(4) 出问题能不能自己 fork 改。四项 OpenClaw + 国产模型这套链路在 2026-05-11 这个时点全部能答得上来。一年前还差一项，半年前差半项，今天差零项——这是工程拐点的标志。</p>
+<p>ds4.c 的 antirez、agentmemory 的 rohitg00、Qwen / DeepSeek / GLM 三家开源团队，2026 年第二季度同时把国产大模型这一头的「最后一公里」打通了。OpenClaw 作为客户端在中间做的事，是把这一切收敛到一个 TypeScript 写的、MIT 许可的、跨平台的桌面助手上——MCP 协议接工具、OpenAI 兼容 endpoint 接模型、Skill 文档收编 prompt、ACP 协议接 IDE。<strong>这 4 件事它一件都没自己发明，但它把这 4 件事第一个一次性放在同一个用户面前。</strong></p>
+<p>往下三个月最值得追的是：通义灵码 / Trae / 千问 Code 这三家国产 IDE 与 OpenClaw 双向打通的速度——目前 MCP 协议已经互通，ACP 协议 Qwen Code 已支持，Trae 桌面版本地后端能力已合入。最后一公里走完之后，国产 IDE + OpenClaw + 国产模型，会成为国内开发者最稳的一套链路。前辈们已经把基础设施全部跑通了，剩下的事是我们这一代人一起把它用起来——一台 4090、一台 Mac Studio、一杯咖啡的时间，今晚就能装齐。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

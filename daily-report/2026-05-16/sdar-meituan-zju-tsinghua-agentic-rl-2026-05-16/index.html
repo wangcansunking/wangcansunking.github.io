@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>千问 agentic RL 不再训崩：浙大、美团、清华出招 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-16</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-16</span><span class="tag-pill">Daily Report</span></div>
+      <h1>千问 agentic RL 不再训崩：浙大、美团、清华出招</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/sdar-meituan-2026-05-16.png" alt="SDAR 浙大美团清华 agentic RL 论文封面"></p>
+<p>5 月 14 日，浙江大学计算机学院的陆正希、姚志远等十一位作者，把一篇标题叫《Self-Distilled Agentic Reinforcement Learning》的论文挂上了 arxiv（编号 2605.15155）。第一作者所属 1 是浙江大学，所属 2 是美团；第二组人马来自清华大学；通讯作者沈永良同样跨浙大与美团。论文页底部注脚一句很朴素的说明：「Work done during internship at Meituan」——这是一篇浙大博士生在美团实习期间，三所顶级机构联合落地出来的工程论文。</p>
+<p>5 月 15 日早上，这篇论文出现在 HuggingFace Daily Papers 当日榜的第 3 位，58 个 upvote。HuggingFace 的搜索结果里能看到，提交的作者把代码同步开源到了 <code>ZJU-REAL/SDAR</code> 仓库，Apache-2.0 协议，2026-05-14 16:54 UTC 建仓，到本文写作时为止 59 stars / 2 forks——典型的&quot;还没扩散开&quot;的早期状态。</p>
+<blockquote>
+<p><strong>本文要回答四件事</strong>：(1) SDAR 到底解决了 agentic RL 训练里的哪个真问题——是 reward 稀疏？是 KL 爆炸？还是别的；(2) 把 OPSD 当辅助目标 + sigmoid 门控这套做法，为什么比朴素 KL 罚或者 RLSD 那种重加权更稳；(3) Qwen2.5-7B 上 ALFWorld +9.4 / WebShop-Acc +10.2 的数字到底是不是工程团队该认真看的差距；(4) 国内做 agent 应用的工程团队——智谱、千问、字节、美团、阿里——能从这套训法里直接拿走什么。</p>
+</blockquote>
+<h2>一、agentic RL 的两个老问题，被一篇论文同时点了名</h2>
+<p>先把背景摆清楚。</p>
+<p>近一年，大模型后训练的范式已经从「单轮推理 RL」走向了「多轮 agent RL」。区别有多大？单轮推理 RL 里，模型给一道数学题写一段思考，环境给一个对错信号，PPO 或者 GRPO 把这个 trajectory-level reward 摊到每个 token 上，更新策略就完事了。多轮 agent RL 完全不是这样——模型要在 ALFWorld 这种交互式文字游戏里走 10-30 步，每一步生成一段动作，环境返回一段观察，模型再读着观察决定下一步。整条轨迹结束才有一个 reward——成功 +1，失败 0。</p>
+<p>这件事的工程难点 GRPO 论文（DeepSeek 那篇）已经讲过：<strong>reward 极度稀疏</strong>。模型走错一步就万劫不复，可能 25 步之后才知道自己第 3 步那个动作选错了，反向传播过来的信号弱到几乎没法学。</p>
+<p>OPSD（On-Policy Self-Distillation，去年下半年由清华 Zhao 等人提出）给出过一个看起来很优雅的解法：<strong>自己当自己的老师</strong>。具体做：把同一个学生模型复制一份做&quot;教师分支&quot;，让教师比学生多看一个东西——「特权上下文」（privileged context），比如检索到的相关 skill 文档、参考答案的部分提示。然后在每个 token 上算教师和学生的概率差，把它当成密集的 token 级监督信号。轨迹级 reward 还是有，但每个 token 上都额外有了一个&quot;你这步该往哪边偏&quot;的细粒度提示。</p>
+<p>听起来很美，但 SDAR 的论文 Figure 2 给出了一张冷峻的训练曲线：把朴素 OPSD 直接套到多轮 agent 训练上，<strong>KL 散度在前 200 步直接爆掉，任务成功率从 80%+ 跌到趋近 0</strong>。</p>
+<p>为什么？SDAR 的作者做了两个观察：</p>
+<p><strong>观察 1：多轮 OPSD 不稳定</strong>。学生一旦走偏到教师没覆盖到的轨迹分支（这在 multi-turn 里几乎是必然），教师此前给的 token 级监督就开始失真，越走越偏，KL 越涨越高，最后崩盘。这不是教师不够强的问题，是<strong>多轮交互天然会让学生漂离教师覆盖区</strong>。</p>
+<p><strong>观察 2：特权监督本身就不对称</strong>。教师拿到的 skill 不一定准——检索来的 skill 可能完全不相关，可能不完整，可能教师压根没读懂怎么用。当教师对某个 token 给出&quot;低于学生&quot;的概率（负 gap）时，到底是这个 token 真的不该出现，还是教师被 skill 干扰判错了？论文用 Qwen2.5-3B-Instruct 跑了一遍统计：<strong>整条轨迹里 50% 以上的 token 都是负 gap</strong>。这不是少数边角情况，是普遍现象。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/sdar-method-flow.png" alt="SDAR 训法流程：GRPO 主干 + OPSD 门控辅助"></p>
+<p>把两件事拼起来：<strong>多轮场景下，教师给的 token 级监督有一半是噪声，硬学就会被带歪</strong>。这就是 SDAR 要解决的真问题——不是 RL 不够好，也不是自蒸馏没用，是这两套范式硬拼在一起会爆。</p>
+<h2>二、SDAR 的工程选择：把 OPSD 关进 sigmoid 门控</h2>
+<p>SDAR 给出的方案，用一句话概括：<strong>让 GRPO 留作主干，OPSD 当辅助 loss，每个 token 上的辅助强度由一个 sigmoid 门控按需打开或关闭</strong>。</p>
+<p>这套设计在论文里写成一个简单的总损失：</p>
+<p><code>L(θ) = L_GRPO(θ) + λ_SDAR · L_SDAR(θ)</code></p>
+<p><code>L_SDAR = Σ g_t · (log π_T(y_t | s_t^+) - log π_θ(y_t | s_t))</code></p>
+<p><code>g_t = σ(β · Δ_t)</code>，其中 <code>Δ_t</code> 是教师减学生的对数概率差。</p>
+<p>直白翻译：原来的 GRPO 损失不动——这一点很关键，意味着 RL 的优势估计、importance sampling、clip 都保持原样，没有被特权信号污染。OPSD 那一项被单独拎出来当辅助 loss，每个 token 前面乘一个 0 到 1 之间的门控权重 <code>g_t</code>，权重的形状是一条 sigmoid 曲线。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/sdar-asymmetric-gate.png" alt="SDAR sigmoid 门控：正负 gap 不对称信号"></p>
+<p>这条曲线干的事很简洁：</p>
+<ul>
+<li><strong>正 gap token（教师认可学生这步）</strong>：<code>Δ_t &gt; 0</code>，sigmoid 输出接近 1，门控全开，强蒸馏。逻辑是，教师比学生多看了 skill 文档之后给出了更高的概率，说明这个 token 是学生&quot;已经会但还没内化&quot;的对的方向，应该让学生重点学。</li>
+<li><strong>负 gap token（教师不认可学生这步）</strong>：<code>Δ_t &lt; 0</code>，sigmoid 输出接近 0，门控关闭，软衰减。逻辑是，教师对这个 token 给低概率的原因模糊——可能真不该出，也可能教师被 skill 检错误导，所以<strong>软处理，半信半疑，不硬学</strong>。</li>
+</ul>
+<p>对比朴素 KL 惩罚（直接把 KL 散度加进 loss）会怎么样？KL 是对称的——教师和学生分布距离大，就一起拉近。问题是负 gap 那部分也被算进去，遇到 skill 检索失败的轨迹，整个 token 序列被强行拉向一个本身就错的教师方向，KL 越拉越大，最后训崩。SDAR 的 sigmoid 门控本质是把&quot;对称的 KL 距离&quot;换成了&quot;不对称的 token 级权重&quot;——同样是教师指挥学生，但学生有权利对教师说&quot;这条我不太信，先听一半&quot;。</p>
+<p>这个设计还有一层好处：<strong>梯度只通过学生的 log π_θ 流回去</strong>，教师那一支用 <code>stop-gradient</code> detach 掉了。换句话说，门控 <code>g_t</code> 是一个 token 级的实数权重，不参与反向传播，只决定该 token 上的辅助蒸馏要不要算、算多少。这让整套训练在工程上仍然是单 forward / 单 backward 的标准 GRPO 流程，外加一个并行跑的教师 forward——计算开销可控，VRAM 占用不会翻倍。</p>
+<p>论文还实例化了三种门控变体：</p>
+<table>
+<thead>
+<tr>
+<th>门控</th>
+<th>公式</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>熵门控</strong></td>
+<td><code>g_t = σ(β · h_t)</code></td>
+<td>学生熵高的位置加强蒸馏（不确定时找老师）</td>
+</tr>
+<tr>
+<td><strong>gap 门控</strong></td>
+<td><code>g_t = σ(β · Δ_t)</code></td>
+<td>教师-学生差异大且正向时加强（默认）</td>
+</tr>
+<tr>
+<td><strong>Soft-OR 门控</strong></td>
+<td><code>g_t = σ(β · [1 - (1-h_t)(1-Δ_t)])</code></td>
+<td>熵高或正 gap 任一满足就加强</td>
+</tr>
+</tbody></table>
+<p>实验里 gap 门控是最稳的默认选项。这一点和工程直觉一致——熵门控会被&quot;学生彻底糊涂&quot;的位置欺骗（高熵不代表教师就对），Soft-OR 门控参数太多在小模型上调起来麻烦。</p>
+<h2>三、Qwen2.5-7B 三 benchmark 实测：差距到底大不大？</h2>
+<p>数字才是真东西。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/sdar-7b-benchmarks.png" alt="Qwen2.5-7B：SDAR vs 五条基线，三 benchmark 横评"></p>
+<p>论文 Table 1 给的 Qwen2.5-7B 模型上、三个 benchmark 的成绩：</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>ALFWorld 平均</th>
+<th>Search-QA 平均</th>
+<th>WebShop-Score</th>
+<th>WebShop-Acc</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Vanilla（不训）</td>
+<td>12.5</td>
+<td>33.9</td>
+<td>5.9</td>
+<td>1.6</td>
+</tr>
+<tr>
+<td>OPSD-only</td>
+<td>32.8</td>
+<td>6.2</td>
+<td>4.5</td>
+<td>2.3</td>
+</tr>
+<tr>
+<td><strong>GRPO（最强基线）</strong></td>
+<td><strong>81.2</strong></td>
+<td><strong>42.0</strong></td>
+<td><strong>80.9</strong></td>
+<td><strong>72.6</strong></td>
+</tr>
+<tr>
+<td>Skill-GRPO</td>
+<td>69.5</td>
+<td>40.3</td>
+<td>80.4</td>
+<td>71.9</td>
+</tr>
+<tr>
+<td>GRPO+OPSD（朴素拼接）</td>
+<td>80.4</td>
+<td>47.0</td>
+<td>86.8</td>
+<td>76.5</td>
+</tr>
+<tr>
+<td>Skill-SD</td>
+<td>85.1</td>
+<td>47.8</td>
+<td>86.1</td>
+<td>76.5</td>
+</tr>
+<tr>
+<td>RLSD</td>
+<td>82.0</td>
+<td>49.0</td>
+<td>87.4</td>
+<td>77.3</td>
+</tr>
+<tr>
+<td><strong>SDAR（本文）</strong></td>
+<td><strong>85.9</strong></td>
+<td><strong>49.0</strong></td>
+<td><strong>89.4</strong></td>
+<td><strong>82.8</strong></td>
+</tr>
+</tbody></table>
+<p>几个值得拆开看的点。</p>
+<p><strong>第一，OPSD-only 是真崩</strong>。Search-QA 上 6.2、WebShop-Acc 上 2.3——纯做自蒸馏不挂 RL，结果几乎和不训一样。这印证了一件事：在多轮 agent 场景里，自蒸馏从来都不是替代 RL 的方案，它是辅助。SDAR 论文从开头就强调&quot;RL 留作主干&quot;，是有实测支撑的。</p>
+<p><strong>第二，朴素 GRPO+OPSD 没崩，但收益不稳</strong>。WebShop-Score 从 80.9 涨到 86.8（+5.9），WebShop-Acc 从 72.6 涨到 76.5（+3.9）——确实涨了，但论文 Figure 2 的训练曲线显示这套朴素组合在某些超参组合下会爆掉，可复现性差。这是工程团队最痛恨的——能涨但不一定能再训出来。</p>
+<p><strong>第三，SDAR 在 WebShop-Acc 上抬了 GRPO 整整 10.2 个百分点</strong>（72.6 → 82.8）。这是个很硬的数字。WebShop-Acc 衡量的是「最终买到的商品是不是完全匹配任务要求」，是个二值判定，比&quot;分数接近就给部分分&quot;的 Score 严格得多。10.2 个点意味着，原来 100 单里 73 单完全正确，现在能做到 100 单里 83 单完全正确。</p>
+<p><strong>第四，对比 RLSD 这个上一代最强基线，SDAR 在 WebShop-Acc 上还能再涨 5.5 个点</strong>（77.3 → 82.8）。RLSD 是用自分歧重加权 RL 的 token 级优势——逻辑接近但实现路径不同。SDAR 论文 Figure 2 右侧给出了 RLSD 在训练早期的 KL 爆炸现象，证明 RLSD 那种&quot;直接重加权 RL loss&quot;的做法在 teacher-student gap 大的早期阶段不稳。SDAR 把 OPSD 单独拎成辅助 loss + sigmoid 软衰减，正好绕过了这一段。</p>
+<p>3B 模型（Qwen2.5-3B-Instruct）上的对应数字是 ALFWorld 平均从 GRPO 的 75.0 升到 SDAR 的 84.4——这就是论文摘要里那个 +9.4% 的来源（注意：摘要中 +9.4 是 3B 上的，+10.2 是 7B WebShop-Acc 上的，混着引用容易记错）。Qwen3-1.7B 上 SDAR 也能稳定打过所有基线，这一档对国内边缘部署场景特别有价值——意味着这套训法不挑参数规模，1.7B 小模型同样吃得下。</p>
+<h2>四、为什么这是值得连读的第四篇训法复盘</h2>
+<p>把 SDAR 放进 5 月观察到的国内大厂工程文献谱系里看，会发现它不是孤立事件。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/16/sdar-china-rl-timeline.png" alt="国内大厂主动公开 RL 后训练复盘：四篇连成系统化训法"></p>
+<table>
+<thead>
+<tr>
+<th>日期</th>
+<th>出处</th>
+<th>主题</th>
+<th>信号意义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>5/1</td>
+<td>OpenAI Goblins 中文社区译介</td>
+<td>RL spillover 失败模式复盘</td>
+<td>训练奖励崩了之后的补救范式</td>
+</tr>
+<tr>
+<td>5/2</td>
+<td>智谱 GLM-5 训练日志</td>
+<td>KV Cache 时序漏洞</td>
+<td>Scaling 训法暴露推理侧问题</td>
+</tr>
+<tr>
+<td>5/11</td>
+<td>DELEGATE-52 工程笔记</td>
+<td>长 delegated workflow 上下文工程</td>
+<td>agentic 应用层踩坑实录</td>
+</tr>
+<tr>
+<td><strong>5/16</strong></td>
+<td><strong>浙大 + 美团 + 清华 SDAR 论文</strong></td>
+<td><strong>token 级 OPSD 门控自蒸馏</strong></td>
+<td><strong>首篇把 skill 检索失败做成软衰减的公开方案</strong></td>
+</tr>
+</tbody></table>
+<p>四篇连读下来能看清一件事：<strong>国内顶级团队正在把 RL 后训练从&quot;单点 fix&quot;推到&quot;系统化训法&quot;层面</strong>。</p>
+<p>5 月 1 日那篇 OpenAI Goblins 译介讲的是&quot;训崩了怎么救&quot;，是事后补救；5 月 2 日智谱 GLM-5 的复盘是 scaling 暴露的工程漏洞，仍属于&quot;找出来再修&quot;；5 月 11 日 DELEGATE-52 讲的是应用层怎么把长 workflow 撑住，是 prompt engineering 范畴；到了 5 月 16 日的 SDAR，路径明显前移到了<strong>训练目标本身</strong>——不再被动等着出问题，而是在 loss 函数里就把&quot;教师信号不可靠&quot;这件事内置成可调权重。</p>
+<p>这种递进对国内做 agent 应用的工程团队意味着什么？</p>
+<p><strong>对智谱、千问、字节、阿里、美团这种自训根基的团队</strong>：SDAR 是一份可以直接复用的工程方案。GRPO 那一支不动，只加一个并行的教师 forward + 一个 sigmoid 门控 + 一个加权辅助 loss。代码已经在 ZJU-REAL/SDAR 仓库 Apache-2.0 开放，verl 框架做基底（也是国产，volcengine 开源），vLLM 0.11.0 / Flash Attention 2.7.4 / PyTorch 2.6.0 / CUDA 12.4 全套依赖明确——A100 / H100 / 国产 910B / 寒武纪 都能跑得起来。</p>
+<p><strong>对应用层的团队</strong>——千问 Code / 通义灵码 / 智谱清言 / 豆包 这些做 coding agent 或者通用 agent 的产品线：SDAR 的核心价值是告诉你「skill 检索质量不再是死扣点」。论文的鲁棒性实验显示，<strong>即便用随机检索给教师送 skill，SDAR 仍然能涨过 GRPO 基线</strong>——因为门控会自动把烂 skill 引入的负 gap token 软掉。这意味着国内做 agent 的团队不需要一上来就堆顶级 RAG / 顶级 skill 库，先把 SDAR 这条训法跑起来，让训练自己适应检索的不完美。</p>
+<p><strong>对学术界</strong>：这是浙大 REAL Lab 把美团实习生项目做到 HF Daily Papers 当日第 3 的案例。三所机构联合（浙大 + 美团 + 清华），arxiv 上挂着、代码已开源、五个月内 push 仍在持续——这种&quot;在海外学术圈先露脸、国内中文媒体随后跟进&quot;的路径，正在成为国产 AI 研究的一种典型扩散模式。本周 HF papers 板上同样的镜像还能再找出几条，国内中文媒体翻译跟进往往滞后 1-2 周。</p>
+<h2>五、值得继续追的几条线</h2>
+<p>读完论文一遍，还有几件事是这一版没说透、值得国内工程团队接下来去做实测的。</p>
+<p><strong>门控温度 β 的实战取值</strong>。论文给的 β 是固定值（实验里多用 1.0），但实战上 β 应该不应该随训练进度自适应？早期 teacher-student gap 大、负 gap 比例高，β 偏小（让门控更平滑）可能更稳；中后期 gap 收敛、信号更可靠，β 加大（让门控更陡）可以提升辅助蒸馏的强度。这是个值得国内团队复现时跑 ablation 的方向。</p>
+<p><strong>Qwen3-Coder / DeepSeek-V3 / GLM-5 这些更大根基上的可移植性</strong>。论文只测到 Qwen2.5-7B + Qwen3-1.7B 两档，更大尺度上 SDAR 的稳定性怎样？教师分支需要的额外显存在 70B+ 上是不是真扛得住？这要看国内团队（特别是有自训能力的智谱、阿里、字节）接下来的实测。</p>
+<p><strong>真实 agentic 场景的迁移</strong>。ALFWorld / WebShop / Search-QA 都是学术 benchmark，真实业务里的 agentic 任务（比如美团那种带订单状态机的电商 agent、千问 Code 那种带文件树状态的 coding agent）reward 形态、轨迹长度、skill 检索来源完全不同。SDAR 论文挂着美团两位资深作者（顾琦、蔡勋良），不出意外这套训法已经在美团内部跑过一遍真实场景——下一篇值得等的，是美团接下来公开&quot;SDAR 在真实订单 agent 上的复盘&quot;。</p>
+<p><strong>与 DEMYAgent / RLAnything 等 ICML 2026 同期方案的横评</strong>。这两套是 ICML 2026 阶段同样在做 agentic RL 训法的工作（搜索结果里出现的 Gen-Verse/Open-AgentRL 项目）。技术路径有重叠也有差异，独立的横评对国内团队挑选训法很重要。</p>
+<hr>
+<p>读到这里，关于&quot;国内 agent 训法到底差在哪&quot;的画像也清楚了一些：<strong>不是没有训法，是训法在被一点点系统化</strong>。从去年 GRPO 单兵作战，到今年 5 月连续四篇国内大厂公开复盘，再到 SDAR 这种把 OPSD 门控并入 RL 主干的 token 级训法——国内做 agent 的工程团队已经从&quot;应用层调 prompt&quot;逐步往&quot;训练层改 loss 函数&quot;的方向迁移。</p>
+<p>这件事的意义可能比单一篇论文大得多。它意味着国内顶级团队开始<strong>主动公开训练复盘</strong>而不是把方法压在内部，意味着浙大、清华、美团这种学术 + 产业组合开始<strong>用 HF Daily Papers 这条海外渠道做学术声誉</strong>——回到国内中文圈、对国内开发者做技术输出，往往是这条路径的下一站。</p>
+<p>对于每天用千问 / DeepSeek / GLM 做 agent 应用的国内开发者来说，2026 年下半年的训法节奏，大概率就是沿着 SDAR 这条线再走两到三步。这一篇论文打开了「token 级蒸馏门控」这个全新的工程开关，接下来谁先把它和 Qwen3-Coder、DeepSeek-V3、GLM-5 这些更大根基结合起来，谁就拿到了下一代 agentic 模型的早期窗口。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

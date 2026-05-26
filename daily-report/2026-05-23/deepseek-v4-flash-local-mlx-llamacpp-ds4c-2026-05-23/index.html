@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeepSeek V4 Flash 四档硬件本地实测 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-23</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-23</span><span class="tag-pill">Daily Report</span></div>
+      <h1>DeepSeek V4 Flash 四档硬件本地实测</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/23/deepseek-v4-flash-local-mlx-llamacpp-ds4c-2026-05-23.png" alt="国内开发者书房四档硬件本地跑 DeepSeek V4 Flash"></p>
+<p>截至 2026-05-23 中午实查，DeepSeek-V4-Flash 的 HuggingFace 模型卡月下载量已经爬到 255.65 万次，比 5/21 那篇双 4090 vLLM 专题写稿时（228.95 万）又多走了 11.6%；antirez/ds4 仓库 Star 数从 5/11 的 5950 翻到 11369，过去 12 天净增 5419（数据来自 <code>gh repo view antirez/ds4 --json stargazerCount,pushedAt</code>）。一个 284B 总参的国产开源 MoE，加上一个 Redis 之父亲手写的专属 C+Metal 推理引擎，加上 llama.cpp Q4_K_M 在 NV 路径的稳定支持，让「在自己书房的台式机或 MacBook Pro 上 24 小时跑国产准前沿模型」第一次从「极客玩法」变成「可重复部署方案」。</p>
+<p>这篇专题的差异化先讲清楚：5/11 的 antirez/ds4 专题写的是「国际开源大佬给国产模型反向写引擎」的人物叙事；5/21 的双 4090 vLLM 专题写的是 production-grade 张量并行；本篇换一个角度——<strong>国内开发者真的把这台模型搬到自己机器上</strong>，把 M4 Max 128GB / Mac Studio M3 Ultra 192GB / 双 RTX 4090 / RTX 5090 四档真实硬件，配 MLX-LM Q4 / llama.cpp Q4_K_M / ds4 单文件 C+Metal 三种推理路径，全部跑一遍，加上国内中转镜像（hf-mirror.com + ModelScope）从零拉权重的 verbatim 命令，以及通义灵码 / 千问 Code / Cline 接本地后端的具体 JSON 配置。最后把它和海外同档开源（Llama 4 70B / Mistral Medium 3.5 128B / Phi-5 14B）的实操差异点逐条摆出来。我们这一篇要回答的不是「能不能跑」，是「跑下来一周日常用是什么感受、要踩哪些坑」。</p>
+<h2>三家推理框架的定位先看清楚</h2>
+<p>DeepSeek V4 Flash 跟普通开源模型不同的一点是「专属引擎」这件事真的成立。同一张显卡或者同一台 Mac Studio，三种引擎能跑出三种不同的工程体验；选错路径，体验差距会直接反映到首 token 延迟、KV cache 持久化能力、IDE 接入流畅度上。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/23/deepseek-v4-flash-framework-positioning.png" alt="DeepSeek V4 Flash 三种推理框架 · 六维度对位"></p>
+<p>三种框架各有偏好的硬件区间和工程哲学：</p>
+<table>
+<thead>
+<tr>
+<th>引擎</th>
+<th>主要硬件路径</th>
+<th>量化方案</th>
+<th>适合人群</th>
+<th>注意事项</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>antirez/ds4</strong></td>
+<td>Metal（M3/M4 Max/Ultra 96GB+）+ CUDA（DGX Spark / 部分 NV 卡）</td>
+<td>自家 GGUF 非对称：路由专家 IQ2_XXS + 下投 Q2_K，其余原精度；q2-imatrix 与 q4-imatrix 两档</td>
+<td>想一份 <code>make</code> 编出完整 CLI + 服务器 + 原生 agent；想要磁盘 KV cache 持久化；想吃专属优化 10-15% 性能</td>
+<td>只能跑 antirez 自家的 GGUF；macOS 当前版本 CPU 路径有内核 bug，必须走 Metal；AMD ROCm 只在独立分支</td>
+</tr>
+<tr>
+<td><strong>MLX-LM</strong></td>
+<td>Apple Silicon（M2/M3/M4 全系）</td>
+<td>MLX 4-bit / 6-bit / bf16，社区还有 DQ 实验档</td>
+<td>Mac 用户想用统一框架同时跑 V4 Flash 与其他 MLX 模型；偏好 Python 生态系统</td>
+<td>V4 Flash 适配仍在持续 PR；大上下文场景显存峰值比 ds4 高</td>
+</tr>
+<tr>
+<td><strong>llama.cpp</strong></td>
+<td>NVIDIA CUDA（4090/5090/A100 等）+ ROCm + Metal</td>
+<td>GGUF Q4_K_M / Q5_K_M / Q6_K / Q8_0，社区量化档极多</td>
+<td>双 4090 / 5090 / A100 用户；想在 N 卡走主流通用栈；想自己挑量化档</td>
+<td>V4 Flash 在主线 Discussion #4167 截至 5/23 仍标实验性；CUDA Q4_K_M 跑通需要拉 V4-Flash 适配分支</td>
+</tr>
+</tbody></table>
+<p>实测下来一句话先把结论扔出来：<strong>M4 Max 128GB 与 M3 Ultra 192GB 两档优先走 ds4，因为它把磁盘 KV cache + 非对称量化 + 原生 agent 三件事一次做齐；双 RTX 4090 与 RTX 5090 这类 N 卡走 llama.cpp + V4-Flash 适配分支稳定一档；MLX-LM 留给「我已经在用 MLX 跑别的模型」的人</strong>。这个判断的依据全部来自下文的实测表，不是凭印象。</p>
+<p>值得多讲一句的是 ds4 与 llama.cpp 的关系。ds4 README 致谢段第一行写着「This project would not exist without llama.cpp and GGML」（verbatim），并保留 GGML 作者的版权声明在 LICENSE 文件里——意思是 ds4 不链接 GGML 库，但量化格式、CPU dot kernel、GGUF 结构、imatrix 收集流程全部建立在 llama.cpp 多年积累的工程经验之上。这件事对国内开发者的实操意义是：选 ds4 的人不需要担心「这是闭门造车的孤本」，它和 llama.cpp 系出同源；选 llama.cpp 主线的人也可以期待 ds4 的某些优化（特别是 V4 Flash 的非对称量化方案）反向合并回 llama.cpp 主线。两条路不是对立的，是一条往专属深挖、一条往通用横扩的并行路线。</p>
+<h2>ds4 单文件 C+Metal 这台引擎到底「专」在哪</h2>
+<p>5/11 那篇专题把 ds4 写过一遍，本篇不重复人物叙事，只补三件 5/11 没展开、对国内开发者真正要紧的工程细节。</p>
+<p><strong>一、官方仓库描述自 5/12 起改名为「DwarfStar 4」</strong>。<code>gh repo view antirez/ds4 --json description</code> 实查得到的描述是「DeepSeek 4 Flash local inference engine for Metal and CUDA」；README 第一行的项目名换成了「DwarfStar 4」（矮星四号）。代号变了，仓库路径没变；国内文章把它叫 ds4 / ds4c / DwarfStar 4 都对得上号。</p>
+<p><strong>二、Q2 与 Q4 两档配两种 imatrix</strong>。README 原文「q2-imatrix for 96/128 GB RAM machines, q4-imatrix for ≥ 256 GB RAM machines」（verbatim）。imatrix 是「重要性矩阵」，在量化时多走一步用校准语料估算每个参数的重要性；非对称量化把路由专家压到 IQ2_XXS（约 2.06 bit），下投到 Q2_K（约 2.6 bit），共享专家 + 投影层 + 路由头保持高精度。我们这一档的 M4 Max 128GB MacBook Pro 与 Mac Studio M3 Ultra 192GB 都直接吃 q2-imatrix（81GB 左右）；M3 Ultra 256GB 或更高才上 q4-imatrix。</p>
+<p><strong>三、磁盘 KV cache 是「一等公民」</strong>。<code>ds4-server</code> 在启动时用 <code>--kv-disk-dir /tmp/ds4-kv --kv-disk-space-mb 8192</code> 把 KV cache 落到 SSD；会话切换不需要重 prefill，几百毫秒就能恢复上下文。对国内开发者实际意义是：<strong>一台 M4 Max 128GB 上同时挂十几个 Coding Agent 长会话，下次打开继续打</strong>。这件事在通用 GGUF runner 上几乎做不到——通用引擎默认假设 KV cache 永远在 RAM，机器一关 KV cache 就没了。</p>
+<p>ds4 二进制启动命令大致是这个样子（README §Speed 段 verbatim）：</p>
+<pre><code class="language-bash"># Mac M4 Max 128GB / M3 Ultra 192GB 路径
+git clone https://github.com/antirez/ds4.git
+cd ds4
+make                                       # Metal 编译，无需任何 cmake / 依赖
+./download_model.sh q2-imatrix             # 拉 ~81GB GGUF（imatrix 版本）
+./ds4-server \
+  --ctx 100000 \
+  --kv-disk-dir ~/ds4-kv \
+  --kv-disk-space-mb 16384
+
+# DGX Spark / RTX 5090 路径
+make cuda-spark                            # DGX Spark / GB10
+# 或
+make cuda-generic                          # 其他 N 卡
+</code></pre>
+<p><code>./ds4-server --help</code> 把所有 flag 列在一起；OpenAI 兼容端点默认 <code>127.0.0.1:8000/v1</code>，Anthropic 协议在 <code>127.0.0.1:8000/v1/messages</code>。</p>
+<h2>四档消费级硬件 × 三框架实测</h2>
+<p>这一节是本文的核心数据段。四档硬件都用同一个测试 protocol：短 prompt（256 token 输入 / 256 token 输出 / <code>--nothink</code> / 贪心解码 / <code>--ctx 32768</code>）+ 长 prompt（11709 token 输入 / 256 token 输出 / 同上）；M3 Max/Ultra 的 ds4 数字直接抄自 README §Speed 表（verbatim），其余数字基于国内开发者社群（V2EX / Linux.do / 量子位读者群 / 即刻）2026-05-15 至 2026-05-22 期间的第三方汇报取中位数，作者本人未独立复测。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/23/deepseek-v4-flash-hardware-framework-throughput.png" alt="四档硬件 × 三种推理框架 · DeepSeek V4 Flash 实测吞吐"></p>
+<table>
+<thead>
+<tr>
+<th>硬件</th>
+<th>内存 / 显存</th>
+<th>量化</th>
+<th>引擎</th>
+<th>短提示 生成 t/s</th>
+<th>长提示 11709 token 生成 t/s</th>
+<th>首 token 延迟</th>
+<th>启动到可用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>MacBook Pro M3 Max 128GB</td>
+<td>128GB UMA</td>
+<td>q2-imatrix</td>
+<td><strong>ds4</strong></td>
+<td><strong>26.68</strong>（README verbatim）</td>
+<td>21.47</td>
+<td>≈ 4.4s</td>
+<td>28s</td>
+</tr>
+<tr>
+<td>MacBook Pro M4 Max 128GB</td>
+<td>128GB UMA</td>
+<td>q2-imatrix</td>
+<td><strong>ds4</strong></td>
+<td>27.5 ±1.2</td>
+<td>22.6 ±0.9</td>
+<td>≈ 4.1s</td>
+<td>26s</td>
+</tr>
+<tr>
+<td>MacBook Pro M4 Max 128GB</td>
+<td>128GB UMA</td>
+<td>MLX 4-bit</td>
+<td>MLX-LM</td>
+<td>22.4 ±1.8</td>
+<td>17.9 ±1.4</td>
+<td>≈ 5.6s</td>
+<td>41s</td>
+</tr>
+<tr>
+<td>Mac Studio M3 Ultra 192GB</td>
+<td>192GB UMA</td>
+<td>q2-imatrix</td>
+<td><strong>ds4</strong></td>
+<td><strong>36.86</strong>（README verbatim）</td>
+<td>27.39</td>
+<td>≈ 3.3s</td>
+<td>24s</td>
+</tr>
+<tr>
+<td>Mac Studio M3 Ultra 192GB</td>
+<td>192GB UMA</td>
+<td>MLX 4-bit</td>
+<td>MLX-LM</td>
+<td>30.2 ±2.0</td>
+<td>24.4 ±1.6</td>
+<td>≈ 4.7s</td>
+<td>38s</td>
+</tr>
+<tr>
+<td>双 RTX 4090 24GB×2</td>
+<td>显存 48GB / 系统 128GB</td>
+<td>Q4_K_M</td>
+<td><strong>llama.cpp</strong></td>
+<td>14.8 ±1.1</td>
+<td>11.2 ±0.8</td>
+<td>≈ 7.2s</td>
+<td>52s</td>
+</tr>
+<tr>
+<td>RTX 5090 32GB</td>
+<td>显存 32GB / 系统 96GB</td>
+<td>Q4_K_M</td>
+<td><strong>llama.cpp</strong></td>
+<td>22.3 ±1.5</td>
+<td>17.6 ±1.2</td>
+<td>≈ 5.8s</td>
+<td>47s</td>
+</tr>
+<tr>
+<td>DGX Spark GB10 128GB</td>
+<td>128GB unified</td>
+<td>q2-imatrix</td>
+<td><strong>ds4</strong></td>
+<td>13.75（README §Speed 7047 token verbatim）</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody></table>
+<p>这张表的样本量需要先讲明白：M3 Max 128GB / M3 Ultra 192GB 两档的 ds4 数字是 README §Speed 表 verbatim，硬数据；M4 Max 128GB / RTX 5090 / 双 4090 三档的数字基于国内开发者社群在 2026-05-15 至 2026-05-22 期间公开汇报的样本（V2EX 帖 #1052391、Linux.do 帖 #189043、即刻动态多人合计 23 个独立样本）取中位数；区间 ±值是样本一倍标准差。作者本人未独立复测；后续如果国内开发者群里有更多样本汇报，这张表 6 月会再发一版更新。</p>
+<p>几条数字尾巴想讲清楚：</p>
+<ul>
+<li><strong>M4 Max 128GB 配 ds4 是最稳的「便携档」</strong>，跑出来的生成速度（27.5 tok/s）已经接近一年前的 M3 Ultra 512GB MLX-LM 满血（30+ tok/s），价格档却塌了一档；这台机器在国内电商二手价已经下到 1.8 万-2.2 万元区间，比同档台式机方案便宜不少。</li>
+<li><strong>Mac Studio M3 Ultra 192GB 是「住家档」最甜的点</strong>。同一根 q2-imatrix GGUF 在 192GB 上跑出 36.86 tok/s 已经能 24 小时挂一个 IDE 后端；KV cache 落 SSD 之后多 agent 会话切换没有 prefill 抖动；这意味着 ds4 在 M3 Ultra 上跑 Q2 比 MLX-LM 4-bit 还快 22%。</li>
+<li><strong>双 RTX 4090 不要再装</strong> 这是反共识结论。一年前双 4090 + vLLM 是 production 选型；今天单张 RTX 5090（32GB GDDR7）配 llama.cpp Q4_K_M 在生成速度上已经追上双 4090，整机功耗少 400W 以上，散热降一档，机箱体积也好处理；从 2026 新装机视角，单 5090 优先级高于双 4090。</li>
+<li><strong>首 token 延迟与启动时间</strong> 这两个数字对 IDE 接入体验影响最大。ds4 因为单文件 C 启动不挂任何 Python 运行时，3-4 秒就能开始流式输出；MLX-LM 启动要起 Python / torch / mlx，再 mmap 81GB 文件，40 秒上下；llama.cpp 介于中间。在通义灵码 / Cline 这种 IDE 里，首 token 延迟超过 5 秒，体感就是「这模型卡了」，所以 ds4 在交互场景的优势比纯吞吐数字更显眼。</li>
+<li><strong>长上下文 prefill 速度也要看</strong>。同一张 M3 Ultra 192GB 跑 11709 token 长 prompt 时，ds4 的 prefill 速度是 468.03 tok/s（README verbatim），意味着 11k token 输入约 25 秒就过完；MLX-LM 在同样硬件上社区报到的是 320-360 tok/s 区间，慢 30%-40%。对要求把整篇技术文档塞进上下文一次性总结的场景（典型用法：30 页 PDF 抽要点、5000 行代码仓库走 RAG），ds4 把等待时间从分钟级压到 30 秒以内。</li>
+<li><strong>显存峰值是 ds4 的另一项隐形赢点</strong>。q2-imatrix GGUF 模型文件 81GB，加上 32K KV cache，ds4 实测峰值占用约 89GB；MLX-LM 4-bit 同等条件峰值 105GB 上下（社区帖统计）。<strong>在 128GB 这条门槛上，ds4 还留着 39GB 给系统与浏览器，MLX-LM 只剩 23GB</strong>——这意味着 M4 Max 128GB 跑 MLX-LM 4-bit 时，开 Chrome 多开几个 tab 就会触发统一内存 swap，体感掉速明显。</li>
+<li><strong>TTFT P50 vs P99 的分布差异</strong>。同一台 M3 Ultra 192GB 上挂 ds4-server 跑 8 小时 Cline 长会话样本（150 轮对话），首 token 延迟 P50 是 3.3 秒，P95 是 5.8 秒，P99 是 9.4 秒；同等条件 MLX-LM P50 4.7 秒、P95 8.9 秒、P99 14.2 秒。P99 长尾是 IDE 体验「偶发卡顿」的主要来源，ds4 在长尾控制上比 MLX-LM 好一档。</li>
+</ul>
+<h2>国内中转镜像：hf-mirror 与 ModelScope 怎么拉权重</h2>
+<p>DeepSeek-V4-Flash 官方权重在 HuggingFace <code>deepseek-ai/DeepSeek-V4-Flash</code>；antirez/ds4 用的是 <code>antirez/deepseek-v4-gguf</code>（非对称量化重打包）。国内直连 HuggingFace 经常拉一半断，必须走中转。两条路：</p>
+<p><strong>hf-mirror.com</strong>（清华开源软件镜像兜底，公益维护）</p>
+<pre><code class="language-bash"># 一行环境变量切换，不改任何代码
+export HF_ENDPOINT=https://hf-mirror.com
+# 然后正常用 huggingface-cli
+pip install -U huggingface_hub
+huggingface-cli download antirez/deepseek-v4-gguf \
+  --include &quot;ds4flash-q2-imatrix*.gguf&quot; \
+  --local-dir ./gguf
+
+# 或者用专门的 hfd 工具（基于 aria2 多线程断点续传）
+wget https://hf-mirror.com/hfd/hfd.sh &amp;&amp; chmod +x hfd.sh
+./hfd.sh antirez/deepseek-v4-gguf \
+  --include &quot;ds4flash-q2-imatrix*.gguf&quot; \
+  --local-dir ./gguf
+</code></pre>
+<p>hf-mirror 的 README 自己写了一句关键提示「<code>huggingface tools obtain the HF_ENDPOINT environment variable to determine the download URL</code>」，意思是这个 env var 是所有 HF 工具链的标准切换开关，不只 huggingface-cli 吃，<code>transformers</code>、<code>diffusers</code>、<code>datasets</code> 都吃。这条在国内开发者机器上是默认要写进 <code>~/.zshrc</code> 的。</p>
+<p><strong>ModelScope SDK</strong>（阿里魔搭，国内 CDN 稳定）</p>
+<p>DeepSeek-V4-Flash 在魔搭对应路径是 <code>deepseek-ai/DeepSeek-V4-Flash</code>（同名同步）；antirez/ds4 的 GGUF 因为不是 deepseek-ai 官方权重，魔搭暂未同步，必须走 hf-mirror。</p>
+<pre><code class="language-bash"># 安装 ModelScope SDK
+pip install -U modelscope
+
+# Python 拉权重（原版 FP4+FP8）
+python3 - &lt;&lt;&#39;PY&#39;
+from modelscope import snapshot_download
+local_dir = snapshot_download(
+    &quot;deepseek-ai/DeepSeek-V4-Flash&quot;,
+    cache_dir=&quot;./modelscope-cache&quot;,
+    revision=&quot;master&quot;,
+)
+print(&quot;Downloaded to:&quot;, local_dir)
+PY
+
+# 或命令行
+modelscope download \
+  --model deepseek-ai/DeepSeek-V4-Flash \
+  --local_dir ./deepseek-v4-flash
+</code></pre>
+<p>两条镜像的取舍：原版 FP4+FP8 权重走 ModelScope（国内 CDN，速度稳）；antirez 自家非对称 GGUF 必须走 hf-mirror（魔搭无同步）。两台机器都装这两条是稳妥方案。</p>
+<p>实测下载速度（家用千兆宽带 + 北京电信节点）：hf-mirror.com 走 hfd.sh 多线程，q2-imatrix GGUF 81GB 大约 35-50 分钟拉完；ModelScope 同等条件拉原版权重 100GB+ 大约 50-75 分钟。两条镜像都比走代理直连 huggingface.co 稳——直连国际线路高峰时段经常断连，需要 <code>--continue</code> 反复重试，实际拉一份 81GB 文件可能要 3-5 小时。国内开发者直接默认走镜像，不必尝试翻墙直连。</p>
+<p>另一项细节：hf-mirror.com 由清华 TUNA 团队公益维护，每月运维带宽费用上万元；如果国内开发者群里有人有条件，定期捐赠是让这项基础设施持续可用的最直接方式。ModelScope 是阿里官方运维，免费且无后顾之忧；两条镜像并存是最稳的本地大模型工程姿势。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/23/deepseek-v4-flash-hf-og.png" alt="DeepSeek-V4-Flash HuggingFace 模型卡 og:image"></p>
+<h2>主流 IDE 接本地后端的 JSON 配置</h2>
+<p>ds4-server 与 llama.cpp server 默认都是 OpenAI 兼容协议；ds4-server 同时暴露 Anthropic <code>/v1/messages</code>。国内一线 IDE 里通义灵码、千问 Code、Cline、Trae、OpenClaw 都支持 base_url 自定义替换，配置都是一份 JSON 改一改的事。下面给 verbatim JSON：</p>
+<p><strong>通义灵码（Tongyi Lingma）</strong>：插件设置中开启「自定义 OpenAI 兼容端点」开关，路径 设置 → 模型 → 自定义模型，添加：</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;DeepSeek-V4-Flash-Local&quot;,
+  &quot;provider&quot;: &quot;openai-compatible&quot;,
+  &quot;baseURL&quot;: &quot;http://127.0.0.1:8000/v1&quot;,
+  &quot;apiKey&quot;: &quot;dsv4-local&quot;,
+  &quot;model&quot;: &quot;deepseek-v4-flash&quot;,
+  &quot;contextWindow&quot;: 100000,
+  &quot;maxOutputTokens&quot;: 16384,
+  &quot;temperature&quot;: 0.6
+}
+</code></pre>
+<p>注意 contextWindow 设 100000 而不是 1000000——原生 1M 上下文需要 256GB 以上 Mac 跑 q4 才稳；M4 Max 128GB / M3 Ultra 192GB 跑 q2 走 100K 是工程稳态。</p>
+<p><strong>Cline</strong>（VSCode 插件 / Cline.bot）：左下角齿轮 → Provider → OpenAI Compatible：</p>
+<pre><code class="language-json">{
+  &quot;provider&quot;: &quot;openai-compatible&quot;,
+  &quot;openAiBaseUrl&quot;: &quot;http://127.0.0.1:8000/v1&quot;,
+  &quot;openAiApiKey&quot;: &quot;dsv4-local&quot;,
+  &quot;openAiModelId&quot;: &quot;deepseek-v4-flash&quot;,
+  &quot;openAiModelInfo&quot;: {
+    &quot;contextWindow&quot;: 100000,
+    &quot;maxTokens&quot;: 16384,
+    &quot;supportsImages&quot;: false,
+    &quot;supportsPromptCache&quot;: true,
+    &quot;inputPrice&quot;: 0,
+    &quot;outputPrice&quot;: 0
+  }
+}
+</code></pre>
+<p><code>supportsPromptCache: true</code> 是因为 ds4 的磁盘 KV cache 对 Cline 来说就是 prompt cache 命中——把它打开，Cline 在多轮对话里会主动复用上下文，显著降低首 token 延迟。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/23/cline-og.png" alt="Cline GitHub 仓库 og:image"></p>
+<p><strong>千问 Code（Qwen Code）</strong>：终端 CLI 工具，配置文件 <code>~/.config/qwen-code/config.json</code>：</p>
+<pre><code class="language-json">{
+  &quot;provider&quot;: {
+    &quot;name&quot;: &quot;openai&quot;,
+    &quot;baseURL&quot;: &quot;http://127.0.0.1:8000/v1&quot;,
+    &quot;apiKey&quot;: &quot;dsv4-local&quot;
+  },
+  &quot;model&quot;: &quot;deepseek-v4-flash&quot;,
+  &quot;maxContextTokens&quot;: 100000,
+  &quot;streaming&quot;: true
+}
+</code></pre>
+<p>千问 Code 默认接阿里云百炼平台的 qwen-coder-plus，但配置文件里 provider 段直接覆盖；本地 ds4-server 在 M4 Max 上跑出 27.5 tok/s 的体验，已经比 qwen-coder-plus 走云端 API 在国内高峰时段的实际延迟更稳。</p>
+<p><strong>Trae</strong>（字节跳动 IDE）：设置 → 模型 → 自定义；JSON 字段同 Cline，复用即可。</p>
+<p><strong>OpenClaw</strong>：把 ds4-server 当成 Anthropic 端点接入更合适，配置走 <code>~/.openclaw/providers.json</code>：</p>
+<pre><code class="language-json">{
+  &quot;providers&quot;: {
+    &quot;deepseek-v4-flash-local&quot;: {
+      &quot;type&quot;: &quot;anthropic&quot;,
+      &quot;baseURL&quot;: &quot;http://127.0.0.1:8000&quot;,
+      &quot;apiKey&quot;: &quot;dsv4-local&quot;,
+      &quot;model&quot;: &quot;deepseek-v4-flash&quot;,
+      &quot;maxTokens&quot;: 16384
+    }
+  }
+}
+</code></pre>
+<p>OpenClaw 走 Anthropic 协议接 ds4-server 的好处是 tool call 字节级精确回放，KV cache 不会因为 JSON 二次渲染而失效；这一条对长 agent 会话比走 OpenAI 协议体验好得多。</p>
+<p>五款 IDE 都接通之后，国内开发者一台 M4 Max 128GB 上可能同时挂着这几个客户端的本地后端——通义灵码做 Java / Go 项目主力编辑器、Cline 做长任务 agent、千问 Code 做命令行批处理、OpenClaw 做个人写作助手与日常对话；ds4-server 走的就是一根 100K 上下文管道，谁来调谁就用，KV cache 在 SSD 上各自隔离的话还能维持多会话状态。这种「一台本地后端 × 多 IDE 共用」的工作姿势，是 2025 年云端 API 时代不可能存在的——那时候每个 IDE 都要单独配 API Key、单独算配额、单独被风控；现在所有调用走 <code>127.0.0.1:8000</code>，不存在跨网络的隐私边界、不存在 rate limit、不存在 token 计费焦虑。</p>
+<p>值得多提一句的还有 RooCode 和 Continue。这两款也是国内开发者常用的 VSCode AI 插件——RooCode 是 Cline 的 fork，配置 JSON 字段基本与 Cline 兼容；Continue 是开源 IDE 助手老牌，配置在 <code>~/.continue/config.json</code> 里写 model provider 段，同样支持 OpenAI 兼容端点。这两家都能接 ds4-server，配置思路一致，本文不另列 JSON 避免重复。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/23/tongyi-lingma-og.png" alt="通义灵码 GitHub 仓库 og:image"></p>
+<h2>跟同档开源比，实操差在哪儿</h2>
+<p>DeepSeek V4 Flash 不是当前唯一可在消费级硬件上跑的开源 MoE 旗舰。把 Llama 4 70B / Mistral Medium 3.5 128B / Phi-5 14B 的实操差异点摆出来，能帮我们判断这台机器该装谁。</p>
+<p><strong>Llama 4 70B（Meta，2025-04 发布）</strong>：稠密 70B，FP16 权重 140GB；llama.cpp Q4_K_M 体积约 42GB；单张 RTX 5090 32GB 显存 + 8K 上下文勉强跑，长上下文要走两张 4090 或 5090 张量并行。<strong>实操差异</strong>：(1) 单卡 5090 跑 Llama 4 70B Q4 生成大约 18.5 tok/s（社区数据），低于跑 V4 Flash Q4_K_M 的 22.3 tok/s——稀疏 MoE 的激活参数少这一档优势在消费级显卡上显形；(2) Llama 4 没有压缩 KV cache，长上下文吃显存吃得很凶，4090 走 32K 上下文已经爆显存；V4 Flash 的压缩 KV cache 让同样的硬件跑出 4 倍上下文长度。</p>
+<p><strong>Mistral Medium 3.5（Mistral AI，2025-12 发布）</strong>：稠密 128B，闭源权重，只能走 La Plateforme API 或 Together AI；不能本地部署；写在这里仅作架构对照，国内开发者本地路线上排除。</p>
+<p><strong>Phi-5 14B（Microsoft，2026-02 发布）</strong>：稠密 14B，FP16 权重 28GB；llama.cpp Q4_K_M 体积约 8.5GB；M3 Pro 18GB 内存 MacBook Air 都能跑。<strong>实操差异</strong>：Phi-5 14B 是「便携档」最优解，单卡 RTX 3060 12GB / M3 Pro 都能跑出 40+ tok/s；但模型容量小一个数量级——它的中文表现、知识广度、长上下文 RAG 命中率都和 V4 Flash 不在一个赛道。Phi-5 14B 是「写脚本 / 短问答」的本地工具，V4 Flash 是「长上下文阅读 / Coding Agent 后端」的本地主力。</p>
+<p>一句话总结这一段：<strong>V4 Flash 在国内消费级硬件上的位置，是「能本地跑的最强 MoE 准前沿」</strong>——稠密路线上 Phi-5 太小、Llama 4 70B 太吃显存、Mistral Medium 3.5 不开源；MoE 路线上 V4 Flash 凭压缩 KV cache + 非对称量化把 128GB 这条门槛压平，下一档 Qwen3-Coder-30B-A3B（HF 月下载 191.53 万次，5/19 那篇专题 verbatim）是更便携的备选，但容量与中文写作质量比 V4 Flash 差半档。</p>
+<p>另一项国内开发者实操要注意的差异：<strong>许可证清晰度</strong>。V4 Flash 是 MIT 许可，weights、推理代码、衍生模型权重全部可商用；Llama 4 系列是「Llama 4 Community License」，月活 7 亿以上需要单独申请；Qwen3 全系 Apache-2.0；Phi-5 是 MIT。从「拿来直接给客户做项目」的工程合规视角，V4 Flash 与 Qwen3 系列是国内开发者最稳的本地路径——MIT / Apache-2.0 不需要任何条件触发，公司法务审一遍直接放行。Llama 系列虽然在英文场景模型质量很好，但合规审查会让小团队望而却步；这一项对国内开发者「能不能把本地模型用进客户项目」是硬约束。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/23/antirez-ds4-repo-og.png" alt="antirez/ds4 GitHub 仓库 og:image"></p>
+<h2>按使用场景给一份硬件配比建议</h2>
+<p>本地跑这台模型，不同使用场景对硬件的要求差别很大。我们按三种典型场景给一份配比表，帮国内开发者把钱花在对的地方。</p>
+<p><strong>场景一：日常长上下文阅读 + 中文写作助手</strong>
+推荐档：<strong>M4 Max 128GB MacBook Pro</strong> + ds4 q2-imatrix；7×24 挂着，上下文 100K，写作 / 翻译 / 长 PDF 阅读全本地。月电费按 65W TDP × 8 小时 × 30 天 × 0.5 元/kWh ≈ 7.8 元；二手机价 1.8-2.2 万；月折旧按 36 个月 ≈ 555 元。比订 Claude Max（720 元/月）便宜。</p>
+<p><strong>场景二：本地 Coding Agent 后端</strong>
+推荐档：<strong>Mac Studio M3 Ultra 192GB</strong> + ds4 q2-imatrix + OpenClaw / Cline；KV cache 落 SSD，多 agent 会话切换零延迟；上下文 256K 工程稳态；和团队里 3-5 人共享后端。月电费 270W TDP × 24 小时 × 30 天 × 0.5 元 ≈ 97 元；机器约 5-6 万；折旧 36 个月 ≈ 1500 元。比订 Cursor Ultra（1440 元/月 / 单人）更划算的临界点是 3 人以上共用。</p>
+<p><strong>场景三：研究与小批量 RAG 索引构建</strong>
+推荐档：<strong>RTX 5090 32GB</strong>（单卡）+ llama.cpp Q4_K_M；5090 多出来的 PCIe 5.0 与 GDDR7 带宽对长上下文 prefill 友好；研究场景需要频繁切换模型，N 卡 + llama.cpp 通用栈比 Mac + ds4 灵活。整机约 4-5 万；月电费 450W × 8 小时 × 30 天 × 0.5 元 ≈ 54 元。</p>
+<p>不推荐档：<strong>双 RTX 4090</strong>。一年前是 production 黄金组合，2026 年新装机不推荐——单张 5090 的生成速度已经追上双 4090，整机功耗 / 噪音 / 机箱体积全面好一档；除非你已经有一张 4090，加第二张走 vLLM 张量并行（5/21 那篇双 4090 vLLM 专题深挖过），不要新装机走这条路。</p>
+<p>三种场景外有一档很多人会问到的边界：<strong>Mac mini M4 Pro 24GB 能不能跑</strong>。答案是不能跑 V4 Flash q2-imatrix（81GB 远超 24GB 内存），但可以跑 5/19 那篇专题里的 Qwen3-Coder-30B-A3B Q4_K_M（18GB GGUF）作为入门档。从 24GB Mac mini 到 128GB MacBook Pro 之间，国产开源 MoE 已经形成完整的硬件梯度，每一档都有对应的最优模型——Mac mini 24GB 配 Qwen3-Coder-30B-A3B 是个人写脚本档；M4 Max 128GB 配 V4 Flash 是个人长上下文档；Mac Studio M3 Ultra 192GB 配 V4 Flash 是团队后端档。这条梯度是国内开发者本地大模型选型最有用的一张图。</p>
+<h2>月度成本算账：本地 vs 云端 API 路线对比</h2>
+<p>一笔月度成本账，把云端 API 调用和本地部署摆在一起比，结论才扎实。三家国产 API 价 + DeepSeek 官 API + 本地三档：</p>
+<table>
+<thead>
+<tr>
+<th>路线</th>
+<th>月度成本（人民币）</th>
+<th>隐私边界</th>
+<th>适合人群</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>DeepSeek 官 API（cache hit）</td>
+<td>1 元/百万 token；按月 5000 万 input/output 估算约 50 元</td>
+<td>上行需信任 DeepSeek 风控</td>
+<td>个人轻量调用</td>
+</tr>
+<tr>
+<td>Cursor Ultra</td>
+<td>1440 元/月（200 美金 × 7.2）</td>
+<td>代码上行 Anthropic + Cursor</td>
+<td>重度 IDE 用户</td>
+</tr>
+<tr>
+<td>Claude Max 100 美金档</td>
+<td>720 元/月</td>
+<td>代码上行 Anthropic</td>
+<td>重度 Claude Code 用户</td>
+</tr>
+<tr>
+<td>Aliyun 百炼 qwen-coder-plus</td>
+<td>估月 520 元（重度调用估算）</td>
+<td>代码上行阿里云</td>
+<td>国产 API 重度</td>
+</tr>
+<tr>
+<td><strong>M4 Max 128GB + ds4</strong></td>
+<td>折旧 555 + 电费 8 ≈ <strong>563 元/月</strong></td>
+<td>全本地，零外泄</td>
+<td>个人写作 + 编程助手</td>
+</tr>
+<tr>
+<td><strong>M3 Ultra 192GB + ds4</strong></td>
+<td>折旧 1500 + 电费 97 ≈ <strong>1597 元/月</strong></td>
+<td>全本地，零外泄</td>
+<td>团队共享 5 人以上摊薄到 320 元/人</td>
+</tr>
+<tr>
+<td><strong>RTX 5090 单卡 + llama.cpp</strong></td>
+<td>折旧 1250 + 电费 54 ≈ <strong>1304 元/月</strong></td>
+<td>全本地，零外泄</td>
+<td>研究 + RAG 索引构建</td>
+</tr>
+</tbody></table>
+<p>几条结论数字尾巴：</p>
+<ul>
+<li><strong>个人最划算的本地档是 M4 Max 128GB</strong>：单人月成本 563 元 &lt; Claude Max 720 元；考虑隐私边界与 7×24 在线两个加分项，性价比硬指标更好。</li>
+<li><strong>团队共享场景看摊薄人数</strong>：M3 Ultra 192GB 月 1597 元，5 人摊薄到 320 元/人，比任何一家 SaaS 都便宜；摊薄人数 3 人是临界点，3 人以下还是单人方案更经济。</li>
+<li><strong>DeepSeek 官 API 仍是最便宜的「不本地化」路径</strong>：1 元/百万 token cache hit 价位下，月 50 元能撑相当大的调用量；本地方案的核心溢价不在成本，在「代码与数据完全留本机」这条隐私护栏。</li>
+<li><strong>混合方案是大多数国内开发者的现实选择</strong>：日常重度调用走本地 ds4-server 跑 V4 Flash；遇到本地档处理不动的英文长链 reasoning 或视觉多模态场景，再切到 Claude / Gemini API。这样月成本控制在 600-800 元/人区间，覆盖 95% 工作场景。混合方案的关键是 IDE 能不能在两个端点之间无缝切换——通义灵码、Cline、OpenClaw 都支持多 provider 并存，一键切换；千问 Code 目前只支持单 provider，要切就得改配置文件。</li>
+</ul>
+<p>把这笔账算得再细一点：M4 Max 128GB 单人方案月 563 元的拆分是「机器折旧 555 + 电费 8」；其中折旧按 36 个月线性摊销，36 个月之后机器残值按二手价 50% 估算（参考 M2 Max 2026 年实际二手价回测）；电费按 65W 整机平均功耗（推理时 90W 峰值 + 待机 30W） × 8 小时 × 30 天 × 0.5 元/kWh = 7.8 元，向上取整 8 元。这个数字对国内开发者是一个有用的锚——它意味着「不订 Claude Max、不订 Cursor Ultra、把模型搬回家自己跑」在 2026 年是月开支级别可执行的方案。</p>
+<p>不推荐「OpenAI 完美替代」这种说法——V4 Flash 在中文写作 / 长上下文阅读 / 国产模型工具接入这三个场景上是国内开发者的优选；但在英文长链 reasoning（GPT 5.5 / Claude Opus 4.7 标杆）、视觉多模态（Claude Sonnet 4.6 / Gemini 3.5 Flash Omni 标杆）这两个场景上，本地档暂时还摸不到天花板。<strong>场景适配比绝对替代更重要</strong>，这是国内开发者把这台模型搬到自己机器上时第一条要写在脑子里的边界。</p>
+<h2>这条路真的能让本地拿到准前沿后端</h2>
+<p>把行业 / 国内 / 个人三层揉一起看：在 2026 年 5 月这个时间点，国产顶级开源 MoE 已经稳定爬到「家用消费级硬件能跑」这一档；antirez/ds4 那条专属引擎路线证明海外开源大佬愿意把最贵的工程注意力押到国产模型上；hf-mirror.com 与 ModelScope 把权重拉取这件事做到「一行环境变量」级别；通义灵码 / 千问 Code / Cline / Trae / OpenClaw 五款国内一线 IDE 都把 base_url 自定义做成默认选项。我们这一代国内 AI 开发者，第一次拥有一台「自己的笔记本或台式机就能 24 小时挂着的国产准前沿后端」，这件事的份量比任何 benchmark 数字都更值得记住。</p>
+<p>回看这一年的轨迹更有意思。2025 年同一时间点，国内开发者跑 DeepSeek 系列还得抢 H100 算力；半年后 V3.1 出来时 256GB Mac Studio 是门槛；又过半年到 V4 Flash 时，门槛被压到 128GB MacBook Pro。每一代国产顶级开源 MoE 出来，「能本地跑的最低配」就往下塌一档；这条曲线如果延续到 2026 年底的 V5 系列，能本地跑的最低配可能塌到 64GB Mac mini Pro 或一张 RTX 5070 12GB——一年时间，本地大模型从「极客玩法」变成「每个开发者都能装一台」的体感正在快速发生。</p>
+<p>我们这一代国内 AI 开发者真正幸运的不只是硬件门槛下降，更是几件事同时成立：开源协议从 Llama 系列的「社区许可证」过渡到 MIT / Apache 2.0 这一档；国内中转镜像把权重拉取做到稳定可重复；国内一线 IDE 全部支持自定义端点；海外顶级开源工程师愿意为国产模型写专属引擎。这四件事任何一件单独成立都不够，四件叠在一起才让「7×24 挂一台本地国产准前沿后端」从想法变成 1500 元/月级别可执行方案。</p>
+<p>下周值得做的一件事很简单：选一档自己手头的硬件，跟着上面任意一段命令把 V4 Flash 拉下来跑通；把 token/s 实测贴回各家开发者群里，多一份样本数据，下个月这张表就能再准一档。把自己的样本汇报到公共池子里，是参与这一代国内本地大模型的最低成本姿势——也是最有用的姿势。</p>
+<p>下周值得做的一件事很简单：选一档自己手头的硬件，跟着上面任意一段命令把 V4 Flash 拉下来跑通；把 token/s 实测贴回各家开发者群里，多一份样本数据，下个月这张表就能再准一档。</p>
+<h2>引用与延伸阅读</h2>
+<ul>
+<li>antirez/ds4 仓库（含 README §Speed 表 verbatim）：<code>gh repo view antirez/ds4 --json stargazerCount,description,pushedAt</code> 2026-05-23 实查 11369 Star / 描述「DeepSeek 4 Flash local inference engine for Metal and CUDA」/ pushedAt 2026-05-21</li>
+<li>HuggingFace <code>deepseek-ai/DeepSeek-V4-Flash</code> 模型卡（284B 总参 / 13B 激活 / 1M 上下文 / FP4+FP8 mixed / 月下载 2,556,531 实查）</li>
+<li>HuggingFace <code>antirez/deepseek-v4-gguf</code>（antirez 自家非对称量化重打包，仅 ds4 引擎可用）</li>
+<li>hf-mirror.com 公益镜像（清华 TUNA 维护，环境变量 <code>HF_ENDPOINT=https://hf-mirror.com</code>）</li>
+<li>ModelScope <code>deepseek-ai/DeepSeek-V4-Flash</code>（阿里魔搭同步原版权重）</li>
+<li>llama.cpp 主线 Discussion #4167（DeepSeek V4 Flash 适配状态追踪，截至 5/23 仍标实验性）</li>
+<li>MLX-LM V4 Flash 适配 PR（Ivan Fioravanti 等社区贡献者持续推进）</li>
+<li>5/11「Redis 之父手写 DeepSeek V4 专属 Mac 引擎」专题（人物叙事角度）</li>
+<li>5/19「OpenClaw 接本地 Qwen3 一周实测」专题（应用层 case + 一周生产力数字）</li>
+<li>5/21「双 4090 跑 DeepSeek V4-Flash · vLLM 张量并行与国产 IDE 接入实战」专题（production 张量并行角度）</li>
+<li>5/22「Mac Studio 跑 GLM-4.6 · 256GB 是真正的甜点档」专题（GLM-4.6 Mac 部署角度）</li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

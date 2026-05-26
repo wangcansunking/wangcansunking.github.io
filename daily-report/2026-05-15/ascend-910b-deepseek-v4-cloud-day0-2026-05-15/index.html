@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>昇腾 910B 跑 DeepSeek V4：国内三朵云一日打通的工程账 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-15</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-15</span><span class="tag-pill">Daily Report</span></div>
+      <h1>昇腾 910B 跑 DeepSeek V4：国内三朵云一日打通的工程账</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/ascend-910b-deepseek-v4-cloud-day0-2026-05-15.png" alt="cover"></p>
+<p>4 月 29 日下午，TrendForce 在英文站推了一条短讯，标题平淡得不像有戏：「Huawei Ascend, Cambricon and Hygon Completed Day 0 Adaptation to DeepSeek-V4」。国内中文圈里转得稀稀拉拉，因为外面同一时间正在追 OpenAI 的 Goblins 论文和 Mistral Medium 3.5 的 Vibe Remote。可这条短讯里写得很清楚——「华为全系（Ascend A2、A3、950）支持 V4-Pro 和 V4-Flash，寒武纪基于 vLLM 框架完成适配并把代码开源到 GitHub，海光 DCU 平台 Day 0 适配并形成模型发布到芯片到产业部署的闭环」。</p>
+<p>这事说大不大说小不小。说不大，是因为 DeepSeek V4-Pro / Flash 4 月 24 日凌晨发布、当天阿里云百炼、腾讯云 TI-ONE、华为云 MaaS 三家就把 API 挂出来，对很多人来说「能用上」就够了；说不小，是因为这条 72 小时的工程链条，把过去两年「国产芯片有，但不能跑前沿模型」的老叙事直接砍成两半——前沿 MoE 模型现在能在 910B、910C、950 上稳定跑起来，而且不是某家厂跑通一次，是三家国产芯同时跑通、三朵云同步定价、价格还跟 DeepSeek 官方对齐到 1 元 / 百万 token 输入。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/topic1-trendforce-ascend-day0-2026-05-15.jpg" alt="DeepSeek V4 三家国产芯 Day-0 适配 TrendForce 报道"></p>
+<p>这篇文章不写 DeepSeek V4 的模型能力，能力评测国内媒体已经写完了；也不渲染中美芯片对抗的叙事，那些情绪没有工程价值。我们把这条 72 小时链条拆开，看每一段是怎么走通的：发布当天怎么 Day-0、vllm-ascend 这个 GitHub 项目当前到底支持哪些模型、910B vs 910C vs 950PR 三代单卡参数和国内行情怎么对照、政企真要做私有化怎么选——一体机走华为 FusionCube、租赁走 anygpu.cn 这一档、单买芯片走 11 万到 19 万一片。读完心里有数，再决定要不要走这条路。</p>
+<h2>72 小时链条：从 4 月 24 日发布到 4 月 25 日三朵云全上</h2>
+<p>时间线先摆清楚。</p>
+<p>4 月 24 日凌晨，DeepSeek 官方在 X 和官网同步发布 V4-Pro 和 V4-Flash。两个版本都是 MoE 架构、1M token 上下文、训练量在 32T 到 33T token 之间。V4-Pro 是 1.6T 总参 49B 激活，对应过去 V3.2 那一档的旗舰；V4-Flash 是 284B 总参 13B 激活，对位 V3.1。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/topic1-deepseek-v4-model-card-2026-05-15.png" alt="DeepSeek V4 模型卡截图"></p>
+<p>发布同一天，阿里云百炼平台公告挂出 V4-Pro + V4-Flash API、Flash 版输入价 1 元 / 百万 token、输出价 2 元 / 百万 token，Pro 版输入 4 元 / 输出 16 元，与 DeepSeek 官网定价完全一致。腾讯云这边走 TokenHub、ADP、TI-ONE、EdgeOne 四个入口同时上线，同样官方价。华为云走 MaaS（ModelArts Studio），4 月 24 日先把 Flash 版挂出来一键调用，Pro 版隔了几小时跟上。</p>
+<p>也就是发布到云上线，时间间隔大约是几个小时，不是几天。</p>
+<p>4 月 29 日 TrendForce 的报道把后端那段补完——昇腾 A2、A3、950 全系适配，寒武纪用 vLLM 框架打通并开源代码，海光 DCU 平台同步打通。换句话说，前 24 小时是云厂商挂 API，后 4 天是芯片厂商把推理后端打稳定。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/topic1-aliyun-bailian-v4-launch-2026-05-15.jpg" alt="阿里云百炼上线 DeepSeek V4 公告页"></p>
+<p>把这条链条对位过去几次模型发布看更清楚。2024 年 V3 发布到国内云厂商上线 V3 API 大概隔 1 周；V3.1 到 V3.2 那一档已经压到 48 小时上下；这次 V4 把延迟压到几小时。背后的工程能力不是一次性爆发，是 vllm-ascend 这个项目过去 9 个月稳定迭代、CANN 软件栈从 8.5 升到 9.0、PD 分离架构在 Ascend 上磨成默认后端、以及云厂商内部把模型上架流程跑成 CI 这几件事叠出来的。</p>
+<p>桌面上看是一次发布，链条上看是一年半的积累。</p>
+<h2>V4-Pro 1.6T 在昇腾上是怎么塞下去的</h2>
+<p>很多人第一反应是 1.6T 参数、49B 激活、1M 上下文，这一档怎么可能在国产卡上跑起来。</p>
+<p>DeepSeek 在 V4 的技术报告里给了具体数字——通过混合注意力（CSA / HCA）的工程改造，把 KV cache 从 V3.2 的 83.9 GiB 直接压到 9.62 GiB（bf16，1M 上下文）。这 10 倍的压缩是这次发布最硬的工程亮点，比模型本身的能力跳跃更值得关注。</p>
+<p>为什么是 10 倍。因为过去本地化部署 1.6T 模型，瓶颈不是算力是 KV cache。一张卡 64 GB HBM，跑 1M 上下文光 KV 就要吃掉 80 GB 以上，连显存边都摸不到。压到 9.62 GiB，意味着 1M 上下文场景下单卡甚至有可能塞下，4-8 卡集群跑 V4-Pro 完整版变成工程上能拼出来的事情。</p>
+<p>vllm-ascend 这边把另一半补上了。当前最新版本 v0.19.1rc1 在 4 月 30 日发布，关键新特性里写得很直接——</p>
+<ul>
+<li>DFlash 注意力后端添加，完整解码专用支持</li>
+<li>零气泡异步调度，「推理开销显著降低」（项目原文措辞）</li>
+<li>Eagle3 + MiniMax-M2.5 组合推理加速</li>
+<li>A2 / A3 硬件的注意力算子替换为 <code>_npu_flash_attention_unpad</code></li>
+<li>MLA PCP 预填充避免投影尾部 KV 令牌</li>
+<li>KV 缓存批量卸载（<code>aclrtMemcpyBatchAsync</code>）</li>
+</ul>
+<p>这些不是营销 release note，是几条具体的内核级优化。结合 DeepSeek V4 的 KV cache 压缩，等于「模型层减负 + 推理层增效」两条工程线在同一周内会师。</p>
+<p>模型支持矩阵这边，vllm-ascend 当前覆盖度大致是这样的：</p>
+<table>
+<thead>
+<tr>
+<th>模型家族</th>
+<th>支持版本</th>
+<th>关键特性</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>DeepSeek V3.2 / V3.1</td>
+<td>完整支持</td>
+<td>W8A8C8 量化、MTP、PD 分离、KV 池</td>
+</tr>
+<tr>
+<td>Qwen3 系列</td>
+<td>完整支持</td>
+<td>Qwen3.5 / Qwen3-Next、MTP、全图模式</td>
+</tr>
+<tr>
+<td>GLM-5 / 5.1</td>
+<td>完整支持</td>
+<td>W8A8 量化、PD 分离</td>
+</tr>
+<tr>
+<td>Kimi-K2.5</td>
+<td>实验性</td>
+<td>Eagle3 推理加速</td>
+</tr>
+</tbody></table>
+<p>需要提醒的是 V4 这一档在 vllm-ascend 当前版本里属于「华为内部已跑通、社区版本正在补完」的状态——这一点 vllm-ascend 项目首页和 TrendForce 报道里都没明说，是从云厂商上线时间 + 项目 release notes 对照出来的判断。社区开发者想在自己机房复现 V4 部署，要么等 v0.20 正式版（按节奏估计 5 月底 6 月初），要么走华为云 OBS 拉预编译包路径。</p>
+<p>CANN 版本要求要看清。v0.18.0 稳定版基础需要 CANN 8.5.1，但 AscendStoreConnector + FabricMem 这些高级特性、310P 支持、Qwen3-Omni 都要 CANN 9.0.0。v0.19.1rc1 推荐 8.5.1 及以上，部分功能仍然需要 9.0.0。</p>
+<p>实操路径上有几个坑前面踩过的人已经写在 issue 里——<code>torch-npu</code> 需要手动装特定版本（2.9.0.post1+git4c901a4 这一档），<code>triton-ascend</code> 在某些环境下要清缓存（<code>rm -rf ~/.triton/cache/*</code>），从华为云 OBS 拉预编译包是当前最稳的姿势。PD 分离部署 ADXL 引擎已经成为默认后端，内存敏感场景要把 <code>VLLM_ASCEND_ENABLE_MLAPO</code> 设为 False。</p>
+<p>GLM-5 单节点非 PD 部署当前有已知 bug 会产生错误结果，Qwen3.x 跟 PD 分离的精度问题也在跟进。这些不是「不能用」，是「跑通需要照官方指南走，自己拍脑袋改参数容易翻车」。</p>
+<h2>三朵云价格表 + 私有化四条路径</h2>
+<p>价格梯度先摆出来，这一段对 1.5 万小团队和政企采购方都直接相关。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/topic1-chart-cloud-pricing-2026-05-15.png" alt="DeepSeek V4 国内三朵云 API 价格对照"></p>
+<p>三朵云首日报价完全对齐 DeepSeek 官方，没有差异化定价。这一点其实挺重要——历次国内云厂商上线开源模型，腾讯云、阿里云、华为云之间常常会有 10%-30% 的价格摆动，作为引流策略。这次三家都不动，意味着 V4 的成本结构对云厂商来说不是套利空间，是工程成本。</p>
+<p>把价格摊到具体场景里看：</p>
+<ul>
+<li><strong>个人开发者跑 coding 助手</strong>：V4-Flash 输入 1 元 / 输出 2 元一百万 token，日均消耗 5M 输入 + 2M 输出，单日成本 9 元。对位 Claude Sonnet 4.5（API 入 3 美元 / 输出 15 美元，按当前汇率折人民币约 21.6 / 108 元一百万 token），V4-Flash 跑高频 coding 是 1/20 价格档位。</li>
+<li><strong>企业 RAG 知识库 + agent 流水线</strong>：跑 V4-Pro 1.6T，输入 4 元 / 输出 16 元一百万 token。如果每月 500M 输入 200M 输出，月度账单约 5,200 元。这一档对位 GPT-5.5 大致是 1/30 价格。</li>
+<li><strong>政企私有化（数据不出本机）</strong>：API 路线不可选，下面要进私有化采购梯度。</li>
+</ul>
+<p>私有化的四条路径分价格梯度看：</p>
+<p><strong>路径 A：单芯片采购，自己拼集群（150 万 - 800 万）</strong></p>
+<p>昇腾 910B 国内 snapshot 单价 11 万元 / 片左右，64 GB HBM3e，FP16 算力 320 TFLOPS，带宽 1.2 TB/s（数据来自 anygpu.cn 租赁报价 + 极云科技公开行情，因渠道和批量有 ±30% 浮动）。跑 V4-Flash 推理 8 卡是工程起点，跑 V4-Pro 单节点要 16-32 卡。910C 单价上到 19 万 / 片，96 GB HBM、FP16 700 TFLOPS、带宽 2.2 TB/s。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/topic1-chart-ascend-pricing-2026-05-15.png" alt="国产 NPU vs NVIDIA 旗舰 单卡参数与价格"></p>
+<p>这一档自己拼集群好处是单价透明，坏处是机房、网络、运维全是自己事，跟买 H100 自建一样麻烦，加上 CANN 软件栈相对成熟度比 CUDA 低半档，工程团队 3-5 人是底线配置。</p>
+<p><strong>路径 B：华为 FusionCube 一体机（200 - 500 万）</strong></p>
+<p>华为 FusionCube A3000 在 2025 年下半年公开过定价区间，配 910 系列芯片，预装 CANN + vllm-ascend，适配 DeepSeek V3 / R1 已经标准化，V4 这次走 Day-0 路径意味着同款一体机能直接上 V4-Pro / Flash。整柜方案，含训推一体能力。</p>
+<p>这一档好处是开箱即用，坏处是绑死华为生态、运维要走华为认证渠道、价格梯度不透明（200 到 500 万跨度很大，跟订单规模 / 服务包深度强相关）。</p>
+<p><strong>路径 C：算力租赁（按月计费）</strong></p>
+<p>anygpu.cn、并行科技、商汤大装置这一档租赁平台都有昇腾 910B 包月报价，参考价位在月 4 万 - 8 万 / 8 卡集群（不同平台、是否独享、不同时段差距很大）。租赁的好处是不绑硬件、可以按项目周期调整，坏处是数据合规上要看平台等保资质——金融、医疗、政务这一档客户多数租赁路线走不通。</p>
+<p><strong>路径 D：等 950PR 量产，看 H2 价格</strong></p>
+<p>DeepSeek 在 V4 技术报告里有一句很关键的话：「Pro pricing could fall sharply once Huawei Ascend 950 supernodes are deployed at scale in H2」（一旦昇腾 950 超节点在下半年大规模部署，Pro 版价格可能大幅下降）。这是把硬件部署节奏跟 API 价格直接挂钩的公开表态。</p>
+<p>华为 950PR 当前规划是 2026 年内 75 万片出货，4 月开始量产、下半年大规模发货。FP16 算力规划档位 1,800 TFLOPS、单卡 144 GB HBM、带宽 4 TB/s 这一档（厂商口径，未独立复测）。如果这条节奏真的走通，下半年 V4-Pro 的 API 价格再下一档不是没可能。</p>
+<p>对应到工程决策上：</p>
+<ul>
+<li>5 月到 9 月这段窗口，跑生产负载的话走云 API 最划算，1.6T 模型 4 元 / 百万 token 输入价不会更便宜。</li>
+<li>私有化需求是真的（数据不出本机 / 国密合规 / 金融政务等保三级），910B 一体机是当前唯一稳的方案。</li>
+<li>想拿 950PR 红利的，9 月份开始关注供应链消息，不要 5 月就锁单 910B。</li>
+</ul>
+<h2>一段提醒：这条路还没那么舒服</h2>
+<p>把好处讲完，要把另一面也讲清楚。这一档现在依然不是「按 OpenAI 路径无脑跑」的成熟度。</p>
+<p>第一是 CANN 软件栈跟 CUDA 比差半档。CUDA 生态里很多工具（Triton、xFormers、bitsandbytes 这一档）在 Ascend 上要么没有要么是社区半成品。vllm-ascend 自己也在 release notes 里坦白「某些 MoE 模型在高并发场景下存在已知问题」「GLM-5 单节点非 PD 部署可能产生错误结果」「Qwen3.x 与 PD 分离存在精度问题」。</p>
+<p>不是不能跑，是跑通要照官方指南，自己拍脑袋调参数容易翻车。</p>
+<p>第二是文档密度问题。vllm-ascend 文档完整度大致是 vLLM 主仓的 60%-70%，关键算子的中文文档比英文文档还更完整一些，但很多边缘情况只能去 GitHub Issue 区翻。社区中文讨论主要在掘金、CSDN、知乎，质量参差不齐，多数还停留在 V3 / R1 时代部署经验。</p>
+<p>第三是模型支持的「窗口期」。vllm-ascend 跟 vLLM 主仓有版本对齐，新模型在 vLLM 主仓上线到 vllm-ascend 适配，时间窗口通常是 1-4 周。这次 V4 能 Day-0 是华为内部团队提前介入，社区版本要等 v0.20 才完整开放。生产环境跟着社区版本走，至少要预留 2-3 周的版本滞后。</p>
+<p>第四是政企采购合规细节比想象中重。等保三级、国密 SM2 / SM3 / SM4 适配、信创目录里的型号清单、数据本地化的物理证据这些事，硬件厂商和软件栈都要配合。FusionCube A3000 在这条线上走得比较顺，自己拼集群方案就要团队自己背合规材料。</p>
+<p>把这四点摆出来不是泼冷水，是给做技术选型的人一个真实的工程图景——这条路 2026 年 5 月这一档，能跑、能产、能合规，但不是按云 API 那种「写个 curl 就完事」的舒适度。准备走的团队要预算工程师工时、要预备 2-3 周的踩坑期、要把跟华为云 / 华为生态团队的联系方式提前打通。</p>
+<h2>国内同行还在解的几个问题</h2>
+<p>最后聊一段更内圈的话题，跟正在跑这条路的同行有关。</p>
+<p>第一个问题是寒武纪和海光这次也 Day-0 完成适配，意味着什么。寒武纪走 vLLM 框架那条路、开源适配代码到 GitHub；海光 DCU 平台「形成模型发布到芯片到产业部署的闭环」（TrendForce 原文措辞）。换句话说，国产芯片这一档现在不只华为一家能跑 V4，是三家同时能跑。这对采购方是个利好——多源供应、不绑死单家厂商、议价空间起来。</p>
+<p>第二个问题是国产推理框架的格局。vllm-ascend、MindIE（华为自家）、lmdeploy（上海 AI 实验室）、xDiT（清华），这几家在 V4 这一波都有动作。当前看 vllm-ascend 在通用性 + 社区活跃度上领先，MindIE 在华为生态内部深度集成上有优势。中小团队选 vllm-ascend 是更稳的选择——它的代码、文档、issue 都在 GitHub 上公开，调起来快。</p>
+<p>第三个问题是国产模型 + 国产芯片的「双向收敛」。过去两年这条叙事讲过很多次但很虚，2026 年 5 月这一档开始有真实工程证据——DeepSeek V4 在 KV cache 压缩、MoE 路由这些工程细节上明显是冲着 Ascend 950PR 的硬件特性优化的，950PR 的 144 GB HBM 配 V4-Pro 的 9.62 GiB KV cache，正好留出大量上下文窗口空间。这不是巧合，是 DeepSeek 团队和华为 NPU 团队工程线打通的结果。</p>
+<p>OpenClaw 这一档跟本地大模型怎么接上呢？V4-Flash 这种 13B 激活的 MoE 模型，配 910B 8 卡或者 RTX 5090 单卡，本地推理 token/s 已经能撑起编程助手 + 文档摘要这种实时交互场景。OpenClaw 那边的 MCP server 通过 OpenAI 兼容协议接 vllm-ascend 后端，跟接 DeepSeek 官方 API 在调用层基本是无差异的——区别在 latency 和数据驻留两件事。本地 8 卡 910B 跑 V4-Flash，TTFT 在 200-500 ms 区间（华为内部数据，未独立复测），跟阿里云 V4-Flash API 的 1 s 左右 TTFT 比有可观的提升空间。</p>
+<p>第四个问题是这条路下一步会怎么走。短期看是 950PR 量产铺开 + 一体机价格透明化 + 推理引擎稳定性提升，三件事一起把 1.5 万小团队私有化的门槛压下来。中期看是国产模型 + 国产芯片 + 国产推理引擎这套栈在政企客户场景里的渗透率，从今年的 5%-10% 估计能在两年里抬到 30%-40%。长期看，按 DeepSeek 这个工程文化继续做下去，前沿 MoE 模型 + 国产 NPU 的组合不再是「替代方案」而是「常规选项」，跟海外 GPU 方案在不同合规等级、不同价格区间各占一段需求。</p>
+<p>不是要替代谁，是这条路本来就该有人走通。4 月 29 日 TrendForce 那条短讯讲完的事情其实就这一句——三家国产芯一日打通最前沿的开源 MoE 模型，三朵云一日上 API、价格对齐官方。这条工程账，比 OpenAI 那边的 reward spillover 论文更值得国内开发者花一晚上读完。</p>
+<p>至于读完后要不要走这条路，看团队的合规要求、看预算梯度、看团队工程师对 CANN / Linux Kernel 调试这一档的容忍度。能用云 API 解决的事情就走 API，需要私有化的就按上面四条路径选档位。再过半年回头看 950PR 的 H2 节奏，这一档可能比现在判断的还要乐观一些。</p>
+<hr>
+<p><strong>资料来源</strong></p>
+<ul>
+<li>TrendForce «Huawei Ascend, Cambricon and Hygon Completed Day 0 Adaptation to DeepSeek-V4»（2026-04-29）</li>
+<li>TrendForce «Decoding DeepSeek V4: How Huawei&#39;s Ascend 950 PR Is Powering China&#39;s Push to Break CUDA Dependence»（2026-04-07）</li>
+<li>阿里云开发者社区 «阿里云百炼首发上线 DeepSeek-V4»（2026-04-24）</li>
+<li>IT 之家 «DeepSeek-V4 模型预览版正式上线并同步开源»（2026-04-24）</li>
+<li>雷峰网 «阿里云百炼上线 DeepSeek-V4»（2026-04-24）</li>
+<li>latent.space «AINews DeepSeek V4 Pro and Flash — runnable on Huawei Ascend chips»（2026-04-25）</li>
+<li>vllm-ascend release notes（docs.vllm.ai/projects/ascend）</li>
+<li>anygpu.cn 昇腾 910B 租赁报价页 + 极云科技 «华为昇腾 910B 值不值得买»</li>
+<li>compute-market.com «DeepSeek V4-Flash Local Hardware Guide 2026»</li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

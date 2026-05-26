@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI代码工具pi的激进策略：默认关闭新贡献，加固供应链防漏洞 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-25</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-25</span><span class="tag-pill">AI Daily</span></div>
+      <h1>AI代码工具pi的激进策略：默认关闭新贡献，加固供应链防漏洞</h1>
+<blockquote>
+<p>ai-daily · 2026 年 5 月 25 日 02:41 · 来源：GitHub Trending any</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-25/earendil-works-pi-micro/head.png" alt=""></p>
+<p>2026 年 5 月 7 日，凌晨两点。一个叫 Mario 的开发者（GitHub ID: badlogic）正在给 pi-mono 仓库提交一份新的 coding session 记录。他的终端上跑着 <code>pi-share-hf</code>，一键把刚才三小时的 agent 对话推到了 Hugging Face 上——包括每一次 tool call、每一次失败、每一次自我修正。</p>
+<p>这不是什么内部测试，这就是 pi 项目的日常。整个 repo 的 README 里，最显眼的不是架构图，而是一句请求：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-25/earendil-works-pi-micro/content-1.png" alt="earendil-works/pi — AI agent toolkit: coding agent CLI, unified LLM API, TUI & w"></p>
+<blockquote>
+<p>If you use pi or other coding agents for open source work, please share your sessions.</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-25/earendil-works-pi-micro/content-2.png" alt="Exy mascot"></p>
+<p><strong>在 AI 圈人人都在造 benchmark 的时候，这项目在收集真实的失败日志。</strong></p>
+<h2>一个拒绝玩具基准的 coding agent</h2>
+<p>pi 是一个 monorepo，核心只有四个 package：<code>pi-ai</code>（统一 LLM API）、<code>pi-agent-core</code>（agent 运行时）、<code>pi-coding-agent</code>（交互式 CLI）、<code>pi-tui</code>（终端 UI 库）。外加一个独立的 <code>pi-chat</code> 仓库处理 Slack 集成，以及 vLLM pods 做自托管推理。</p>
+<p>技术栈看起来中规中矩。但让我愣神的是项目的贡献规则：</p>
+<blockquote>
+<p>New issues and PRs from new contributors are auto-closed by default. Maintainers review auto-closed issues daily.</p>
+</blockquote>
+<p>新贡献者的 issue 和 PR 默认自动关闭，维护者每天批量审查被关掉的内容。这种反向门控机制在开源项目里极其罕见——绝大多数项目都在求爷爷告奶奶拉贡献，pi 却先把门焊死，再手动挑拣。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-25/earendil-works-pi-micro/schematic-1.png" alt="pi 贡献流程示意，新 issue 进入后自动关闭，维护者从关闭池中审查"></p>
+<p>配套的还有一套我见过的最激进的供应链加固策略。<code>.npmrc</code> 里设置了 <code>save-exact=true</code> 和 <code>min-release-age=2</code>，意思是所有外部依赖钉死精确版本，且 npm 上发布不到两天的包直接拒绝解析。<code>package-lock.json</code> 是&quot;依赖的 ground truth&quot;，pre-commit hook 甚至会拦截意外的 lockfile 变更，除非你显式设置环境变量 <code>PI_ALLOW_LOCKFILE_CHANGE=1</code>。</p>
+<p>更狠的是 shrinkwrap 生成流程：发布出去的 CLI 包里包含 <code>npm-shrinkwrap.json</code>，把传递依赖也钉死。如果某个依赖突然引入了 lifecycle script，CI 会直接失败，直到维护者审核并加入显式白名单。</p>
+<p><strong>依赖即代码，npm 的下一个 left-pad 事件别想从 pi 的管道里钻进去。</strong></p>
+<h2>数据飞轮：把用户变成训练集</h2>
+<p>pi 项目最不寻常的设计不在代码里，在分发策略上。它鼓励用户公开分享 coding agent 的完整会话记录，理由是：</p>
+<blockquote>
+<p>Public OSS session data helps improve coding agents with real-world tasks, tool use, failures, and fixes instead of toy benchmarks.</p>
+</blockquote>
+<p>翻译成人话：你帮我跑 agent，顺便把翻车现场也给我，我拿这些真料喂模型。</p>
+<p>为此项目专门做了两个工具：<code>badlogic/pi-share-hf</code> 负责把会话推送到 Hugging Face，只需要一个 HF 账号和 CLI 就能搞定。项目作者 badlogic 自己定期发布 <code>pi-mono</code> 的开发 session 到 Hugging Face 上，以身作则。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-25/earendil-works-pi-micro/schematic-2.png" alt="pi 数据飞轮流程，用户 CLI → pi-share-hf → Hugging Face 数据集 → 模型改进 → 更聪明的 agent"></p>
+<p>这个飞轮的精妙之处在于：它绕过了 AI 圈最虚伪的环节——benchmark 竞赛。HumanEval 的分数已经通货膨胀到失去参考意义，SWE-bench 被各家 agent 刷到 40% 以上之后也快变成另一个玩具指标。pi 的策略是：别给我看你在人造考试里的成绩，给我看你修一个真实 bug 时 tool call 的顺序对不对。</p>
+<p>而且数据收集的门槛被压到了极致。一个 Hugging Face 账号加一条命令，零配置。对于 OSS 开发者来说，分享 coding session 几乎没有额外成本——反正代码本来就是公开的，agent 怎么写的也是过程透明。</p>
+<p><strong>这是开源社区的终极套娃：用开源代码训练 AI，让 AI 写更多开源代码，顺便把所有过程记录下来喂给下一代模型。</strong></p>
+<p>（值得一提的是，pi.dev 这个域名是 exe.dev 捐赠的，两个域名的所有者显然知道自己在赞助什么——一个可能吃掉自己饭碗的工具。）</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-25/earendil-works-pi-micro/schematic-3.png" alt="pi monorepo 包结构图，pi-ai / pi-agent-core / pi-coding-agent / pi-tui 四层 + pi-chat 外部集成"></p>
+<p>不过这个飞轮有一个隐藏假设：用户真的愿意分享失败记录。对个人开发者来说，把自己的 agent 会话公开，等于暴露了所有试错过程——包括愚蠢的 prompt、跑偏的 tool call、被 agent 搞坏的本地文件。这需要一种在开发者圈子里并不普遍的心理素质：对&quot;不完美过程&quot;的坦然。</p>
+<p>badlogic 显然有这种素质。他不仅公开 session，还录了视频教别人怎么公开 session。这种&quot;先把自己裸奔了再邀请大家一起裸奔&quot;的真诚，在 AI 工具赛道里算是一股泥石流。</p>
+<hr>
+<p>pi 的 README 最后一句话是 <code>License: MIT</code>。一个把供应链锁到牙齿的项目，选了最宽松的协议。你可以 fork 它、改它、拿它赚钱，但如果你用 npm 装它，依赖树里的每一个字节都已经被审查过两遍。</p>
+<p>这大概就是 2026 年的开源精神：代码是你的，但信任必须由我来保证。</p>
+<p>#AI #CLI #LLM #API #TUI</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

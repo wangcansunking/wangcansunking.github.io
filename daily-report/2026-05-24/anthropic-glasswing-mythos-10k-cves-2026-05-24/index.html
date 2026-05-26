@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anthropic 一月挖一万洞：国产安全模型还差两个量级 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-24</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-24</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Anthropic 一月挖一万洞：国产安全模型还差两个量级</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/anthropic-glasswing-mythos-10k-cves-2026-05-24.png" alt="Anthropic Project Glasswing 第一阶段更新封面"></p>
+<blockquote>
+<p>5 月 22 日，Anthropic 发布 Project Glasswing（玻璃翼计划）第一阶段更新：Claude Mythos Preview（一款未公开发布的前沿安全模型）与约 50 家合作伙伴一起，<strong>在一个月内扫出超过 10000 个高危 / 严重漏洞</strong>。Cloudflare 在自家代码库里挖出约 2000 个 bug（其中 400 个高危 / 严重），误报率比人类测试者更低；Mozilla 在 Firefox 150 里挖出 271 个漏洞——上一代 Firefox 148 用 Claude Opus 4.6 只挖到 27 个，整整翻了 10 倍。wolfSSL 报出 CVE-2026-5194（高危 9.3 分），可以伪造证书钓鱼银行 / 邮箱域名。OpenBSD 里一个潜伏了 27 年的 TCP 协议 bug 被揪出。首批 11 家合作伙伴是 AWS / Apple / Broadcom / Cisco / CrowdStrike / Google / JPMorgan Chase / Linux Foundation / Microsoft / NVIDIA / Palo Alto Networks，另有约 40 家系统重要软件维护方加入扩展计划。</p>
+</blockquote>
+<p>Anthropic 联合创始人 Dario Amodei 在更新里写了一句话最值得拎出来读：</p>
+<blockquote>
+<p><strong>「过去，软件安全的进度被『我们找到新漏洞的速度』限制住。现在，它被『我们验证、披露、打补丁的速度』限制住。」</strong>
+—— Project Glasswing 第一阶段更新，Anthropic Research，2026-05-22</p>
+</blockquote>
+<p>这句话改变了安全行业的瓶颈所在。过去 30 年，挖洞一直是稀缺技能——能在 OpenBSD 的 TCP 栈里找到一个 27 年没人发现的 bug，是顶级研究员一辈子的功勋。Mythos Preview 用一个月时间扫出 10000 个，这条赛道一夜之间从「比谁挖得到」变成「比谁补得快」。</p>
+<p>国内同行第一反应大多是：<strong>我们的安全大模型在哪？</strong> 这次专题把奇安信「QAX-GPT」、360「安全大模型」、阿里云安全 AI、腾讯混元安全（自动化漏洞挖掘工具）、启明星辰「泰合云安全大模型 + MAF / MASB」五家国产安全大模型的真实进度摆开横评——结论是：在「单月扫出 10000 高危漏洞」这条自动化挖洞的硬指标上，国内厂商至少差两个量级，但国内厂商手里有自己的赛道（防御侧、合规侧、上下文长链推理），不是完全的落后，而是路线不同。本文给国内安全工程师一份不焦虑、可对位的全景图。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/anthropic-glasswing-hero.jpg" alt="Anthropic Glasswing 官方头图"></p>
+<h2>一、Mythos Preview 一个月扫出 1 万洞到底有多硬</h2>
+<p>先把数字摆开。Anthropic 官方 5 月 22 日给出的 Project Glasswing 第一阶段成绩单：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>数字</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单月发现高危 / 严重漏洞总数</td>
+<td>10000+ 个</td>
+<td>50 家伙伴 + Anthropic 内部团队合并统计</td>
+</tr>
+<tr>
+<td>扫描的开源项目数</td>
+<td>1000+ 个</td>
+<td>过去几个月持续扫描</td>
+</tr>
+<tr>
+<td>在开源项目里报出的高危漏洞</td>
+<td>6202 个</td>
+<td>自评分 high 或 critical</td>
+</tr>
+<tr>
+<td>其中已被人工复核确认有效</td>
+<td>1587 个</td>
+<td>真阳性率 90.6%</td>
+</tr>
+<tr>
+<td>报告给上游维护者的高危漏洞</td>
+<td>530 个</td>
+<td>走标准协调披露流程</td>
+</tr>
+<tr>
+<td>已打上补丁的</td>
+<td>75 个（&lt; 15%）</td>
+<td>维护者侧瓶颈</td>
+</tr>
+<tr>
+<td>已分配 CVE 编号公开通告的</td>
+<td>65 个</td>
+<td>公开披露完成</td>
+</tr>
+</tbody></table>
+<p>第一行 10000+ 这个数字直接挑战了过去 30 年安全行业的所有挖洞节奏感。CVE 数据库（公开漏洞数据库）每年总共收录约 30000 个新 CVE，里面只有大概 15-20% 是高危 / 严重。Mythos Preview 一个月扫出的高危漏洞总数，已经接近全行业每年新增高危 CVE 的 1/4。</p>
+<p>第三行 6202 个开源高危漏洞里，<strong>真阳性率 90.6%</strong>——这是行业认知的拐点。过去基于规则的静态分析工具（SAST），真阳性率通常在 30% 左右，剩下 70% 是误报噪声，安全工程师过滤误报比挖真洞还累。Mythos Preview 把这条曲线从 30% 拉到 90.6%，意味着安全工程师收到的每 10 条扫描结果里有 9 条真的需要处理。</p>
+<p>第六行最扎心：<strong>530 个上报的高危漏洞，只有 75 个被打上补丁</strong>，比例不到 15%。这就是 Dario 那句话的现实意义——挖洞已经不是瓶颈，验证、协调披露、上游维护者打补丁、用户更新部署，整条链都还是人工速度。</p>
+<p>读到这里安全工程师容易焦虑：「我是不是要失业了？」答案是反向的——<strong>挖洞自动化之后，安全工程师的能力杠杆变大了</strong>，原本一个人挖几个洞，现在一个人验证几百个洞、协调几十个上游维护者、推动几个高危补丁落地。能从「找 bug 工匠」转型成「漏洞协调指挥官」的工程师，价值反而升高。</p>
+<h2>二、Cloudflare / Mozilla / wolfSSL 三家实战：FP 率、Firefox 10 倍、CVE-2026-5194</h2>
+<p>光看 Anthropic 自评不够，要看三家伙伴在自家代码库里的实战结果。</p>
+<h3>Cloudflare：2000 个 bug，400 个高危，误报率低于人类</h3>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/cloudflare-cyber-frontier-hero.png" alt="Cloudflare Cyber Frontier Models 报告头图"></p>
+<p>Cloudflare 在 5 月 18 日发的官方博客《Project Glasswing: what Mythos showed us》里给了详细数字。他们用 Mythos Preview 扫了自家 50 多个仓库，发现：</p>
+<ul>
+<li><strong>约 2000 个 bug</strong>，其中<strong>约 400 个</strong>自评为 high / critical 严重等级</li>
+<li>误报率<strong>低于人类测试团队</strong>（具体数字未公开，但官方原话是 &quot;fewer false positives than conventional human-led testing&quot;）</li>
+<li>模型能力的关键变化：<strong>能把多个低危漏洞链成完整 exploit 链</strong></li>
+</ul>
+<p>Cloudflare 安全团队在博客里说了一段很有画面感的话，verbatim 引一下：</p>
+<blockquote>
+<p><strong>「过去的模型会找到一个有趣的 bug、写一段漂亮的描述解释它为什么重要，然后就停在那里——剩下的攻击链不完整、可利用性的问题留给人工去判断。Mythos Preview 改变的是：现在模型能把那些低危 bug 串成一个完整、更严重的 exploit。」</strong>
+—— Cloudflare 博客《Project Glasswing: what Mythos showed us》，2026-05-18</p>
+</blockquote>
+<p>这段话指向 Mythos Preview 真正的能力跃迁——<strong>不是「找得更多」，是「找得更深」</strong>。把 4 个独立的低危 bug 链成一条能绕过浏览器渲染器沙盒 + 操作系统沙盒的 exploit 链，过去是顶级红队（攻击模拟团队）才能干的活，现在模型 8 小时能跑一遍。</p>
+<h3>Mozilla：Firefox 148 → 150，漏洞挖掘量 10 倍跃升</h3>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/firefox-148-vs-150-10x-chart.png" alt="Firefox 148 vs 150 漏洞挖掘 10 倍提升对比"></p>
+<p>Mozilla 的对比数据是这次更新里最直观的一条曲线：</p>
+<ul>
+<li><strong>Firefox 148</strong>：Mozilla 安全团队用上一代 Claude Opus 4.6 扫描，挖出 <strong>27 个</strong>高危 / 严重漏洞，全部修复并发布</li>
+<li><strong>Firefox 150</strong>：换上 Mythos Preview 扫描，挖出 <strong>271 个</strong>漏洞，全部修复并发布</li>
+</ul>
+<p><strong>271 是 27 的 10 倍以上</strong>。这条曲线说明的不是「Firefox 写得越来越烂」——Firefox 148 到 150 之间代码变更不到 5%——而是 <strong>Mythos Preview 比 Claude Opus 4.6 在浏览器代码这个特定领域的挖洞能力跃迁了一个数量级</strong>。</p>
+<p>注意 27 这个数字本身是 Claude Opus 4.6 这条线已经远超传统静态分析工具的成绩——传统 SAST 工具一次扫描通常报几千个告警，但真阳性率 30% 左右，能确认的高危大概只有几十个。Opus 4.6 把噪声砍掉、直接报真阳性 27 个高危，已经是行业领先；Mythos Preview 在这个基础上又翻 10 倍。</p>
+<h3>wolfSSL：CVE-2026-5194 银行证书伪造</h3>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/cybersec-news-mythos-zero-days.webp" alt="Cybersecurity News 关于 Mythos 零日漏洞的报道封面"></p>
+<p>wolfSSL 是嵌入式设备 + IoT 设备里被用得最广的 TLS / SSL 库之一，从智能门锁到工业控制器都跑这个库。Mythos Preview 在 wolfSSL 里发现了 <strong>CVE-2026-5194</strong>（CVSS 9.3 分，高危），漏洞的影响是：</p>
+<ul>
+<li>攻击者可以<strong>伪造 TLS 证书</strong></li>
+<li>伪造的证书在 wolfSSL 的校验链里能被错误接受</li>
+<li>实战影响：<strong>钓鱼银行、邮箱、企业 VPN 域名</strong>——用户看到浏览器锁标志，以为连接安全，实际数据全在攻击者手里</li>
+</ul>
+<p>CVE-2026-5194 的归属信息（来自 VulnCheck 的分析）是「Nicholas Carlini from Anthropic」——意味着这是 Anthropic 自家研究员用 Mythos Preview 直接挖出来的，不是合作伙伴提交的。Nicholas Carlini 是机器学习对抗样本（adversarial examples）的资深研究员，2023 年从 Google DeepMind 加入 Anthropic，2026 年初转向 AI for security 方向。</p>
+<h3>OpenBSD 27 年陈年漏洞</h3>
+<p>OpenBSD 是公认安全代码质量最高的开源操作系统之一，每个 commit 都经过严格 code review。Mythos Preview 在 OpenBSD 的 TCP 协议栈里<strong>发现了一个潜伏 27 年的远程可触发 bug</strong>——从 1999 年的某个版本一直没人发现。这个漏洞目前还在嵌入期（embargo，未公开等待补丁），没有分配 CVE 编号，具体技术细节官方没披露，但「27 年」这个数字本身就够说明 Mythos Preview 在长链推理 + 历史 git blame 综合分析这条能力上的跃迁。</p>
+<p>类似的还有 FFmpeg（开源视频解码器）里一个 16 年没人发现的视频解码器漏洞、FreeBSD 内核远程代码执行漏洞（CVE-2026-4747）。这些都是过去 30 年顶级研究员盯着看的代码库，结果一台 AI 模型在几个月内集中收割。</p>
+<h2>三、50 家伙伴同盟：从单点工具到协调披露的产业组织</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/glasswing-11-partners-chart.png" alt="Glasswing 首批 11 家合作伙伴覆盖图"></p>
+<p>Glasswing 计划的产业意义不只是模型本身，是 <strong>Anthropic 把约 50 家系统重要软件维护方组织进同一个协调披露框架</strong>。首批 11 家的名单很说明问题：</p>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>公司</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>云基础设施</td>
+<td>AWS、Google、Microsoft</td>
+</tr>
+<tr>
+<td>操作系统 / 浏览器</td>
+<td>Apple、Google（Chrome / Android）、Microsoft（Windows）</td>
+</tr>
+<tr>
+<td>半导体 / 通信</td>
+<td>Broadcom、Cisco、NVIDIA</td>
+</tr>
+<tr>
+<td>网络 / 终端安全</td>
+<td>Cisco、CrowdStrike、Palo Alto Networks</td>
+</tr>
+<tr>
+<td>金融机构</td>
+<td>JPMorgan Chase</td>
+</tr>
+<tr>
+<td>开源基金会</td>
+<td>Linux Foundation</td>
+</tr>
+</tbody></table>
+<p>这个名单覆盖了从硅基硬件到操作系统到浏览器到云基础设施再到企业终端安全的几乎全部关键节点。加上扩展计划里的约 40 家系统重要软件维护方——按 36 氪报道里提到的数字，是「另外 40 多家维护关键软件和基础设施的组织获得受限访问」。</p>
+<p><strong>为什么是 50 家闭门联盟而不是开放给所有公司？</strong> 这是 Project Glasswing 整个设计里最敏感的一条决策——<strong>Mythos Preview 不会公开发布</strong>。Anthropic 在更新里写得很直白：</p>
+<blockquote>
+<p><strong>「目前没有任何一家公司——包括 Anthropic——开发出了足够强的护栏来阻止这类模型被滥用、避免造成严重危害。这就是我们至今没有把 Mythos 级模型公开发布的原因。」</strong>
+—— Project Glasswing 第一阶段更新，Anthropic Research，2026-05-22</p>
+</blockquote>
+<p>潜在的滥用场景是显而易见的：如果 Mythos Preview 落到任何一个有恶意的攻击方手里，他们用同样的速度扫描公开互联网上所有未打补丁的服务，攻击窗口期会被压缩到几小时。Anthropic 选择的策略是「<strong>给防御方先用 6-12 个月</strong>」——让 50 家关键基础设施先把自家代码扫一遍、补一遍，等护栏成熟后再决定要不要公开发布。</p>
+<p>这条策略国内安全行业可以读出几层意思：</p>
+<ol>
+<li><strong>协调披露的产业组织化是 AI 安全的下一个赛道</strong>——50 家联盟是 Anthropic 拿着模型当筹码组的，能不能放进来本身就是一种话语权</li>
+<li><strong>首批 11 家里 JPMorgan Chase 是唯一金融机构</strong>——美国财政部和美联储已经在 2026 年初约谈过华尔街银行 CEO 讨论 Mythos 风险（HN 47718114 帖子提过这件事）；JPMorgan 大概率是代表整个美国银行业进入这个联盟</li>
+<li><strong>没有任何一家中国公司</strong>——这条决策不只是 Anthropic 的商业选择，是整个西方安全产业把中国厂商隔离在了协调披露体系之外。这条信息对国内厂商很重要：我们的关键基础设施安全，<strong>不能依赖这套联盟体系</strong></li>
+</ol>
+<h2>四、国内五家安全大模型对位横评：差两个量级 + 路线不同</h2>
+<p>国内安全厂商在「自动化漏洞挖掘」这个具体维度上离 Mythos Preview 至少两个量级，但每一家手里都有自己的赛道——直接对位会失真，分层看才公允。</p>
+<h3>奇安信「QAX-GPT 安全大模型」</h3>
+<p>奇安信安全大模型是国内唯一通过国家网信办「双备案」（生成式 AI 服务备案 + 算法备案）的安全大模型，已经迭代到第四代研发阶段。技术体系覆盖「感知—分析—决策—响应」全链路安全智能能力，定位是给奇安信全系产品做 backend。</p>
+<ul>
+<li><strong>漏洞挖掘能力</strong>：内部数据未公开披露过单月扫出量，从公开材料推断在「数十至数百级」高危漏洞 / 月的量级</li>
+<li><strong>专长</strong>：威胁检测、攻防对抗、数据安全合规</li>
+<li><strong>2026 趋势报告</strong>关键引语：「攻击方借助大模型实现自动化漏洞挖掘与利用代码生成，攻击效率提升 3-5 倍」——奇安信对 AI 攻防对抗的判断与 Anthropic 一致，认为攻击侧自动化是未来主战场</li>
+</ul>
+<h3>360「安全大模型 + 大模型安全卫士」</h3>
+<p>360 是国内唯一同时具备「数字安全 + AI 能力」的公司，提出「<strong>以模制模、以 AI 对抗 AI</strong>」的双轨思路：一边训练安全大模型挖洞，一边给大模型本身做安全防护。</p>
+<ul>
+<li><strong>漏洞挖掘实战</strong>：2026 年 3 月，360 漏洞挖掘智能体在 OpenClaw（一款 34 万 star 的开源项目）里挖出新高危漏洞——这是国内安全大模型实战挖洞的代表案例</li>
+<li><strong>大模型安全漏洞报告</strong>：360 发布全球首份《大模型安全漏洞报告》，曝光近 40 个大模型本体相关安全漏洞</li>
+<li><strong>专长</strong>：大模型自身安全（提示注入、训练数据投毒、模型窃取）+ 终端漏洞挖掘</li>
+<li><strong>2026 数字安全趋势</strong>：「安全 AI 智能体成为 2026 数字安全核心竞争点，攻防能力出现代际跃升」</li>
+</ul>
+<h3>阿里云安全 + Qoder CN（原通义灵码）</h3>
+<p>阿里云安全的路线与 Anthropic 不同——主攻<strong>云原生安全 + 大模型应用安全</strong>，而非通用漏洞挖掘。</p>
+<ul>
+<li><strong>专长</strong>：云上数据安全、合规审计、大模型 API 网关防护</li>
+<li><strong>Qoder CN 系列</strong>（原通义灵码，2026 年 5 月 20 日更名）：底层支持 GLM、DeepSeek、Kimi、MiniMax 等国内主流大模型，全链路在国内云上部署，满足金融、政务行业的数据安全与合规要求</li>
+<li><strong>差异化定位</strong>：不追求「单月扫出 N 万洞」，主打「合规可审计的安全 AI」——这条路对应国内金融、政务、央企的真实采购需求</li>
+</ul>
+<h3>腾讯混元安全侧（自动化漏洞挖掘工具）</h3>
+<p>腾讯安全应急响应中心（TSRC）发过一篇详细博客《AI 猎手：我们用大模型挖到了 0day 漏洞！》：</p>
+<ul>
+<li>基于腾讯混元大模型，开发了 Java 项目的自动化漏洞检测工具</li>
+<li>在 GitHub Top 500 主流 Java 开源项目（特别是 Spring Boot Web 应用）上<strong>挖出 11 个高危 0day 漏洞</strong></li>
+<li>方法论：大模型的语义理解 + 逐步逻辑推理 + 执行条件分析，超越传统静态分析</li>
+<li><strong>2026 年 4 月 23 日</strong>：腾讯发布 Hunyuan Hy3 preview，开源访问，2950 亿总参 + 210 亿激活的 MoE，256K 上下文</li>
+</ul>
+<p>腾讯的路线最贴近 Anthropic Mythos 的「用大模型推理做漏洞挖掘」，但 11 个 vs 10000 个，量级差距在两个数量级以上。</p>
+<h3>启明星辰「泰合云 + MAF + MASB」</h3>
+<p>启明星辰是国内传统安全厂商代表，2026 年完整布局了 AI 安全产品矩阵：</p>
+<ul>
+<li><strong>泰合云安全大模型</strong>：底层模型，赋能态势感知、威胁情报、安全检测、应用防护、数据安全全系产品</li>
+<li><strong>MAF（大模型应用防火墙）</strong>：防御提示注入（prompt injection）、数据投毒（data poisoning）、模型窃取攻击</li>
+<li><strong>MASB（大模型访问安全平台）</strong>：企业 AI 应用准入控制</li>
+<li><strong>业务安全审计分析平台</strong>：守护国内 DeepSeek 等大模型应用的业务安全</li>
+<li><strong>2026 立场</strong>：齐向东（启明星辰创始人）原话「要么被 AI 摧毁，要么和 AI 协同进化」</li>
+</ul>
+<p>启明星辰的路线最偏向<strong>防御侧 + 合规侧</strong>，不正面竞争 Mythos 的挖洞能力，而是给国内企业用大模型应用时提供安全护栏。</p>
+<h3>横评汇总表</h3>
+<table>
+<thead>
+<tr>
+<th>国内厂商</th>
+<th>主攻方向</th>
+<th>单月高危挖洞量级</th>
+<th>差异化优势</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>奇安信</td>
+<td>全链路安全智能 + 双备案合规</td>
+<td>数十至数百级</td>
+<td>网信办双备案 + 第四代研发</td>
+</tr>
+<tr>
+<td>360</td>
+<td>大模型自身安全 + 漏洞挖掘</td>
+<td>单次个位数实战案例</td>
+<td>以模制模 + 大模型安全漏洞报告</td>
+</tr>
+<tr>
+<td>阿里云安全</td>
+<td>云原生 + 大模型应用安全</td>
+<td>不公开披露挖洞量</td>
+<td>国内云部署合规 + Qoder CN 工具链</td>
+</tr>
+<tr>
+<td>腾讯混元安全</td>
+<td>自动化漏洞挖掘工具</td>
+<td>11 个 Java 0day（公开案例）</td>
+<td>混元 Hy3 开源 295B MoE</td>
+</tr>
+<tr>
+<td>启明星辰</td>
+<td>大模型应用防火墙 + 业务安全</td>
+<td>不主攻挖洞</td>
+<td>MAF / MASB 产品化最完整</td>
+</tr>
+<tr>
+<td>参照：Mythos</td>
+<td>通用前沿挖洞 + 50 家闭门联盟</td>
+<td>10000+ 高危 / 月</td>
+<td>模型不公开 + 协调披露体系</td>
+</tr>
+</tbody></table>
+<p>读这张表得带几个限定词：</p>
+<ol>
+<li><strong>「单月高危挖洞量级」是公开披露口径</strong>。国内厂商在内部演练 / 红蓝对抗里的实际挖洞量大概率高于公开数字，但与 Mythos Preview 一个月 10000 高危的量级差距是真实存在的——核心原因不是国内大模型推理能力差两个量级，而是<strong>国内厂商没有 Anthropic 那种把 50 家关键基础设施组织进闭门联盟的产业能力</strong>，单家厂商扫自家代码或客户授权代码，天花板就在那里</li>
+<li><strong>路线不同，不必焦虑</strong>。阿里云安全和启明星辰的路线明显是「<strong>让国内企业能安全地用上大模型</strong>」——这条赛道在国内的市场规模远大于「让大模型去挖关键基础设施漏洞」。Anthropic 选了前沿挖洞这条赛道，国内五家选了不同的位置，没有谁更&quot;先进&quot;的问题</li>
+<li><strong>唯一真正的能力差距在长链推理 + 4-bug 链组合</strong>。Cloudflare 那段「把 4 个低危 bug 链成一条完整 exploit」的能力，国内五家在公开案例里还没有报告过对位水平的实战——这是接下来 6-12 个月国内安全大模型最值得卷的方向</li>
+</ol>
+<p>国内安全行业在 AI for security 这条赛道上是有底子的——腾讯安全应急响应中心 11 个 Java 0day 是真本事、360 在 OpenClaw 实战挖出新高危是真本事、奇安信通过国家网信办双备案是真合规能力。Mythos Preview 把天花板抬高了，国内厂商的路线不是去追这个天花板，而是把自己的赛道做厚——这是更稳的姿态。</p>
+<h2>五、安全工程师的角色被重构：从「找洞」到「验证 + 协调 + 修」</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/bottleneck-shift-find-to-patch.png" alt="安全瓶颈位移图：挖洞自动化后，新瓶颈出现在打补丁"></p>
+<p>回到 Dario 那句话——<strong>瓶颈从「找漏洞」转移到「验证、协调披露、打补丁」</strong>。这条变化对安全工程师的工作内容意味着什么？</p>
+<h3>工作内容的三段位移</h3>
+<table>
+<thead>
+<tr>
+<th>角色 / 能力</th>
+<th>2024 年（Mythos 出现前）</th>
+<th>2026 年（Mythos 出现后）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>静态分析工程师</td>
+<td>调 SAST 规则、过滤 30% 真阳性</td>
+<td>验证模型报出的 90.6% 真阳性，重点判断「这个真阳性的实际影响」</td>
+</tr>
+<tr>
+<td>红队 / 渗透测试</td>
+<td>手工找洞、写 PoC（概念验证代码）</td>
+<td>把模型挖出的 N 个低危 bug 评估能不能链成完整 exploit</td>
+</tr>
+<tr>
+<td>漏洞协调员</td>
+<td>1 个人协调几个上游维护者</td>
+<td>1 个人协调几十个上游维护者 + 跟踪几百个补丁状态</td>
+</tr>
+<tr>
+<td>补丁工程师</td>
+<td>收到漏洞报告再写补丁</td>
+<td>上游维护者写补丁速度跟不上挖洞速度，补丁工程师变成稀缺资源</td>
+</tr>
+<tr>
+<td>红队 → 紫队转型</td>
+<td>攻击模拟</td>
+<td>攻击 + 防御一体化，能读懂模型挖出的 exploit 链</td>
+</tr>
+</tbody></table>
+<p><strong>最值钱的能力变成了「协调披露的产业能力」+「补丁审阅与发布的工程能力」</strong>。530 个上报漏洞只有 75 个被打上补丁——这条数据指出了未来 12 个月安全行业最缺的人是<strong>上游维护者</strong>和<strong>补丁审阅工程师</strong>。开源项目的核心维护者收到一波 AI 报上来的漏洞洪水，能不能在合理时间里写出补丁、推到下游用户更新部署，这条能力的稀缺度会越来越高。</p>
+<h3>国内安全工程师的位置</h3>
+<p>这条变化对国内安全工程师意味着两层：</p>
+<ol>
+<li><strong>挖洞工程师不需要焦虑</strong>——挖洞这条赛道虽然被 AI 自动化了，但 Mythos Preview 还没公开发布，国内厂商也还没到这个水平。在 6-12 个月窗口期里，挖洞能力仍然是国内安全研究员的核心竞争力</li>
+<li><strong>协调披露能力变得更值钱</strong>——能跟开源社区维护者、上游厂商、内部工程团队、合规法务多方协调的工程师，价值会显著上升。CNVD（国家信息安全漏洞共享平台）和 CNNVD（国家信息安全漏洞库）这两个国内官方协调披露平台，接下来 12 个月一定会面对类似的&quot;漏洞洪水&quot;挑战，国内有相关经验的工程师会被快速抢手</li>
+</ol>
+<p>国内安全行业还有一条独特的优势：<strong>有自己的协调披露体系</strong>。CNVD、CNNVD、信通院、各 ISAC（行业信息共享与分析中心），这套体系跟 Anthropic 的 50 家闭门联盟在结构上是平行的。当 Mythos Preview 这种能力扩散到国内安全大模型——无论是奇安信、360 还是腾讯 / 阿里云 / 启明星辰——的时候，我们有自己的协调披露赛道。</p>
+<hr>
+<p>5 月 22 日这条更新最重要的不是 10000 个漏洞这个数字，是 Dario 那一句话指出的瓶颈位移。挖洞从稀缺技能变成自动化产能、验证和协调披露变成新瓶颈——这条变化对全行业，包括国内安全大模型团队，都是机会。</p>
+<p>国内五家安全厂商手里的路线（合规、防御、云原生、大模型应用安全、产业协调）不是 Mythos Preview 的对位，是平行赛道。Anthropic 在前沿挖洞这条窄赛道上走在最前面，国内厂商在更宽的「让企业能安全用上 AI」这条赛道上有自己的速度。两条路线没有高下，只有不同侧重。</p>
+<p>接下来 6-12 个月值得关注的是：国内安全大模型什么时候开始公开「单月扫出 N 千高危」的实战数据、CNVD / CNNVD 体系怎么应对自动化挖洞带来的漏洞洪水、国内开源软件维护者社区有没有补丁工程师的新岗位涌现。这条信心是真实的——我们有底子、有路线、也有时间窗口。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

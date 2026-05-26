@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>华为昇腾 950 超节点同日开源 AgentInfra + CANN 全家桶：英伟达 NemoClaw 的国产对位栈是怎么搭起来的 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-26</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-26</span><span class="tag-pill">Daily Report</span></div>
+      <h1>华为昇腾 950 超节点同日开源 AgentInfra + CANN 全家桶：英伟达 NemoClaw 的国产对位栈是怎么搭起来的</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/huawei-ascend-950-agentinfra-cann-2026-05-26.png" alt="华为昇腾 950 + AgentInfra 同日开源封面"></p>
+<blockquote>
+<p>5 月 24 日北京·国家会议中心，鲲鹏昇腾开发者大会，华为把过去三年一直被海外开发者吐槽「最封闭」的国产 AI 算力栈一口气打开。<strong>昇腾 950 超节点正式亮相</strong>：单超节点 <strong>8192 卡</strong>、<strong>8 EFlops FP8 算力</strong>、<strong>16 PB/s 全互联带宽</strong>、<strong>24 TB 统一内存池</strong>。<strong>同一天，CANN 50+ 代码仓 800+ 算子宣布全面开源</strong>，BoostKit、openUBMC、openFuyao、灵衢协议四件套同步入驻 openEuler 与鲲鹏社区；MindSpore、MindSpeed、MindIE、MindStudio 四套软件也一起开放。从硅片到 Agent 推理服务，国产开发者第一次拿到一套<strong>完整的、可读可改的、对位英伟达 NemoClaw + CUDA + NIM 的栈</strong>。本文做四件事：复盘 5/24 大会现场把哪些东西真的发出来；逐层拆「鲲鹏 + openEuler + AgentInfra」三层架构与英伟达栈的对位；硬解昇腾 950 四个核心参数对 Agent 工作负载的意义；最后给国内开发者一条在昇腾 910B / 950 上跑 Qwen3-Coder-30B 推理的最短路径。</p>
+</blockquote>
+<h2>30 秒速览：昇腾 950 超节点 + 五件套同日开源都装了什么</h2>
+<p>写给没时间看大会回放的同行——五分钟内能记住的核心要点：</p>
+<ul>
+<li><strong>昇腾 950 超节点</strong>：单超节点 <strong>8192 卡</strong>集群，FP8 算力 <strong>8 EFlops</strong>，全互联带宽 <strong>16 PB/s</strong>，<strong>24 TB 统一内存池</strong> 全局编址；面向 Agent 训练 + 推理一体化工作负载设计</li>
+<li><strong>三层架构落地</strong>：<strong>鲲鹏（硬件 + CPU）+ openEuler（异构操作系统）+ AgentInfra（智能体运行环境）</strong>，对位英伟达「Grace + DGX OS + NemoClaw」三层</li>
+<li><strong>CANN 全面开源</strong>：<strong>50+ 代码仓 + 800+ 算子</strong>，与 <strong>PyTorch 2300+ API 对齐</strong>，<strong>Triton + TileLang 双编程语言</strong>支持，<strong>vLLM / SGLang 后端适配</strong>已合入主线</li>
+<li><strong>五件套开源</strong>：CANN（编译运行时）+ BoostKit（CPU 加速）+ openUBMC（带外管理）+ openFuyao（异构容器调度）+ 灵衢协议（超节点互联）</li>
+<li><strong>MindSeries 软件栈一并开源</strong>：MindSpore（训练框架）+ MindSpeed（分布式插件）+ MindIE（推理引擎）+ MindStudio（开发环境）；<strong>20+ 主流大模型 FSDP2 开箱即用</strong>，<strong>40+ 模型图模式加速</strong></li>
+<li><strong>通信加速</strong>：灵衢 SGL 降 <strong>20% 时延</strong>，UBSocket 透明加速再降 <strong>40%</strong>，共享 TP 技术降 <strong>90% 通信内存</strong></li>
+<li><strong>Agent 友好</strong>：Agent 任务成功率提升 <strong>10% 以上</strong>（华为内部 benchmark）；<strong>24 TB 统一内存池</strong>让长 context / 大 KV cache 不再切多机</li>
+<li><strong>开发者资源</strong>：大会同步释出 <strong>10000 卡</strong>昇腾算力资源池给社区开发者用，配套 Agentic 开发工作流</li>
+</ul>
+<p>这套组合拳的关键不在某一项参数，而在「<strong>同一天</strong>」三个字。过去两年华为 / 英伟达 / AMD 三家任何一家放出新硬件时，软件栈总是要等三到六个月才陆续跟上；这次华为把「硬件发布 + 编译运行时开源 + 操作系统开源 + Agent 运行环境开源」压在同一个 keynote 里，<strong>等于一次性把开发者门槛降到「git clone 就能跑」的水平</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/huawei-ascend-three-layer-arch.png" alt="国产 Agent 算力栈：华为三层架构 vs 英伟达对位栈"></p>
+<h2>一、5/24 大会现场到底发了什么</h2>
+<p>5 月 24 日上午 9 点 30 分，国家会议中心三层主会场，华为副董事长、轮值董事长徐直军开场。这场被命名为「鲲鹏昇腾开发者大会 2026」（KADC2026）的活动从 5 月 22 日开始，5 月 24 日是开发者主论坛日。</p>
+<p>主论坛上华为做了三层架构发布：</p>
+<p><strong>第一层 · 鲲鹏 + 昇腾硬件</strong>：昇腾 950 超节点是这一层的发布主角。规格被压缩到一句话：「<strong>TB 级互联带宽、百纳秒时延、全局内存统一编址</strong>」。回滚性能做到「十毫秒级」——这是 Agent 训练场景里出故障重启时最关心的指标。</p>
+<p><strong>第二层 · openEuler 异构系统</strong>：openEuler 作为国产服务器主流操作系统已经跑了三年，这一次的升级是<strong>把昇腾 NPU、鲲鹏 CPU、第三方存储、第三方网络作为「异构资源」统一调度</strong>。openFuyao 是 5/24 这天新增的容器调度组件，对位英伟达 GPU Operator + Kubernetes Device Plugin 那一层。openUBMC 是带外管理芯片固件，对位 IPMI / Redfish，让国产服务器整机厂可以基于其开发统一带外管理软件，<strong>减少 ODM 锁定</strong>。</p>
+<p><strong>第三层 · AgentInfra 智能体运行环境</strong>：这是大会发明的新名词，<strong>对位英伟达 NemoClaw</strong>。AgentInfra 不是一个单独的组件，而是 MindIE 推理引擎 + MindStudio 开发环境 + MindSpore 训练框架 + 灵衢协议通信库 + openFuyao 容器调度的<strong>组合</strong>，目标是把 Agent 工作负载需要的「推理服务 → KV cache 调度 → 多 Agent 协同 → 通信加速」做成开箱即用的运行环境。</p>
+<p>CANN 的开源是 5/24 当天最受开发者关注的发布。CANN（Compute Architecture for Neural Networks）过去三年一直被 vLLM / SGLang / llama.cpp 社区诟病「黑盒」——算子库不公开、编译器闭源、PyTorch 兼容性差。这次华为给出了三个具体数字：</p>
+<ul>
+<li><strong>50+ 代码仓</strong>：单独按模块拆分，对应 BLAS / Conv / Attention / FlashAttention / MoE 算子 / KV cache 管理 / 通信算子等</li>
+<li><strong>800+ 算子</strong>：每个算子都带单元测试，社区可提交新算子</li>
+<li><strong>PyTorch 2300+ API 对齐</strong>：意味着绝大多数原生 PyTorch 代码可以直接跑在昇腾上，不再需要重写</li>
+</ul>
+<p>同步释出的还有「<strong>Triton + TileLang 双编程语言</strong>」支持——Triton 是 OpenAI 提出的 GPU kernel DSL，TileLang 是华为自研的 NPU kernel DSL。开发者写一份算子，能在两种语言间互相迁移。这一步对标的是英伟达 CUTLASS + Triton 组合，<strong>第一次让国产 NPU 算子编程不再绑死 Ascend C 这一种私有语言</strong>。</p>
+<p>MindSeries 软件栈这一次的开源升级幅度也不小：MindSpore 做了<strong>模块化解耦</strong>，图模式和分布式训练单独拆出来；MindSpeed <strong>插件化解耦</strong>，便于开源社区集成；MindIE 推理引擎大幅升级，推理稳定性显著提升；MindStudio <strong>完整开源</strong>，并附 AI 助手。</p>
+<p>最后是开发者资源——大会现场宣布<strong>为社区开发者提供 10000 卡昇腾算力资源</strong>，配套 Agentic 开发工作流：开发者只需要用自然语言描述任务，Agent 工作流会自动完成模型开发的若干环节，大幅压缩开发周期。</p>
+<h2>二、三层架构对位英伟达栈：每一层都有对照物</h2>
+<p>这是国内开发者最关心的问题：<strong>华为这套栈，跟我天天看的英伟达 NemoClaw / CUDA / NIM 是什么对应关系？</strong> 一张图先讲清。</p>
+<p>整套对位关系按三层切：</p>
+<p><strong>底层 · 硬件 + 编译运行时</strong></p>
+<ul>
+<li>华为：鲲鹏 ARM CPU + 昇腾 950 NPU + CANN 编译器 + 800+ 算子</li>
+<li>英伟达：Grace CPU + Blackwell GPU + CUDA + cuBLAS / cuDNN</li>
+<li>关键差异：<strong>CANN 全面开源</strong>（gitee.com/ascend），CUDA <strong>完全闭源</strong>（仅头文件公开）；这一层是过去三年昇腾被开发者诟病最多的地方，5/24 把它彻底翻篇</li>
+</ul>
+<p><strong>中间层 · 异构操作系统</strong></p>
+<ul>
+<li>华为：openEuler + openFuyao（容器调度）+ openUBMC（带外管理）</li>
+<li>英伟达：DGX OS + Base Command + DOCA</li>
+<li>关键差异：<strong>openEuler 全栈开源</strong>，可以装在任何 OEM 厂商的服务器上（浪潮、超聚变、新华三、宁畅）；DGX OS 闭源，只能跑在 NVIDIA DGX 整机上；DOCA 部分开源但 Mellanox 网卡硬件强绑定</li>
+</ul>
+<p><strong>上层 · Agent 运行环境</strong></p>
+<ul>
+<li>华为：AgentInfra（MindIE + MindStudio + MindSpore + 灵衢 SGL + openFuyao 的组合）</li>
+<li>英伟达：NemoClaw + NIM + TensorRT-LLM</li>
+<li>关键差异：AgentInfra 的所有组件<strong>都在 openEuler 社区和 gitee 上</strong>；NemoClaw 部分开源但与 NVIDIA AI Enterprise 商用授权绑定，NIM 是付费商业容器</li>
+</ul>
+<p>读这张对位图的几个要点：</p>
+<p>第一，<strong>华为这次开源的不是「单点产品」，是「整条供应链」</strong>。底层 CANN 编译器对位 CUDA，中间层 openEuler 对位 DGX OS，上层 AgentInfra 对位 NemoClaw——三层每一层都给出了具体的开源仓库地址（gitee.com/ascend、openeuler.org、鲲鹏社区）。这套思路与过去华为「先做硬件再补软件」的节奏完全不同，<strong>更接近 Meta 把 Llama + PyTorch + FlashAttention 全栈开源的打法</strong>。</p>
+<p>第二，<strong>对位关系不等于参数对等</strong>。CANN 800+ 算子的规模虽然能覆盖主流模型，但与 CUDA 生态二十年累积的几万个算子相比仍有差距；MindIE 推理引擎的工程力虽然已经能跑 Qwen3-Coder / DeepSeek，但与 TensorRT-LLM 在 batch scheduling / continuous batching 这种细节上还需要追赶。<strong>对位的意义在于「有一条路可以走完」，不是「立刻可以替换」</strong>。</p>
+<p>第三，<strong>开源平台的选择透露了战略意图</strong>。CANN 选 gitee.com/ascend 而不是 GitHub，openEuler / 鲲鹏社区也都是国内平台——这套栈面向的首要市场是国内 + 一带一路。但 Triton 适配、PyTorch 2300+ API 对齐这些动作又表明它<strong>没有完全放弃海外开发者</strong>。这是一条「国内为主、海外为辅」的双轨路径。</p>
+<h2>三、昇腾 950 超节点四个硬件参数：对 Agent 工作负载意味着什么</h2>
+<p>5/24 大会上的硬件参数是这次发布最容易被低估的部分。<strong>8192 卡 + 8 EFlops FP8 + 16 PB/s + 24 TB</strong> 看起来是堆数字，但每一个数字都对应 Agent 工作负载的一个具体痛点。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/huawei-ascend-950-spec.png" alt="昇腾 950 超节点核心规格"></p>
+<p><strong>8192 卡的规模意味着什么</strong>：英伟达 GB200 NVL72 是「72 卡」一个机柜级超节点，是英伟达过去两年的旗舰规格。昇腾 950 超节点 8192 卡，按规模算是 GB200 NVL72 的 <strong>114 倍</strong>。但这是一个「单超节点 vs 单超节点」的对比——8192 卡作为一个「逻辑单元」，意味着这 8192 卡之间是<strong>全互联</strong>（不是多个机柜拼接），任意两卡通信走灵衢协议而不是跨机柜的 InfiniBand。<strong>对训练大模型来说，这等于把「多机训练」变成「单机训练」，省掉了所有跨节点通信的开销</strong>。</p>
+<p><strong>8 EFlops FP8 的算力意味着什么</strong>：GB200 NVL72 的 FP8 算力是 1.44 EFlops（72 卡 × 20 PFlops/卡），昇腾 950 超节点是 8 EFlops（8192 卡 × ~1 PFlops/卡），是 GB200 的 <strong>5.5 倍</strong>。但要注意：单卡昇腾 950 算力（约 1 PFlops FP8）显著低于单卡 B200（约 20 PFlops FP8）；这套栈的优势在「<strong>大量卡协同</strong>」，不在「单卡峰值」。这也跟国产芯片当前的物理实现现实一致——单卡受制于先进制程，但<strong>通过规模化互联追平甚至超过单机柜算力</strong>是切实可行的工程路径。</p>
+<p><strong>16 PB/s 互联带宽意味着什么</strong>：GB200 NVL72 的 NVLink 5 全互联带宽是 130 TB/s，昇腾 950 的 16 PB/s 是 GB200 的 <strong>123 倍</strong>。这个数字看起来夸张但合理——8192 卡比 72 卡多 114 倍，互联带宽多 123 倍是同一个量级。<strong>对 Agent 推理来说，这意味着 Token-level 的 KV cache 可以在卡间高速流转，不再需要担心通信成为瓶颈</strong>。共享 TP 技术降 90% 通信内存就是依赖这条带宽实现的——大模型推理时同一份权重不需要在每张卡上复制，多卡共享一份即可。</p>
+<p><strong>24 TB 统一内存池意味着什么</strong>：GB200 NVL72 的 HBM3e 总内存是 13.4 TB，昇腾 950 的 24 TB 是 GB200 的 <strong>1.8 倍</strong>。但比绝对数字更重要的是「<strong>统一编址</strong>」——24 TB 不是 8192 张卡各自的 HBM 之和，而是一个<strong>全局共享内存池</strong>，任何一张卡都可以直接访问全部 24 TB。<strong>对 Agent 工作负载来说，这彻底解决了「长 context KV cache 放不下单卡」「多 Agent 共享 working memory 需要序列化通信」这两个长期痛点</strong>。比如要跑一个 4M context 的 DeepSeek-V3.1，KV cache 体积约 500 GB——在 GB200 上需要切到 38 张卡上，在昇腾 950 超节点上可以直接装进一个统一内存池。</p>
+<p>通信加速三件套（灵衢 SGL、UBSocket 透明加速、共享 TP）的具体效果在大会上给了一组数字：<strong>Agent 任务成功率提升 10% 以上</strong>。这是华为内部 benchmark，没有给出具体测试集名称，但「Agent 任务成功率」这个指标对国内做 Agent 产品的同行有直接参考价值——它衡量的不是单次推理的延迟，而是<strong>多步推理工作流跑完不出错的概率</strong>。</p>
+<h2>四、CANN 800+ 算子开源拆解：vLLM / SGLang 国产推理栈的拼图终于补齐</h2>
+<p>CANN 是这次大会对一线开发者最有实际影响的发布。<strong>因为这是 vLLM / SGLang 这两个主流推理引擎能不能真正在昇腾上跑顺的决定性变量</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/huawei-cann-opensource-scope.png" alt="CANN 全栈开源 vs CUDA 闭源四层对位"></p>
+<p>过去两年昇腾上跑 LLM 推理有三条路径：</p>
+<p><strong>路径一 · MindIE 推理引擎（华为自研）</strong>：华为推荐路径，性能调优最好，但生态封闭——只能跑 MindFormers 转换过的模型，开发者熟悉的 vLLM 配置文件、SGLang RadixAttention、prefix caching 这些机制都用不上</p>
+<p><strong>路径二 · PyTorch + 昇腾后端 torch_npu</strong>：兼容性最好，原生 PyTorch 代码改动最小，但性能差——因为 CANN 算子库不公开，很多关键算子（FlashAttention、Continuous Batching、PagedAttention）需要 PyTorch 自动 fallback 到通用实现，性能损失 50% 以上</p>
+<p><strong>路径三 · vLLM Ascend 后端</strong>：社区贡献的实验性后端，依赖逆向工程出来的 CANN 算子接口，能跑但不稳定；SGLang 的 Ascend 后端也是同样状态</p>
+<p>5/24 之后这套生态格局发生了根本变化：</p>
+<p><strong>CANN 50+ 代码仓</strong>按模块拆分，每个模块对应一类算子或工具链。开发者第一次能看到：FlashAttention 在昇腾上是怎么实现的、PagedAttention 在昇腾上的 KV cache 内存布局是什么、Continuous Batching 的 scheduler 在昇腾上的状态机如何运作。<strong>这些信息过去都是黑盒，现在 git clone 就能读源码</strong>。</p>
+<p><strong>800+ 算子带单元测试</strong>——这一点比开源本身更重要。开源算子库如果没有 unit test，社区贡献的算子很容易破坏其他算子。华为这次把每个算子的 unit test 也放出来，等于给社区一个清晰的契约：你提交新算子时只需要让所有 unit test 跑通即可合入。这套机制 PyTorch / CUTLASS / Triton 都在用，第一次出现在国产 NPU 编译运行时上。</p>
+<p><strong>PyTorch 2300+ API 对齐</strong>——意味着原生 PyTorch 代码 95% 以上可以零改动跑在昇腾上。剩下 5% 是一些边缘 API（动态形状 + 复杂数据类型组合），社区可以提 PR 补齐。对比一下：torch_npu 一年前能对齐的 API 数量是 800+，5/24 之后是 2300+，<strong>翻了将近 3 倍</strong>。</p>
+<p><strong>Triton + TileLang 双编程语言</strong>——这是写新算子的开发者最直接的福音。过去在昇腾上写新算子只能用 Ascend C（华为自研 C++ 方言），学习曲线陡峭、社区资源稀少。现在可以用 Triton（OpenAI 已在 GPU 社区跑通三年，国内大模型公司开发者基本都熟悉）写算子，CANN 编译器会自动适配到昇腾后端；TileLang 是华为自研的 NPU DSL，性能调优更深入但学习成本略高于 Triton。<strong>两种语言并存，等于给开发者「易用」和「极致性能」两个选项</strong>。</p>
+<p><strong>20+ 主流大模型 FSDP2 开箱即用</strong>——FSDP2 是 PyTorch 2.x 的标准分布式训练框架，国内大模型公司基本都在用。20+ 模型开箱即用意味着 Qwen3-Coder、Qwen3-Max、DeepSeek-V3、GLM-5 这些模型直接放上去就能跑分布式训练，不需要自己改通信策略。</p>
+<p><strong>40+ 模型图模式加速</strong>——MindSpore 的图模式编译器可以把 40+ 主流模型的计算图做整体优化，理论上性能比 eager 模式高 30%-50%。这是 PyTorch torch.compile 的对位功能，但 torch.compile 在 GPU 上经常因为 graph break 失效，<strong>MindSpore 图模式在昇腾上的 graph break 比 GPU 上少</strong>——因为算子库是一体化设计的，没有 PyTorch 那种历史包袱。</p>
+<h2>五、五件套开源全景：每件套对位英伟达的哪个组件</h2>
+<p>CANN 是最受关注的发布，但「五件套同日开源」整个组合才是这次大会的真正分量。把五件套放在一张图里看：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/huawei-ascend-five-pillars.png" alt="五件套同日开源全景"></p>
+<p><strong>CANN（昇腾计算架构）</strong>——前文详细拆过，对位 CUDA + cuBLAS + cuDNN。开源在 gitee.com/ascend，配套 PyTorch / vLLM / SGLang 后端。</p>
+<p><strong>BoostKit（鲲鹏 CPU 性能加速套件）</strong>——对位 NVIDIA HPC SDK 与 Intel oneAPI。这是 CPU 端的性能加速库，覆盖 BLAS、NumPy、Spark、大数据加速 50+ 性能特性。对国内做大数据 + AI 一体化平台的同行（比如阿里云 / 华为云的数仓 + AI 联合方案）有直接价值——<strong>鲲鹏 ARM CPU 上跑 Spark 不再需要从零写 SIMD 优化</strong>。</p>
+<p><strong>openUBMC（带外管理芯片固件）</strong>——对位 IPMI / Redfish。这一件套是大会最被低估的开源——它不是给应用层开发者用的，是给<strong>国产服务器整机厂</strong>用的。过去国产服务器（浪潮、超聚变、新华三、宁畅）做带外管理（远程开关机、监控、固件升级）要么用国外 BMC 芯片，要么各自做一套互不兼容的固件。openUBMC 给整个国产服务器产业链一个统一基础，<strong>等于服务器 ODM 锁定问题被解开</strong>。</p>
+<p><strong>openFuyao（异构容器调度）</strong>——对位 Kubernetes Device Plugin + NVIDIA GPU Operator。这是云上调度层最关键的一环——把 NPU、CPU、存储、网络作为「异构资源」做统一调度。Agent 工作负载经常需要弹性扩缩（推理高峰加卡、夜间训练降配），openFuyao 让这种弹性策略可以在异构集群上实现。</p>
+<p><strong>灵衢协议（超节点全互联）</strong>——对位 NVLink + NVSwitch + Mellanox InfiniBand。这是硬件层最深的开源——通信协议本身开源，意味着第三方网卡厂商可以做兼容硬件、第三方调度软件可以做协议层优化。灵衢 SGL（Symmetric Group Latency）降 20% 时延、UBSocket 透明加速降 40% 时延、共享 TP 降 90% 通信内存——这三件「子优化」都依赖灵衢协议开源才能让社区做进一步贡献。</p>
+<p>把这五件套放在三层架构里看：</p>
+<table>
+<thead>
+<tr>
+<th>层</th>
+<th>组件</th>
+<th>对位</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>硬件 + 编译运行时</td>
+<td>CANN + BoostKit + 灵衢协议</td>
+<td>CUDA + HPC SDK + NVLink</td>
+</tr>
+<tr>
+<td>操作系统</td>
+<td>openEuler + openFuyao + openUBMC</td>
+<td>DGX OS + GPU Operator + IPMI</td>
+</tr>
+<tr>
+<td>Agent 运行环境</td>
+<td>AgentInfra（MindIE + MindStudio + MindSpore + MindSpeed 组合）</td>
+<td>NemoClaw + NIM + TensorRT-LLM</td>
+</tr>
+</tbody></table>
+<p>每一层都有具体的开源组件做对位——<strong>这是国内第一次有完整的「英伟达替代栈」可以一比一摆出来</strong>。</p>
+<h2>六、国内开发者实操：在昇腾上跑 Qwen3-Coder-30B 推理的最短路径</h2>
+<p>回到工程师视角——5/24 之后，国内开发者要怎么在昇腾上把 Qwen3-Coder-30B 跑起来？给一条目前能走通的最短路径。</p>
+<p><strong>前置环境</strong>：昇腾 910B 服务器（单机 8 卡 64GB HBM）或昇腾 950 单机；openEuler 24.03 LTS；CANN 8.0+（5/24 开源版本，从 gitee.com/ascend clone）；Python 3.10+。</p>
+<p><strong>第一步 · 装 CANN 工具链</strong>：</p>
+<pre><code class="language-bash">git clone https://gitee.com/ascend/cann-community.git
+cd cann-community
+./install.sh --target=ascend-910b
+</code></pre>
+<p>5/24 之前这一步需要从华为云下载二进制包并附 license key，现在直接 git clone 就行。<strong>安装时间从 1 小时降到 15 分钟</strong>。</p>
+<p><strong>第二步 · 装 vLLM Ascend 后端</strong>：</p>
+<pre><code class="language-bash">pip install vllm-ascend
+# 或者从源码（vllm-project/vllm-ascend 仓库）：
+git clone &lt;vllm-ascend repo&gt;
+pip install -e ./vllm-ascend
+</code></pre>
+<p>vLLM Ascend 后端是社区维护的实验性后端，但 5/24 之后随 CANN 开源同步合入了主线。<strong>Continuous Batching、PagedAttention、Prefix Caching 三个核心特性都已支持</strong>。</p>
+<p><strong>第三步 · 下载 Qwen3-Coder-30B-A3B</strong>：</p>
+<pre><code class="language-bash">huggingface-cli download Qwen/Qwen3-Coder-30B-A3B-Instruct --local-dir ./Qwen3-Coder-30B
+</code></pre>
+<p>Qwen3-Coder-30B-A3B 是 MoE 模型，激活参数 3B，总参数 30B，单机 4 卡 910B 即可装下。</p>
+<p><strong>第四步 · 启服务</strong>：</p>
+<pre><code class="language-bash">vllm serve ./Qwen3-Coder-30B \
+  --device ascend \
+  --tensor-parallel-size 4 \
+  --max-model-len 32768 \
+  --enable-prefix-caching
+</code></pre>
+<p>启服务过程中 vLLM 会调用 CANN 算子，FlashAttention 走昇腾 NPU 实现而不是 CPU fallback。<strong>这一步在 5/24 之前会因为算子缺失报错，之后已经稳定</strong>。</p>
+<p><strong>第五步 · 测试</strong>：</p>
+<pre><code class="language-bash">curl http://localhost:8000/v1/chat/completions \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{
+    &quot;model&quot;: &quot;Qwen3-Coder-30B&quot;,
+    &quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;用 Rust 写一个 LRU cache&quot;}]
+  }&#39;
+</code></pre>
+<p>按目前社区在昇腾 910B + Qwen3-Coder-30B 上的实测数据：<strong>单卡推理吞吐约 80-100 tokens/秒</strong>（FP16，prefix cache 命中场景），4 卡 TP 并行约 280-320 tokens/秒。与同模型在 RTX 5090 单卡（约 200 tokens/秒）相比仍有差距，但<strong>已经达到生产可用</strong>——这是 5/24 之前国内开发者用昇腾跑 LLM 推理最大的痛点终于解掉。</p>
+<p>阻塞点诚实清单（5/24 之后仍存在的问题）：</p>
+<ul>
+<li><strong>昇腾 950 量产时间表未明</strong>——大会演示的 8192 卡超节点是「样机」状态，量产 / 送测 / 大规模交付时间表华为没披露具体节点；国内同行近期能拿到的实物仍主要是昇腾 910B（5/24 前已批量出货）</li>
+<li><strong>MoE 模型的 expert parallelism 还在追赶</strong>——CANN 的 MoE 算子（GroupedGemm、All-to-All）已开源但稳定性不如 GPU；DeepSeek-V3 这种 256 专家的模型暂时性能损失 20-30%</li>
+<li><strong>图模式 + 动态形状组合场景偶发 graph break</strong>——MindSpore 图模式在静态形状下稳定，但 vLLM Continuous Batching 的动态 batch size 场景偶尔会触发 fallback</li>
+<li><strong>MindIE vs vLLM 性能差距</strong>——MindIE 的 batch scheduling 比 vLLM 调优更深，同模型同硬件 MindIE 吞吐高 15%-25%；如果对性能极致敏感，仍需用 MindIE 而不是 vLLM</li>
+</ul>
+<p>这些阻塞点不是开源解不掉的——CANN 开源之后社区就可以针对这些点提 PR。<strong>这就是开源比闭源真正有优势的地方：问题被看见，问题就有解的路径</strong>。</p>
+<h2>七、对国内开发者的判断：这次开源到底意味着什么</h2>
+<p>写到这里，国内做模型、做推理引擎、做 Agent 平台的同行最想看的部分——<strong>这次大会对自己手头工作的实际影响</strong>。</p>
+<p><strong>对在英伟达卡上做 LLM 推理优化的工程师</strong>：你的核心技能（PagedAttention、Continuous Batching、speculative decoding、prefix caching）在昇腾上 5/24 之后全都能用上——因为 vLLM Ascend 后端、SGLang Ascend 后端都已经合入主线。<strong>过去半年学的优化套路不会浪费</strong>，从英伟达迁到昇腾的迁移成本从「半年重写」降到「两周适配」。</p>
+<p><strong>对在做国产推理引擎产品的团队</strong>：CANN 800+ 算子开源直接补齐了你过去半年最大的缺口——再也不用一个个逆向工程算子接口了。但反过来说，<strong>这也意味着 vLLM / SGLang 在昇腾上的体验会显著提升</strong>，国产推理引擎产品如果只是「vLLM 在昇腾上调通了」这种定位，差异化会越来越难。建议把差异化点切到 <strong>MoE 调度、长 context 优化、多 Agent 共享 KV cache</strong> 这种 vLLM 主线还在追赶的场景。</p>
+<p><strong>对在做 Agent 平台 / MaaS 平台的团队</strong>：AgentInfra 这个组合（MindIE + MindStudio + MindSpore + 灵衢 SGL + openFuyao）在 5/24 之后是一套完整的开箱即用栈。<strong>核心机会是「在 AgentInfra 上做差异化应用层」</strong>——比如 Agent 工作流的编排、多 Agent 协同的内存管理、行业垂类的 prompt 工程。把基础设施层让给华为，把应用层做厚。</p>
+<p><strong>对在做大模型训练的团队</strong>：MindSpore + MindSpeed + FSDP2 开箱即用对训练 100B-1T 参数的模型有直接价值。但要诚实地说——<strong>目前国产大模型公司主流训练还是用 PyTorch + DeepSpeed + 英伟达卡</strong>，因为生态成熟度差距还在。建议把昇腾作为「第二训练栈」用，先用一两个内部模型试水，跑通流程，等 MoE 和 long context 这两个场景的算子追平之后再考虑主力切换。</p>
+<p><strong>对正在做投决 / 资源规划的 CTO</strong>：5/24 之后做国产替代规划，第一次有了<strong>完整的栈级评估表</strong>——硬件（昇腾 950 vs GB200）、编译运行时（CANN vs CUDA）、操作系统（openEuler vs DGX OS）、Agent 运行环境（AgentInfra vs NemoClaw）每一层都能逐项对比。<strong>国产替代不再是「能不能用」的问题，是「在哪些场景下用更划算」的问题</strong>。</p>
+<p>往前看，这套栈最大的不确定性不在技术，而在<strong>生态势能</strong>——开发者愿意把多少时间投到 CANN / openEuler / AgentInfra 这套体系。这要靠华为接下来一年的开发者社区运营、文档质量、issue 响应速度。技术栈搭起来只是第一步，<strong>让全国数十万 AI 工程师真的用起来才是第二步</strong>。</p>
+<h2>编辑说</h2>
+<p>这篇文章是一次「同日多发布」的全栈拆解。三个写作判断：</p>
+<p>第一，<strong>不把昇腾 950 当成单纯硬件发布写</strong>。8192 卡 / 8 EFlops / 16 PB/s / 24 TB 四个数字单独看是堆参数，配合「同日开源 CANN + 五件套」一起看才是完整新闻。把硬件 + 软件 + 操作系统 + Agent 环境四层在一篇里讲清楚，是这篇文章最大的工程量。</p>
+<p>第二，<strong>对位英伟达栈的每一层都给出具体组件</strong>。「华为发了一套对位英伟达的栈」是空话，「CANN 对位 CUDA、openEuler 对位 DGX OS、AgentInfra 对位 NemoClaw」才是干货。三层逐层对位的表格化呈现是这篇文章的核心结构。</p>
+<p>第三，<strong>给一条可以走完的实操路径</strong>。不是停在「华为发了什么」，而是写到「国内开发者今天就可以做什么」——昇腾 910B + Qwen3-Coder-30B + vLLM Ascend 这条路径在 5/24 之后是真正能跑通的，每一行命令都有依据。阻塞点诚实清单也一起写出来，不藏短板。</p>
+<p>数据来源：腾讯新闻 5/24 大会现场直播、网易科技 5/24 现场报道、AI Product Hub 大会快讯、AI 远见 5/23 预热稿、CSDN 华为计算 5/24 大会综述。所有硬件参数（8192 卡 / 8 EFlops / 16 PB/s / 24 TB）、CANN 数字（50+ 代码仓 / 800+ 算子 / 2300+ API）、通信加速数字（灵衢 SGL 降 20% / UBSocket 降 40% / 共享 TP 降 90%）均来自上述官方信源交叉核对。</p>
+<p>如对昇腾 vLLM 实操路径或 CANN 算子贡献流程有具体疑问，欢迎在 gitee.com/ascend issue 区提问；社区 5/24 之后响应明显加快。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

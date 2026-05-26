@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firefox 一个月修 423 个漏洞：Claude 当上了 Mozilla 的安全审计员 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-08</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-08</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Firefox 一个月修 423 个漏洞：Claude 当上了 Mozilla 的安全审计员</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/08/firefox-claude-mythos-423-vulnerabilities.png" alt="Firefox 一个月修 423 个漏洞封面"></p>
+<p>5 月 7 日，美国 Mozilla 在 Mozilla Hacks 博客上把一张图甩了出来：2025 年全年，Firefox 每个月修 20 到 30 个安全漏洞；2026 年 4 月，单月修了 <strong>423 个</strong>。这中间隔了一个新的工程参与者——Anthropic 的 Claude Mythos Preview。这不是又一篇&quot;AI 改变安全&quot;的概念稿，而是一个 30 M 行 C++ 代码库、超过 100 个工程师、3 个月工程化跑下来的一手数字。AI Coding 的下一阶段已经不是&quot;帮你写函数&quot;，是&quot;翻出 20 年前没人看见的 use-after-free&quot;。</p>
+<h2>一、Simon Willison 5 月 7 日扔出的数字</h2>
+<p>Simon Willison 在自己博客上转发了 Mozilla Hacks 那篇《Behind the Scenes: Hardening Firefox with Claude Mythos Preview》。他抓住的核心数字只有一组：</p>
+<ul>
+<li><strong>基线</strong>：Firefox 2025 年 1—12 月，每月修安全 bug 区间 20—30，月均 17—26</li>
+<li><strong>峰值</strong>：2026 年 4 月，单月修 <strong>423 个</strong></li>
+<li><strong>来源拆解</strong>（Mozilla 原文）：271 个由 Claude Mythos Preview 在 Firefox 150 评估中发现，41 个外部研究者上报，<strong>111 个内部发现</strong>（其中包括 Mythos 在非 150 版本修的、其他模型发现的、传统 fuzzing 发现的三类）</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/08/mfsa-monthly-vulnerability-count.png" alt="Firefox 月度安全 bug 修复数走势：2025 全年 20-30，2026 年 4 月跳到 423"></p>
+<p>Simon 给这件事定了个标题——&quot;Suddenly, the bugs are very good&quot;，这是 Mozilla 工程师在原文里的一节副标题。意思直白：以前 AI 找出来的&quot;漏洞&quot;大多是噪音，从这一代开始不是了。</p>
+<h2>二、Mythos 是什么：从工作流到产品的拆解</h2>
+<p>需要先把&quot;Claude Mythos&quot;这个名词拆清楚——它不是 Claude 4.7 那种公开模型，也不是某个 IDE 插件。</p>
+<p>Anthropic 在 4 月初推出 <strong>Claude Mythos Preview</strong>，本质是一个<strong>专门做漏洞挖掘的封闭预览模型</strong>，通过一个叫 <strong>Project Glasswing</strong> 的门槛极高的访问计划释出，对象是少数大型科技、网络安全、金融机构。Anthropic 拒绝公开发布，理由写得很硬：这个模型可以反过来被用来挖 0day。</p>
+<p>Mozilla 拿到访问权限有两段：</p>
+<ol>
+<li><strong>2 月</strong>：Anthropic 内部红队先用 <strong>Claude Opus 4.6</strong> 对 Firefox 跑了一轮，把发现的问题打包给 Mozilla。Mozilla 在 Firefox 148 修了其中 22 个安全敏感 bug，对应官方 advisory 里点名 Claude 的三个 CVE：CVE-2026-6746、CVE-2026-6757、CVE-2026-6758</li>
+<li><strong>3—4 月</strong>：Mozilla 拿到 Mythos Preview 的完整访问权限后，自己<strong>在已有 fuzzing 基础设施之上搭了一套 harness</strong>，跑出 271 个漏洞，4 月 21 日随 Firefox 150 一次性发布</li>
+</ol>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/08/mythos-workflow-diagram.png" alt="Mythos 工作流：Mozilla 自建 harness 接入 Mythos Preview"></p>
+<p>Mozilla 工程师在原文里强调这套 harness 的几个工程属性：</p>
+<ul>
+<li>给模型&quot;正确的接口和指令&quot;，模型可以<strong>自己造可复现的测试用例</strong></li>
+<li>跑在大量短生命周期 VM 上，吃水平扩展</li>
+<li>模型可以热替换——&quot;trivial to swap in different models&quot;，意味着这套基础设施不是只为 Mythos 写的，未来换一个更强的模型直接接上</li>
+</ul>
+<p>这一点非常关键：<strong>Mythos 的价值不只是&quot;模型很强&quot;，而是 Mozilla 把它工程化成了一条流水线</strong>。这条流水线的产出能力——而不是模型单点能力——才是 423 这个数字的解释。</p>
+<h2>三、20-30 → 423 的工程飞跃：到底改变了什么</h2>
+<p>把 Firefox 月修漏洞从 20-30 拉到 423，需要三件事同时成立。任何一件不到位，这条流水线就跑不出来。</p>
+<p><strong>第一，模型有效</strong>。Anthropic 红队 2 月先跑了一轮，把发现交给 Mozilla，22 个真问题进了 Firefox 148 advisory——这是 Mozilla 决定把基础设施投入下去的前置信号。如果第一轮全是噪音、误报率高，后面 100+ 工程师的投入根本不会发生。一个常被低估的事实：<strong>Mythos 之前的 LLM 跑安全审计早就有人试过</strong>，2024 年到 2025 年间 Anthropic、OpenAI、Google 各自的旗舰模型都被研究者拿去对开源代码库做过类似实验，普遍结论是&quot;召回还行，精度太差，工程师审完一圈下来时间还不如自己 review 来得快&quot;。Mythos 这一代变化的关键，是<strong>让真阳性比例从无法量产的水位提到了可量产的水位</strong>。</p>
+<p><strong>第二，差速器变了</strong>。Mozilla 工程师在原文里写了一句对从业者最扎心的话：</p>
+<blockquote>
+<p>&quot;It&#39;s cheap and easy to prompt an LLM to find a &#39;problem&#39; in code, but slow and expensive to respond to it.&quot;</p>
+</blockquote>
+<p>让 LLM 报&quot;问题&quot;很便宜，但人工去<strong>核实、复现、修、回归测试</strong>很贵。换句话说，找漏洞的成本曲线被 AI 拉平了，但<strong>修漏洞的成本曲线没拉平</strong>。所以 Mythos 不只是模型，是模型 + 一个能够自己写出<strong>可复现 PoC</strong> 的能力——把核实成本也压下去了一截。这一点和上一代 LLM 安全工具最大的不同在这里：上一代输出&quot;我觉得这里有 UAF&quot;，工程师还要花半小时构造触发条件；这一代输出&quot;这里是 UAF，触发它的最小测试用例如下&quot;，工程师只要 5 分钟跑一下就能进入修复环节。<strong>核实成本从半小时压到 5 分钟，意味着同样工时下的吞吐能多扫一个数量级的代码</strong>。</p>
+<p><strong>第三，组织能扛</strong>。&quot;Over 100 people contributed code to this effort&quot;——超过 100 人参与，覆盖 patch 编写、code review、流水线扩容、漏洞分类、测试、发版管理。这是非常重的工程开销，能扛下来的只有 Mozilla、Google、Apple 这一档的浏览器组织。换个角度看：如果一个 50 人的小团队拿到 271 个漏洞报告，光分类和复现就够吃半年；Mozilla 能在 4 月一次性发出去，<strong>靠的是流水线 + 团队规模 + 早就建好的 advisory 生产能力</strong>这三件预先沉淀。</p>
+<pre><code>基线（2025 月均）：
+  人类 + 传统 fuzzing → 20-30 bugs/月
+
+新流水线（2026 年 4 月）：
+  Mythos Preview + 自建 harness + 100+ 工程师协作
+  → 423 bugs/月（其中 271 来自 Mythos）
+
+差速器：
+  发现成本 ↓↓↓
+  修复成本 ↓（PoC 自动生成）
+  组织协调成本 ↑↑（100 人级别工程动员）
+</code></pre>
+<p><strong>判断</strong>：这不是&quot;AI 替代了安全工程师&quot;，是&quot;AI 把安全工程师的瓶颈从&#39;看哪里&#39;换成了&#39;修多快&#39;&quot;。</p>
+<h2>四、这 271 个漏洞到底长什么样</h2>
+<p>Mozilla 在博客里给了一张样本表，泄露了漏洞分类的轮廓。注意，<strong>只有 3 个 Mythos 漏洞拿到了独立 CVE</strong>（CVE-2026-6746/6757/6758），剩下 268 个被 Mozilla 合并打包到几个累计 CVE（按月发的 MFSA 公告里编号）中。</p>
+<p>为什么大量漏洞拿不到独立 CVE？<strong>SecurityWeek</strong> 解释得很到位——大量是 defense-in-depth、加固、不可达代码路径的潜在问题，单独看不够 CVE 门槛，但合在一起就是一次系统性硬化。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/08/firefox-cve-types-pie.png" alt="Firefox 漏洞类型分布饼图：UAF / 沙箱逃逸 / OOB / JIT / 竞态 / 加固类"></p>
+<p>从 Mozilla 给的样本看，<strong>类型分布</strong>集中在浏览器最危险的几类：</p>
+<ul>
+<li><strong>Use-After-Free（UAF）</strong>：bug 2021894 / 2024653 / 2022733 / 2027298 / 2029813</li>
+<li><strong>沙箱逃逸（sandbox escape）</strong>：bug 2021894 / 2022034 / 2022733 / 2023817 / 2029813</li>
+<li><strong>OOB（越界读写）</strong>：bug 2023958</li>
+<li><strong>JIT 优化缺陷</strong>：bug 2024918</li>
+<li><strong>竞态条件（race condition）</strong>：bug 2021894 / 2022733</li>
+</ul>
+<p>更值得注意的是<strong>两个老古董</strong>——Mozilla 自己点名出来：</p>
+<ul>
+<li>一个 <strong>20 年前的 XSLT bug</strong>：Firefox 的 XSLT 处理代码大体在 Gecko 1.x 时代写就，2005 年前后定型，过去 20 年里被每一轮 fuzzing 反复扫过，都没翻出这个角落</li>
+<li>一个 <strong>15 年前的 <code>&lt;legend&gt;</code> 元素 bug</strong>：HTML form 表单的 <code>&lt;legend&gt;</code> 元素在浏览器引擎里是个边缘元素，相关代码路径很少被主流 fuzzer 覆盖到</li>
+</ul>
+<p>这俩漏洞躺在 Firefox 代码库里十几年，每一年都有人类 reviewer 走过、每一轮 fuzzing 跑过，都没出来。<strong>Mythos 一次评估就翻了出来</strong>。Google OSS-Fuzz 的 LLM-augmented 工作流报出过类似情况——CVE-2024-9143（OpenSSL OOB read），OpenSSL 这套代码库是过去十几年里全球被 fuzz 最狠的代码库之一，&quot;几十万小时算力跑过&quot;的级别，仍然没扫出来。两个独立项目得出同一个结论：<strong>LLM 不是单点比传统 fuzzer 更强，是覆盖了&quot;人类和传统 fuzzer 都会跳过的代码路径&quot;</strong>。</p>
+<p>为什么传统 fuzzer 会跳过？因为 fuzzer 依赖 corpus（输入样本），corpus 没覆盖的代码路径再怎么跑也跑不进去；人类 reviewer 依赖经验，经验没指过的角落自然不会去翻。LLM 的不同在于：<strong>它对代码的&quot;覆盖意图&quot;不是来自 corpus 也不是来自经验</strong>，是来自对代码语义的全局理解。它会&quot;读到&quot;<code>&lt;legend&gt;</code> 这种边缘元素，意识到&quot;这里有 form / focus / accessibility 三套路径交叉，值得重点看一下&quot;——而这种判断在过去只能靠人类专家在某次 code review 里偶然产生。</p>
+<h2>五、Claude 在安全审计上的边界</h2>
+<p>吹完产能再泼冷水。Mozilla Distinguished Engineer Bobby Holley 在 mozilla.org 隐私安全博客里有一段话经常被忽略：</p>
+<blockquote>
+<p>&quot;We haven&#39;t seen any bugs that couldn&#39;t have been found by an elite human researcher.&quot;</p>
+</blockquote>
+<p>翻译：<strong>没有任何一个漏洞是人类顶级研究员理论上找不到的</strong>。</p>
+<p>这句话有两层含义：</p>
+<p><strong>第一，模型没有&quot;发明&quot;新漏洞类</strong>。271 个全在已知漏洞 taxonomy 内（UAF、OOB、沙箱逃逸、JIT、竞态…）。Mozilla 没有发现&quot;AI 发现了人类无法理解的漏洞&quot;——而这正好是 Mozilla 想要的，因为代码可被人类理性 review 这件事本身是浏览器安全的护城河，AI 不能把这条护城河填掉。</p>
+<p><strong>第二，模型的边界是&quot;规模 + 覆盖&quot;，不是&quot;超越人类&quot;</strong>。它能在十几年没人摸的代码角落里翻东西，是因为它<strong>不嫌烦、不收疲劳税</strong>，不是因为它比 Project Zero 的人更聪明。这意味着——</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/08/claude-code-vs-claude-mythos.png" alt="Claude Code 与 Claude Mythos 工作流对照"></p>
+<p><strong>人在 loop 仍然必要</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>环节</th>
+<th>AI 能做</th>
+<th>仍需人</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>找可疑代码路径</td>
+<td>强</td>
+<td>抽查方向</td>
+</tr>
+<tr>
+<td>生成 PoC</td>
+<td>中-强</td>
+<td>复现验证</td>
+</tr>
+<tr>
+<td>判定可利用性</td>
+<td>弱</td>
+<td>必须人判</td>
+</tr>
+<tr>
+<td>写补丁</td>
+<td>中</td>
+<td>review + 回归</td>
+</tr>
+<tr>
+<td>决定 advisory 措辞</td>
+<td>不能做</td>
+<td>必须人</td>
+</tr>
+</tbody></table>
+<p>Mozilla 的工程师在原文写了一句很冷静的话：<strong>&quot;Every bug requires care and attention to properly fix.&quot;</strong> 就算 271 个 bug 都是模型找的，每个补丁仍然是工程师手写、人 review、跑回归。</p>
+<p>还有一条隐性边界值得说出来：<strong>模型本身的可靠性是不可审计的</strong>。Mozilla 这次能够信任 Mythos 的输出，前提是 Mozilla 工程师<strong>自己复现了每一个</strong>。一旦组织尺度大到&quot;无法逐个复现&quot;，AI 报出来的漏洞和 AI 写的补丁就会变成新的不透明黑盒。这件事在浏览器这种代码库还能扛——人多、流程严；放到内部代码库 50 人小团队就扛不住。<strong>这是规模化复制 Mozilla 范式时绕不过的一个坑</strong>。</p>
+<h2>六、Chromium / WebKit 在做什么</h2>
+<p>业内必须问的一个对照问题：Google 和 Apple 没在做同样的事吗？</p>
+<p><strong>Google 那边</strong>节奏不同。Google 的路径不是&quot;接外面的封闭模型&quot;，而是把 LLM 整合进自家 <strong>OSS-Fuzz</strong> 流水线（2023 年 8 月开始用 LLM 自动生成 fuzz target，2024 年 11 月开源 oss-fuzz-gen，提了 26 个新漏洞，覆盖 272 个 C/C++ 项目，新增 37 万行代码覆盖）。Google 的论调更克制——&quot;AI 帮 fuzzer 写 harness&quot;，而 Mozilla 的论调激进——&quot;AI 直接当 reviewer&quot;。<strong>两条路线对应了两种 AI 角色定位</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/08/chromium-vs-firefox-security-investment.png" alt="Chromium / WebKit / Firefox 安全投入对照"></p>
+<p><strong>Apple WebKit</strong> 这边目前没有公开的 LLM 安全审计披露。Apple 的安全节奏一向是&quot;产品发布日 = 漏洞披露日&quot;，工程过程不对外。</p>
+<p>为什么 Mozilla 会成为第一个吃螃蟹的？三个结构性原因：</p>
+<ol>
+<li><strong>Anthropic 主动给 Project Glasswing 名单</strong>，Mozilla 是少数被点名的大型组织</li>
+<li><strong>Firefox 是开源代码库</strong>，Mozilla 没有&quot;内部代码隐私&quot;顾虑，可以让模型大规模扫</li>
+<li><strong>Mozilla 团队规模相对小</strong>（对比 Google 安全团队），AI 杠杆收益更高</li>
+</ol>
+<p>Mozilla 自己的判断（来自 mozilla.org 博客）：</p>
+<blockquote>
+<p>&quot;Defenders finally have a chance to win, decisively.&quot;</p>
+</blockquote>
+<p>意思是攻防长期是攻击方占优（攻击方只需找一个口子，防守方要堵所有口子），AI 把&quot;机器可发现&quot;和&quot;人类可发现&quot;漏洞之间的差距压平了，<strong>这块差距正好是攻击方过去的优势区</strong>。</p>
+<h2>七、国产浏览器和国产 AI 安全工具</h2>
+<p>国内这边节奏要诚实地说——<strong>没有同样规模的公开案例</strong>。</p>
+<p>国产浏览器（夸克、UC、QQ 浏览器、360 极速浏览器、华为浏览器等）的安全审计流程不公开披露。开源的国产 Chromium 衍生项目里，安全 commit message 量级也没出现 4 月份这种突变。</p>
+<p>国产 AI 模型在安全这件事上的进度：</p>
+<ul>
+<li><strong>DeepSeek</strong>、<strong>Qwen</strong> 都开源，研究者社区有零星的&quot;用 DeepSeek-V3 跑 CTF&quot;、&quot;用 Qwen3 找 buffer overflow 玩具样本&quot;的复现</li>
+<li>学术圈有论文（清华、浙大、中科院信工所）讨论 LLM 辅助二进制审计、模糊测试 harness 自动生成</li>
+<li><strong>工程化产品</strong>意义上，国内还没有看到类似 Project Glasswing 这种&quot;封闭高阶模型 + 大型组织闭门部署&quot;的公开范例</li>
+</ul>
+<p>这不是&quot;国产落后&quot;——是<strong>这套范式高度依赖三件事</strong>：</p>
+<ol>
+<li>一个明显比公开模型强的&quot;高阶模型&quot;</li>
+<li>一个大型且开源的目标代码库（Firefox / OpenSSL 这一档）</li>
+<li>一个能扛 100+ 人级别工程动员的组织</li>
+</ol>
+<p>国内三件事拼齐的窗口正在打开。Qwen3、DeepSeek-V4 这一档模型在代码理解上已经接近 Claude 主线；OpenHarmony、龙蜥、欧拉这种开源大型代码库存在，最近一年的 commit 量级和模块复杂度都到了&quot;值得 AI 全量审一遍&quot;的体量；阿里云、字节、华为内部的安全团队规模够。<strong>模式可复制，时间窗在今年</strong>。</p>
+<p>具体可以看到的两个抓手：</p>
+<p><strong>第一</strong>，<strong>OpenHarmony 内核安全审计</strong>。OpenHarmony 已经覆盖到亿台量级设备，内核是 C/C++ 大代码库，公开可审计。如果有团队愿意做&quot;国产 Mythos&quot;的早期投入，OpenHarmony 是天然的练兵场。</p>
+<p><strong>第二</strong>，<strong>国产浏览器（夸克 / 360 / 华为 / 小米）的安全审计开放化</strong>。现在国产浏览器的安全披露节奏远不如 Firefox 透明，<strong>这本身是一种结构性损失</strong>——既不能让外部研究者更高效地帮忙找漏洞，也不利于建立&quot;国产浏览器安全水位&quot;的公共认知。如果谁愿意走 Mozilla 这条公开披露路线，把&quot;我们一个月修了多少漏洞、多少 AI 找出来的&quot;做成对外可见的指标，长期收益是可观的。</p>
+<h2>八、对 AI Coding 行业的几条硬启示</h2>
+<p>把镜头从浏览器拉回 AI Coding 行业本身，Mythos 这件事至少抛出五条结论：</p>
+<p><strong>1. AI Coding 的天花板已经从&quot;功能代码&quot;走到了&quot;安全代码&quot;</strong>。一年前我们讨论 Cursor 能不能写好一个 React 组件；现在讨论的是 Claude 能不能在 30 M 行 C++ 里翻 20 年的 UAF。<strong>复杂度量级</strong>完全不同。</p>
+<p><strong>2. &quot;找问题&quot;和&quot;修问题&quot;的成本不对称将长期存在</strong>。这是 Mozilla 工程师那句&quot;cheap to find, expensive to fix&quot;的本质。任何想做 AI 安全审计产品的团队，必须把<strong>核实链路</strong>当一等公民设计——光报漏洞没人看，能复现 + 能给 PoC + 能给修复建议才有商业化空间。</p>
+<p><strong>3. Harness 是壁垒，不是模型</strong>。Mozilla 这次的真正资产不是&quot;我用了 Mythos&quot;，是&quot;我有一套 harness 能让任何强一点的模型接上就跑&quot;。模型会换，harness 会沉淀。</p>
+<p><strong>4. CVE 编号制度被冲击</strong>。271 个漏洞合并到 3 个 CVE，这件事说明传统漏洞披露体系在面对 AI 规模产出时已经变形。下一步 MITRE / CNA 怎么处理？这是一个开放问题。</p>
+<p><strong>5. &quot;防守方决定性获胜&quot;是一个值得追的命题</strong>。如果 Mozilla 的预言成立——AI 把发现成本压平、攻防天平向防守倾斜——那今天投入到 AI 安全审计基础设施上的工程师，是接下来 5 年最稀缺的人才。这条赛道上<strong>国内同行起步并不晚</strong>，需要的是把&quot;模型 + harness + 大代码库&quot;三件事拼起来跑一次的勇气。</p>
+<p><strong>还需要补充一条审慎</strong>：Mozilla 这件事之所以成立，前提是 Anthropic 把模型握得很紧——Project Glasswing 拒绝公开发布、严控访问名单。<strong>因为这个模型反过来也是攻击工具</strong>。同一个能扫 271 个漏洞的模型，攻击者拿去也能扫 271 个 0day。如果未来这一档模型逐步开源、或者被某个不那么自律的厂商释放出来，<strong>攻防天平不一定倒向防守</strong>。&quot;AI 让防守方赢&quot;这个命题成立的前提是<strong>防守方先用上、并且攻击方拿不到</strong>。今天 Mozilla 是赢的；明年攻击方拿到等价模型时，是另一个故事。</p>
+<p><strong>对国内做 AI 安全的同行来说，这件事的现实意义是双面的</strong>：一面是工程范式可学——harness 怎么搭、人在 loop 怎么布、复现成本怎么压；另一面是<strong>赛跑窗口很短</strong>——拿到高阶模型并把它产品化的窗口期，决定了未来三五年是占优还是被动挨打。</p>
+<hr>
+<p><strong>编辑说</strong>：Mozilla 这次披露最反常的一点是<strong>主动晒数字</strong>——浏览器厂商极少公开&quot;我们这个月修了几百个漏洞&quot;，因为听起来像&quot;我们之前漏洞很多&quot;。Mozilla 这次愿意晒，说明他们认定<strong>长期叙事赢过短期面子</strong>：让所有人看到 AI 把漏洞挖掘工业化是怎么发生的，比掩盖更值得。这件事的下一个观察点，是 Google Project Zero 和 Apple Security Research 是否会跟进披露自己的 AI 流水线。</p>
+<p><strong>主要参考源</strong>：</p>
+<ul>
+<li>Mozilla Hacks: Behind the Scenes Hardening Firefox with Claude Mythos Preview</li>
+<li>Mozilla Blog (隐私安全): The zero-days are numbered</li>
+<li>Simon Willison&#39;s Weblog (5 月 7 日转述与点评)</li>
+<li>SecurityWeek / Help Net Security / Schneier on Security 行业跟进报道</li>
+<li>Google Security Blog: Leveling Up Fuzzing (OSS-Fuzz LLM 对照参照)</li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

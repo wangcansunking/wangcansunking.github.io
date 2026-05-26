@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Antigravity 造万神殿：六家 AI 编程评测 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-23</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-23</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Antigravity 造万神殿：六家 AI 编程评测</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/23/modelrift-openscad-llm-pantheon-benchmark-2026-05-23.png" alt="OpenSCAD 罗马万神殿 LLM 编程评测"></p>
+<blockquote>
+<p>5 月 22 日，ModelRift 在自家博客挂出一份 OpenSCAD 评测：把罗马万神殿（Pantheon）当题目，让六家主流 AI 编程工具用代码写 3D 模型。Hacker News 当天上首页，截至发稿 279 赞、147 条评论。结果让所有人意外——Cursor / Composer 2.5 最快，跑了几分钟就出答案，质量打了 1.4/5；Google Antigravity 2.0 跑了近十二分钟，是唯一造出五环、每环二十八格藻井的代理；Claude Code 2.1 配上 Sonnet 4.6 第二慢，质量 3.4/5；Codex 5.5 High 的初版渲染最漂亮，导出 STL 时却塌出一层莫名其妙的天花板。这是一道空间几何题，不是常规的文本代码题。每一个用过 Cursor、Claude Code、Antigravity 的国内开发者都该看一眼这份结果——它把六家工具在「连续空间推理」这个维度上的真实差距摆得很白。</p>
+</blockquote>
+<p>OpenSCAD 这个名字对国内大多数开发者还很陌生。它是一种参数化 3D 建模语言，类似把 CAD 软件里的「拖、拽、转」操作翻译成纯文本代码——写一段 <code>cylinder(h=10, r=5)</code> 就生成一根圆柱体，写 <code>difference()</code> 就把两个体相减得到中空。它在 3D 打印社区和 Maker 圈用得很多，Printables、Thingiverse、Makerworld 三大模型分享平台上一大半参数化模型都是 OpenSCAD 文件。</p>
+<p>这次 ModelRift 之所以选它当评测平台，是因为 OpenSCAD 完全是文本代码，能直接喂给现在的 AI 编程工具；同时它又是真正的三维几何任务，模型必须在脑子里把柱廊、穹顶、门廊、藻井的空间关系想清楚才能写对——这条评测路径精确地暴露了「文本代码能力」和「空间几何推理能力」之间的鸿沟。</p>
+<p>罗马万神殿则是空间几何题里出名的硬题。这座公元 2 世纪由哈德良皇帝主持重建的圆顶神庙，几何结构层层嵌套：</p>
+<ul>
+<li>正面是十六根科林斯式花岗岩立柱组成的山形门廊</li>
+<li>门廊后面接一段方形中间体，再接直径 43.3 米的半球形圆顶</li>
+<li>圆顶内侧分五圈水平排布的方形藻井，越往顶越小</li>
+<li>最顶上开一个直径 8.7 米的圆形天眼</li>
+</ul>
+<p>这是西方建筑史上最早的「无钢筋大跨度混凝土圆顶」典范。门廊轴线必须对齐圆顶轴线，藻井网格在球面上要均匀收敛，天眼必须落在球心正上方。把它翻译成 OpenSCAD 代码，等于让模型一次性处理 60% 几何嵌套 + 30% 比例约束 + 10% 装饰细节。这就是为什么这道题在 AI 编程评测里值得单拎出来。</p>
+<h2>一、六家工具的真实数字：质量榜倒着排，速度榜正着排</h2>
+<p>ModelRift 给的六家评测对象，按发布时间从老到新分别是：Cursor 3.5 配 Composer 2.5、Codex 5.5 High、Claude Code 2.1 配 Opus 4.7、Claude Code 2.1 配 Sonnet 4.6、Google Antigravity 2.0 配 Gemini 3.5 Flash High、ModelRift 自家产品配 Gemini 3.0 Flash。题目统一：给两张万神殿参考图（一张正面立面、一张半剖切显示内部圆顶藻井），要求生成完整 <code>.scad</code> 文件，每家工具都可以调用 OpenSCAD 命令行渲染 PNG 看效果、自动迭代到满意为止。最后由 ModelRift 团队按 1-5 分两个维度打分：质量分看几何完整度（柱廊有没有、门廊比例对不对、圆顶曲率像不像、藻井实现没实现）、速度分按总耗时倒序。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/23/modelrift-overview.jpg" alt="六家 AI 编程工具 OpenSCAD 万神殿渲染对比总览（数据来源：ModelRift）"></p>
+<p>完整数字摆下来是这样：</p>
+<table>
+<thead>
+<tr>
+<th>工具组合</th>
+<th>质量分</th>
+<th>速度分</th>
+<th>耗时</th>
+<th>关键判断</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Antigravity 2.0 / Gemini 3.5 Flash High</td>
+<td>4.5 / 5</td>
+<td>1 / 5</td>
+<td>约 12 分钟</td>
+<td>唯一造出 5 环 × 28 格藻井，主动查万神殿真实尺寸</td>
+</tr>
+<tr>
+<td>ModelRift / Gemini 3.0 Flash</td>
+<td>3.8 / 5</td>
+<td>1 / 5</td>
+<td>约 10 分钟</td>
+<td>人在环路（human-in-the-loop），细节最完整</td>
+</tr>
+<tr>
+<td>Claude Sonnet 4.6（Claude Code 2.1）</td>
+<td>3.4 / 5</td>
+<td>1 / 5</td>
+<td>最慢</td>
+<td>全自主里造型最干净、比例最准</td>
+</tr>
+<tr>
+<td>Claude Opus 4.7（Claude Code 2.1）</td>
+<td>3.0 / 5</td>
+<td>2 / 5</td>
+<td>较慢</td>
+<td>比 Cursor 完整，但比例过于均匀，缺神韵</td>
+</tr>
+<tr>
+<td>Codex 5.5 High</td>
+<td>3.0 / 5</td>
+<td>4 / 5</td>
+<td>较快</td>
+<td>立柱铭文清晰可读，导出 STL 时天花板塌掉</td>
+</tr>
+<tr>
+<td>Cursor 3.5 / Composer 2.5</td>
+<td>1.4 / 5</td>
+<td>5 / 5</td>
+<td>最快</td>
+<td>几分钟出答案，造型只能算「初稿」</td>
+</tr>
+</tbody></table>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/23/quality-vs-speed-chart.png" alt="quality vs speed 散点图：六家 AI 编程工具的质量 quality 与 speed 评分对位"></p>
+<p>这张散点图把六家工具的位置摊开看，一眼能看出三件事：</p>
+<ul>
+<li>速度榜和质量榜几乎是完全相反的——Cursor 最快但质量最低，Antigravity 最慢但质量最高，中间没有任何「既快又好」的选项</li>
+<li>质量第二档的三家（Claude Sonnet 4.6、ModelRift、Claude Opus 4.7）速度全部贴在底部 1-2 分区间，说明做对空间几何题这件事本身就是慢工细活</li>
+<li>Codex 5.5 High 是六家里唯一一个夹在中间的，它的预览渲染分数远高于最终 STL 导出分数——这指向一个国内开发者不熟悉的方法论坑，下一节专门讲</li>
+</ul>
+<p>ModelRift 评测里对 Cursor 的判断原话是「fastest interaction loop, but output quality lagged behind the slower runs」，翻译过来就是「交互最流畅，但出活质量被慢的同行甩开」。这句话很重要——它的潜含义不是「Cursor 不行」，而是「Cursor 是给那种代码量比几何量大十倍的任务设计的」。绝大多数日常 AI 编程任务是写业务逻辑、调 API、改 bug、补单元测试，这些任务里 Cursor 的快是真正的生产力优势。换句话说，1.4/5 的分数只在「空间几何这道题」上成立，把它推广到所有代码任务是搞错了评测的适用范围。</p>
+<h2>二、Antigravity 为什么过关：它主动查了万神殿的真实尺寸</h2>
+<p>Antigravity 2.0 这次拿 4.5/5 拿得很扎实。ModelRift 把它的工作过程拆出来看，发现它做了一件其他自主代理都没做的事——<strong>主动搜索万神殿的真实建筑参数</strong>，把找到的圆顶直径、墙体厚度、藻井数量直接灌成参数化代码的输入值，而不是只靠参考图肉眼估算。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/23/antigravity-preview.png" alt="Antigravity 2.0 全自主代理输出：注意圆顶内侧的 5 环 × 28 格藻井（数据来源：ModelRift）"></p>
+<p>它的代码里出现了几个具体数字：圆顶净跨度 43.3 米（这是历史学家公认的万神殿穹顶直径）、地面到天眼高度同样 43.3 米（这是万神殿著名的「内切球」几何）、藻井五环每环二十八格（这是 2 世纪原始几何，文艺复兴学者反复测量过）。这些数字 Antigravity 是从工具调用里查回来的，然后才写进 OpenSCAD 代码。</p>
+<p>最难的藻井部分是 Antigravity 的得分点。半球面上的方形藻井不是简单的平面阵列，而是球面上的方格——每一格的四条边必须是球面上的大圆弧段，越靠近顶端格子越小，五环之间还要保留垂直墙体把每环分隔开。Antigravity 用了「球面坐标参数循环 + 布尔差集」的写法实现：先建一个完整的半球体，然后在每个藻井位置用一个缩小版的方形体做减法，循环五圈、每圈二十八次。这个写法在 OpenSCAD 社区不算新，但要在一次零样本生成里写对，需要模型同时记住三件事——球面坐标系、布尔运算顺序、五环二十八格的离散网格。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/23/antigravity-ceiling.png" alt="Antigravity 2.0 圆顶内侧藻井细节：5 环 × 28 格逐层收敛（数据来源：ModelRift）"></p>
+<p>ModelRift 评测里有一句话值得国内开发者认真读：「Antigravity raised the autonomous ceiling on this benchmark」——它把全自主代理在这道题上的天花板抬高了。这里的关键词是「全自主」（autonomous），意思是它在没有人类反馈、没有中途指点的情况下，自己规划、自己迭代、自己验证。ModelRift 自家产品拿 3.8/5 用的是人在环路的工作流，每一次模型出 PNG 后由人类标注「这里柱子歪了」「这里比例不对」再让模型改——这条路下细节更完整，但代价是人力成本。Antigravity 的 4.5/5 是「我离开电脑十二分钟回来代码就是这样」的分数。两个分数都有价值，但场景不同。</p>
+<p>要明确一点：Antigravity 4.5/5 是「Antigravity 这套代理工作流 + Gemini 3.5 Flash 这个模型」联合得分，不是 Gemini 3.5 Flash 单独的模型分。Google AI Developers Forum 上 5/22 同一天还有一条吐槽帖标题就是「Antigravity 2.0..... lackluster? Gemini 3.5 Flash seems dumb」——同样的模型在别的任务上有人嫌它笨。区分清楚「代理工作流分数」和「裸模型分数」对国内开发者选型很重要：你不是在选 Gemini 3.5 Flash，你是在选「Antigravity 这套代理把这个模型怎么用」。</p>
+<h2>三、Codex 的坑：预览渲染对，导出 STL 错</h2>
+<p>六家里 Codex 5.5 High 是最让人意外的一个。它的预览图（OpenSCAD 命令行用 <code>--preview</code> 模式渲染的 PNG）看起来质量很高——立柱顶端的科林斯式涡卷、门廊山形上的浮雕、檐板上的「M·AGRIPPA·L·F·COS·TERTIVM·FECIT」铭文（万神殿原始柱顶题铭）都做出来了，是六家里立面细节最丰富的。</p>
+<p>但等到导出 STL 文件（3D 打印的标准网格格式）的时候，问题出现了——门廊上方多了一层莫名其妙的天花板状曲面，把原本应该露出后方墙体的部分给糊住了。ModelRift 评测原文这样描述：「preview correctness is not always final mesh correctness」——预览渲染对了不代表最终导出网格也对。</p>
+<p>这条经验在 OpenSCAD 社区其实是老知识。OpenSCAD 的预览模式（F5）用 OpenCSG 库实时合成布尔运算结果，渲染快但容许误差大；导出 STL 时则用 CGAL 库做精确布尔运算，对几何边界要求严格——任何「重叠但没真正合并」的体在预览里能糊弄过去，导出时就会塌出怪异曲面。Codex 显然懂模型能力但不懂这个工具特性的边界。</p>
+<p>这件事对国内开发者的启示是：<strong>给 AI 编程工具评测时，必须看最终交付产物，不能只看中间预览</strong>。这条规则在所有「有编译/导出/打包」步骤的任务里都成立——CSS 写完要看浏览器渲染、Python 写完要看运行结果、CAD 写完要看 STL 网格。Cursor 那 1.4/5 分至少错得一致，预览什么样导出就什么样，你看到的就是你能用的；Codex 这种「预览高分、导出塌掉」的失败模式反而更危险，因为它会让人产生虚假信心。</p>
+<h2>四、Claude Code 一家两个模型：Sonnet 比 Opus 干净</h2>
+<p>Claude Code 2.1 在这次评测里同时上了 Opus 4.7 和 Sonnet 4.6 两个模型版本，结果反过来——Sonnet 4.6 拿 3.4/5，比 Opus 4.7 的 3.0/5 还高一点。ModelRift 的判断是「Sonnet produced the cleanest autonomous result with balanced proportions」，Sonnet 的输出造型最干净、比例最匀。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/23/reference-images.jpg" alt="reference images：ModelRift 评测给六家工具的两张万神殿参考图（正面立面 + 半剖切显示圆顶藻井）"></p>
+<p>这个结果跟国内开发者过去几个月在常规代码任务里观察到的趋势是一致的——Sonnet 在「中等复杂度任务里写干净代码」这件事上常常表现得比 Opus 更稳。Opus 的优势是处理超长上下文、做复杂多步推理；但在「五百行代码以内的几何写正确」这种任务，Sonnet 的输出反而更整洁。这次评测两个 Claude 模型的对比给了一个有趣的旁证：模型能力强不等于在所有任务上都表现更好。</p>
+<p>Claude Code 2.1 在 Cursor 之后另选了一条路——它不做编辑器，是个跑在终端里的代理，读文件、改文件、调 OpenSCAD 命令、看渲染结果、决定下一步。这种「无图形 UI」的代理工作流在做 OpenSCAD 这种几何任务时有个微妙的劣势：它看不到模型实时长什么样，每一次渲染要等命令行返回 PNG 再读取像素。但在做服务器后端、配置文件改造、批量代码迁移这种任务时，无 UI 反而是优势——没有切上下文的成本。这两条路适用场景不一样。</p>
+<h2>五、Cursor 1.4/5 是怎么回事：把它读成「这一题不擅长」而不是「整体不行」</h2>
+<p>Cursor 3.5 配 Composer 2.5 在这次评测里只拿到 1.4/5，全场最低。但读这个数字得很小心。</p>
+<p>Cursor 在 ModelRift 评测里展示的工作流是这样的：左边面板是 Composer 2.5 写的 OpenSCAD 计划（plan），右边是同步生成的代码，几分钟内就有可用产物。问题在于 Composer 2.5 显然没有真正建立起万神殿的空间几何关系——柱廊只有一排立柱、门廊比例错乱、圆顶曲率偏离半球、藻井完全没做。换句话说，它把这道空间几何题当成了「按参考图生成几行类似代码」来处理。</p>
+<p>但 Cursor 在常规代码任务上的表现完全是另一回事。过去半年里，国内大量开发者把 Cursor 当主力 IDE——它做 React 组件、写 SQL 查询、改 Python bug、补 TypeScript 类型，速度和质量都很顶。Cursor 的设计哲学是「让交互快到接近人类思考节奏」，这个哲学在 OpenSCAD 这种需要慢慢推理空间关系的任务上撞墙了，但在文本代码主线场景上仍然是六家里最丝滑的。</p>
+<p>ModelRift 评测里也客观地写下了这一点：「Cursor 的输出在普通文本代码场景里仍然主流」。1.4/5 是「这一道几何题上跑出来的分数」，不是「Cursor 整体不行」的判决。国内开发者要从这次评测里读出来的，是「空间几何这一类任务，建议另选工具；常规代码任务，Cursor 仍然是顺手」。</p>
+<h2>六、工具选型对位：Trae / Qoder / Antigravity / Claude Code 各干什么</h2>
+<p>ModelRift 这份评测虽然测的是海外工具，但给国内开发者的启发是直接的——AI 编程工具不是一棵树，是好几条赛道，每条赛道有它的最优解。把读者每天接触的几款工具按真实使用场景对位一下：</p>
+<p><strong>Trae</strong> 是字节出的国内 AI IDE，主打 Cursor 同款体验加上国内访问稳定 + 千问 / DeepSeek 接入。它的设计目标和 Cursor 一样——文本代码、业务逻辑、改 bug、补单元测试这条主线。它在空间几何这种任务上预期的表现会更接近 Cursor（追求速度，几何题不是它的强项），但日常代码任务里它的国内稳定性比海外工具更可靠。</p>
+<p><strong>Qoder</strong> 是阿里通义灵码升级后的新品牌，定位偏向「代码理解 + 代码生成 + 代码评审」三位一体，跑在千问 3 Coder 上。它的优势是国内大型代码库的语义检索强、对中文注释和文档敏感、对接 GitLab / Gitee 流畅。如果做的是后端微服务、Java / Go / Python 这种主流后端语言的中大型项目，Qoder 是顺手的。但它不是为 3D 几何或者前端创意场景设计的。</p>
+<p><strong>Antigravity 2.0</strong> 走的是「全自主代理」路线，跟 Cursor / Trae 那种「实时编辑」路线完全不同。它的标准用法是「你给一个任务描述，它去花十分钟到一小时自己规划、自己执行、自己验证，你最后看结果」。这次万神殿评测它拿 4.5/5 就是这种工作模式的胜利——你离开电脑去喝杯咖啡回来代码已经写好。国内有同样思路的产品是 MetaGPT、AutoGen，但 Antigravity 把这条路做得最完整。访问层面 Antigravity 在国内还需要科学上网，2.0 也存在第三方反馈「模型时灵时不灵」的稳定性问题，要做好心理准备。</p>
+<p><strong>Claude Code 2.1</strong> 是 Anthropic 出的命令行代理，对国内开发者来说门槛在 API 接入。但它的设计哲学非常清晰——「无 UI、慢工出细活、终端原生」。这次评测里 Sonnet 4.6 配 Claude Code 拿到 3.4/5 是全自主里第三高的分数。Claude Code 适合的场景是：你愿意为质量牺牲一点速度、你的工作流是终端为主而不是 IDE 为主、你不需要那种「实时联想」的丝滑感。</p>
+<p>把这四款工具放到一张选型表上：</p>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>主线场景</th>
+<th>几何 / 空间任务表现</th>
+<th>国内可用性</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Trae</td>
+<td>业务代码、改 bug、写测试</td>
+<td>预期偏弱（同 Cursor 路线）</td>
+<td>★★★★★（字节国内主力）</td>
+</tr>
+<tr>
+<td>Qoder</td>
+<td>大型代码库语义检索、代码评审</td>
+<td>弱（不是设计目标）</td>
+<td>★★★★★（阿里千问生态）</td>
+</tr>
+<tr>
+<td>Antigravity 2.0</td>
+<td>长任务全自主、文档调研、跨步骤代理</td>
+<td>强（这次评测榜首）</td>
+<td>★★★（需稳定海外网络）</td>
+</tr>
+<tr>
+<td>Claude Code 2.1</td>
+<td>终端代理、严肃后端任务、慢工细活</td>
+<td>中上（Sonnet 4.6 第二档）</td>
+<td>★★★（需 API + 海外网络）</td>
+</tr>
+</tbody></table>
+<p>这张表的目的不是评高低，是告诉国内开发者一句话：<strong>别用同一个工具干所有事</strong>。Cursor / Trae 这条路是为日常文本代码设计的，丝滑速度是核心价值；Antigravity / Claude Code 这条路是为长任务、复杂任务设计的，质量优先；Qoder 这条路是为国内大企业代码库设计的，企业治理价值优先。每条路都有它最适合的活，把它们装到一个工具栏里轮换用，是 2026 年这个时点上国内 AI 编程开发者最理性的姿态。</p>
+<h2>七、空间几何这道题的意义：从「写代码」往「想空间」迈</h2>
+<p>最后回到这道题本身。让 AI 写 OpenSCAD 建模型，跟让 AI 写 Python、TypeScript、SQL 比有什么不同？</p>
+<p>最大的差异是<strong>思维维度</strong>。写常规代码是一维（按行往下读）或者二维（看类继承图）思维，模型很擅长这个。写 OpenSCAD 建 3D 模型是三维思维——必须在头脑里同时维持 X / Y / Z 三个方向的几何关系，每一次几何变换（平移、旋转、缩放、布尔差集）都要更新一个三维心智模型。这件事对人类工程师都不容易，对 AI 模型更是新维度。</p>
+<p>ModelRift 这次评测的隐藏价值，是它把「AI 编程能力」这个泛泛的指标，拆分成了「文本代码能力」和「空间几何能力」两个独立的维度。前者过去两年所有头部模型都在快速逼近顶级人类工程师水平，后者大多数模型还停留在 1.4 到 3.5 分之间。能拿 4.5 的 Antigravity 也只是「主动调用真实尺寸 + 用代理迭代多轮」这种组合拳的结果，离「一发就对」还很远。</p>
+<p>这意味着什么？意味着接下来这一年，AI 编程工具的下一个分化点很可能就是「空间智能」——CAD 建模、3D 打印参数化设计、机器人轨迹规划、AR / VR 场景生成。国内厂商目前在「文本代码」这条主线上跟得很紧（千问 3 Coder、DeepSeek V4 Pro、智谱 GLM 5.1 在 SWE-Bench、HumanEval 等基准上都很接近海外旗舰），但在「空间智能」这个新维度上还有一段路要追。这不是坏消息——这恰恰意味着新的赛道刚开始，谁都还没跑出绝对优势。国内厂商完全有机会在 CAD 智能、3D 打印生态、工业建模这些应用场景上后发先至。</p>
+<p>OpenSCAD 这道罗马万神殿题，本质上是一道「2026 年 AI 编程能力的横切面」。Cursor 的 1.4 不代表 Cursor 不行，代表「实时编辑路线在空间任务上撞墙」；Antigravity 的 4.5 也不代表 Antigravity 全能，代表「全自主代理 + 真实尺寸调研 + 多轮迭代」这条路在这一类任务上跑通了。每一家工具都在自己擅长的赛道上跑——读这份评测的国内开发者，把它当成一份「细分场景能力地图」来读，比当成「谁是冠军」来读更有用。</p>
+<p>国内 AI 编程这条赛道发展到 2026 年中，工具数量已经多到一只手数不过来——Cursor、Trae、Qoder、Antigravity、Claude Code、ChatGPT Code Interpreter、千问 Code、DeepSeek Coder、智谱 CodeGeeX、MiniMax M2-Code……每一家都有自己的擅长。这份 ModelRift 评测最有用的一句话不是「Antigravity 第一」，而是「速度榜和质量榜在 2026 年 5 月这个时点上几乎完全相反」——这意味着开发者手里其实有一份「时间 vs 质量」的明确换算关系，可以根据当下任务的紧急程度自由选择。这种选择权过去两年都没有，今年突然就有了。这是好消息。</p>
+<p>OpenSCAD 罗马万神殿这道题，过几年回看的时候大概会成为 2026 年 AI 编程能力分化的一个标志性瞬间——文本代码能力已经接近饱和、空间几何能力刚刚启程、全自主代理这条路第一次跑赢实时编辑这条路。每一个国内 AI 开发者，都在这条新赛道的起点上。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

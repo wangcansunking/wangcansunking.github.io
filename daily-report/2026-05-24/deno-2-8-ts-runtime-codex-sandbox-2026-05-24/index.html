@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deno 2.8 给 AI Coding 当沙盒：Bun 之外的另一条路 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-24</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-24</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Deno 2.8 给 AI Coding 当沙盒：Bun 之外的另一条路</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/deno-2-8-ts-runtime-codex-sandbox-2026-05-24.png" alt="Deno 2.8 给 AI Coding agent 当沙盒底座的封面图"></p>
+<blockquote>
+<p>5 月 22 日，Deno 2.8 上线。这次大版本一口气塞进 <code>deno transpile</code>、<code>deno why</code>、<code>deno ci</code>、<code>deno pack</code>、<code>deno audit fix</code> 五个新子命令；Node 测试套通过率从 2.7 的 42% 拉到 76.4%（3405 / 4457 项），同周期 Bun 1.3.14 是 40.6%；冷启动 npm 安装比 2.7 快 3.66 倍，<code>node:http</code> 吞吐快 2.21 倍；TypeScript 升到 6.0.3；V8 从 14.6 升到 14.9。Hacker News 上 5 月 22 日发布当天的头帖一夜冲到 404 分、169 条评论（截至 5 月 23 日上午的 algolia 接口实查），是当周排在前列的 runtime 类话题。</p>
+</blockquote>
+<p>国内做 Coding agent 的同行第一反应大多是：「Node 24 LTS 都已经能跑 TS 了，Bun 1.4 也在猛追 npm 兼容，Deno 还有必要单独看一眼吗？」答案是：有。今年 2 月 Deno Sandbox（Deno 官方推出的、跑在 Deno Deploy 上的 microVM 隔离环境）正式公开测试，再叠加 2.8 这次把 <code>deno transpile</code>、CDP 网络抓包、跨平台 npm 装包这几样基础工程能力补齐之后，Deno 2.8 已经不是单纯的「Node 替代品」了。它在 AI Coding agent 跑用户代码这个新场景下，凑齐了<strong>默认权限白名单 + 官方微 VM 沙盒 + TypeScript 默认 + Web 标准 API</strong> 四件套，而这四件套加在一起就是一个面向 AI 时代的 TypeScript 沙盒底座。</p>
+<p>这篇专题想说清楚三件事：</p>
+<ul>
+<li>Deno 2.8 release 这次到底升了什么；</li>
+<li>为什么 AI Coding agent 时代，「TypeScript 默认 + 权限白名单 + microVM」这条路线正变成事实标准；</li>
+<li>国内做通义灵码、Trae、千问 Code 这类 Coding agent 的团队，怎么把这套思路对位到阿里函数计算、腾讯云函数、字节 IDLerunner 三家国内云函数上去落地。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/deno-2-8-official-hero.png" alt="Deno 2.8 官方 release 头图"></p>
+<h2>一、Deno 2.8 这次升级的三件大事</h2>
+<p>Deno 2.8 官方博客把 release 切成 npm 工程化、调试体验、Web 标准三段，对照实际 changelog 看，影响最深的是下面三件。</p>
+<p><strong>第一件：补齐 npm 包管理「最后一公里」。</strong> 2.8 给 CLI 加了五个新子命令：<code>deno audit fix</code> 自动把有 CVE 的 npm 包升到补丁版本；<code>deno bump-version</code> 按 semver 改 <code>deno.json</code> / <code>package.json</code> 的版本字段；<code>deno ci</code> 走 frozen lockfile 的可重现安装；<code>deno pack</code> 把 Deno 项目打包成 npm 能直接发布的 tarball；<code>deno why &lt;package&gt;</code> 解释为什么这个包被装进来，对应 <code>npm explain</code> / <code>pnpm why</code> / <code>yarn why</code>。</p>
+<p>更关键的是默认行为变了：2.8 之前要装 npm 包必须写 <code>deno add npm:express</code>，2.8 之后 <code>deno add express</code> 直接当 npm 包处理。Node 兼容测试套通过率从 42% 跳到 76.4%、3405 / 4457 项通过，同期 Bun 1.3.14 是 40.6%。冷启动 npm 安装从 3319 毫秒压到 906 毫秒（快 3.66 倍），<code>node:http</code> 吞吐快 2.21 倍，<code>node:crypto</code> 的 scrypt 算法快 2.12 倍。再加上 <code>catalog:</code> 协议给 monorepo 做统一依赖版本管理、<code>--prod</code> 跳过 devDependencies、<code>--os</code> / <code>--arch</code> 跨平台解析、可选的扁平化 <code>node_modules</code> 兼容老 npm 工具链——这一套组合下来，「我现有的 Node 项目能不能直接搬到 Deno」这个问题在 2026 年的答案是：超过四分之三的情况能。</p>
+<p><strong>第二件：调试链路追上 Chrome DevTools。</strong> Deno 2.8 把 CDP（Chrome DevTools Protocol）的 Network domain 实现了，意味着 Chrome DevTools 的 Network 面板可以直接抓 Deno 进程里 <code>fetch()</code> 调用、<code>node:http</code> 请求和 WebSocket 流量。配合新加的 <code>--cpu-prof</code> / <code>--cpu-prof-flamegraph</code> / <code>--cpu-prof-md</code> 三档 CPU 采样，输出格式与 DevTools 的 Performance 面板兼容，等于把「在 Deno 里调试线上奇怪请求」这件事从「打 console.log + 二分查 bug」拉到了「点开 DevTools 看时序」。</p>
+<p>对做 Coding agent 的人来说，这条升级的实际意义是：agent 跑用户代码出问题时，可以把整个调用栈、网络请求时序直接交给 DevTools 看。<code>deno check</code> 还加了 <code>--watch</code> 持续类型校验，<code>deno compile</code> 加了进度条和八个主流框架（Next.js、Astro、Fresh、Remix、SvelteKit、Nuxt、SolidStart、TanStack Start、Vite SSR）的检测，单文件部署的体验向前推了一档。</p>
+<p><strong>第三件：Web 标准 API 进一步对齐。</strong> 2.8 引入了 <code>OffscreenCanvas</code>，支持在 Worker 线程里离屏渲染并配合 WebGPU；加了 <code>DOMPoint</code>、<code>DOMRect</code>、<code>DOMQuad</code>、<code>DOMMatrix</code> 几何接口（需要 <code>--unstable-webgpu</code> 开启）；Workers 之间可序列化和可转移对象的支持更完整。TypeScript 升到 6.0.3，默认带上 <code>lib.node</code>（含 <code>Buffer</code>、<code>process</code>、<code>NodeJS.*</code> 类型），写 Node 兼容代码不用手动配 tsconfig。还有一个 TC39 提案 <code>import defer</code>：模块可以先 load 和 parse、但顶层代码延迟到第一次 access export 时再执行，启动性能直接受益。</p>
+<p>下面这张图是 Deno 2.8 与 Bun 1.4、Node 24 LTS 三家在 AI Coding 沙盒视角下的能力横评矩阵，把上面三件大事映射到「AI agent 跑用户代码」这个具体场景上。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/deno-2-8-runtime-matrix.png" alt="Deno 2.8 / Bun 1.4 / Node 24 LTS 三家在 AI Coding 沙盒场景下的能力对比矩阵"></p>
+<table>
+<thead>
+<tr>
+<th>能力维度</th>
+<th>Deno 2.8</th>
+<th>Bun 1.4</th>
+<th>Node 24 LTS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>权限白名单（<code>--allow-net</code> / <code>--allow-read</code> / <code>--allow-env</code>）</td>
+<td>默认开启，需显式 allow</td>
+<td>无内置，靠 OS 沙盒</td>
+<td>无内置，Permission Policy 实验阶段</td>
+</tr>
+<tr>
+<td>微 VM 沙盒</td>
+<td>官方 Deno Sandbox 2026-02 公开测试</td>
+<td>靠 Firecracker / E2B 外挂</td>
+<td>靠 Firecracker / gVisor 外挂</td>
+</tr>
+<tr>
+<td>单文件部署</td>
+<td><code>deno compile</code> 自动识别八个框架</td>
+<td><code>bun build --compile</code> 二进制</td>
+<td><code>pkg</code> / <code>nexe</code> 社区维护</td>
+</tr>
+<tr>
+<td>边缘部署</td>
+<td>Deno Deploy 全球 35 区</td>
+<td>Cloudflare Workers 适配</td>
+<td>AWS Lambda / Vercel / 阿里函数计算</td>
+</tr>
+<tr>
+<td>Web 标准 API</td>
+<td>原生 Web 标准</td>
+<td>原生 + Node 兼容层</td>
+<td>Node 22 起原生 <code>fetch</code></td>
+</tr>
+<tr>
+<td>Node 兼容</td>
+<td>Node 测试套通过 76.4%</td>
+<td>Node 测试套通过 40.6%</td>
+<td>母语 100%</td>
+</tr>
+<tr>
+<td>TypeScript 直跑</td>
+<td>默认，含 <code>deno transpile</code></td>
+<td>默认</td>
+<td>需 <code>ts-node</code> / <code>tsx</code> / <code>--strip-types</code></td>
+</tr>
+<tr>
+<td>AI Coding agent 接入难度</td>
+<td>permissions + Deno Sandbox 双轨</td>
+<td>主要靠速度优势</td>
+<td>需外接沙盒方案</td>
+</tr>
+</tbody></table>
+<p>这张表读下来三家的路线分工很清楚：<strong>Deno 是 TS 默认 + 权限模型 + 微 VM 沙盒；Bun 是速度优先 + Node 兼容追赶；Node 是生态最完整 + 沙盒靠外接</strong>。下面两节会拆开讲为什么 AI Coding agent 这个场景对「权限模型 + 微 VM 沙盒」特别敏感。</p>
+<h2>二、HN 顶赞 5 条讨论：开发者最在意什么</h2>
+<p>5 月 22 日发布当天，HN 头帖（story_id 48234380）一夜冲到 404 分 / 169 条评论，是当周 runtime 类话题前列。顶赞讨论其实没怎么聊 Web 标准 API、也没多讨论 Deno Sandbox——开发者关心的是「Bun 那边声音那么大，Deno 这次还有戏吗」「我能不能用 <code>deno pack</code> 直接把 Deno 项目发到 npm」「Deno 现在的生产环境用户到底有多少」这种偏务实的问题。</p>
+<p>下面是 HN 顶赞 5 条的逐条还原（仅引用顶赞内容，不引用全部 169 条）：</p>
+<table>
+<thead>
+<tr>
+<th>评论者</th>
+<th>顶赞内容（逐字翻译）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>cf100clunk</td>
+<td>「Deno 是 JS / TS runtime，没听过这名字的可以看下 2.6 vs Bun 1.3 vs Node 25 的横评。」</td>
+</tr>
+<tr>
+<td>vmsp</td>
+<td>「再过不久就能把你的 app 编译成单个可执行文件，包括原生依赖。」</td>
+</tr>
+<tr>
+<td>turadg</td>
+<td>「新的 <code>deno pack</code> 命令对安全简洁地打包来说是个好补充。」</td>
+</tr>
+<tr>
+<td>dan_rock_wilson</td>
+<td>「有人能解释下为什么 Bun 看起来增长这么快？是当 bundler 在用、还是真的拿来跑 JS runtime？」</td>
+</tr>
+<tr>
+<td>XCSme</td>
+<td>「这里有谁在生产环境用 Deno 吗？」</td>
+</tr>
+</tbody></table>
+<p>五条凑在一起反映的是开发者社区今天的真实情绪：<strong>对 Deno 的工程化补齐认可，对 Bun 的高歌猛进有疑虑，对 Deno 生产环境市占率仍然心里没底</strong>。其中 dan_rock_wilson 那一条「Bun 是 bundler 还是 runtime」的提问尤其值得展开——这正是国内开发者读这条新闻时容易跳过、但其实最关键的一道分界。</p>
+<p>Bun 1.x 的高速增长，相当大一块来自「比 npm / yarn / pnpm 都快的安装速度 + 比 webpack / vite 都快的打包速度」，被很多团队拿来替换 bundler 这一档；真正把 Bun 当 production runtime 跑业务代码的项目，相对前者要少一档。Deno 2.8 这次更新没在「比 Bun 快多少」这条赛道上去硬卷，反而把 Node 兼容性、CDP 调试、<code>deno transpile</code> 这种「让 TS 项目跑得起来 + 调得起来」的工程基础补齐。两家的目标受众已经不完全重叠：Bun 抓的是「我现在的工具链要更快」的开发者，Deno 抓的是「我要在沙盒里安全跑用户代码 / AI 生成代码」的开发者。</p>
+<p>回到 XCSme 那条「谁在生产用 Deno」：Netlify、Slack、Notion 这些公司公开提到过 Deno 在边缘函数和工具链脚本上的使用，但更值得国内开发者关注的不是这些 to C 公司，而是下面这条 AI 时代的新场景。</p>
+<h2>三、AI Coding agent 时代，Deno 为什么会成为沙盒默认</h2>
+<p>2026 年第二季度，AI Coding 工具的形态有一个明显变化：从「只在 IDE 里给代码补全」走向「自己跑生成的代码、看结果、再调」。Anthropic 的 Claude Code、OpenAI 的 Codex CLI 与 Codex Cloud、Google 的 Jules、阿里的通义灵码 Lingma Agent、字节的 Trae、Cursor 的 Composer，这一批工具都在做同一件事：<strong>让 AI 自主在隔离环境里跑命令、改文件、跑测试、看输出</strong>。这件事一旦做起来，沙盒就从「锦上添花的安全特性」变成「不做就不能发布的硬需求」。</p>
+<p>这条路线上的安全模型今天分成两派。<strong>第一派是 OS-native 路线</strong>，OpenAI 的 Codex CLI 走的是这条：macOS 用系统自带的 Seatbelt 框架，Linux / WSL2 用 Bubblewrap（<code>bwrap</code>）做 user namespace 隔离，Windows 用系统沙盒或者 WSL2。Codex CLI 文档原话是「Codex 在每个 OS 上用平台原生的执行机制。macOS / Linux / WSL2 / 原生 Windows 实现细节不同，但思路一致」「沙盒边界对子进程也生效，不只是 Codex 自己的文件操作」——文件系统按 workspace 限制、网络访问需要批准、命令继承沙盒边界。</p>
+<p><strong>第二派是 microVM 路线</strong>，Modal 整理的 2026 年 5 月 Coding agent 沙盒清单里列了 7 家：Modal（gVisor 隔离）、E2B（Firecracker microVM）、Northflank（Kata / Firecracker / gVisor 三选一）、Daytona（开源沙盒供给）、Blaxel（持久化 agent 计算机）、Fly.io Sprites（Firecracker + checkpoint）、CodeSandbox（浏览器内 snapshot）。这条路线上 microVM 是基础设施层，runtime 选什么没那么重要。</p>
+<p>Deno 2.8 + Deno Sandbox 是<strong>第三种思路</strong>：把权限模型做进 runtime 自身，再叠一层官方 microVM 兜底。<code>deno run --allow-net=api.x.com --allow-read=./data --allow-env=API_KEY user-code.ts</code> 这一行命令本身就声明了用户代码能访问哪些域名、能读哪个目录、能读哪个环境变量——agent 在调用前就把权限白名单写好，runtime 在执行时按声明拦截越界。再叠上今年 2 月公开测试的 Deno Sandbox（跑在 Deno Deploy 上的 microVM 隔离层），网络出口白名单和密钥隔离也由官方托管。Deno 官方对 Sandbox 的定位原话是「沙盒化计算还不够，你需要控制网络出口、保护密钥不被外传」「专攻那些代码必须被生成、被评估、被代表不信任用户安全执行的工作负载」。</p>
+<p>下面这张图把 AI Coding agent 调用 Deno 沙盒的合规链路画成五步，对照 Codex CLI 的 Seatbelt / Bubblewrap 方案，最大差别是第二步「声明 permissions」这一步直接写在 runtime CLI 参数里，不需要外接 sandbox 配置。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/deno-2-8-sandbox-flow.png" alt="AI Coding agent 调用 Deno 沙盒的五步合规链路"></p>
+<p>对国内做 Coding agent 的同行来说，这条路线的吸引力分三层：</p>
+<ul>
+<li><strong>TypeScript 一等公民</strong>：今天大模型生成代码的语料里 TS / JS 占比一直在前三，agent 跑生成代码不需要先走 <code>tsc</code> 编译，少一道环节就少一处出错。</li>
+<li><strong>权限模型语义清楚</strong>：Codex CLI 的 Seatbelt 配置文件和 Bubblewrap 参数对绝大多数应用开发者来说是黑盒，Deno 的 <code>--allow-net=domain</code> 这种 CLI flag 一眼能看懂，写在 prompt 里也容易让大模型理解和遵守。</li>
+<li><strong>Web 标准 API 默认可用</strong>：<code>fetch</code>、<code>OffscreenCanvas</code>、<code>Web Crypto</code>、Workers 在 Deno 里直接能用，agent 生成的代码不用先判断「这是浏览器代码还是 Node 代码」，写一份就能跑。</li>
+</ul>
+<p>到这里需要给一个谨慎的提醒：上面这三层吸引力不等于「Deno 比 Codex CLI 现有方案好」。OpenAI Codex CLI 选 Seatbelt + Bubblewrap 是有它自己的理由的——这两套机制是 Apple / Linux 系统自带、不引入额外二进制依赖、跨平台一致性强。Modal 整理的那张沙盒清单里也没把 Deno Deploy / Deno Sandbox 当作 OpenAI Codex 的主流选项。也就是说，<strong>Deno 这条路线今天还是「可选项之一」、不是「唯一答案」</strong>，国内团队评估时要把它和 Seatbelt / Bubblewrap、Firecracker microVM、gVisor、阿里函数计算的 MicroVM 几条路一起看。</p>
+<h2>四、Bun 与 Deno 的路线分歧：速度优先 vs 沙盒优先</h2>
+<p>Bun 1.4 与 Deno 2.8 在 2026 年这个时间点上的路线差异已经清晰到不需要再争「谁会赢」。Bun 抓的是「我要把现有 Node 工具链做得更快」：bun install 比 npm 快 25 倍以上，bun test 比 jest 快几倍，bun build 比 webpack 快一档。这条路线的目标用户是「现在每天被工具链拖慢的前端 / 全栈工程师」，价值主张直接、容易传播。</p>
+<p>Deno 抓的是另一条赛道：<strong>「我要让 TS 代码在不可信场景下也能安全跑」</strong>。Deno 2.8 这次升级的几个新子命令——<code>deno audit fix</code> 是供应链安全（自动升 CVE 补丁）、<code>deno ci</code> 是可重现安装（frozen lockfile）、<code>deno pack</code> 是分发标准（npm 兼容 tarball）——加在一起就是「让 Deno 项目能融入企业级合规链路」。这条路线没有「比 Bun 快多少」那么容易上 HN 头条，但在 AI Coding 工具厂商、金融科技公司、政企集成商眼里更有分量。</p>
+<p>国内开发者读这条路线分歧时，可以借鉴的判断是：<strong>短期内你的项目要不要切 Bun，看你最痛的环节是不是「工具链速度」；短期内你的项目要不要看 Deno，看你最痛的环节是不是「跑用户代码 / AI 生成代码的安全边界」</strong>。这两个痛点是不重叠的，所以两边都有发展空间。</p>
+<p>下面这张图把国内三家云函数（阿里函数计算 / 腾讯云函数 / 字节 IDLerunner）和 Deno Deploy 放到一起横评，从 AI 沙盒视角看，国内方案在「微 VM 隔离 + 网络白名单」这条底层能力上其实并不缺位，差异主要在「TS 是不是默认 + Web 标准 API 是不是开箱即用」。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/24/deno-2-8-cn-faas-compare.png" alt="Deno Deploy vs 国内三家云函数对位横评"></p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Deno Deploy</th>
+<th>阿里函数计算 FC</th>
+<th>腾讯云函数 SCF</th>
+<th>字节 IDLerunner</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>冷启动</td>
+<td>约 50 毫秒（V8 隔离）</td>
+<td>约 100-400 毫秒（弹性实例）</td>
+<td>约 80-300 毫秒</td>
+<td>约 60-200 毫秒</td>
+</tr>
+<tr>
+<td>TypeScript 直跑</td>
+<td>默认</td>
+<td>需自打镜像或 Layer</td>
+<td>需自打镜像</td>
+<td>默认（前端栈优先）</td>
+</tr>
+<tr>
+<td>微 VM 隔离</td>
+<td>默认</td>
+<td>MicroVM 隔离</td>
+<td>Firecracker 路线</td>
+<td>字节自研 isolate</td>
+</tr>
+<tr>
+<td>网络白名单</td>
+<td>代码内 <code>fetch</code> 受 Deno 权限管控</td>
+<td>VPC + 安全组</td>
+<td>VPC + 安全组</td>
+<td>出口域名白名单</td>
+</tr>
+<tr>
+<td>国内可用区</td>
+<td>暂无中国节点</td>
+<td>全国 14 区</td>
+<td>全国 16 区</td>
+<td>国内 + 海外多区</td>
+</tr>
+<tr>
+<td>AI Coding 场景</td>
+<td>适合海外 SaaS / 出海产品</td>
+<td>适合国内政企 / 内网集成</td>
+<td>适合微信生态联动</td>
+<td>适合字节系内部 / 抖音工具链</td>
+</tr>
+</tbody></table>
+<p>注：以上冷启动数字来自各家官方公开文档和社区实测综合区间，具体业务场景会有偏差；阿里函数计算和腾讯云函数的 MicroVM 路线细节以官方文档为准。</p>
+<p>横评看下来，国内做 Coding agent 的同行可以分两条路线落地：<strong>出海产品</strong>可以直接用 Deno Deploy + Deno Sandbox，沙盒模型最简洁、TS 一等公民；<strong>国内政企集成</strong>可以用阿里函数计算或腾讯云函数自打 Deno 2.8 镜像，把 <code>--allow-net=domain</code> 这类权限白名单写在函数入口处，业务侧拿到的就是「TS 默认 + Deno 权限模型 + 阿里 MicroVM 隔离」的组合栈。</p>
+<h2>五、国内 Coding agent 落地实操：三条可走的路</h2>
+<p>把上面四节的分析收束到一张落地路线图。今天国内做 Coding agent 的团队（通义灵码、Trae、字节豆包 Coder、千问 Code、Cursor 国内版、Comate）想用 Deno 2.8 这套思路，有三条可走的路。</p>
+<p><strong>路线一：本地 CLI 模式，agent 在用户机器上跑生成代码</strong>。把 Deno 2.8 嵌进 agent CLI 的依赖，agent 每次跑用户代码前先生成 <code>--allow-net=...</code> 这种权限声明，再 <code>deno run --sandbox</code> 执行。好处：合规链路最短，不依赖云端基础设施；用户机器不被污染。难点：用户机器要装 Deno（虽然单文件二进制，但还是有装机成本）。这条路适合通义灵码、Trae、Cursor 这类「跑在用户 IDE / 终端」的 agent。</p>
+<p><strong>路线二：云端微 VM 模式，agent 在 agent 厂商的云上跑生成代码</strong>。把 Deno 2.8 + 阿里函数计算 / 腾讯云函数 / 字节 IDLerunner 的 MicroVM 隔离组合起来，用户提交任务 → agent 服务端起函数 → 在函数里跑 <code>deno run</code> → 结果回传。好处：不依赖用户机器，体验一致；安全边界由云厂商兜底。难点：函数冷启动有 100-400 毫秒延迟，跑短任务时占比明显。这条路适合千问 Code、豆包 Coder 这类「跑在云端、聊天界面」的 agent。</p>
+<p><strong>路线三：边缘 SaaS 模式，做出海 Coding 产品</strong>。直接用 Deno Deploy + Deno Sandbox 提供的微 VM 沙盒，结合 Deno 2.8 的 <code>deno compile</code> 单文件部署 + 八个主流框架的自动识别，把 Coding agent 做成边缘 SaaS 卖给海外用户。好处：开发效率高、全球 35 区分发、TypeScript 一等公民。难点：Deno Deploy 在中国大陆暂无可用区，国内用户体验受限。这条路适合做出海产品的开发者，比如最近在海外社区里活跃的几家国内独立开发者团队。</p>
+<p>三条路并不互斥。同一家 Coding agent 厂商完全可以在本地 CLI 跑路线一，在云端跑路线二，在出海产品上跑路线三。Deno 2.8 这次升级的意义就在于：<strong>三条路上的 runtime 基础底座，第一次能用同一个工具 + 同一套权限模型 + 同一份 TypeScript 代码统一起来</strong>。</p>
+<h2>六、Deno 2.8 是不是「AI 时代的默认 TS runtime」</h2>
+<p>最后用一段总结回扣开头的论点：Deno 2.8 不是「Node 替代品」，也不是「比 Bun 慢但更安全」。在 AI Coding agent 时代，它给了开发者一个之前没有的选项——<strong>runtime 自带权限白名单 + 官方微 VM 沙盒 + TypeScript 默认 + Web 标准 API</strong>。</p>
+<p>这套组合不一定是每个项目的最优解。如果你的 agent 跑在用户机器上、走 macOS / Linux / Windows 多平台，Codex CLI 那条 Seatbelt + Bubblewrap 路线对 OS 层更轻量；如果你的 agent 需要 GPU 加速跑大模型推理，Modal、E2B、Northflank 这类 Firecracker / gVisor microVM 平台更合适。Deno 2.8 占住的位置是「runtime 层自带权限语义 + TS 友好 + 单文件可部署」这个特定生态位。</p>
+<p>国内同行读这条新闻的姿势分三档：</p>
+<ul>
+<li><strong>现有项目评估搬迁</strong>：Deno 2.8 把 Node 兼容做到 76.4% 之后，把现有 Node 项目搬到 Deno 跑的可行性已经过线，可以认真评估一次。</li>
+<li><strong>国内云上接入路径</strong>：AI Coding agent 跑用户代码这件事正在成为新场景，权限模型 + 微 VM 沙盒是事实门槛，国内云函数（阿里 FC、腾讯 SCF、字节 IDLerunner）在底层 MicroVM 上其实早就准备好了，差的是 TS 一等公民 + Web 标准 API 这层薄壳，对位 Deno 思路自打镜像即可。</li>
+<li><strong>出海产品 MVP 路径</strong>：做出海 Coding 产品时，Deno Deploy + Deno Sandbox 是当下最快的 MVP 选择，全球边缘 + 微 VM + TS 默认，三个月内能从零跑到生产。</li>
+</ul>
+<p>国内开发者今天面对的不是「Deno 会不会替代 Node」这种十年前的争论，而是「AI Coding agent 跑用户代码的安全边界，由谁来兜底」这道新题。Deno 2.8 把自己摆到了这道题的答案候选名单上——和 Codex CLI 的 OS-native 路线、Modal / E2B 的 microVM 路线、国内三家云函数的 MicroVM 路线并列。选哪条要看你的具体场景，但<strong>有得选</strong>，本身就是一件好事。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

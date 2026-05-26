@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>M5 Max 跑 Qwen3-Coder 79 tok/s 啥概念 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-15</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-15</span><span class="tag-pill">Daily Report</span></div>
+      <h1>M5 Max 跑 Qwen3-Coder 79 tok/s 啥概念</h1>
+<p><img src="https://placeholder.example.com/covers/m5-max-qwen3-coder-next-2026-05-15.png" alt="Apple M5 Max 跑 Qwen3-Coder-Next 79 tok/s 实测封面"></p>
+<p>thebytelab 把 Qwen3-Coder-Next 8-bit 在新款 Apple M5 Max 上跑出 79.3 tokens per second 的生成速度，提示处理（prefill）阶段冲到 1,887 tokens per second。这两个数字摆在一起，等于宣布开发机本地已经能扛起一个国产代码模型当推理后端——把它接在常用编码代理（如 Claude Code 风格的本地后端）背后，普通日常补全、改写、解释代码的体感，已经追平不少线上 API。对国内开发者来说，这条线意味着合规敏感场景里，模型权重和提示词都可以不出本机，整条链路一直停在统一内存（unified memory）里。</p>
+<h2>一、Apple M5 Max 关键规格：内存带宽是这次的胜负手</h2>
+<p>Apple 在三月发布的官方新闻稿写得很清楚：M5 Pro 与 M5 Max 是给「最吃硬件」的专业工作流准备的一代，3 月 4 日开放预订，3 月 11 日正式发售。规格层面值得记的几条：</p>
+<ul>
+<li><strong>GPU 配置</strong>：M5 Pro 起步 24 核，Max 顶配做到 40 核</li>
+<li><strong>统一内存带宽</strong>：32 核 GPU 版本 460 GB/s，40 核 GPU 版本 614 GB/s</li>
+<li><strong>统一内存容量</strong>：M5 Max 最高 128 GB</li>
+<li><strong>神经网络引擎</strong>：16 核重新设计的 Neural Engine</li>
+<li><strong>对位 M4 Max</strong>：llmcheck.net 实测在 LLM 工作负载上整体提升约 28%</li>
+</ul>
+<p>llmcheck.net 把提升原因写得非常直白：</p>
+<blockquote>
+<p>&quot;M5 Max pushes approximately 28% more tokens per second than the M4 Max across LLM workloads, thanks to 600 GB/s memory bandwidth, improved GPU compute, and a redesigned Neural Engine.&quot; — llmcheck.net</p>
+</blockquote>
+<p>翻成本地化的说法：M5 Max 在常见大语言模型工作负载上比 M4 Max 多吐出约 28% 的 tokens per second，主要靠 600 GB/s 量级的内存带宽、更强的 GPU 算力和重新设计的神经网络引擎三件套。这条结论的关键是「内存带宽」三个字——后面会反复回到它。</p>
+<p><img src="https://placeholder.example.com/charts/m5-vs-m4-max-spec-comparison.png" alt="Apple M5 Max 与 M4 Max 关键规格对比示意"></p>
+<!-- TODO chart: 横向柱状对比 M5 Max 40-core / M4 Max 32-core 在内存带宽（614 vs 約 410 GB/s）、GPU 核心数、最高统一内存、Neural Engine 核数四个维度 -->
+
+<h2>二、Qwen3-Coder-Next 跑分一览：MoE 架构和苹果硅是天作之合</h2>
+<p>DEV.to 的 Qwen3-Coder-Next 2026 完整指南把这款模型的来历写得很清楚：阿里巴巴在 2026 年 2 月发布，采用混合专家（Mixture of Experts，MoE）架构，总参数约 80B，单次推理激活约 3B，主打代码场景。MoE 不是新词，但放在苹果硅上意义不一样——它每步只激活一小部分参数，对内存带宽的吃法比稠密大模型友好得多。</p>
+<p>thebytelab 在 M5 Max 上的实测数据汇总如下（生成速度 = generation tokens per second，提示处理 = prefill tokens per second）：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>量化精度</th>
+<th>生成速度</th>
+<th>提示处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qwen3-Coder-Next</td>
+<td>8-bit</td>
+<td><strong>79.3 tok/s</strong></td>
+<td><strong>1,887 tok/s</strong></td>
+</tr>
+<tr>
+<td>Qwen3.5-122B-A10B</td>
+<td>4-bit</td>
+<td>65.9 tok/s</td>
+<td>1,239 tok/s</td>
+</tr>
+</tbody></table>
+<p>llmcheck.net 同机的横向跑分补齐了画面：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>量化精度</th>
+<th>生成速度</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Llama 3 8B</td>
+<td>Q4</td>
+<td>82 tok/s</td>
+</tr>
+<tr>
+<td>Mistral 7B</td>
+<td>Q8</td>
+<td>68 tok/s</td>
+</tr>
+<tr>
+<td>Qwen 3.5 30B-A3B</td>
+<td>Q4</td>
+<td>58 tok/s</td>
+</tr>
+<tr>
+<td>Llama 4 Scout</td>
+<td>Q4</td>
+<td>32 tok/s</td>
+</tr>
+<tr>
+<td>Llama 3 70B</td>
+<td>Q4</td>
+<td>18 tok/s</td>
+</tr>
+</tbody></table>
+<p>llmcheck.net 把这个结论钉得很死：</p>
+<blockquote>
+<p>&quot;Prefer MoE models on Apple Silicon. Qwen3.5&#39;s MoE architecture was practically designed for this hardware.&quot; — llmcheck.net</p>
+</blockquote>
+<p>转述一下：在苹果硅上优先选 MoE 架构的模型，Qwen3.5 的这套架构几乎就是冲着这类硬件设计的。这背后是同一条原理：</p>
+<blockquote>
+<p>&quot;LLM inference is memory-bandwidth bound, not compute-bound.&quot; — llmcheck.net</p>
+</blockquote>
+<p>大语言模型推理的瓶颈是内存带宽，不是算力。MoE 模型每步只激活一小部分参数，正好把「需要从统一内存里搬过去喂给 GPU 的数据量」按比例砍小，于是同一块 M5 Max 跑 80B-A3B 的 Qwen3-Coder-Next，体感比跑稠密 70B 的 Llama 3 要爽两个量级。</p>
+<h2>三、70B 也能跑：18 tok/s 是什么概念</h2>
+<p>很多开发者最关心的不是 80B 的旗舰，而是「最大能塞下多大的稠密模型」。llmcheck.net 给了答案：M5 Max 跑 Llama 3 70B Q4 量化版本，生成速度 18 tokens per second。</p>
+<p>参照系是上一代 M4 Max。Sean Kim 的博客（搜索摘要：原文 403 不可直访）测出 M4 Max 跑 Llama 3.1 70B 的生成速度为 20 tokens per second，并留下一句被反复引用的话：</p>
+<blockquote>
+<p>&quot;Running Llama 3.1 70B at 20 tokens per second on a laptop is unprecedented.&quot; — Sean Kim 博客（搜索摘要）</p>
+</blockquote>
+<p>意思是在一台笔记本上以每秒 20 个 token 的速度跑 70B 级模型，过去是不可想象的。M5 Max 在更大的稠密模型上数字略有波动（18 vs 20），但量级一致，并且因为 MoE 优化的存在，绝大多数实际负载都不会卡在稠密 70B 上——这只是用来证明「上限够」。</p>
+<p>放到日常体感上：</p>
+<ul>
+<li><strong>18 tokens per second</strong> 对应中文输出约每秒 12–15 字，大致是一个流畅打字的人的两倍</li>
+<li><strong>79 tokens per second</strong>（Qwen3-Coder-Next）已经超过绝大多数云端代码补全 API 的端到端体感</li>
+<li><strong>1,887 tokens per second 的提示处理（prefill）</strong> 意味着塞一段 5,000 token 的项目上下文，三秒以内吃完</li>
+</ul>
+<p>云端 API 的延迟瓶颈往往在网络 RTT 和排队上，本地推理把这两段直接削掉，整体响应曲线明显更平。</p>
+<p><img src="https://placeholder.example.com/charts/m5-max-throughput-comparison.png" alt="Qwen3-Coder-Next 与同档模型在 M5 Max 上的生成速度对比"></p>
+<!-- TODO chart: 水平条形图，横轴 tokens per second，纵轴模型名称（Llama 3 8B Q4 82 / Qwen3-Coder-Next 8-bit 79 / Mistral 7B Q8 68 / Qwen3.5-122B-A10B 4-bit 66 / Qwen 3.5 30B-A3B Q4 58 / Llama 4 Scout Q4 32 / Llama 3 70B Q4 18），高亮 Qwen3-Coder-Next 那一行 -->
+
+<h2>四、MLX 还是 llama.cpp：工具链选择决定终态速度</h2>
+<p>硬件再强，跑分也要看跑分的人怎么跑。llmcheck.net 给出的工具链建议非常直接：</p>
+<blockquote>
+<p>&quot;MLX delivers 20-50% higher throughput than llama.cpp for the same models&quot; — llmcheck.net</p>
+</blockquote>
+<p>同一份模型权重，用 Apple 自家的 MLX 跑，吞吐量比 llama.cpp 高 20%–50%。原因在于 MLX 是苹果硅原生框架，对统一内存、Metal 后端和 Neural Engine 调度做了深度对齐；llama.cpp 是跨平台路线，在通用性上有优势，但在苹果硅上要让出一截天花板。</p>
+<p>另一条值得知道的事情，llmcheck.net 帮读者拆掉了苹果发布会上常见的口径模糊：</p>
+<blockquote>
+<p>&quot;Apple&#39;s &#39;4x faster&#39; claim specifically refers to prefill (prompt processing), not generation speed. The actual generation improvement versus M4 Max is modest—around 15%.&quot; — llmcheck.net</p>
+</blockquote>
+<p>苹果宣传的「速度 4 倍提升」指的是提示处理（prefill）阶段，不是生成速度；和 M4 Max 比，生成速度真实涨幅约 15%。明白这条口径差，看官方海报就不会被「4 倍」三个字带偏——但 1,887 tokens per second 的提示处理本身已经够强，对一段五千字代码上下文几乎是秒进。</p>
+<p>实战层面给开发机的建议：</p>
+<ul>
+<li>跑国产代码模型优先 MLX，吞吐量上限更高</li>
+<li>需要跨平台部署或 Linux 服务器迁移再选 llama.cpp</li>
+<li>关心提示处理速度的（比如代码代理一次塞整个文件）认准苹果硅的 prefill 强项</li>
+</ul>
+<h2>五、选机指南：32 核还是 40 核 GPU、128 GB 内存值不值</h2>
+<p>llmcheck.net 留下一条非常实用的选配公式：</p>
+<blockquote>
+<p>&quot;Your Unified Memory should be at least 1.5x the model file size at your chosen quantization level.&quot; — llmcheck.net</p>
+</blockquote>
+<p>意思是统一内存容量至少要选模型文件在所选量化精度下大小的 1.5 倍。直接套到主流模型上：</p>
+<table>
+<thead>
+<tr>
+<th>目标模型</th>
+<th>量化精度</th>
+<th>模型大小估算</th>
+<th>建议统一内存</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qwen3-Coder-Next</td>
+<td>8-bit</td>
+<td>≈ 40 GB</td>
+<td>64 GB 起步</td>
+</tr>
+<tr>
+<td>Qwen3.5-122B-A10B</td>
+<td>4-bit</td>
+<td>≈ 60 GB</td>
+<td>96 GB 起步</td>
+</tr>
+<tr>
+<td>Llama 3 70B</td>
+<td>Q4</td>
+<td>≈ 40 GB</td>
+<td>64 GB 起步</td>
+</tr>
+<tr>
+<td>Mistral / Llama 3 8B</td>
+<td>Q4–Q8</td>
+<td>5–8 GB</td>
+<td>32 GB 即可</td>
+</tr>
+</tbody></table>
+<p>具体到 SKU：</p>
+<ul>
+<li><strong>32 核 GPU + 460 GB/s 带宽</strong>：日常跑 8B / 30B-A3B MoE，体验非常流畅，价位友好</li>
+<li><strong>40 核 GPU + 614 GB/s 带宽</strong>：跑 80B MoE / 122B-A10B / 70B 稠密的首选，跑分天花板对齐 thebytelab 那 79 tok/s</li>
+<li><strong>128 GB 统一内存</strong>：留给「想同时挂代码模型 + 嵌入模型 + 视觉模型」的多角色场景，单一代码模型用不上</li>
+</ul>
+<p>简单一句：如果只想要一台「装上去就当本地 Claude Code 风格后端」的开发机，40 核 GPU + 64 GB 统一内存就是甜点位；想再激进一点上 128 GB，留给后面更大的 MoE。</p>
+<p><img src="https://placeholder.example.com/charts/m5-max-sku-memory-matrix.png" alt="M5 Max SKU 与建议本地模型搭配示意"></p>
+<!-- TODO chart: 三列卡片对比图，分别是 32-core GPU / 40-core GPU / 40-core+128GB，每张卡片下标注「推荐跑的本地模型组合 + 内存预算 + 适合人群」 -->
+
+<h2>六、对国内开发者意味着什么</h2>
+<p>把上面所有数字归到一句话：M5 Max 把「开发机本地就当代码模型推理后端用」这件事的门槛拉到了一个普通专业用户能接受的线上。Qwen3-Coder-Next 是阿里巴巴在 2026 年 2 月发布的 80B 总参 / 3B 激活 MoE 代码模型，权重开源，许可证宽松，配 MLX 工具链能在新款 M5 Max 上吐到 79 tokens per second——这是一个真正能撑日常编码代理工作流的速度。</p>
+<p>更重要的是，整条链路完全停在统一内存里，模型权重不出本机，提示词和代码上下文也不出本机。对合规敏感场景（数据不能出网、行业监管限制、企业内网开发机），这条线比任何「我们提供企业版云端 API」的话术都更直接。开源国产模型 + 开源推理框架 + 一台开发机，三件套就齐了。</p>
+<p>接下来值得关注的，是阿里巴巴 Qwen3-Coder-Next 后续的量化体积压缩，以及 MLX 社区对 MoE 调度的进一步优化——这两条线哪条先动，下一轮的开发机本地后端门槛就会再往下走一截。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

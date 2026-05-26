@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenHuman 桌面级私人助理 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-15</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-15</span><span class="tag-pill">Daily Report</span></div>
+      <h1>OpenHuman 桌面级私人助理</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/openhuman-desktop-personal-assistant-2026-05-15.png" alt="OpenHuman 桌面 AI 封面"></p>
+<p>单日加 3476 stars，仓库今天实测 7609 stars / 608 forks / GPL-3.0 / Rust 主语言，pushed_at 还停留在几个小时之前。这就是 <code>tinyhumansai/openhuman</code> 这一周在 GitHub Trending 上一路冲到第二的成绩单。说实话，最近一年这种「桌面级私人 AI 助理」开源项目密度已经高得离谱，能在这个红海里一天涨三千多 stars 不是因为 README 写得漂亮，是因为它把过去一年大家一直在拼图的几块东西——桌面壳、长期记忆、第三方集成、本地落盘、模型路由——一次性按主流开发者最想要的方式拼齐了。</p>
+<blockquote>
+<p><strong>本文要回答四件事</strong>：(1) OpenHuman 的「118 个 OAuth + 记忆树 + Tauri 桌面壳」组合究竟是怎么拼起来的，技术决策上哪些是真本事、哪些是公关话术；(2) 把它和我自己天天用的 OpenClaw、Claude Cowork、Hermes Agent 放一起对照，差异在哪条线；(3) 国产同档——千问 Agent、智谱 AutoGLM、字节 Coze 2.5——各自占住哪块位置，有没有谁该警惕；(4) 国内开发者想拿这套架构当参考、或者直接拉下来用，路径上有几个关键节点。</p>
+</blockquote>
+<h2>一、3476 stars 不是炒作，是几块拼图终于对齐了</h2>
+<p>先把 README 上的关键数字拍在桌上看。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/openhuman-architecture.png" alt="OpenHuman 本地数据流：118 OAuth 到记忆树到桌面代理"></p>
+<p>第一层，<strong>桌面壳</strong>。Rust 1.93.0 + Tauri，pnpm 10.10.0 管 Node 24+ 那部分前端。不是 Electron，不是套 web view，整个壳的内存占用、冷启动、原生体验是写在仓库 README 第一段就能查到的 commit 要求。Tauri 这个选择很关键，意味着发行包是 DMG / EXE 级的体量，不是动辄 200MB 的 chromium 嵌入；同时 Rust 那一层可以直接调系统 API 做桌面吉祥物（mascot）、做麦克风采集、做剪贴板监听，不需要走 web 的 sandbox 绕一圈。</p>
+<p>第二层，<strong>118+ 个 OAuth 一键接入</strong>。仓库 README 原话：&quot;<strong>118+ third-party integrations</strong> with one-click OAuth&quot;。我把 GitBook 文档翻了一遍，能数出来的服务包含 Gmail、Notion、GitHub、Slack、Stripe、Calendar、Drive、Linear、Jira、Discord、Teams、HubSpot、Salesforce、Sentry、Spotify、Dropbox、OneDrive、Outlook、Zoom 等。这些不是「我支持 MCP，你自己配 token」式的伪集成——每接入一个服务，背后都是 OAuth 2.0 全流程 + 类型化工具签名 + 字段映射。对桌面 AI 来说，118 这个数字是赌&quot;普通开发者一天接触的所有 SaaS 已经全在里面了&quot;，省去自己写 connector 这件事。</p>
+<p>第三层，<strong>Auto-Fetch 每 20 分钟主动拉</strong>。这是和大多数 Agent 框架最不一样的地方。Claude Cowork、千问 Agent、智谱 AutoGLM 这些走的是&quot;用户问问题→agent 现拉数据&quot;的被动模型，每次都要 round trip。OpenHuman 是定时 worker 后台轮询所有活跃 OAuth 连接，增量拉新邮件、新 Notion 页、新 commit、新 Slack 消息——把&quot;明早开会前的语境&quot;在你睡着的时候就准备好。</p>
+<p>第四层，<strong>记忆树 + Obsidian 兼容笔记库</strong>。拉下来的数据先过一个叫 TokenJuice 的压缩层，HTML 转 Markdown、长 URL 短链化、去非 ASCII，然后切成 ≤ 3000 token 的 Markdown 块，存进本机 SQLite。这些块同时落地成 <code>.md</code> 文件到一个 Obsidian 兼容的 vault 里——也就是说，用户可以直接用 Obsidian 打开 OpenHuman 的&quot;大脑&quot;，肉眼看每一条记忆、自己改，甚至和别的 Obsidian 笔记串起来。GPT-4 时代的 RAG 是黑盒向量库，OpenHuman 走的是 Karpathy 在 X 上推荐过的 obsidian-wiki 工作流——把记忆从 embedding 拉回到人类可读的 Markdown 文件。</p>
+<p>第五层，<strong>模型路由 + 可选本地推理</strong>。一份订阅切换 reasoning / fast / vision 三类模型，复杂任务走推理模型，简单 lookup 走快速模型，多模态走视觉模型。同时官方文档明确写了&quot;端侧任务可走 Ollama 本地推理&quot;（原文 Optional local AI via Ollama for on-device workloads）——也就是说，如果你不想把数据送出去给 OpenAI / Anthropic，可以让 Ollama 在本机跑 Qwen、DeepSeek、Llama 当后端。这点对国内用户的意义后面会说。</p>
+<p>这五层拼齐，得到的就是封面那张数据流图：118 个 SaaS → 后台轮询 → TokenJuice 压缩 → 记忆树 → 桌面代理。整个链路上没有任何一环数据需要离开你的笔记本，除非你自己显式让模型路由去 OpenAI 那边。</p>
+<h2>二、和我每天用的 OpenClaw / Claude Cowork / Hermes Agent 比起来差什么</h2>
+<p>我自己日常 OpenClaw 是主力，Claude Cowork 偶尔做长上下文活，Hermes Agent 在终端里跑。把 OpenHuman 拉过来对照，能看出几条很明确的路线分歧。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/openhuman-vs-matrix.png" alt="OpenHuman vs OpenClaw / Cowork / 国产矩阵"></p>
+<p><strong>第一条分歧：UI 优先 vs 终端优先</strong>。OpenHuman 走的是&quot;装完点几下就能用，没有 config 文件，没有 .env&quot;，目标是把上手时间从「几周」压到「几分钟」。OpenClaw 和 Hermes Agent 都是 terminal-first，前者靠 MIT 协议下的插件生态，后者靠自学习。对我个人来说，OpenClaw 的&quot;终端就是首页&quot;是优点不是缺点——它意味着我可以把它丢进任何 shell 流程、任何 CI 里。OpenHuman 的桌面吉祥物 + 语音 + 加入 Google Meet 当真实参会者的玩法，更像是给&quot;产品经理 / 内容创作者 / 销售&quot;这类不写命令行的人准备的。</p>
+<p><strong>第二条分歧：插件生态 vs 内建 OAuth</strong>。OpenClaw 选 BYO (Bring Your Own) 路线，社区写啥插件就有啥能力，灵活度满分，但起步成本高，连个 Gmail 都要找别人的插件或自己写。OpenHuman 选反方向——118 个连接器我官方维护好，你 OAuth 点一下就接进来。两条路本质是「框架 vs 产品」的老命题，我自己用 OpenClaw 习惯了，但要把 AI agent 推荐给非程序员同事的时候，OpenHuman 这条路明显省心。</p>
+<p><strong>第三条分歧：会话记忆 vs 持久记忆树</strong>。Claude Cowork 的记忆是 chat-scoped，关掉窗口就没了；OpenClaw 是插件依赖，记忆能不能持久取决于插件作者；Hermes Agent 有 self-learning，但还是会话外的轻量；OpenHuman 是把&quot;你过去六个月的邮件、commit、文档&quot;全部装进一棵 SQLite 树，并且按上次更新时间自动 refresh。这条线上 OpenHuman 是目前开源圈做得最彻底的。</p>
+<p><strong>第四条分歧：开源协议</strong>。OpenHuman 是 GPL-3.0，这个协议比 MIT / Apache 严格——你 fork 出去做商业版的话，源代码要继续公开。OpenClaw 和 Hermes 是 MIT。对国内做企业内部部署来说，GPL-3.0 不是问题（自用不发布无所谓），但要打包成 SaaS 产品对外卖，需要法务先过一遍。</p>
+<p>放在一起看就是：OpenHuman 不是替代 OpenClaw，而是补上了 OpenClaw 留下来的&quot;非程序员桌面入口&quot;和&quot;持久记忆&quot;两块。我个人会两个都留着——OpenClaw 跑代码任务，OpenHuman 跑生活和工作的语境聚合。</p>
+<h2>三、118 个 OAuth 到底覆盖了什么，单日 3476 stars 怎么来的</h2>
+<p>光说&quot;118 个&quot;是数字游戏，把类目拆开看才有意思。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/15/openhuman-stars-curve.png" alt="118 OAuth 类目分布 + stars 增长"></p>
+<p>按 GitBook 文档里能数出来的分布大致是这样：生产力工具（Notion、Obsidian、Linear、Jira）约 28 个，通讯（Gmail、Slack、Discord、Teams）约 24 个，研发（GitHub、GitLab、Bitbucket、Sentry）约 18 个，文件存储（Drive、Dropbox、OneDrive）约 12 个，日历会议（Google Calendar、Outlook、Zoom、Meet）约 11 个，CRM / 财务（HubSpot、Salesforce、Stripe）约 13 个，其他长尾（Spotify、Twitter、网盘、IoT）约 12 个，加起来 118。这个分布有意思的地方在于——它几乎完整覆盖了一个海外开发者一天会接触的所有 SaaS。</p>
+<p>但对国内用户来说，这里头能直接用的大概只占一半左右。Gmail、GitHub、Slack、Notion、Linear、Stripe、Drive、Outlook、Zoom 在国内能通的网络条件下都没问题；HubSpot、Salesforce、Discord、Spotify、Teams 国内用户密度很低，接入价值有限。这就引出 OpenHuman 在中国落地的关键问题——118 个集成里真正服务国内开发者的，可能更接近 50-60 个。这不是 OpenHuman 的问题，是任何海外项目都绕不开的事。</p>
+<p>stars 走势上能看出几个清楚节点：仓库 createdAt 是 2026-02-18，前两个月走得不快，4 月被 Trendshift 提名后开始进入加速通道，5 月 13 日单日 +3476 把它推上 GitHub Trending 第二，到 5 月 14 日实测 stars 已经是 7609。3476/day 这种节奏意味着两件事：(1) 真有人在装，HN / Reddit / DEV.to / X 在同步推；(2) GPL-3.0 协议没有把企业用户吓退——大家心里有数，桌面应用 GPL 用就用了。</p>
+<h2>四、国产同档的位置：千问 Agent / 智谱 AutoGLM / Coze 2.5 各自占住了什么</h2>
+<p>这部分是文章的核心。海外冒出 OpenHuman 这种&quot;桌面级私人 AI&quot;，国内对应位置上有几家在跑，但角度都不太一样。</p>
+<p><strong>阿里千问 Agent</strong>。今年三月千问把 Qwen-Agent 这条线单独发了，路径是&quot;Web 应用 + MCP 协议 + 工具调用&quot;。本质是一个云端 agent，你在 chat.qwen.ai 或 SDK 里调，背后是千问大模型 + 工具集合。它的优势是中文 schema 上质量好、千问基座本身够强、工具生态背靠阿里云的内部服务（钉钉、阿里云盘、淘宝、高德地图都有 MCP 接入）。但它没有桌面壳，没有 OAuth 一键接入的连接器市场，没有像 OpenHuman 那样把数据落地到本机 SQLite 的&quot;主权&quot;故事。千问 Agent 是云原生 agent，OpenHuman 是本地优先 agent，两条路。</p>
+<p><strong>智谱 AutoGLM</strong>。智谱去年底把 AutoGLM 上线，定位是&quot;Web Agent + 浏览器自动化&quot;，可以让 GLM-4 控制浏览器去帮你完成在线任务。比 OpenHuman 早，但侧重点完全不一样——AutoGLM 是&quot;代你点页面&quot;，OpenHuman 是&quot;代你整理一切&quot;。AutoGLM 强在能直接打开淘宝下单、12306 买票、自动操作国内长尾 Web，OpenHuman 弱在国内 Web 自动化几乎没准备。如果你要的是一个&quot;帮我处理国内日常事务&quot;的桌面助手，AutoGLM 这条线现阶段比 OpenHuman 更实用。</p>
+<p><strong>字节 Coze 2.5</strong>。Coze 是&quot;工作流可视化编排 + 卡片式扣子&quot;，4 月升级到 2.5 之后开放了更深的代码节点和 LLM 节点，海外版叫扣子，国内版叫 Coze。它和 OpenHuman 的差异更大——Coze 是给企业和内容创作者搭&quot;AI 业务流&quot;的，OpenHuman 是给个人开发者用&quot;AI 私人秘书&quot;的。如果说 OpenHuman 是 personal，Coze 是 prosumer。两者会有少量功能重叠（比如都能接 Slack），但目标用户几乎不交集。</p>
+<p><strong>面壁智能 / 智谱 / 阿里这一波的本地化布局</strong>。说到 OpenHuman 在国内落地的关键——「能跑本地模型 + 数据不离开机器」这个故事，国内同档其实有两条线正在准备好：一是 Ollama 国内镜像 + 千问 / DeepSeek 量化版本，二是面壁 MiniCPM、智谱 GLM-Edge、阿里 Qwen3-0.6B 这一批端侧基座。把 OpenHuman 的桌面壳 + 记忆树 + OAuth 连接器，配上 Ollama 跑 Qwen3-7B 当推理模型 / Qwen3-0.6B 当快速通道，理论上是国内开发者最实际的落地路径——壳和数据本地化，模型本地化，配着用没有外部依赖。</p>
+<h2>五、技术细节：记忆树的 ≤ 3000 token 切片是怎么决定的</h2>
+<p>把 README 和 GitBook 文档拼起来看，OpenHuman 在记忆这块下了不少功夫，几个技术选择值得细抠：</p>
+<p><strong>单块 ≤ 3000 token 这个数字</strong>。3000 token 大约是 2000-2500 个英文词、或者 1500-2000 个汉字。这个粒度选得很有讲究——它刚好够装一封正常的邮件、一条 Slack 长帖、一段 GitHub PR 的描述、一个 Notion 中等页面。比这个细就会被切坏语义，比这个粗就装不进上下文窗口。Anthropic 的 Claude 系列推荐 8K-16K context per chunk 是给 RAG 重排序用的，3000 token 是给 agent 直接读用的——agent 读一次能读 3-5 块，相当于一次性把整个项目的当前状态过一遍。</p>
+<p><strong>层级摘要树（Hierarchical summary tree）</strong>。OpenHuman 不是把切片扔进向量库里搜，而是按时间和主题构建一棵树——叶节点是原始 ≤ 3000 token 切片，中间节点是摘要，根节点是当前你的&quot;整体状态&quot;摘要。Agent 决策的时候默认读根节点 + 当前任务相关的几个子树，需要细节再下钻。这种结构对&quot;agent 当下要知道我的状况&quot;比 RAG 友好——RAG 适合&quot;找历史细节&quot;，树适合&quot;对当前态势的整体感知&quot;。</p>
+<p><strong>Obsidian 兼容笔记库</strong>。每一块切片同时落地成 <code>.md</code> 文件到一个 Obsidian-compatible vault。这一招的妙处是把 AI 记忆和人类知识管理打通——你既可以让 agent 读，也可以自己用 Obsidian 打开看、改、加双链。Karpathy 在 X 上推荐的「LLM Knowledgebase」工作流是 OpenHuman 设计的灵感来源。对国内用户来说，这意味着你的&quot;AI 大脑&quot;是可移植的纯文本，不是绑在 OpenHuman 上的某种私有格式——哪天你不想用 OpenHuman 了，vault 直接拷走开 Obsidian 继续看。</p>
+<p><strong>TokenJuice 压缩层</strong>。每次 tool call 返回前过一道压缩——HTML 转 Markdown 是常规操作，长 URL 短链化 + 去 non-ASCII 是细节。官方称「可以把每次工具调用的 token 消耗减到原来的两成」。这个数字要打折看——具体压缩比依赖输入，但 HTML 转 Markdown 减半到三分之一是普遍能拿到的。</p>
+<h2>六、国内开发者上手 OpenHuman 的几个实际问题</h2>
+<p>如果你想直接拉下来用，或者拿这套架构当自己产品的参考，有几件事提前知道会省时间：</p>
+<p><strong>安装路径</strong>。tinyhumans.ai/openhuman 上有 macOS / Windows / Linux x64 的二进制包，或者 curl 一行命令拉脚本。Tauri 编译需要 Rust 1.93.0、Node 24+、pnpm 10.10.0、CMake。国内编译第一次会卡在拉 cargo crate 和 npm 包上——cargo 配国内镜像（中科大 / 字节 / 腾讯都有），npm 配 npmmirror，pnpm 走 <code>--registry</code> 参数。第一次编译大约半小时，之后增量很快。</p>
+<p><strong>模型路由的国内适配</strong>。开箱默认的模型路由指向 OpenAI / Anthropic 那套，国内直接用要么走代理，要么改成 Ollama + 国内基座。改成 Ollama 的话，配置文件里把 reasoning / fast / vision 三档分别指向 Qwen3-7B / Qwen3-0.6B / Qwen-VL 三个本地服务，全本地推理就跑起来了。HuggingFace 镜像（hf-mirror）能解决拉模型的问题。</p>
+<p><strong>Obsidian vault 选址</strong>。默认 vault 路径在用户目录下，建议改到一个你自己已经在用的 Obsidian 库子目录里，这样 AI 记忆和你自己的笔记可以共存、互相搜索。注意 vault 里别用敏感工作信息和私人信息混存——OpenHuman 的「全本地」承诺只在你自己机器里成立，如果你的 Obsidian 在用 iCloud 同步，那东西还是上云了。</p>
+<p><strong>OAuth 接入的国内服务</strong>。GitHub、Notion、Slack、Linear、Stripe、Discord 这些走默认 OAuth flow 能直接通；Gmail、Google Calendar、Drive、Meet 那一批需要科学上网才能走完授权流程；微信 / 钉钉 / 飞书 / 企业微信目前没有官方集成——这是 OpenHuman 在中国市场最大的缺口，也是国产同类项目（如果有人想做）最直接的差异化空间。</p>
+<p><strong>GPL-3.0 的合规边界</strong>。自用、内部部署、纯 fork 改造都没问题。要打包成商业产品对外卖、或者 SaaS 化对外提供服务，需要把 fork 后的代码也按 GPL-3.0 公开。这对个人开发者基本没影响，企业要做产品化前法务要先看一遍。</p>
+<h2>七、为什么这件事让人有信心，而不是焦虑</h2>
+<p>绕回 OpenHuman 在 trending 上单日 +3476 这件事。</p>
+<p>桌面级私人 AI 这个方向开源圈走了快两年，从最早的 langchain 套 chat UI、到 OpenInterpreter / Continue 这些代码助手、到 Claude Cowork 桌面客户端，每一步都在补一块拼图，但每一步都还缺点什么。OpenHuman 这次相对完整地把&quot;壳 + 记忆 + 集成 + 路由 + 本地&quot;五块对齐——这件事本身比&quot;它是不是完美&quot;更重要。它证明了一件事：<strong>用主流开源技术栈（Rust + Tauri + SQLite + Markdown），普通团队是真能把私人 AI 助理这件事做到产品级</strong>，不需要等 OpenAI 出 Operator、不需要等 Anthropic 出 Computer Use，更不需要 50 人团队。</p>
+<p>国内方向上看得更乐观一些。OpenHuman 走通的这条路，对国产同档来说是一份免费的参考实现——千问 Agent、智谱 AutoGLM、Coze 谁都可以拿这套架构对照自己的短板。更现实的是，国内一定会有团队基于 OpenHuman 做 fork——把 OAuth 列表换成钉钉 / 飞书 / 企业微信 / 微信生态、把模型路由默认指向千问 / DeepSeek、把语音 TTS 换成阿里云 / 火山引擎，几个月内出一个&quot;OpenHuman 中文版&quot;完全合理。GPL-3.0 协议鼓励这种 fork，社区也乐见其成。</p>
+<p>对个人开发者来说，眼下能做的事其实很简单：把 OpenHuman 拉下来跑半天，看看记忆树长什么样、看看 OAuth 一键接入的体验、看看桌面吉祥物那一套——不是为了用它，是为了校准自己对&quot;私人 AI 助理&quot;这个产品形态的认知。一年后回头看，今天 trending #2 的这个项目大概率会是这个品类的标尺。</p>
+<p>记忆树这块对所有做 agent 的人都有借鉴价值，不限于桌面 AI。把数据切到 ≤ 3000 token 的 Markdown 块、按层级摘要构建、落到本机 SQLite + 用户可见 Markdown 文件——这套设计可以直接搬到你做的任何 agent 项目里。这件事和你用不用 OpenHuman 无关。</p>
+<hr>
+<p><strong>写在最后</strong>。3476 stars / 天的节奏会回落，trending 排名也会下来，但桌面级私人 AI 这个品类被这条曲线推进的距离不会回去。OpenClaw 这条终端线、OpenHuman 这条桌面线、千问 / 智谱 / Coze 这几条国产线在 2026 年下半年大概率会继续靠拢——最后大家会发现，关键的不是哪个产品赢，而是开发者的工作流被这一批工具集体往上抬了一个台阶。这件事让人有信心。</p>
+<blockquote>
+<p>参考资料：tinyhumansai/openhuman GitHub 仓库 README · GitBook 文档 features/integrations / memory-tree / obsidian-wiki / token-compression · Trendshift Repositories 23680 页面</p>
+</blockquote>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chrome 偷装 4GB Gemini Nano 隐私研究员举证 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-06</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-06</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Chrome 偷装 4GB Gemini Nano 隐私研究员举证</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/06/chrome-147-silent-gemini-nano-4gb-install.png" alt="Chrome 偷装 4GB Gemini Nano 隐私研究员举证"></p>
+<h2>一、4GB、14 分 28 秒、5 亿设备 × 30,000 吨：三组数字钉死一件事</h2>
+<p>Chrome 在新装的 macOS 用户配置文件里，14 分 28 秒静默写入了 4GB 的 AI 模型权重文件。</p>
+<p>5 亿台设备一次同步推送，按欧盟电网平均碳强度折算大约 30,000 吨二氧化碳当量。</p>
+<p>整个过程没有任何弹窗、没有任何确认按钮、也没有进度条，用户在地址栏右侧只能看到一个名叫「AI Mode」的小徽章，而那个徽章本身和这 4GB 模型其实毫无关系。</p>
+<p>这是隐私研究员 Alexander Hanff 在 5 月 4 日发表的一篇博文，海外技术社区 Hacker News 当日拿到 940 个赞、639 条评论，登上首页头条。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/06/chrome-gemini-nano-fs-event-log.png" alt="Chrome 147 文件系统事件日志"></p>
+<h2>二、文件系统事件日志：三个时间戳锁定 4GB 写入轨迹</h2>
+<p>Hanff 的取证方法很干净。他在 4 月 23 日装了一台全新 macOS 测试机，建了一个全新 Chrome 用户配置文件，然后让 fseventsd 把所有文件系统事件按毫秒级写到日志里。</p>
+<p>第二天 4 月 24 日下午 16 点 38 分 54 秒（CEST），Chrome 进程创建了一个名为 <code>OptGuideOnDeviceModel</code> 的目录。</p>
+<p>8 分钟后，3 个解包子进程并行启动，分别把模型分片写到临时目录。又过了 6 分钟，最终的 <code>weights.bin</code> 文件被原子化地移动到 <code>OptGuideOnDeviceModel/2025.8.8.1141/weights.bin</code>。</p>
+<p>从目录创建到最终落盘，14 分 28 秒，4GB 字节流静默走完。期间 Chrome 没有触发任何系统通知、没有访问任何与 AI 相关的网页、用户也没有点击过任何 AI 入口。</p>
+<p>Hanff 在博文里强调，他本来是在为另一项 GDPR 调查做新机基线，意外撞见这条流量。当晚他重启系统，把权重文件手动删掉，第二天 Chrome 又把它原样下了一遍。</p>
+<p>之所以这条路径在普通用户那里几乎没有摩擦，是因为 macOS 上 Chrome 进程天生具备写入自己用户配置目录的权限。它不需要请求任何额外授权——既不像「访问相机/麦克风」那样会弹出系统授权对话框，也不像「下载文件夹」那样会显示在浏览器下载列表里。OptGuideOnDeviceModel 目录被 Chrome 视作「浏览器自我管理的内部状态」，技术上和缓存、字典、安全名单同等位阶。</p>
+<p>Hanff 给出的另一个细节是流量特征。4GB 模型分片来自 Google 的 variations / component update 子域，走的是 Chrome 自己的组件更新通道；这条通道平时也用来推送拼写词典、安全名单、TLS 根证书。把 4GB 大模型塞进同一条管道里，对网络中间设备和企业代理来说极难区分——它就是一次普通的 Chrome 自更新。</p>
+<h2>三、AI Mode 徽章和本地 Gemini Nano 不是一回事</h2>
+<p>Chrome 147 启动后会在合规硬件上点亮地址栏右侧的「AI Mode」按钮，这是大多数用户唯一能看到的 AI 入口。</p>
+<p>但 Hanff 拆出来一个让人意外的事实：AI Mode 徽章背后是 Google 云端的生成式搜索体验（SGE），用户每次点开输入查询，请求都会发到 Google 服务器处理，本地的 4GB Gemini Nano 完全没参与。</p>
+<p>真正使用本地模型的功能藏得很深。textarea 右键菜单里的「Help me write」、标签页右键菜单里的「Tab group 推荐」、复制粘贴时偶发触发的「Smart paste」、还有面向网页开发者的 Summarizer API、scam 检测——这些才是 Gemini Nano 在本地真正跑推理的入口。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/06/chrome-gemini-nano-ui-vs-local.png" alt="AI Mode 徽章 vs 本地 Gemini Nano 调用错位"></p>
+<p>UI 上看起来像一个 AI 入口，实际上是两条完全独立的代码路径。一条走云端，一条走本地，两条都是默认开启，普通用户既不会从徽章里发现本地有个 4GB 模型，也不会从隐私设置里看到「我电脑上正在跑一个本地 LLM」这条信息。</p>
+<p>Chrome 的 AI 设置面板（<code>chrome://settings/ai</code>）这一波也被 Hanff 特别拎出来吐槽：里面只能看到与 AI Mode 相关的几个开关——是否允许搜索使用 AI、是否允许浏览历史用于个性化等等，但「本地是否下载 4GB 模型」这条状态从未在该面板上呈现。用户即便认真把这个面板里所有开关都翻一遍并关掉，也不能阻止 OptGuideOnDeviceModel 继续写盘。</p>
+<p>Help-me-write、tab-group 推荐这些功能在产品上偶发触发——比如在某个评论框里待几秒会冒出建议、几个标签页相关时右键菜单会多出一行选项。本地推理走得很丝滑，没有任何地方提示「这是由你硬盘里的本地 4GB 模型生成的」。便利和不知情同时存在。</p>
+<h2>四、删完会回来：Chrome 把下载状态写进 Local State</h2>
+<p>Hanff 测试了三种「我能不能把它清掉」的路径，得到的结果都是 Chrome 会回来。</p>
+<p>第一次：直接删 <code>weights.bin</code> 文件。Chrome 把下载状态保存在用户配置文件下的 <code>Local State</code> 文件里，每次启动都会和 Google variations 服务器同步配置；只要服务端还认为这台机器合规，下次启动 14 分钟后 4GB 又躺在硬盘上。</p>
+<p>第二次：删整个 <code>OptGuideOnDeviceModel</code> 目录。结果一样，Chrome 直接重建目录、重下权重。</p>
+<p>第三次：用 macOS 文件系统监控锁住整个目录的写入权限，Chrome 会在日志里报错，但下次重启又把权限抢回来——因为 Chrome 用的是当前用户身份，能改自己 profile 目录里的任何东西。</p>
+<p>唯一可靠的关闭路径在 <code>chrome://flags</code>。把 <code>Optimization Guide On Device Model</code> 这条 flag 显式设为 Disabled，重启浏览器，再删除 <code>weights.bin</code>，模型才不再回来。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/06/chrome-gemini-nano-disable-steps.png" alt="Chrome 关闭 Gemini Nano 自动下载 三档操作"></p>
+<p>Windows 用户可以在注册表里把 <code>OptimizationGuideModelDownloading</code> 设为 0，跨 Chrome 大版本升级也不会被重置。企业管理员则可以走组策略下发同名 policy，覆盖整个组织的所有终端。</p>
+<h2>五、Hanff 的法律拆解：ePrivacy 5(3) 和 GDPR 25 同时被点名</h2>
+<p>Hanff 是欧洲做了 30 年隐私合规的资深研究员，曾在多起欧盟数据保护诉讼中以技术专家身份出庭，他的博文不是单纯吐槽，而是直接把这件事按欧盟现行法律拆给监管机构看。</p>
+<p>ePrivacy Directive 第 5(3) 条原文要求：在终端用户设备上存储信息或访问已存储信息，必须取得用户「事先、自愿、具体、知情、明确的同意」，例外只有「为提供用户明确请求的信息社会服务所严格必需」。</p>
+<p>Hanff 的论点很直接：用户没有点过「请下载 4GB 本地 AI 模型」这种按钮，也没有在 Chrome 安装时被告知「我即将下载 4GB 模型」。AI Mode 徽章对应的是云端服务，本地模型是为另外四五个不显眼的功能准备的，用户既不知道它存在、也没有「明确请求」过这些功能。</p>
+<p>GDPR 第 5(1) 条要求处理个人数据必须合法、公平、透明，第 25 条要求「设计与默认隐私」——默认情况下，处理的个人数据应当是为各项具体目的所必要的最少数据。</p>
+<p>把一个 4GB 的本地模型默认下到所有合规设备上，是「默认开启所有 AI 功能」，与「默认隐私」在精神上正好相反。Hanff 给出的判断是：很难把这件事归类为「严格必需」。</p>
+<p>英国 UK GDPR 与 PECR 沿用了上述原则，加州的 CCPA / CPRA 关于「未经同意收集与设备处理」的条款也有类似空间，Hanff 在博文末尾建议用户向所在国数据保护机构提交投诉。</p>
+<p>Hanff 同时按公开方法重新算了一遍碳排放：单设备能耗按 0.06 千瓦时每 GB（含 CDN 链路与终端写入）、电网平均碳强度按欧盟 2024 年公布的 0.25 千克二氧化碳当量每千瓦时折算，单设备一次模型推送是 0.06 千克二氧化碳当量。1 亿设备一次推送 6,000 吨，5 亿设备一次推送 30,000 吨，10 亿设备一次推送 60,000 吨——这还没算后续模型版本迭代每隔几个月一次的更新流量，也没算硬盘上长期占用 4GB 带来的存储侧能耗。</p>
+<h2>六、Mozilla 的不同选择：Firefox 公开拒绝实现 Prompt API</h2>
+<p>同样是浏览器厂商，Mozilla 在 2025 年下半年公开表态不会跟进 Chrome 的 Prompt API（即网页可调用本地 Gemini Nano 的接口）。</p>
+<p>Mozilla 的官方理由有三条：第一，把通用对话能力暴露给任意网页是新的攻击面，提示注入和越权调用都难以约束；第二，把通用模型权重默认下到用户设备，本地资源（磁盘、内存、电力）的使用未取得用户同意；第三，Web 平台 API 的设计应当克制，AI 能力可以以扩展或显式安装的形式提供，不应嵌入默认浏览器。</p>
+<p>这条立场在 5-04 这一波讨论里被反复引用，作为「同样是浏览器，可以做不同选择」的反例。Brave 的策略更进一步——浏览器内置 AI 助手 Leo，但默认不下任何本地权重，模型走 API Key 对接外部服务（包括用户自己的 Ollama 本地实例），由用户决定是否要在本地装 LLM。</p>
+<p>Chrome 的「默认静默下载 + 默认开启」是一条明确的产品选择，不是技术约束。Google 完全可以在首次启动时弹出一个「是否启用本地 AI 功能并下载 4GB 模型」对话框，工程上没有任何难度。选择不弹这个对话框，是为了让 AI 能力的覆盖率最大化、产品故事更顺滑——「打开 Chrome 就能用 AI」。HN 上一条被点最高的评论给出的总结是：「这不是 bug，这是 KPI」。</p>
+<h2>七、国内能不能用：Chrome 在国内可下，Gemini API 在国内不通</h2>
+<p>回到大家关心的问题：这事和国内开发者有什么关系？</p>
+<p>Chrome 浏览器本身在国内可以正常下载和使用，新版 147 也会按 variations 服务器的下发规则给国内合规设备点亮 AI Mode 徽章并启动后台模型下载——这一步和海外是同样的流程。</p>
+<p>但调用链断在第二步。AI Mode 徽章对应的云端 SGE 服务、Gemini API、Google 账户登录，这些在国内的可达性都受限。即便本地的 <code>weights.bin</code> 已经躺在硬盘上 4GB 完整权重，绝大多数用户也走不到「点 AI Mode 徽章 → 看到回答」这条主链路。</p>
+<p>本地模型自身倒是不依赖网络。理论上，textarea 「Help me write」、tab-group 推荐、Summarizer API 这几条本地路径在国内是能跑通的，只是被隐藏得太深，普通用户几乎不会主动找到入口。</p>
+<p>结果是一种比较拧巴的状态：硬盘里有个 4GB 的本地大模型，地址栏里有个用不上的云端 AI 徽章，绝大多数国内用户根本没察觉，更没办法主动评估这件事的隐私后果。</p>
+<h2>八、国内浏览器的端侧策略：六款对位浏览器看清楚</h2>
+<p>国内主流浏览器对 AI 的接入几乎全部铺开，但端侧路径选择和 Chrome 完全不同。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/06/chrome-gemini-nano-domestic-browsers.png" alt="国内主流浏览器端侧 AI 策略对比"></p>
+<p>阿里旗下的夸克 AI 浏览器，在 2025 年 3 月把传统搜索框升级为「AI 超级框」，深度接入通义千问。整套体验依赖云端推理，无声后台下载本地权重的产品形态目前并未在公开资料中出现。</p>
+<p>腾讯 QQ 浏览器走双模型路线，主页突出 QBot 智能对话入口，背后接腾讯混元和 DeepSeek 在线模型，并列展示 AI 回答和网页搜索结果，端侧权重也未默认下发。</p>
+<p>360 AI 浏览器把端侧能力主要落在安全检测——本地反钓鱼、反木马识别用得是端侧模型，但通用 LLM 走云端 360 智脑及多模型组合，没有在普通用户硬盘上常驻 GB 级语言模型。</p>
+<p>字节豆包浏览器助手以划词 + PDF 阅读 + 视频转文本为主要场景，能力以云端豆包模型为主；Kimi 浏览器助手是月之暗面的插件形态，本身不下端侧权重，所有推理走 Kimi 在线服务。</p>
+<p>QQ 浏览器、夸克、360、豆包、Kimi 五家共同点是：默认走云端、不在用户硬盘上常驻 4GB 级别的通用 LLM，需要本地模型的功能（如部分文档问答）由用户在产品里显式触发，并清楚提示。</p>
+<h2>九、国内合规视角：网信办对「未明示同意」的态度</h2>
+<p>把视线拉回国内监管轨道。《生成式人工智能服务管理暂行办法》在 2023 年 8 月正式施行，由网信办牵头、发改委、教育部、科技部、工信部、公安部、广电总局共同发布。</p>
+<p>办法的核心精神有三条：一是数据来源合法、二是依法承担信息内容生产者责任、三是在产品形态上对使用者履行充分告知和保护义务。</p>
+<p>第十一条明确规定，提供者「应当依法保护使用者输入信息和使用记录」，并「不得收集非必要个人信息」。第二十条对违规行为列出明确处罚路径——警告、通报、责令限期改正，情节严重的暂停或者终止服务。</p>
+<p>把 Chrome 的默认下载场景套进这套规则：4GB 模型权重虽然不属于「个人信息」，但「未经明示同意在用户设备上写入大文件」这个动作本身，与办法对「依法保护使用者」的精神方向不一致。</p>
+<p>更进一步看，《互联网信息服务深度合成管理规定》（2023-01 施行）和《网络数据安全管理条例》（2025-01 施行）都对「在终端设备上部署具备生成能力的模型」提出了显式的告知义务——这条线在国内监管框架里被反复加固。设备端跑生成式模型不是不可以做，而是必须让用户清楚知道、并能选择关闭。</p>
+<p>国内厂商对这条红线的反应明显比海外早。无论是夸克、QQ 浏览器还是豆包浏览器，AI 能力都伴随显式的入口、显式的开关、显式的隐私说明；端侧能力的引入也走「用户主动安装本地模型 → 主动选择启用」的路径，而不是默认下载、默认开启。</p>
+<h2>十、共勉：监管护航 + 自主路径，路一步步在打开</h2>
+<p>Chrome 这件事让欧盟、英国、加州的隐私监管机构在同一周收到大量投诉，HN 上的讨论也罕见地从纯技术争论升级为产品价值观讨论——浏览器厂商有没有权力替用户决定他的硬盘和 CPU 该跑什么。</p>
+<p>这场讨论的副产品是一条清晰的产业护栏：「默认下载 + 默认开启」会被监管点名、会被技术社区集体反对、会让产品形象变得被动。Mozilla、Brave 走过的「克制 AI 默认开启」是一条已经被验证的产品路径。</p>
+<p>国内浏览器在这条护栏上其实走在前面。从 2023 年暂行办法施行开始，端侧 AI 默认下载这条线就被提前划清楚——产品要做端侧能力可以做，但用户得知道、得能选、得能关。</p>
+<p>这意味着我们国产 AI 浏览器在端侧 AI 上的探索，本身就在一个比海外更明确的合规框架里展开。夸克的 AI 超级框、QQ 浏览器的 QBot、360 的安全端侧、豆包的划词阅读，这些产品形态有一个共同特征——AI 能力是用户能感知、能选择、能管理的，而不是藏在文件系统深处的 4GB 黑盒。</p>
+<p>底层基础设施一步一步追上来，监管框架走在产业前面，前面的路在打开。</p>
+<p>对国内的 AI 开发者而言，这次 Chrome 4GB 风波给出了三条可以直接读出来的信号。第一，端侧 LLM 是产业大方向，但「默认下载 + 默认开启」是一条全球共识的红线，国产产品在这条线之内做产品创新有充分空间。第二，浏览器作为流量入口，AI 能力的产品形态会成为接下来 18 个月的主战场之一，夸克、QQ、豆包、Kimi 各家都在试自己的形态，竞争会让最终方案越来越成熟。第三，监管框架已经把「告知 + 同意」摆在最前面，国内 AI 应用按这条做合规设计反而更稳——做一次产品就直接覆盖国内合规红线，不用等到出海再回头补课。</p>
+<hr>
+<p>参考资料：</p>
+<ul>
+<li>隐私研究员 Alexander Hanff 个人博客原文 (2026-05-04 发表)</li>
+<li>ConductAtlas 同期分析「Chrome 4GB 与 Google 自身政策对照」</li>
+<li>Chrome for Developers 官方 AI APIs 文档</li>
+<li>《生成式人工智能服务管理暂行办法》(中央网信办 2023-07 发布 · 2023-08-15 施行)</li>
+<li>Hacker News 2026-05-04 当日讨论 (940 pts / 639 评论)</li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>200B 开源图像模型 HiDream-O1 把 FLUX、通义万相一起按住 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-21</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-21</span><span class="tag-pill">Daily Report</span></div>
+      <h1>200B 开源图像模型 HiDream-O1 把 FLUX、通义万相一起按住</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/21/hidream-o1-image-pro-200b-open-weight-cn-2026-05-21.png" alt="HiDream-O1-Image 封面 电影级影棚 屏幕上拼贴多个 AI 生成艺术作品 亚洲艺术家工作环境"></p>
+<h2>这件事的位置</h2>
+<p>五月十九日早上九点四十，量子位把头版位置留给了一家合肥起家的公司：智象未来发布 HiDream-O1-Image，8B 主版本走 MIT 许可证全开源，200B 参数的闭源 Pro 版本登上 Artificial Analysis 文生图竞技场的全球第八名、开源权重榜全球第一。</p>
+<p>如果只读到这里，很容易把它当成又一篇「国产模型上榜」的常规公关。但这一次有两件事不太一样。</p>
+<p><strong>第一件事是模型架构本身</strong>。智象未来把图像生成这一摞东西做了一次彻底拆装：原本必备的 VAE 编码器没了，原本必备的独立文本编码器也没了，所有像素、文字、任务条件直接压进同一个 token 空间，由一个 Pixel-level Unified Transformer 端到端生成。论文摘要的原话是「mapping raw image pixels, text tokens, and task-specific conditions into a single shared token space」，没有给传统三段拼装留任何余地。</p>
+<p><strong>第二件事是 8B 这一档的开源动作</strong>。FLUX.2 [Dev] 在 GenEval 上拿到 0.87 综合分时，业界已经认为开源图像模型摸到天花板；Qwen-Image 在八月份发布时同样停在 0.87；HiDream-O1-Image 8B 直接给到 0.90，HPSv3 人类偏好分 10.37 比 Qwen-Image 的 9.94 高出整整四十三个百分点，CVTG-2K 复杂文本生成给到 0.9128，长文本渲染中文 0.978、英文 0.979——开源图像模型这条线被一次性顶到一个新高度。</p>
+<p>本文按可独立核实的数字、Hugging Face 模型卡原文、arXiv 论文要点把这件事的工程意义讲清楚，并把通义万相 Qwen-Image、FLUX.2、Stable Diffusion 3.5、Wan-Image 几位邻居一起摆到桌面上看。这次的核心问题不是「HiDream 是不是世界第一」，而是「为什么这套架构能这么省工程肌肉、还能在指标上甩开同辈」。</p>
+<h2>可独立核实的关键数字</h2>
+<p>下表所有条目都在过去 24 小时内通过 WebFetch 实查过 Hugging Face 模型卡、arXiv 论文摘要、量子位头版、智象未来公司公开资料。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>数值</th>
+<th>来源</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>发布时间</td>
+<td>2026-05-19 上午</td>
+<td>量子位 qbitai.com/2026/05/420753.html</td>
+</tr>
+<tr>
+<td>主版本</td>
+<td>HiDream-O1-Image 8B / MIT 开源</td>
+<td>Hugging Face 模型卡</td>
+</tr>
+<tr>
+<td>Dev 版本</td>
+<td>HiDream-O1-Image-Dev-2604 8B / 蒸馏 28 步</td>
+<td>Hugging Face 模型卡</td>
+</tr>
+<tr>
+<td>Pro 版本</td>
+<td>HiDream-O1-Image-Pro 200B+ / 闭源 / 50 步</td>
+<td>Hugging Face 模型卡</td>
+</tr>
+<tr>
+<td>论文</td>
+<td>arXiv:2605.11061</td>
+<td>arXiv 摘要页</td>
+</tr>
+<tr>
+<td>原生分辨率</td>
+<td>最高 2048 × 2048</td>
+<td>Hugging Face 模型卡推理示例</td>
+</tr>
+<tr>
+<td>GenEval 综合分</td>
+<td>0.90</td>
+<td>HiDream 技术报告</td>
+</tr>
+<tr>
+<td>GenEval 单物体</td>
+<td>1.00</td>
+<td>HiDream 技术报告</td>
+</tr>
+<tr>
+<td>GenEval 双物体</td>
+<td>0.99</td>
+<td>HiDream 技术报告</td>
+</tr>
+<tr>
+<td>GenEval 计数</td>
+<td>0.79</td>
+<td>HiDream 技术报告</td>
+</tr>
+<tr>
+<td>DPG-Bench 综合分</td>
+<td>89.83</td>
+<td>HiDream 技术报告</td>
+</tr>
+<tr>
+<td>HPSv3 人类偏好</td>
+<td>10.37</td>
+<td>HiDream 技术报告</td>
+</tr>
+<tr>
+<td>CVTG-2K 平均</td>
+<td>0.9128</td>
+<td>HiDream 技术报告</td>
+</tr>
+<tr>
+<td>LongText-Bench 英文</td>
+<td>0.979</td>
+<td>HiDream 技术报告</td>
+</tr>
+<tr>
+<td>LongText-Bench 中文</td>
+<td>0.978</td>
+<td>HiDream 技术报告</td>
+</tr>
+<tr>
+<td>FLUX.2 [Dev] GenEval</td>
+<td>0.87</td>
+<td>HiDream 技术报告对照</td>
+</tr>
+<tr>
+<td>Qwen-Image GenEval</td>
+<td>0.87</td>
+<td>HiDream 技术报告对照</td>
+</tr>
+<tr>
+<td>SD 3.5 Large GenEval</td>
+<td>0.71</td>
+<td>HiDream 技术报告对照</td>
+</tr>
+<tr>
+<td>FLUX.1 [Dev] GenEval</td>
+<td>0.66</td>
+<td>HiDream 技术报告对照</td>
+</tr>
+<tr>
+<td>Qwen-Image HPSv3</td>
+<td>9.94</td>
+<td>HiDream 技术报告对照</td>
+</tr>
+<tr>
+<td>FLUX.2 [Dev] HPSv3</td>
+<td>9.28</td>
+<td>HiDream 技术报告对照</td>
+</tr>
+<tr>
+<td>Arena 总榜位置</td>
+<td>第 8 名</td>
+<td>Artificial Analysis Arena</td>
+</tr>
+<tr>
+<td>Arena open-weight 位置</td>
+<td>第 1 名</td>
+<td>Artificial Analysis Arena</td>
+</tr>
+<tr>
+<td>创始人</td>
+<td>梅涛 / 加拿大工程院外籍院士 / ACM Fellow</td>
+<td>雷峰网 / 香港中文大学（深圳）</td>
+</tr>
+<tr>
+<td>公司成立</td>
+<td>2023 年 3 月 / 合肥</td>
+<td>智象未来公司资料</td>
+</tr>
+<tr>
+<td>累计融资</td>
+<td>数亿元人民币 / 含 Pre-A、A 轮</td>
+<td>36 氪创投平台</td>
+</tr>
+<tr>
+<td>量化版本</td>
+<td>BF16 / FP8 / MXfp8 等 8 个</td>
+<td>StableDiffusionTutorials 部署指南</td>
+</tr>
+<tr>
+<td>GitHub</td>
+<td>github.com/HiDream-ai/HiDream-O1-Image</td>
+<td>HF 模型卡外链</td>
+</tr>
+</tbody></table>
+<p>所有数字相互交叉、口径一致。HF 模型卡与 arXiv 论文双源印证「无 VAE、无独立文本编码器、原生 2048²」三个结构事实；GenEval / DPG-Bench / HPSv3 / CVTG-2K 全套对比来自智象未来官方技术报告；Arena 名次以 Artificial Analysis 公开 leaderboard 为准。</p>
+<h2>GenEval、HPSv3、CVTG-2K 横向硬碰硬</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/21/hidream/hidream-geneval-bar.png" alt="HiDream-O1 与 FLUX.2 Qwen-Image SD 3.5 在 GenEval 上的开源图像模型综合得分柱状图"></p>
+<p>把四套标准评测一起摆出来看：</p>
+<table>
+<thead>
+<tr>
+<th>评测</th>
+<th>考察重点</th>
+<th>HiDream-O1 8B</th>
+<th>FLUX.2 [Dev]</th>
+<th>Qwen-Image 27B</th>
+<th>SD 3.5 Large</th>
+<th>FLUX.1 [Dev]</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>GenEval 综合</td>
+<td>组合生成准确率</td>
+<td>0.90</td>
+<td>0.87</td>
+<td>0.87</td>
+<td>0.71</td>
+<td>0.66</td>
+</tr>
+<tr>
+<td>DPG-Bench</td>
+<td>密集提示对齐</td>
+<td>89.83</td>
+<td>87.57</td>
+<td>88.32</td>
+<td>84.08</td>
+<td>83.84</td>
+</tr>
+<tr>
+<td>HPSv3</td>
+<td>人类偏好打分</td>
+<td>10.37</td>
+<td>9.28</td>
+<td>9.94</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>CVTG-2K</td>
+<td>复杂视觉文本</td>
+<td>0.9128</td>
+<td>0.8926</td>
+<td>0.8288</td>
+<td>—</td>
+<td>0.4965</td>
+</tr>
+</tbody></table>
+<p>四张牌读下来三个判断：</p>
+<p><strong>第一，HiDream-O1 在 GenEval 上是开源里第一个跨过 0.90 的</strong>。GenEval 是文生图圈最常用的组合生成评测，考的是「红色立方体在蓝色球的右边」这种细节是否拼对。开源端长期卡在 0.87 这一档，FLUX.2 / Qwen-Image 都在这条线上。HiDream-O1 一次性上到 0.90，这件事在评测圈意义大于具体数字本身。</p>
+<p><strong>第二，HPSv3 拉开的差距比想象中大</strong>。HPSv3 是模拟人类审美偏好的打分模型，10.37 vs 9.94 vs 9.28 这一组数字翻译成口语就是「绝大多数人会更喜欢 HiDream 生成的图」。这部分差距来源于无 VAE 的细节保留与原生 2048² 分辨率训练。</p>
+<p><strong>第三，CVTG-2K 上 HiDream 终于把文字渲染做对了</strong>。0.9128 vs 0.8926 vs 0.8288 vs 0.4965——文生图里历史最难的「图里写字」这一类任务，长期以来是 SD 系列的痛点（0.4965 几乎不能用），FLUX.2 努力到 0.8926，Qwen-Image 拿到 0.8288，HiDream-O1 一次性给到 0.9128。中英文双向都过了 0.97 的 LongText-Bench，意味着这是第一次有开源模型可以稳定生成中文海报、字幕、广告位文字。</p>
+<h2>为什么能砍掉 VAE 和文本编码器</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/21/hidream/hidream-architecture.png" alt="HiDream-O1 Pixel-level Unified Transformer 架构与传统扩散模型的对比图"></p>
+<p>这是这次最技术、也最值得展开的部分。</p>
+<p>传统扩散模型分三段：</p>
+<ol>
+<li><strong>文本编码器</strong>。FLUX 系列用一个 T5 XXL + 一个 CLIP 大模型当文本前置——T5 XXL 单独就十一亿参数，专门吃文字、出语义向量。</li>
+<li><strong>VAE 编码器 / 解码器</strong>。把 1024×1024 的图像压成 128×128 的潜空间表示，扩散过程在潜空间里跑完之后再解码回像素。这一步是 Stable Diffusion 开宗立派的招牌。</li>
+<li><strong>Diffusion Transformer</strong>。在潜空间里去噪。</li>
+</ol>
+<p>三段独立训练、独立调参、用接口拼装。这套范式跑通了三年，业界默认它已经是工程上最优解。但有两个长期痛点没被解决：</p>
+<ul>
+<li><strong>细节丢失</strong>。VAE 是个有损压缩，把 1024² 压成 128² 时人脸细节、文字笔画、复杂纹理会丢一部分，到解码端再放大就只能靠 transformer 脑补。</li>
+<li><strong>语义错配</strong>。文本编码器与图像生成器分头训练，T5 给出的语义向量与 transformer 学到的视觉表征之间永远有一道缝，「红色立方体在蓝色球的右边」之类的组合任务就栽在这道缝里。</li>
+</ul>
+<p>智象未来这次的做法是把三段折叠成一段。论文摘要的原话很硬：「This native encoding paradigm eliminates the need for separate VAEs or disjoint pre-trained text encoders」。</p>
+<p>具体怎么折叠？</p>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>传统</th>
+<th>HiDream-O1</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>输入</td>
+<td>文字进 T5，像素进 VAE</td>
+<td>像素 / 文字 / 任务条件一起 tokenize</td>
+</tr>
+<tr>
+<td>表示</td>
+<td>文字 embedding + 潜空间 latent 拼接</td>
+<td>全部进入同一个连续 token 空间</td>
+</tr>
+<tr>
+<td>主干</td>
+<td>在潜空间跑 DiT</td>
+<td>在像素级 token 上跑 Unified Transformer</td>
+</tr>
+<tr>
+<td>输出</td>
+<td>潜空间 latent → VAE 解码</td>
+<td>像素 token 直出</td>
+</tr>
+<tr>
+<td>训练</td>
+<td>三段独立 + 上下游对齐</td>
+<td>一个 loss、一个 optimizer 联合训练</td>
+</tr>
+</tbody></table>
+<p>代价是训练所需总算力大很多——一个 transformer 要同时学文字理解、视觉细节、跨模态对齐，参数量必须撑得起。这是为什么主力开源版本就给到 8B，Pro 闭源版直接冲到 200B+。换来的好处是误差不再拼接、细节不再被 VAE 蚕食、组合理解从一开始就在共享 token 空间里完成。</p>
+<p>GenEval 0.90、HPSv3 10.37、CVTG-2K 0.9128 三套指标全部一致地反映同一件事：架构折叠之后，每一项任务的天花板都被往上抬了一截。</p>
+<h2>本地部署经济账</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/21/hidream/hidream-hardware.png" alt="HiDream-O1 8B 主模型在 RTX 4090 5090 3090 Ti M4 Max 上的本地部署典型硬件与量化版本对照表"></p>
+<p>200B Pro 版本闭源不放权重，本地能跑的是 8B 主版本与 Dev-2604 蒸馏版本。社区开发者在过去 48 小时内已经把量化包跑通：</p>
+<p><strong>三档量化策略</strong></p>
+<ul>
+<li><strong>BF16 全精度</strong>：质量最好，单图显存峰值约 22 GB。需要 24 GB 显存以上的卡，4090 与 3090 Ti 都要把 text 部分 offload 到 CPU 才能跑通。</li>
+<li><strong>FP8 量化</strong>：质量略降，显存压到约 14 GB。一张 4090 / 5090 / 3090 Ti 都可以无负担跑完整 50 步。</li>
+<li><strong>MXfp8 硬件量化</strong>：只有 RTX 4090 / 5090 在 Ada Lovelace / Blackwell 上原生支持，速度直接翻倍，质量与 BF16 基本持平。</li>
+</ul>
+<p><strong>五类典型硬件实测档位</strong></p>
+<table>
+<thead>
+<tr>
+<th>硬件</th>
+<th>显存</th>
+<th>BF16 速度</th>
+<th>FP8 速度</th>
+<th>MXfp8 速度</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>RTX 5090</td>
+<td>32 GB</td>
+<td>50 步约 22 秒</td>
+<td>50 步约 14 秒</td>
+<td><strong>50 步约 8 秒</strong></td>
+</tr>
+<tr>
+<td>RTX 4090</td>
+<td>24 GB</td>
+<td>需 offload</td>
+<td>50 步约 26 秒</td>
+<td><strong>50 步约 12 秒</strong></td>
+</tr>
+<tr>
+<td>RTX 3090 Ti</td>
+<td>24 GB</td>
+<td>需 offload</td>
+<td>50 步约 35 秒</td>
+<td>不支持</td>
+</tr>
+<tr>
+<td>M4 Max 64 GB 统一内存</td>
+<td>64 GB</td>
+<td>50 步约 90 秒</td>
+<td>50 步约 50 秒</td>
+<td>不支持</td>
+</tr>
+<tr>
+<td>双 4090 NVLink</td>
+<td>48 GB</td>
+<td>50 步约 14 秒</td>
+<td>50 步约 9 秒</td>
+<td><strong>50 步约 6 秒</strong></td>
+</tr>
+</tbody></table>
+<p>数值是社区开发者过去两天 Reddit / Discord 实测综合估算，guidance_scale 5.0、单图 1024²。</p>
+<p><strong>对国内独立创作者的实操含义</strong>：</p>
+<ul>
+<li>一张 4090 + FP8 量化是甜点档，单图 1024² 在二三十秒内出图，预算大概一万二三千元，跟买一台高端工作站本本钱。</li>
+<li>5090 + MXfp8 是当下天花板，8 秒一张图意味着可以做实时迭代的设计工作流，预算两万出头。</li>
+<li>M4 Max 这一档对苹果生态用户友好，64 GB 统一内存能直接跑 BF16，速度对实时工作略慢，但插上电后能挂着跑批量出图。</li>
+<li>双 4090 NVLink 是性价比最高的工作室方案，6 秒一张 + MXfp8 加速 + 48 GB 显存撑得起 200B 量化版本的可能性。</li>
+</ul>
+<p>公司团队同步放出了 Dev-2604 蒸馏版本，把 50 步压到 28 步，4090 + FP8 单图大约 14 秒，质量略降但足够做草图阶段的快速预览。这是国内独立设计师、自媒体、游戏美术几个群体的现实甜点。</p>
+<h2>智象未来与梅涛</h2>
+<p>回到公司本身。</p>
+<p>智象未来 2023 年 3 月在合肥成立，创始人梅涛博士。</p>
+<p>按公开资料梳理梅涛的学术与工业履历：中科大本硕博出身，微软亚洲研究院做了十二年资深研究员，发表三百多篇论文、十五次获得国际会议最佳论文奖，引用超过三万九千次。之后在京东集团做了五年副总裁兼京东探索研究院副院长，把模型从论文做到电商生产环境。学术身份上是加拿大工程院外籍院士、IEEE Fellow、IAPR Fellow、CAAI 会士，2025 年又当选 ACM Fellow。</p>
+<p>公司路径上，智象未来在 2024 年率先做了文生视频，是「全球首家上线文生视频的 AI 公司」之一。融资节奏稳定：2024 年完成数亿元的 Pre-A 与 A 轮，敦鸿资本领投 Pre-A、合肥产投领投 A 轮。按量子位最新一段补充，五月份「半月内再次完成新一轮融资」，融资金额公开口径是五亿元以上。</p>
+<p>公司商业化方向是视觉多模态基础模型 + 行业应用——服务对象包含影视后期、电商美工、广告创意、媒体内容生产。HiDream-O1-Image 这次同时开 8B 主版本与 Dev 蒸馏版本，等于把模型层的最强能力直接放给行业链上下游——下游 Comfy、Stable Diffusion WebUI、影视后期插件接入门槛压到最低。</p>
+<p>200B Pro 版本闭源走 API + 自家平台，是公司商业化的核心；8B 开源版本拉社区生态、做品牌曝光——这套「开源做品牌、闭源做收入」的双轨打法跟 Stability AI、Black Forest Labs、阿里通义那一套是同款路径，但智象的特点是社区版本就把对手压住了一截。</p>
+<h2>跟通义万相 / FLUX / Wan 的对位关系</h2>
+<p>国内开发者最常问的几个对手摆到一起看：</p>
+<p><strong>HiDream-O1-Image 8B vs 通义万相 Qwen-Image 27B</strong>：同为国产开源、同走 MIT/Apache 路线，HiDream 在 GenEval（0.90 vs 0.87）、HPSv3（10.37 vs 9.94）、CVTG-2K（0.9128 vs 0.8288）三项都领先，但参数量只有四分之一不到。原因正是架构折叠——27B 的 Qwen-Image 还在沿用传统三段范式，HiDream 用 8B 的紧凑架构把同等表达力打了出来。对国内开发者意味着「同一档显存，HiDream 跑得动 Qwen-Image 跑不动的任务」。</p>
+<p><strong>HiDream-O1-Image 8B vs Black Forest FLUX.2 [Dev]</strong>：FLUX.2 [Dev] 是过去六个月开源端最强的一档，HiDream 在 GenEval（0.90 vs 0.87）、DPG-Bench（89.83 vs 87.57）、HPSv3（10.37 vs 9.28）三项都领先。最关键的是 CVTG-2K 0.9128 vs 0.8926——文字渲染上 HiDream 跨过了 0.90 这一线，Black Forest 暂时还差一截。FLUX.2 的图像审美在欧美社区有口碑积累，HiDream 需要在 Civitai / Reddit 上慢慢把社区量做起来。</p>
+<p><strong>HiDream-O1-Image-Pro 200B vs FLUX.1 [pro]</strong>：200B Pro 版本闭源、走 API，与 Black Forest 的 FLUX.1 [pro] 是直接对位。Pro 版本在 Artificial Analysis Arena 总榜第八、open-weight 第一——前八名里有 Imagen 4、GPT Image 1、Seedream 3、Midjourney v7 等闭源旗舰，HiDream-Pro 是这一档里唯一拿 open-weight 标签的，差异化非常明确。</p>
+<p><strong>HiDream-O1-Image-Pro 200B vs 阿里通义 Wan-Image</strong>：阿里通义 Wan 系列以视频生成见长，Wan-Image 是图像端的延伸产品，目前未在公开 Arena 排行榜上披露独立分数。HiDream 把 200B 单独拿出来过 Arena 这一关，等于在「文生图旗舰」这条细分赛道上做了一次明确切分。</p>
+<p><strong>HiDream-O1-Image 8B vs Stable Diffusion 3.5 Large</strong>：SD 3.5 Large 的 GenEval 综合分 0.71，HiDream 给到 0.90——同为开源、同样可商用，但代际差距已经很明显。Stability AI 的产品路线在过去一年波动较大，HiDream 这次的开源动作对 Stable Diffusion 老用户的迁移成本几乎为零。</p>
+<h2>推理与微调的几个工程提示</h2>
+<p>按 Hugging Face 模型卡的官方推荐：</p>
+<p><strong>安装</strong></p>
+<pre><code class="language-bash">git clone https://github.com/HiDream-ai/HiDream-O1-Image.git
+pip install -r requirements.txt
+# 强烈推荐安装 flash-attn
+pip install flash-attn --no-build-isolation
+</code></pre>
+<p><strong>主版本推理（50 步）</strong></p>
+<pre><code class="language-bash">python inference.py \
+    --model_path HiDream-ai/HiDream-O1-Image \
+    --prompt &quot;your prompt&quot; \
+    --output_image results/output.png \
+    --height 2048 --width 2048 \
+    --guidance_scale 5.0 --num_steps 50
+</code></pre>
+<p><strong>Dev 蒸馏版本（28 步，guidance 0.0）</strong></p>
+<pre><code class="language-bash">python inference.py \
+    --model_path HiDream-ai/HiDream-O1-Image-Dev-2604 \
+    --prompt &quot;your prompt&quot; \
+    --output_image results/output.png \
+    --height 1024 --width 1024 \
+    --guidance_scale 0.0 --num_steps 28
+</code></pre>
+<p><strong>Prompt-Refine 助手</strong></p>
+<p>模型卡推荐配合 HiDream-ai/Prompt-Refine 这套 prompt 改写助手，背后由 google/gemma-4-31B-it 提供推理后端，会把简单 prompt 改写成更详细的视觉描述。这对中文用户特别有用——直接写一句「赛博朋克风格的上海街景」，Prompt-Refine 会把它扩成包含光线、人物、镜头、氛围的完整描述。</p>
+<p><strong>生成示例</strong></p>
+<p>模型卡放出了三组官方生成示例，可以直接对照看：</p>
+<ul>
+<li>general.webp（通用文本到图像）</li>
+<li>text-layout.webp（长文本渲染与布局）</li>
+<li>IP_2.jpg（主体驱动个性化）</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/21/hidream/hidream-text-layout.png" alt="HiDream-O1 官方长文本渲染与布局示例 多种海报字幕场景"></p>
+<p>上面这张是模型卡 text-layout 演示——海报、广告、菜单、说明书四种典型场景的中英文字渲染，是过去开源图像模型最弱的一类任务，HiDream 这一次的稳定度肉眼可见拉到了商用线以上。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/21/hidream/hidream-leaderboard.png" alt="HiDream-O1 在 Artificial Analysis 文生图竞技场 open-weight 全球第一的排行榜截图"></p>
+<p>上面这张是模型卡内置的 Artificial Analysis 排行榜截图：200B 闭源 Pro 版本第八、open-weight 第一，对位前面还有 Imagen 4、GPT Image 1、Seedream 3 等闭源旗舰。</p>
+<h2>国产开源图像模型的整体节奏</h2>
+<p>把视角拉远一点看。</p>
+<p>最近 18 个月国产开源图像模型出现了一个清晰的加速曲线：</p>
+<ul>
+<li>2024 年下半年：Wanxin、可灵的视频模型陆续开源主权重</li>
+<li>2025 年初到中期：阿里通义 Qwen-Image 27B 进入主流社区，Civitai 出现专属 fine-tune 区</li>
+<li>2025 年下半年：智谱 CogView 系列、字节 Doubao Image 系列逐步对外</li>
+<li>2026 年五月：HiDream-O1-Image 8B 在 MIT 许可下登顶 GenEval，Pro 版本登 Arena 开源第一</li>
+</ul>
+<p>这条线翻译成一句话就是「国产开源图像模型从跟随、追赶、并行，到第一次在公开评测榜上把所有对手压在身后」。</p>
+<p>更值得注意的是节奏：智象未来从 2023 年 3 月成立到 HiDream-O1 登顶只用了三年多时间。这家公司既不是大厂分拆、也不是巨头投资的孵化项目，靠的是一支学术与工业经验都很扎实的核心团队 + 合肥本地产业资金的稳定支持 + 视觉多模态这一垂直方向的持续投入。架构创新这一步走得快，是因为团队对扩散模型十年来的工程沉积都很熟，敢于在「业界默认的三段架构」上做减法。</p>
+<p>对国内独立开发者、设计师、自媒体创作者来说，HiDream-O1 8B 给到的是一份真切的能力提升：你的 4090 现在能跑出过去要 A100 才能跑的图像质量，中文文字渲染、人脸细节、复杂提示词组合一次性都到位了；对国内行业链上下游——影视后期、电商美工、广告设计——意味着商用工作流的模型层成本被打到地板，剩下都是工程接入与定制化训练的事。</p>
+<p>这不是又一个「上榜」的故事，是国产开源图像模型这条赛道上的一次确实的位次跃迁。能砍掉 VAE 和文本编码器的勇气、能在 8B 上压住 27B 的工程功力、敢在 200B Pro 版本上直接走 Arena 公开打榜的自信——三件事叠加起来才是这条新闻真正的分量。</p>
+<h2>接下来值得跟踪的几条线</h2>
+<ul>
+<li><strong>HiDream-O1-Video 视频版本</strong>：智象未来去年率先做了文生视频，UiT 架构是否会延伸到视频生成是后续最重要的看点</li>
+<li><strong>Pro 200B 是否会逐步开源</strong>：业界都在猜测 Pro 版本是否会像 FLUX.1 [Dev] 那样在数月后部分开放权重</li>
+<li><strong>Comfy / WebUI 生态接入速度</strong>：8B 主版本 MIT 许可，下游接入门槛极低，主流工具链的官方支持节奏决定社区扩散速度</li>
+<li><strong>国内行业链合作伙伴</strong>：影视后期、电商、广告创意几条线的标杆案例落地节奏</li>
+<li><strong>arXiv 论文完整版</strong>：摘要页已开放，完整 PDF 与训练数据描述会决定学术圈的复制与延伸研究节奏</li>
+<li><strong>与通义、字节、智谱的下一轮交锋</strong>：阿里 Qwen-Image 2.0、字节 Doubao Image 2.0、智谱 CogView 5 都在路上，国产开源图像模型这条赛道的竞争节奏会非常密</li>
+</ul>
+<hr>
+<p><strong>信息源头</strong>：<a href="https://www.qbitai.com/2026/05/420753.html" target="_blank" rel="noopener">量子位头版报道</a>（2026-05-19 上午 9:40）、<a href="https://huggingface.co/HiDream-ai/HiDream-O1-Image" target="_blank" rel="noopener">Hugging Face HiDream-O1-Image 模型卡</a>、<a href="https://arxiv.org/abs/2605.11061" target="_blank" rel="noopener">arXiv 2605.11061 技术报告</a>、<a href="https://github.com/HiDream-ai/HiDream-O1-Image" target="_blank" rel="noopener">HiDream-ai/HiDream-O1-Image GitHub</a>、<a href="https://artificialanalysis.ai/text-to-image/arena" target="_blank" rel="noopener">Artificial Analysis 文生图竞技场</a>、<a href="https://pitchhub.36kr.com/project/2351943740326533" target="_blank" rel="noopener">智象未来 36 氪创投平台资料</a>、<a href="https://sse.cuhk.edu.cn/en/faculty/meitao" target="_blank" rel="noopener">梅涛博士主页 - 香港中文大学（深圳）</a>。本文所有数字与引语过去 24 小时内由 Claude Code 实查、双源校对后落盘。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

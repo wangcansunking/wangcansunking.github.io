@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agents 需要控制流，不是更多 prompt：HN 561 顶帖立论与国产框架对位 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-09</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-09</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Agents 需要控制流，不是更多 prompt：HN 561 顶帖立论与国产框架对位</h1>
+<blockquote>
+<p>当地时间 5 月 7 日下午，一位用户名 bsuh 的工程师在个人博客 bearblog.dev 抛出一篇 600 字的短文，标题是「agents need control flow, not more prompts」。当晚提交到 Hacker News，24 小时内冲到 561 pts、280 条评论。**核心论断：可靠的 agent 不来自越写越长的 prompt 链，而来自把控制流写进代码——把 LLM 当成一个组件，不是整个系统。**这一刀直接切到了今天 agent 工程的中线，国内开发者完全可以借这套框架重新审视手里的 LangChain / Dify / 扣子 / 千问 Agent。</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/prompt-vs-control-flow-paradigm.png" alt="两派 Agent 工程范式对比"></p>
+<h2>一、561 pts 的一句话立论：把逻辑搬出 prose、放进 runtime</h2>
+<p>bsuh 这篇博文短到不像一篇被顶到 HN 第一名的稿子，正文不到 600 词，没有图、没有伪代码、没有点名任何具体框架。但它的杀伤力来自一句话——「<strong>reliable agents tackling complex tasks need deterministic control flow encoded in software, not increasingly elaborate prompt chains</strong>」（可靠的、要处理复杂任务的 agent 需要把确定性控制流写进软件里，而不是写进越来越复杂的 prompt 链）。</p>
+<p>这句话之所以击中神经，是因为它给过去两年所有写过 agent 的人都看到的同一个失败模式起了名字。bsuh 给出的判定方法非常具体：「<strong>If you&#39;ve ever resorted to MANDATORY or DO NOT SKIP, you&#39;ve hit the ceiling of prompting</strong>」（如果你写过 MANDATORY 或者 DO NOT SKIP，你就已经撞上 prompt 的天花板了）。任何一个用过 Claude / GPT-5 / 千问做 agent 的工程师，看到这句话基本都会会心一笑——这种全大写的提示词正是「我已经放弃了，但还在挣扎」的标志。</p>
+<p>bsuh 把 prompt 的根本缺陷拆成三条：</p>
+<ul>
+<li><strong>Non-deterministic（非确定性）</strong>：同一段 prompt，模型可以给出完全不同的执行路径</li>
+<li><strong>Weakly specified（弱规范）</strong>：自然语言无法精确描述「绝对不要做 X」「必须先做 Y 再做 Z」</li>
+<li><strong>Difficult to verify（难以验证）</strong>：你没法静态分析一段 prompt 会触发哪些行为</li>
+</ul>
+<p>他对这种处境给了一个更生动的比喻：「<strong>Imagine a programming language where statements are suggestions and functions return &#39;Success&#39; while hallucinating</strong>」（想象一种语句是「建议」、函数返回「成功」但实际上在幻觉的编程语言）。这就是当前 prompt 派的真实状态。</p>
+<p>bsuh 给出的解药是「<strong>deterministic scaffolds: explicit state transitions and validation checkpoints that treat the LLM as a component, not the system</strong>」（确定性脚手架：显式状态转移 + 验证检查点，把 LLM 当成系统的一个组件，而不是整个系统本身）。一句话——<strong>控制流写在代码里，prompt 只剩下叶节点的局部判断</strong>。</p>
+<p>并且 bsuh 紧接着补了一句关键提醒：确定性编排只是一半，<strong>没有错误检测的 agent 只是「快速到达错误结论的一种方式」</strong>。如果不在控制流里加上 programmatic verification（程序化校验），你只剩下三个选项——他用了一个非常有传播力的命名：</p>
+<table>
+<thead>
+<tr>
+<th>失败兜底模式</th>
+<th>bsuh 原文措辞</th>
+<th>真实含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>保姆派</td>
+<td>Babysitter</td>
+<td>全程人工盯，agent 只是慢一些的助手</td>
+</tr>
+<tr>
+<td>审计派</td>
+<td>Auditor</td>
+<td>跑完后人工逐项核对，效率打对折</td>
+</tr>
+<tr>
+<td>玄学派</td>
+<td>Prayer：Vibe accept the outputs</td>
+<td>直接接受输出，祈祷它没瞎写</td>
+</tr>
+</tbody></table>
+<p><strong>判断</strong>：bsuh 这篇短文之所以能冲到 561 pts，不是因为说出了什么新东西，而是把一个所有 agent 工程师都在偷偷骂、又不好意思公开承认的体感，浓缩到了 600 个词里。</p>
+<h2>二、bsuh 立论的四条具体反驳论据</h2>
+<p>虽然原文很短，但通读下来可以拆出四条彼此独立的反对论据，每一条都能单独成立。</p>
+<h3>2.1 全大写提示词 = prompt 范式的天花板信号</h3>
+<p>bsuh 直接把「写 MANDATORY / DO NOT SKIP」当成 prompt 派触底的信号灯。这不是文学修辞——这是工程经验。任何一个被迫往 system prompt 里塞「绝对不要、再说一遍绝对不要」的工程师，都已经默认了模型不会按字面执行。</p>
+<h3>2.2 prompt 不可组合、代码可以</h3>
+<p>bsuh 引用了一句很硬的话：「<strong>Software scales through recursive composability: systems built from libraries, modules, and functions. It&#39;s code all the way down.</strong>」（软件之所以能扩展，是因为递归可组合性——系统由库、模块、函数搭起来，一路向下都是代码）。然后给 prompt 链判了死刑：「<strong>Prompt chains lack this property</strong>」。</p>
+<p>这一刀很关键。代码之所以能扩展到百万行规模，是因为函数 A 的行为不依赖于函数 B 怎么调用它；而 prompt 链里，上一段 prompt 的输出会污染下一段 prompt 的判断，<strong>没有局部推理（local reasoning）</strong>。</p>
+<h3>2.3 Reliability 必须搬出 prose，进 runtime</h3>
+<p>bsuh 的原话是「<strong>Reliability requires moving logic out of prose and into runtime</strong>」（可靠性要求把逻辑从 prose 搬到 runtime）。这是整篇文章的核心动作动词。Prose（自然语言散文）和 runtime（运行时执行）的对立，是整个工程范式之争的本质——<strong>prompt 派把控制流写在 prose 里，控制流派把控制流写在 runtime 里</strong>。</p>
+<h3>2.4 silent failure 必须程序化捕获</h3>
+<p>最后一条是 bsuh 自己加的补丁：光有控制流还不够，<strong>「a system prone to silent failure」</strong>（一个容易静默失败的系统）必须有 aggressive error detection。如果 agent 没有程序化的验证检查点，那只剩 Babysitter / Auditor / Prayer 三条死路——这是对很多「我搭了一个 LangGraph 状态机就万事大吉」工程师的当头一棒。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/bsuh-control-flow-pseudocode.png" alt="控制流派的代码长什么样"></p>
+<h2>三、控制流派的代码长什么样：一段 QA 流程的两种写法</h2>
+<p>bsuh 原文没有给伪代码，但 HN 顶赞 827a 给出了一个非常具体的 QA agent 故事，把抽象立论落到了地。把 827a 的实战经验改写成对照伪代码，能直观看到两派的区别。</p>
+<p><strong>Prompt 派写法</strong>（827a 团队最初尝试，30 个文件后崩）：</p>
+<pre><code class="language-python">prompt = &quot;&quot;&quot;
+你是一个 QA agent。下面有 200 个 markdown 需求文件。
+请为每个文件创建 todo，然后逐一验证应用是否符合该文件的要求。
+MANDATORY: 不要跳过任何文件。DO NOT SKIP.
+&quot;&quot;&quot;
+agent.run(prompt)
+</code></pre>
+<p>827a 在 HN 顶赞里给出了这种写法的真实失败模式：「<strong>This started breaking down after ~30 files. Sometimes it would miss a file. Sometimes it would triple-test a bundle of files and take 10 minutes instead of 3. An error in one file would convince it it needs to re-test four previous files, for no reason.</strong>」（30 个文件后开始崩。有时漏掉一个文件，有时把一组文件来回测三遍，3 分钟的事跑了 10 分钟。一个文件的错误会让它觉得需要回头重测前面四个文件，毫无理由。）这段话被顶到 HN 该帖第二名，因为它是无数工程师的共同经验。</p>
+<p><strong>控制流派写法</strong>（827a 团队后来落地的「super basic deterministic harness」）：</p>
+<pre><code class="language-python">def run_qa(test_dir):
+    files = list_files(test_dir)        # 确定性
+    results = []
+    for f in files:                      # 显式 loop（控制流原语）
+        prompt = build_test_prompt(f)
+        out = llm.call(prompt)           # LLM 仅做叶节点决策
+        if not validate(out):            # 显式检查点
+            out = llm.retry(prompt, hint=hint(out))
+        results.append(out)
+    write_report(results)                # 确定性
+</code></pre>
+<p>827a 给出的效果对比也是 HN 该帖最被传播的一句：「<strong>This has made the system a billion times more reliable</strong>」（这让系统的可靠性提升了大约十亿倍）——一个工程师不会随便用的 hyperbole。</p>
+<p>bob1029 在另一条 HN 顶赞里给出了一组数字：「<strong>I saw a major uplift in performance after I combined tools like apply_patch with check_compilation &amp; run_unit_tests… The agent went from ~80% success rate to what seems to be deterministic (so far).</strong>」（把 apply_patch 工具和 check_compilation、run_unit_tests 结合后，agent 从 ~80% 成功率跳到目前看起来是 deterministic 的水平）。这是 bsuh「程序化校验」原则的最纯粹的实战印证。</p>
+<p><strong>判断</strong>：控制流派的代码不一定长——827a 用的就是「super basic deterministic harness」。它的精髓是把 list / loop / if / retry / append 这五个最朴素的控制流原语，写在 Python 代码而不是 system prompt 里。</p>
+<h2>四、bsuh 反对的对象到底是谁</h2>
+<p>原文非常克制，没有点名任何框架。但从博客原文的措辞「increasingly elaborate prompt chains」（越来越复杂的 prompt 链）+ HN 评论里被反复提及的对手，可以把矛头指向以下几类：</p>
+<ul>
+<li><strong>LangChain</strong>（早期 chain 风格）：典型的「DAG of prompts」，每一步都是一个 PromptTemplate，下一步依赖上一步的字符串输出</li>
+<li><strong>CrewAI</strong>：多角色 agent 协作，本质是多个 prompt 互相对话——HN 评论里被多次拿来举例</li>
+<li><strong>Anthropic Skills 主流路线</strong>：用 SKILL.md 组合多份 markdown 模板，让 LLM 自己决定如何拼接和调用——这是 mattpocock、addy osmani 5 月初推的路线</li>
+<li><strong>AutoGPT 系</strong>：用 prompt 让 LLM 自己规划下一步、自己决定何时收尾</li>
+<li><strong>Coze 智能体（C 端版）/ 千问 Agent / 智谱 GLM-Agent</strong>：国内主流通用 agent 入口，绝大多数仍然是「system prompt + ReAct 循环 + function call」的组合，控制流权交给模型自己</li>
+</ul>
+<p><strong>注意</strong>：bsuh 反对的不是 LangChain / Anthropic Skills 这些工具本身，而是「把所有控制流权放到 prompt 里」的工程取向。同样的工具，如果你只用它做单步推理，控制流写在外面 Python 代码里，bsuh 是认可的——HN 顶赞 fny 的一句话点破了这层：「<strong>Compile that orchestration prompt. Determinism is solved by turning prompts into code that can in turn run agents or run code or both.</strong>」（把那段编排 prompt「编译」成代码——把 prompt 转成能调度 agent / 跑代码 / 两者都跑的代码，确定性问题就解决了）。</p>
+<h2>五、HN 280 评论分布：65% 强支持 · 25% 中立 · 10% 反对</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/hn-280-comments-distribution.png" alt="HN 280 条评论立场分布"></p>
+<p>逐条扫完顶级评论后，本文按立场把 HN 280 条评论分成三派，每派挑了实测 verbatim 引语作为代表。</p>
+<h3>5.1 强支持派（约 65%）</h3>
+<p><strong>827a · 第二顶赞</strong>：「<strong>1000% agree. I am increasingly hesitant to believe Anthropic&#39;s continual war drum of &#39;build for the capabilities of future models, they&#39;ll get better&#39;</strong>」（百分之百同意。我越来越不愿意相信 Anthropic 一直在喊的「为未来模型的能力做设计，模型会变好的」这个口号）。</p>
+<p><strong>bob1029</strong>：「<strong>I feel like I&#39;m falling out of whatever is popular these days. I&#39;ve been using prepaid tokens and custom harnesses for a long time now. It just seems to work. I can ignore most of the news. Copilot &amp; friends are currently dead to me for the problems I&#39;ve expressly targeted.</strong>」（我感觉自己越来越脱离主流流行风向了。我一直在用预付 token + 自写 harness，就是好用。绝大多数新闻我可以无视。Copilot 之类对我现在解决的问题来说基本是死的。）</p>
+<p><strong>DrewADesign</strong>：「<strong>I used to assume they pushed people into the prompt-only workflows because you&#39;re paying them for the tokens, and not paying them for the scaffolding you built. However, I think that they&#39;re really worried about is that a person needs to design and implement that stuff… It throws a wet blanket on their insistence that this will replace entire people in entire workflows or even projects, and I just don&#39;t buy it.</strong>」（我以前以为厂商推 prompt-only 工作流是因为他们靠 token 收费，不靠你写 scaffolding 收费。但我现在觉得，他们更担心的是——你必须有人设计和实现这些东西，这一旦承认，就给「我们的 agent 能替代整支团队」的故事浇了一盆冷水。）</p>
+<p><strong>apalmer</strong>：「<strong>Generally agree with this stance case in point: the breakthrough in ai coding was not that AI intelligence increased as much as that a lot of the core process execution moved out of the LLM prompt and into the harness.</strong>」（基本同意——典型例子是，AI 编程的突破不是 AI 智能本身变强，而是大量核心流程执行从 LLM prompt 搬进了 harness。）</p>
+<p><strong>fny</strong>：「<strong>Secret: &#39;compile&#39; that orchestration prompt. Determinism is solved by turning prompts into code that can in turn run agents or run code or both. Everyone misses this pattern with skills: you can just drop code alongside a SKILL.md to guarantee certain behaviors, but for some reason everyone&#39;s addicted to writing prompts.</strong>」（秘诀：「编译」那段编排 prompt。把 prompt 变成代码，确定性就解决了。大家在 Skills 范式上都忽视了一个点——你完全可以在 SKILL.md 旁边丢一段代码来保证某些行为，但所有人都沉迷于写 prompt。）</p>
+<h3>5.2 中立 / 综合派（约 25%）</h3>
+<p>中立派接受 bsuh 的核心立论，但提出更加平衡的工程范式。<strong>vishvananda 顶赞</strong>给出了今天传播最广的一句概括：「<strong>deterministic agentic flows -&gt; non-deterministic decision making -&gt; deterministic tools</strong>」（确定性 agentic 流 → 非确定性决策 → 确定性工具）。他形容这是一个「<strong>non-deterministic decision making is sandwiched in between layers of determinism</strong>」（非确定性决策被夹在两层确定性中间的三明治结构）。</p>
+<p><strong>rnxrx</strong>：「<strong>I wonder if a part of the problem isn&#39;t just the misapplication of LLMs in the first place. As has been mentioned elsewhere, perhaps the agent&#39;s prompt should be to write code to accomplish as much of the task in as repeatable/verifiable/deterministic a way as possible.</strong>」（我怀疑问题的一部分本身就是 LLM 用错了地方——也许 agent 的 prompt 应该是「写代码尽可能以可重复 / 可验证 / 确定性的方式完成任务」。）</p>
+<p><strong>59nadir</strong>：「<strong>This was one of the key insights in Stripe&#39;s explanations about Minions, their autonomous agent system; in-between non-deterministic LLM work they had deterministic nodes that handled quality assurance and so on in order to not leave those types of things to the LLMs.</strong>」（这是 Stripe 在介绍他们自主 agent 系统 Minions 时的一个核心洞察——在非确定性 LLM 工作之间夹 deterministic 节点处理 QA 等环节，不把这类事情交给 LLM。）</p>
+<p><strong>bwestergard</strong>：「<strong>I agree with the sentiment, but I think the conclusion should be altered. When you hit the limit of prompting, you need to move from using LLMs at run time to accomplish a task to using LLMs to write software to accomplish the task.</strong>」（基本认同立场，但结论应该调一下：当你撞上 prompt 的天花板时，应该从「runtime 上用 LLM 完成任务」切换到「用 LLM 写软件来完成任务」。）</p>
+<h3>5.3 反对派（约 10%）</h3>
+<p><strong>Neywiny · 第一条顶级回复</strong>：「<strong>If you&#39;re trying to get reliability and determinism out of the LLM, you&#39;ve already lost.</strong>」（如果你试图从 LLM 里榨出可靠性和确定性，你已经输了。）这是对 bsuh 立论最尖锐的反方——立场是 LLM 本质就不该承担可靠性责任，应该用在「容错任务」上。</p>
+<p><strong>JCTheDenthog</strong>：「<strong>If you&#39;re trying to make LLMs (a vague simulacrum of humans) with their inherent and unsolvable hallucination problems replace deterministic systems, people are going to eventually decide to return to the tried and true deterministic systems.</strong>」（如果你想用幻觉本质上无解的 LLM——一种对人类的模糊仿真——去替代确定性系统，人们最终会回到那些经过验证的、可靠的确定性系统去。）</p>
+<p><strong>astrobiased</strong>：「<strong>It&#39;s the right direction, but control flow introduces limitations within a system that is quite adaptable to dynamic situations. The more control flow you try to do, the more buggy edge cases that pop up if done poorly.</strong>」（方向对，但控制流也会给一个本来很善于应对动态情况的系统引入限制。控制流写得越多、写得不好的话，边缘 case 越多。）</p>
+<p><strong>判断</strong>：HN 评论区罕见的 65% 一边倒支持，已经说明了 bsuh 这套立论命中了一个长期存在但鲜被言说的工程痛点。Anthropic 的 Skills cookbook 路线、mattpocock 的 32k Skills 文章、addy osmani 力推的 Skills 工程化，全部站在 prompt 派一侧——但底层最有经验的工程师们集体投票给了控制流派。</p>
+<h2>六、与 Anthropic Skills 主流路线的张力</h2>
+<p>5 月 7 日 Anthropic 把 mattpocock 的 32k Skills 一文做成官方推荐路径，5 月 8 日 addy osmani 跟进了一篇深度技术解读，整个 5 月初的 Anthropic 生态主流叙事是「<strong>通过组合多个 SKILL.md 和 markdown 模板，让 Claude 自己决定如何编排</strong>」。</p>
+<p>bsuh 这一刀，几乎是直接砍向这个路线的核心假设。<strong>Skills 模式默认 LLM 有能力做高层控制流决策</strong>——决定调用哪个 skill、按什么顺序、何时停止——这恰恰是 bsuh 反对的「把控制流留在 prompt 里」的最高级形态。</p>
+<p>但要注意，bsuh 并没有完全否定 Skills——他原文写到「<strong>While useful for narrow tasks</strong>, prompts are non-deterministic」（对窄任务来说有用）。Skills 在简单的、单步骤、容错率高的场景里是合理的；问题出在你试图用 Skills 解决「跑完 200 个测试用例并写出审计报告」这种确定性敏感任务的时候。</p>
+<p>HN 顶赞 fny 给出了一个非常聪明的折中方案：「<strong>you can just drop code alongside a SKILL.md to guarantee certain behaviors</strong>」（你完全可以在 SKILL.md 旁边丢一段代码来保证某些行为）。这其实就是 Anthropic 自己在 cookbook 里推荐的 <code>claude-skills</code> 路径——Skills 不只是 prompt 模板，也可以包含可执行的 Python 脚本，但绝大多数早期使用者只用了 prompt 部分。</p>
+<h2>七、国产 Agent 框架对位：哪些已经走在控制流路线上</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/domestic-agent-framework-classification.png" alt="国产 Agent 框架分类"></p>
+<p>bsuh 这套立论对国内同样适用，但国内开发者其实手上有比硅谷更多的「混合派」工具——尤其是字节扣子工作流和 Dify Workflow 这类可视化 DAG 编排平台。本文按公开文档与社区共识，把国产主流 agent 框架做了一次范式分类。</p>
+<h3>7.1 已经在控制流路线（✓）</h3>
+<ul>
+<li><strong>扣子（Coze）工作流</strong>（字节·中国）：2026 年 2.0 版本中工作流模块是典型 DAG 交互，节点之间的串联代表任务调度顺序，<strong>支持并行 / 循环 / 分支执行 + 选择器节点做 if...else 判断</strong>。这是 bsuh 立论的国内最完整实现之一。</li>
+<li><strong>Dify Workflow</strong>（LangGenius·中国）：可视化 DAG，每次调用是完全独立的运行，<strong>没有 memory configuration</strong>——这正是 bsuh 推崇的「fresh state」原则。Workflow 还能被打包成工具被其他流程调用，对应 bsuh 强调的 recursive composability。</li>
+<li><strong>MetaGPT</strong>（深度求索系开源·中国）：核心哲学就是 <code>Code = SOP(Team)</code>——把人类软件公司的 SOP（Standard Operating Procedure）编码成 prompt 序列 + 角色编排，五种角色（产品 / 架构 / 项目 / 工程 / QA）按流水线协作。状态在代码里，不在 prompt 里。</li>
+<li><strong>飞书多维表格 Agent</strong>（字节·中国）：把 agent 行为绑定在表格触发器 + 公式上，控制流彻底是「表格事件→自动化动作」的代码风格，prompt 只在叶节点做判断。</li>
+</ul>
+<h3>7.2 混合派（◆）</h3>
+<ul>
+<li><strong>AutoGen</strong>（微软·美国）：提供两种模式——纯对话拓扑（prompt 派）和带 GroupChat / GraphAgent 的群聊编排（控制流派）。开发者自己选。</li>
+<li><strong>扣子智能体</strong>（字节·中国，C 端版）：单 agent 模式偏 prompt 派，但可以挂一个工作流作为子流程——架构上属于混合，但默认入口是 prompt 派。</li>
+</ul>
+<h3>7.3 仍然偏 Prompt 派（○）</h3>
+<ul>
+<li><strong>千问 Agent</strong>（阿里·中国）：基于 ReAct 范式 + function call，控制流主要靠模型自己规划，工程师的主要工具是 system prompt</li>
+<li><strong>智谱 GLM-Agent</strong>（智谱·中国）：同上，主要依赖模型 ReAct 能力</li>
+<li><strong>Dify Chatflow</strong>（LangGenius·中国）：对话场景为主，conversation context 是核心，控制流弱</li>
+</ul>
+<p><strong>判断</strong>：<strong>国产阵营整体并不落后</strong>——扣子工作流、Dify Workflow、MetaGPT、飞书多维这四件事，在「让控制流以代码而非 prompt 的形式存在」这件事上，已经走得比 LangChain 早期更远。bsuh 立论在国内的真正受众，是仍然在用「千问 + 一段超长 system prompt + function call」组装通用 agent 的开发者——这套组合在 demo 里很漂亮，但一上规模就会重蹈 827a 团队那种 30 文件后崩的命运。</p>
+<h2>八、什么场景选 Prompt 派，什么场景选控制流派</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/09/prompt-vs-control-decision-matrix.png" alt="Prompt 派 vs 控制流派决策矩阵"></p>
+<p>不要因为 HN 一波热度就冲动迁移。两派各有适用场景，本文给出一个九维决策矩阵——读者可以拿去对照自己手上的项目。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Prompt 派胜出</th>
+<th>控制流派胜出</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>任务复杂度</td>
+<td>≤5 步、单 LLM 调用能完成</td>
+<td>≥10 步、多分支、有循环</td>
+</tr>
+<tr>
+<td>可靠性要求</td>
+<td>Demo / 内部工具 / 容错率高</td>
+<td>生产系统 / 客户面对 / SLA 99%+</td>
+</tr>
+<tr>
+<td>失败成本</td>
+<td>重跑一次成本可接受</td>
+<td>失败需要回滚、补偿、人工介入</td>
+</tr>
+<tr>
+<td>数据量级</td>
+<td>≤30 个对象</td>
+<td>≥100 个对象（bsuh 经验：30 后崩）</td>
+</tr>
+<tr>
+<td>Token 预算</td>
+<td>宽裕</td>
+<td>紧张（小模型 + 控制流）</td>
+</tr>
+<tr>
+<td>团队工程能力</td>
+<td>1-2 人快速验证</td>
+<td>3+ 人长期维护</td>
+</tr>
+<tr>
+<td>开发节奏</td>
+<td>一周内上线</td>
+<td>可以投入 2-4 周搭骨架</td>
+</tr>
+<tr>
+<td>典型场景</td>
+<td>智能客服 / 文档问答 / 周报生成</td>
+<td>QA 流水线 / 财务对账 / 合同审查</td>
+</tr>
+<tr>
+<td>国内推荐选型</td>
+<td>千问 Agent + system prompt / Coze 智能体</td>
+<td>LangGraph + 千问 / Dify Workflow / 扣子工作流</td>
+</tr>
+</tbody></table>
+<p><strong>关键提醒</strong>：两派不互斥。同一个产品里，前端接需求层可以用 prompt 派（用户输入意图，LLM 解析并选择工具），后端关键路径用控制流派（保 SLA、保审计、保可回滚）。HN 顶赞 vishvananda 给出的「三明治」就是这种混合架构——<strong>国内开发者完全可以这么做，而且工具链已经成熟</strong>。</p>
+<h2>九、国内开发者的三条实操路径</h2>
+<h3>9.1 路径 A：LangGraph + 国产基座，全控制流派</h3>
+<p>适合：3+ 人团队、做 SaaS 产品、需要 SLA。</p>
+<ul>
+<li>框架：LangGraph（开源，状态图 + 检查点）</li>
+<li>基座模型：DeepSeek V3.2 / 千问 3.5-Max / 智谱 GLM-4.6</li>
+<li>工程模式：状态机定义所有控制流，LLM 仅在节点内做局部判断</li>
+<li>参考代码：HN 评论里 eth415 推荐的 <a href="https://github.com/salesforce/agentscript" target="_blank" rel="noopener">https://github.com/salesforce/agentscript</a> （Salesforce 自家 control-flow agent 实现）</li>
+</ul>
+<h3>9.2 路径 B：Dify Workflow / 扣子工作流 + 千问，可视化控制流</h3>
+<p>适合：1-3 人团队、企业内部工具、希望降低代码维护成本。</p>
+<ul>
+<li>框架：Dify Workflow（自托管）或扣子工作流（云）</li>
+<li>基座模型：千问 / 文心 / DeepSeek（API）</li>
+<li>工程模式：可视化 DAG 编排，if/else / 循环 / 并行节点全部图形化拖拽</li>
+<li>优势：业务方可以直接看懂控制流，不需要读代码</li>
+</ul>
+<h3>9.3 路径 C：自写状态机 + 国产 LLM，最朴素</h3>
+<p>适合：单人快速 PoC，或对 framework 不信任。</p>
+<ul>
+<li>框架：纯 Python（按 827a 的「super basic deterministic harness」思路）</li>
+<li>基座模型：任意国产 LLM API</li>
+<li>工程模式：list / loop / if / retry / append 五个原语全部手写在 Python 里，LLM 通过 OpenAI 兼容 API 调用</li>
+<li>优势：零依赖，容易 debug，容易迁移模型</li>
+</ul>
+<p><strong>判断</strong>：三条路径覆盖了 90% 的国内 agent 场景。剩下 10% 是「我就是要做一个能自由对话、不需要严格 SLA 的助手」，那种场景留给 prompt 派——千问 Agent + system prompt 仍然是最快的答案。</p>
+<h2>十、收尾：两条路并行，国产开发者站位不需要焦虑</h2>
+<p>bsuh 这篇 600 词短文之所以能在 HN 拿到 561 pts，不是因为它发现了什么新东西，而是它把所有 agent 工程师都已经体感到、却又没人公开承认的天花板，钉在了一句话里——<strong>「reliable agents need control flow encoded in software, not increasingly elaborate prompt chains」</strong>。这一句话从此可以挂在每一个国内 agent 团队的工位上。</p>
+<p>但 HN 280 条评论里那 25% 的中立派也说出了真相——纯 prompt 派和纯控制流派都不是终局，<strong>三明治架构（确定性流 → LLM 决策 → 确定性工具）才是绝大多数生产 agent 的实际形态</strong>。这个判断对国内开发者尤其重要：扣子工作流、Dify、MetaGPT 这些国产框架今天已经有非常好用的混合架构能力，<strong>我们不需要二选一，可以选最适合自己业务的</strong>。</p>
+<p>回头看 5 月这一周——5 月 7 日 mattpocock / addy osmani 在推 Skills 路线，5 月 8 日 bsuh 在 HN 顶贴质疑这条路线，5 月 9 日 HN 顶级评论给出三明治折中方案。<strong>整个 agent 工程范式的讨论正在变得更成熟</strong>——这是一个生态健康的标志，而不是路线分裂的危机。我们这一代 AI 开发者特别幸运，左手有 LangGraph 和 Salesforce AgentScript 这样的开源控制流框架，右手有扣子工作流、Dify、飞书多维这样的国产可视化平台，下面还有千问 / DeepSeek / GLM 这样能稳定调用的国产基座——把 agent 工程做扎实的所有零件，今天都已经齐了。</p>
+<p><strong>两条路并行，挑最合适的那一条，加速度更快。</strong> 这就是 bsuh 那篇 600 词短文给国内 agent 开发者的最佳读法。</p>
+<hr>
+<h2>参考资料</h2>
+<ul>
+<li><a href="https://bsuh.bearblog.dev/agents-need-control-flow/" target="_blank" rel="noopener">bsuh 原文 · agents need control flow, not more prompts</a></li>
+<li><a href="https://news.ycombinator.com/item?id=48051562" target="_blank" rel="noopener">HN 顶帖 · 561 pts / 280 comments</a></li>
+<li><a href="https://github.com/salesforce/agentscript" target="_blank" rel="noopener">Salesforce AgentScript · HN 评论推荐</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/overview" target="_blank" rel="noopener">LangGraph 官方文档</a></li>
+<li><a href="https://docs.dify.ai/en/use-dify/build/workflow-chatflow" target="_blank" rel="noopener">Dify Workflow 文档</a></li>
+<li><a href="https://www.coze.cn/open/docs/guides/agent_workflow" target="_blank" rel="noopener">扣子（Coze）智能体工作流文档</a></li>
+<li><a href="https://github.com/FoundationAgents/MetaGPT" target="_blank" rel="noopener">MetaGPT GitHub</a></li>
+<li><a href="https://stripe.dev/blog/minions-stripes-one-shot-end-to-end-" target="_blank" rel="noopener">Stripe Minions 自主 agent 系统</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

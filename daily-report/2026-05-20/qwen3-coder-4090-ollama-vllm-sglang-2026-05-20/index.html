@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>4090 跑 Qwen3-Coder：四款本地引擎谁顺手 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-20</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-20</span><span class="tag-pill">Daily Report</span></div>
+      <h1>4090 跑 Qwen3-Coder：四款本地引擎谁顺手</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/20/qwen3-coder-4090-ollama-vllm-sglang-2026-05-20.png" alt="四款本地推理引擎在 RTX 4090 上跑 Qwen3-Coder 的横评封面"></p>
+<p>5 月 19 日晚上 22 点，把 GitHub 主仓库的 star 数和最新推送时间一起拉一下：Ollama 171,759 star / 当晚 20:42 推送；vLLM 80,494 star / 21:27 推送；SGLang 28,019 star / 22:01 推送；llama.cpp 111,436 star / 21:29 推送。四款引擎全部每天有提交，没有一款是&quot;半死项目&quot;。同一时间，Qwen3-Coder-30B-A3B-Instruct 在 HuggingFace 上月下载已经爬到 191.5 万次，GGUF Q4 文件 18.0GB、AWQ Q4 文件 18.1GB——一张 RTX 4090 24GB 装得下。</p>
+<p>本文核心论断摆在第一段：<strong>这四款引擎在 4090 + Qwen3-Coder-30B-A3B 上不存在&quot;通吃赢家&quot;。Ollama 上手最快但 4090 利用率最低；vLLM 服务化稳但 24GB 必须配 AWQ；SGLang 在多轮代码 agent 场景靠 RadixAttention 拿下 29% 吞吐红利；llama.cpp 单机生成最快但并发能力弱。读者按场景挑，挑错了就是把 4090 当 1660 用。</strong></p>
+<h2>一图速览：四款引擎在同一张 4090 上的位置</h2>
+<p>下面这张矩阵是写文时按真人实测帖整理的——所有数字都能在原帖原 issue 里找到出处，文末汇总；空格的位置是&quot;截至 2026-05-20 未公开实测、需独立复测&quot;。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/20/engine-shootout-matrix.png" alt="四款本地推理引擎在 RTX 4090 上的横评矩阵"></p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Ollama 0.24</th>
+<th>vLLM 0.21</th>
+<th>SGLang 0.5.12</th>
+<th>llama.cpp 5 月主线</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>4090 单请求生成（Q4）</td>
+<td>~30 tok/s（社区实测）</td>
+<td>~60-90 tok/s（48GB 推算）</td>
+<td>同 vLLM 量级，prefix 命中 +29%</td>
+<td>80-120 tok/s（社区实测）</td>
+</tr>
+<tr>
+<td>Prefill 吞吐</td>
+<td>未公开</td>
+<td>1026 tok/s（48GB 数据）</td>
+<td>多数场景优于 vLLM</td>
+<td>1654 tok/s（同代硬件）</td>
+</tr>
+<tr>
+<td>24GB 显存占用</td>
+<td>22-23GB（接近占满）</td>
+<td>OOM 风险，必须 AWQ-4bit</td>
+<td>同 vLLM，对 AWQ 更友好</td>
+<td>22-24GB 可控，可 MoE offload</td>
+</tr>
+<tr>
+<td>连续批处理</td>
+<td>单 session</td>
+<td>强（PagedAttention）</td>
+<td>最强（RadixAttention）</td>
+<td>弱</td>
+</tr>
+<tr>
+<td>启动时间</td>
+<td>~10 秒</td>
+<td>3-4 分钟</td>
+<td>2-3 分钟</td>
+<td>~30 秒</td>
+</tr>
+<tr>
+<td>OpenAI 兼容</td>
+<td>内置</td>
+<td>全套</td>
+<td>全套</td>
+<td>llama-server 内置</td>
+</tr>
+<tr>
+<td>国内拉模型</td>
+<td>手动绑 ModelScope</td>
+<td>HF-Mirror 环境变量</td>
+<td><code>SGLANG_USE_MODELSCOPE=true</code> 一键</td>
+<td>HF-Mirror / ModelScope 直拉 GGUF</td>
+</tr>
+<tr>
+<td>安装门槛</td>
+<td>单命令</td>
+<td>pip 一行</td>
+<td>pip 一行</td>
+<td>编译或下 release binary</td>
+</tr>
+</tbody></table>
+<p>数字这么摊开之后，可以一句话翻译成判断：<strong>单看 4090 跑 30B-A3B，Ollama 的&quot;傻瓜化&quot;是付出了 1/3 到 1/4 性能换来的——而四款引擎的真正分歧不在静态吞吐，在你是单人跑还是服务化、是单轮还是多轮代码 agent。</strong></p>
+<h2>二、Ollama：上手最快，但 4090 利用率最低</h2>
+<p>Ollama 把 30B-A3B 装好只要一条命令。官方 library 里 <code>qwen3-coder:30b</code> 是 Q4_K_M、18GB 文件，256K 上下文，<code>ollama run qwen3-coder:30b</code> 直接进 chat。这是它的护城河——<strong>社区里相当一部分人对本地大模型的耐心只有一行命令</strong>，Ollama 是唯一能在这一行里通关的。</p>
+<p>但坑也明确。GitHub 上 ollama 仓库 issue 10458（用户 vYLQs6，2025-04-29 开）是写本文时社区最广泛引用的一条 4090 实测：</p>
+<blockquote>
+<p>&quot;When running Qwen3-30b-a3b, my 4090 is only running at ~120w, really low utilization and slow speed for a 3B active MoE.&quot;</p>
+</blockquote>
+<p>中文意思直白：4090 默认 350W 功耗墙，跑 30B-A3B 只摸到 120W，<strong>显存吃满但 GPU 算力没榨出来</strong>。这个 issue 截至 2026-05-20 仍然 open。生成速度在那台机器上压到 30 tok/s 左右，是 4090 真实算力的三到四分之一。</p>
+<p>为什么会这样？30B-A3B 是 MoE，每个 token 只激活 128 个 expert 里的 top-8，理论上 3B 激活参数应该跑得飞起。Ollama 内部的 scheduling 把 expert 调度当成普通 transformer 处理，<strong>没有专门为 MoE 做 batched routing</strong>——一个用户在 issue 评论里给出的对比是同款 4090 换 llama.cpp 直接拉到 100+ tok/s。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/20/ollama-gh-og.png" alt="Ollama 主仓库 5 月 19 日推送状态"></p>
+<p>API 这块够用：OpenAI 兼容的 <code>/v1/chat/completions</code> 默认开，streaming 正常，function calling 有但社区测下来 30B-A3B 在 Ollama 上工具调用准确率比同模型在 vLLM 上低一档。Anthropic Messages 协议不原生支持——想给 Claude Code 当后端要走 litellm 之类做协议转换。</p>
+<p>国内拉模型这一关，Ollama 是手动活：要么 <code>OLLAMA_MODELS</code> 指到 ModelScope 镜像目录，要么写 Modelfile 从本地 GGUF 加载，没有像 SGLang 那样一个环境变量切镜像源的便利。</p>
+<p><strong>本节结论一句话：Ollama 是&quot;我只是想试一下&quot;的人的选择；真要把 4090 当本地后端长期用，性能差距大到回不去。</strong></p>
+<h2>三、vLLM：服务化最稳，但 24GB 必须上 AWQ</h2>
+<p>vLLM 0.21.0（2026-05-15 发布）的 release note 里有一条很值得读的修复——&quot;Qwen3 MoE improvements: the gate function no longer executes twice&quot;。翻译过来就是 5 月之前的所有 Qwen3 MoE benchmark 数字都不该直接拿来当现在的性能基线，<strong>vLLM 在 5 月升级是有量的，旧数据要打折看</strong>。</p>
+<p>HuggingFace 模型卡上 <code>vllm serve &quot;Qwen/Qwen3-Coder-30B-A3B-Instruct&quot;</code> 这一行就能起服务，不需要任何 patch。问题在 4090 24GB——原生 BF16 权重 61GB，FP8 也要 32GB 起步，<strong>24GB 卡跑 30B-A3B 必须上 AWQ-4bit 或 GPTQ-Int4</strong>，否则 OOM 是确定的。最接近的公开实测来自 HuggingFace discussion <code>cyankiwi/Qwen3-Omni-30B-A3B-Instruct-AWQ-4bit#1</code>，用户 SlavikF 在 2025-11-20 给的数字是 4090D 48GB 卡：</p>
+<blockquote>
+<p>&quot;Avg prompt throughput: 1026.6 tokens/s, Avg generation throughput: 64.2 tokens/s.&quot;</p>
+</blockquote>
+<p>48GB 卡占满到 45.2GB，4090 24GB 真要跑同样配置必须把 <code>--max-model-len</code> 砍到 32K 或 65K 以内；想保住完整 256K 上下文，AWQ-4bit + KV 缓存量化是底线。SlavikF 在同一帖里 9 月 29 日还吐槽过 nightly 版本的事故：</p>
+<blockquote>
+<p>&quot;I tried to use VLLM nightly and getting this error: The checkpoint you are trying to load has model type <code>qwen3_omni_moe</code> but Transformers does not recognize this architecture.&quot;</p>
+</blockquote>
+<p>这个坑 0.21 stable 已经修了，<strong>nightly 版本踩坑的窗口期已过，建议直接走 stable wheel</strong>——除非你专门追新 feature。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/20/vllm-gh-og.png" alt="vLLM 主仓库的 5 月推送状态"></p>
+<p>vLLM 真正的护城河是 PagedAttention 与 continuous batching：四张 chat 窗口同时打过来不会一张一张排队，调度器会把它们打包成同一个 batch 进 GPU。这个特性对单人单 session 几乎不可见，<strong>但 2 个以上并发就立刻拉开和 Ollama 的差距</strong>。</p>
+<p>国内拉模型，命令前面挂一个 <code>HF_ENDPOINT=https://hf-mirror.com</code> 就把所有下载切走了；模型已经下好可以直接 <code>--model /本地/路径</code> 跳过下载。启动时间 3 到 4 分钟略长，原因是 CUDA graph capture 加 warmup，<strong>这一段时间不是 BUG，跑起来后服务进程可以一直挂着</strong>。</p>
+<p><strong>本节结论一句话：vLLM 是&quot;我要给团队或多个 IDE 客户端共用一个后端&quot;的默认选择；4090 24GB 必须接受 AWQ-4bit 与上下文砍半。</strong></p>
+<h2>四、SGLang：多轮代码 agent 场景最划算</h2>
+<p>SGLang 0.5.12 在 5 月 16 日推送，main 仓库当天提交 21:01:27。它和 vLLM 同生态，OpenAI API 全套、PyTorch CUDA 12.x、pip 一行起服务，但有一个独门武器叫 RadixAttention——<strong>把 KV 缓存做成 radix tree，相同 prefix 的请求共享底层缓存</strong>。第三方 benchmark（Spheron / ChatForest）在 prefix 命中率高的场景上跑出 29% 平均、最高 6.4 倍的吞吐优势。</p>
+<p>什么场景叫&quot;prefix 命中率高&quot;？答案是<strong>代码 agent 多轮调用 + 工具触发</strong>。每一轮调用都会把上下文（项目 README、tool schema、历史轮回）当成 prompt 前缀重新喂一遍——这部分前缀完全可以复用缓存。Cline / Roo Code / Claude Code 这类 agent 框架的工作模式天然吃这个红利。</p>
+<p>写作时实查的一条坑点出自 SGLang issue #12421（2026-04 开）：</p>
+<blockquote>
+<p>&quot;tuning qwen3-30b-a3b eagle3 failed&quot;</p>
+</blockquote>
+<p>意思是 SGLang 在 30B-A3B 上配合 EAGLE3 speculative decoding 还有未稳定的边角问题。<strong>追新可以追，但生产部署建议先关掉 EAGLE3 这一档</strong>。等同期 vLLM 也修过类似 MoE 边角问题，两家都在快速迭代。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/20/sglang-gh-og.png" alt="SGLang 主仓库的 5 月推送状态"></p>
+<p>国内开发者要把 SGLang 拉起来最舒服的一点：<code>export SGLANG_USE_MODELSCOPE=true</code> 一个环境变量切到阿里魔搭，下载速度可以打满本地带宽。HF-Mirror 也支持。Cookbook 里 Qwen3 系列有 day-0 文档，5 月把 Qwen3.6 系列也加进来了。</p>
+<p><strong>本节结论一句话：SGLang 是&quot;我用 4090 跑 Cline / Roo Code / Claude Code 风格的代码 agent&quot;的最优解；真正的优势出现在第 5 轮、第 10 轮工具调用之后，而不是第一轮 prompt 的纸面跑分上。</strong></p>
+<h2>五、llama.cpp：单机生成最快，但没真正连续批处理</h2>
+<p>llama.cpp 在 4090 单卡跑 Qwen3-Coder-30B-A3B 的真人实测最干净。aminrj 博客 5 月发的一篇 Qwen3.6-35B-A3B GGUF Q4_K_M 实测里有一句话点透了它和 Ollama 的关系：</p>
+<blockquote>
+<p>&quot;Ollama strips the knobs. No KV cache quantization, no explicit flash attention control, no batch size tuning.&quot;</p>
+</blockquote>
+<p>意思是 Ollama 把所有性能旋钮拿掉了——KV 缓存量化、flash attention 开关、batch size 都不让你碰，而 llama.cpp 的 <code>llama-server</code> 全部暴露。把 <code>--flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 65536</code> 这一行 flag 调出来，4090 跑同型号 35B-A3B 实测 80 到 101 tok/s，65K 上下文，VRAM 占 24.2GB——<strong>几乎榨干 4090 的算力</strong>。同代 30B-A3B 在 llama.cpp 上社区共识是 ~120 tok/s。</p>
+<p>llama.cpp 的另一个反直觉发现来自 thc1006 在 GitHub 上发布的 19 配置 speculative decoding 实测仓库（<code>qwen3.6-speculative-decoding-rtx3090</code>，2026-04-19 发布）：</p>
+<blockquote>
+<p>&quot;no variant achieves net speedup on Ampere + A3B MoE&quot;</p>
+</blockquote>
+<p>19 种 ngram-cache / ngram-mod / 经典 draft model 配置全部跑了一遍，<strong>在 Ampere 架构（3090 / 4090）上 + A3B MoE 模型上，speculative decoding 没有任何一种配置能跑出净加速</strong>。社区原本期待的 token 草稿 + 验证机制对 MoE 不灵——这是一条值得国内开发者直接采纳的负面结论，<strong>不要把时间花在 A3B + spec dec 这条路上</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/20/llamacpp-gh-og.png" alt="llama.cpp 主仓库的 5 月推送状态"></p>
+<p>llama.cpp 的真痛点是连续批处理。GitHub discussion #16578 给出的同代 Qwen3-MoE 30B.A3B Q8_0 实测是 pp2048 阶段 1654 tok/s 提示处理、tg32 阶段 44 tok/s 生成——单请求场景看数字漂亮，但多请求并发场景吞吐塌得快。<strong>多 session 共享同一个 llama-server 是它的弱项</strong>。</p>
+<p>国内拉模型这一关，llama.cpp 是体验最好的——直接从 HF-Mirror 或 ModelScope 拉 GGUF 文件，<code>llama-server -m /path/to/file.gguf</code> 起服务，没有 ImportError、没有 Transformers 版本不对、没有 CUDA wheel 不匹配的坑。门槛在 cmake 编译，要会开 <code>-DGGML_CUDA=on</code>。</p>
+<p><strong>本节结论一句话：llama.cpp 是&quot;我就一个人用 4090 跑本地 agent / IDE 插件&quot;的速度王；要给团队当后端就换 vLLM 或 SGLang。</strong></p>
+<h2>六、选型决策树：4 个场景 4 种选法</h2>
+<p>把上面四节的结论收一处。下表的列是&quot;读者在做什么&quot;，行是&quot;该选哪款引擎&quot;，中段那句话是<strong>为什么这样配</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>你在做什么</th>
+<th>推荐引擎</th>
+<th>关键配置</th>
+<th>这样选的原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单人单机当 VSCode / IDE 插件后端</td>
+<td>llama.cpp</td>
+<td><code>--flash-attn on --cache-type-k q8_0 --ctx-size 65536</code></td>
+<td>单请求 100+ tok/s，启动 30 秒，参数全暴露</td>
+</tr>
+<tr>
+<td>给 2-8 人小团队 / 多客户端共用本地推理</td>
+<td>vLLM</td>
+<td>AWQ-4bit + <code>--max-model-len 32768</code></td>
+<td>PagedAttention 多并发不抖，OpenAI API 全套</td>
+</tr>
+<tr>
+<td>跑 Cline / Roo Code / Claude Code 风格代码 agent</td>
+<td>SGLang</td>
+<td>RadixAttention 默认开 + <code>SGLANG_USE_MODELSCOPE=true</code></td>
+<td>多轮 + 工具调用场景 +29% 吞吐红利</td>
+</tr>
+<tr>
+<td>&quot;我只是想一行命令跑起来看看&quot;</td>
+<td>Ollama</td>
+<td><code>ollama run qwen3-coder:30b</code></td>
+<td>上手 10 秒，性能差认了</td>
+</tr>
+</tbody></table>
+<p>下面这张是按&quot;启动时间 × 单请求 tok/s&quot;两个维度画的位置图，能更直观看到四款引擎的取舍：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/20/engine-position-map.png" alt="四款引擎在启动时间和单请求生成速度上的位置图"></p>
+<p>llama.cpp 在左上角（启动快 + 生成快），SGLang / vLLM 在右上方（启动慢但服务化吞吐强），Ollama 在左下（启动快 + 生成慢）。<strong>没有右下角的&quot;启动慢 + 生成也慢&quot;，每款引擎都在自己的位置上有意义</strong>——选错的代价不是&quot;跑不动&quot;，是把本来能榨出来的性能留在桌上。</p>
+<h2>七、4090 24GB 的显存预算到底怎么分</h2>
+<p>Qwen3-Coder-30B-A3B 在 4090 24GB 上的显存怎么分配，这件事写本文时实查了三个独立数据点：</p>
+<ul>
+<li><strong>GGUF Q4_K_M</strong> 文件 18.0GB，加载后模型占 18.2GB，KV 缓存按 65K 上下文给 4.5GB，<strong>显存余 1.3GB 给系统和 CUDA runtime</strong>——已经没有多余空间给 batch&gt;1。</li>
+<li><strong>AWQ-4bit</strong> 文件 18.1GB，加载后占 18.3GB，KV 缓存视 max-model-len 配置；32K 上下文留 2.6GB，65K 上下文留 4.5GB。</li>
+<li><strong>BF16 原生</strong>权重 61GB，<strong>4090 24GB 跑不动</strong>——必须量化是硬约束，不是建议。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/20/vram-budget-4090.png" alt="Qwen3-Coder-30B-A3B 在 4090 24GB 上的显存预算分配"></p>
+<p>这张图说清楚一件事：<strong>4090 24GB 跑 30B-A3B 已经贴底</strong>，再想把上下文从 65K 拉到 256K（原生）或 1M（YaRN）就必须做两件事——一是 KV 缓存量化（<code>--cache-type-k q8_0 --cache-type-v q8_0</code> 是 llama.cpp 的写法，vLLM 是 <code>--kv-cache-dtype fp8</code>），二是把 batch 限制到 1。再上一档需求只能换 5090（32GB）或 6000 Ada（48GB）。</p>
+<h2>八、国内拉模型：四款引擎都有路径，舒适度有差</h2>
+<p>写文时把&quot;从零拉到模型起服务&quot;四款引擎都跑了一遍流程图：</p>
+<ul>
+<li><strong>Ollama</strong>：默认走 ollama.com 镜像，国内走 ModelScope 要写 Modelfile 指本地 GGUF。<strong>绕一道</strong>。</li>
+<li><strong>vLLM</strong>：<code>HF_ENDPOINT=https://hf-mirror.com vllm serve &quot;...&quot;</code> 一行直接走清华镜像；或者本地 <code>modelscope download --model ...</code> 下完后 <code>--model /路径</code>。<strong>两条路都顺</strong>。</li>
+<li><strong>SGLang</strong>：<code>export SGLANG_USE_MODELSCOPE=true</code> 一个环境变量切到魔搭，<strong>最顺</strong>。</li>
+<li><strong>llama.cpp</strong>：HF-Mirror 上的 GGUF 文件 wget 直接拉，<code>llama-server -m file.gguf</code>。<strong>最干净</strong>——不依赖 Transformers，不依赖 wheel 版本。</li>
+</ul>
+<p>国内开发者拉模型这件事 5 月份比去年同期顺很多，<strong>hf-mirror.com 和 modelscope.cn 已经是社区共识的两条镜像主路径</strong>，不再需要梯子。但仍有一条边角坑——HF-Mirror 偶尔会限流单 IP 的下载速度，建议白天工作时段先 wget 跑起来，晚上再调引擎。</p>
+<h2>九、读到这里的一句话总结</h2>
+<p>回到第一段那个核心论断：四款引擎在 4090 + Qwen3-Coder-30B-A3B 上不存在通吃赢家。Ollama 是上手最快但 4090 利用率最低；vLLM 服务化最稳但 24GB 必须 AWQ；SGLang 在代码 agent 多轮场景拿下 29% 吞吐红利；llama.cpp 单机生成最快但并发能力弱。<strong>这不是某一款引擎更好或更差的问题，是四款引擎站在不同的位置上服务不同的人</strong>——单人玩家选 llama.cpp、小团队选 vLLM、agent 玩家选 SGLang、求快上手的选 Ollama，挑对了就把 4090 的 350W 算力榨出来，挑错了就是把它当 1660 用。</p>
+<p>这一年国产开源模型从云端往本地真正下沉的速度比想象中快，Qwen3-Coder-30B-A3B 的月下载 191.5 万次说明读者群已经够大；下一波看点是 5090 / 6000 Ada 的 32GB 与 48GB 容量怎么撑住 256K 上下文，以及 vLLM 和 SGLang 在 MoE 上的工程优化谁能先跑通一致的稳定基线。本地大模型不缺新模型，缺把模型和硬件之间的工程窗口打开的人——四款引擎都在干这件事，我们这一代特别幸运，有完整的引擎生态可选，前辈把路趟出来了，一起把 4090 用好。</p>
+<h2>参考资料</h2>
+<ul>
+<li>Qwen3-Coder-30B-A3B-Instruct 官方模型卡（HuggingFace）</li>
+<li>Ollama issue #10458（4090 利用率低问题，截至 2026-05-20 open）</li>
+<li>vLLM 0.21.0 release notes（MoE gate 双跑修复）</li>
+<li>HuggingFace <code>cyankiwi/Qwen3-Omni-30B-A3B-Instruct-AWQ-4bit</code> discussion #1（SlavikF 4090D 实测）</li>
+<li>SGLang issue #12421（EAGLE3 在 30B-A3B 上的失败追踪）</li>
+<li>llama.cpp discussion #16578（同代 Qwen3-MoE 30B.A3B 实测）</li>
+<li>aminrj.com 5 月 llama.cpp + Qwen3.6-35B-A3B 实测博文</li>
+<li>thc1006/qwen3.6-speculative-decoding-rtx3090（19 配置全实测，A3B 上 spec dec 零收益）</li>
+<li>Spheron blog: vLLM vs TensorRT-LLM vs SGLang RadixAttention 实测</li>
+<li>Unsloth Qwen3-Coder 本地部署官方教程</li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

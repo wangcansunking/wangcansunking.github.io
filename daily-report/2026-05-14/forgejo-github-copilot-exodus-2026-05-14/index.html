@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Copilot 默认开训之后，搬去 Forgejo 的全套实操 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-14</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-14</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Copilot 默认开训之后，搬去 Forgejo 的全套实操</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/14/forgejo-github-copilot-exodus-2026-05-14.png" alt="Copilot 训练数据默认开启之后的 Forgejo 自托管搬迁路线封面"></p>
+<p>5 月 13 日 Hacker News 首页挂着一篇标题朴素得出奇的长文「离开 GitHub 投奔 Forgejo」（Leaving GitHub for Forgejo）。一位欧洲独立开发者 Jorijn 把自己怎么把全部仓库从 GitHub 搬到自托管 Forgejo 的细节写了一万多字，发出来后 456 赞 244 评论，连着两天没掉出前 20。评论区一半人在追问硬件账单，另一半人在补刀——「这事我去年就该做了」。</p>
+<p>事情的直接导火索写在 GitHub 官方博客上：从 2026 年 4 月 24 日起，Copilot Free、Pro、Pro+ 三档个人订阅的「交互数据」——也就是你敲进去的提示词、AI 返回的补全、被你接受或修改的代码片段、文件上下文——默认会被用来训练 GitHub 的 AI 模型，<strong>除非你自己进设置里关掉</strong>。Business 与 Enterprise 不受影响，但个人开发者基本盘第一次被推到 opt-out 默认线上。</p>
+<blockquote>
+<p><strong>本文要回答的事</strong>：把 Jorijn 这套搬迁逻辑完整拆开——为什么搬、搬到什么栈、五层隔离怎么搭、和 GitHub 比丢了什么换回了什么。然后回到国内视角：Gitee 企业版、极狐 GitLab、自建 Forgejo、自建 Gitea，对在意代码长期所有权的国内开发者，这四条路怎么选。</p>
+</blockquote>
+<h2>一、4 月 24 日那条政策线</h2>
+<p>先把时间轴拉清楚。GitHub 是 3 月 25 日发的公告，留了整 30 天的通知期，4 月 24 日正式生效。同一周里 Forgejo 项目正好放出 v15.0 LTS——长期支持版本，承诺维护到 2027 年 7 月 15 日。两件事撞在同一个月份不是巧合，是欧洲开源社区已经在心理上准备很久的对应。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/14/forgejo-policy-timeline-2026.png" alt="GitHub Copilot 训练数据默认开启政策时间线 timeline 2026-03 至 2026-05"></p>
+<p>被影响的范围比很多人以为的更广：</p>
+<ul>
+<li><strong>覆盖档位</strong>：Copilot Free（含每月 50 条 agent 配额）、Pro（10 美元 / 月）、Pro+（39 美元 / 月）；Business（19 美元 / 席位）与 Enterprise（39 美元 / 席位）保持不收集。</li>
+<li><strong>覆盖数据</strong>：输入提示、模型输出、被接受 / 修改的代码块、上下文中读到的文件、注释、文件名、仓库结构、用户反馈评分。</li>
+<li><strong>覆盖仓库</strong>：在 Copilot 激活的会话里被读到的私有仓库代码，同样会进训练集——除非你手动关掉。</li>
+<li><strong>退出路径</strong>：账号 Settings → Copilot → Privacy，把 &quot;Allow GitHub to use my interaction data&quot;（允许 GitHub 使用我的交互数据） 关闭即可，之前关过的偏好会被自动保留。</li>
+<li><strong>共享范围</strong>：数据会在 GitHub 关联公司（含 Microsoft 母公司）之间流转，但不会卖给第三方独立模型供应商。</li>
+</ul>
+<p>这套设计本身合规，写在隐私政策里，30 天通知期也走完了流程。问题在于「默认开启」这条策略线——一位欧洲开发者用工程师的口气把直觉感受写成了几个具体的不安：自己写的私有项目代码会以「学习样本」的形式留在某个权重矩阵里、未来 GitHub 重组进 Microsoft CoreAI 部门后这条线会不会进一步往前收、自己作为基础设施的最长依赖该不该再放在一家「商业策略每年都会更新一次」的平台上。</p>
+<p>这些问号没有标准答案，但促发了一个非常具体的行动——他用一个礼拜搬完了所有代码。</p>
+<p>更值得关注的细节是这条政策的法律语义。「opt-out 模式」在欧洲 GDPR 框架下争议很大——欧盟法律传统里同意必须是「明确、知情、自愿」的肯定行为，默认勾选向来不被认作有效同意。GitHub 这次走的是「合同性质条款变更」加「30 天通知期」的组合拳，技术上合规，气质上反差感强。一位德国律师在 HN 评论区直接列了三条潜在挑战点——这场拉锯远没有结束。</p>
+<p>中国大陆开发者关心的不止是隐私语义。Copilot 在国内的可达性本身就靠各种代理与企业账号支撑，2026 年下半年 Microsoft 与 GitHub 围绕中国市场的合规调整很可能出现新变量。在这种长周期不确定性下，把代码物理位置握在自己手里，至少是一个对冲——不是「走向闭塞」，是「保留选项」。</p>
+<h2>二、搬到哪里：64 GB NUC 跑完整套自托管栈</h2>
+<p>Jorijn 的答案没有挑昂贵的方案。他没买专门服务器、没租云、没自己搭机柜，就一台家用 Intel NUC，64 GB 内存，跑一套 Docker 编排。Forgejo v15 LTS 当 forge、PostgreSQL 17 当数据库、Traefik 当反向代理、一个独立 Container Registry 当镜像仓库。CI runner 单独放在 Incus 管理的 KVM 虚拟机里，和 forge 主机做物理意义上的分层。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/14/forgejo-self-host-stack.png" alt="Forgejo 自托管 stack 拓扑：单台 NUC 跑完完整代码主权 host"></p>
+<p>这套组合的好处是每一块都成熟、可替换、不锁死任何商业 SaaS：</p>
+<ul>
+<li><strong>Forgejo v15 LTS</strong>：Gitea 在 2022 年因治理争议被 fork 出 Forgejo，由非营利组织 Codeberg e.V. 治理，名字来自世界语「forĝejo」即「锻造场」。v15 是 Forgejo 项目的第 100 次发行，长期支持至 2027 年 7 月。</li>
+<li><strong>PostgreSQL 17</strong>：成熟的开源数据库，做 forge 元数据存储毫无悬念，迁移到任何其他 forge 都能复用。</li>
+<li><strong>Traefik</strong>：自动证书申请 + 反向代理 + HTTP/3 一把抓，比手动 Nginx + Certbot 省一倍配置时间。</li>
+<li><strong>Container Registry</strong>：跑自己的 OCI 镜像，CI 推上来、生产拉下去，整条链路在自家网内闭环。</li>
+<li><strong>Incus + KVM</strong>：CI runner 在虚拟机里跑而不是直接跑容器，安全边界比 Docker-in-Docker 高一个量级。</li>
+<li><strong>nftables</strong>：替代 iptables 的现代防火墙，做出口流量过滤干净利落。</li>
+</ul>
+<p>整套栈在一台 NUC 上的常态资源占用大约是 8–12 GB 内存、一两核 CPU、几百 GB 磁盘——剩下的 50 多 GB 内存留给 KVM runner 跑测试任务。从硬件账单看，二手 NUC + 64 GB 内存条 + 一根公网 IP + 一年备份冷存储，大约 6000 人民币以内能起步。</p>
+<p>对国内开发者而言更值得说的是部署路径。这套架构在自家宽带 + NAT 转发的家庭网络里就能跑——动手能力强的工程师周末两天能搭完。如果不想搬硬件，国内云厂商一台 8 核 32 GB 的 ECS 月费大约 300–500 元就能撑下来。Forgejo 体量轻，跑得动是常态，跑不动是反常。</p>
+<h2>三、五层隔离：Runner 当成对外服务器来防</h2>
+<p>整篇长文最值钱的一段，是 Jorijn 描述自己怎么防 CI runner 被滥用。这不是过度设计——任何接外部 PR 的开源仓库，runner 本质上就是会执行陌生人代码的机器，过去几年 GitHub、GitLab、CircleCI 都出过 runner 被矿池利用、被横向移动、被偷 token 的事件。</p>
+<p>他的设计哲学只有一句：<strong>假设每一层都会被攻破</strong>。所以叠了五层，每一层都不依赖上一层。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/14/forgejo-kvm-isolation-layers.png" alt="Forgejo Runner KVM isolation layers 五层隔离从网络层到 token 作用域"></p>
+<p>从外到内拆开看：</p>
+<ol>
+<li><strong>第 1 层 · nftables 出口防火墙</strong>。Runner 所在 VM 的出口只放行四个端口：443（HTTPS 拉依赖）、80（HTTP redirect）、22（git 协议）、53（DNS）。RFC1918 的内网段全封——这意味着即便 runner 被打穿，也扫不到家里路由器、扫不到 forge 主机、扫不到家用网络里其他设备。</li>
+<li><strong>第 2 层 · KVM 虚拟机硬隔离</strong>。Runner 不跑在裸 Docker，跑在 KVM 全虚拟化 VM 里。逃逸到宿主机需要先击穿 KVM hypervisor 边界，这是 CVE 级别难度——过去十年公开过的 KVM 完整逃逸 CVE 屈指可数。</li>
+<li><strong>第 3 层 · gVisor 用户态沙箱</strong>。在 VM 里再加 runsc 沙箱，gVisor 在用户态拦截系统调用，等于把容器逃逸的代价又翻一倍。要从 runsc 沙箱跳到 VM、再从 VM 跳到宿主机，需要同时存在两个不相关 0day。</li>
+<li><strong>第 4 层 · 每周一 02:00 强制重建</strong>。整个 runner VM 每周一凌晨被 Ansible / Incus 销毁后重建，基础 Ubuntu 镜像周日先重打、周一拉新镜像启动，所有持久状态最多保留 7 天。即便被植入后门，最多活 7 天就被重置。</li>
+<li><strong>第 5 层 · scope-bound runner token</strong>。Forgejo runner 注册时的 PAT 严格限定 <code>write:user</code> 和 <code>write:organization</code> 两个作用域，跨作用域的 admin 操作直接拒绝。即便 token 泄漏，攻击者也碰不到管理后台。</li>
+</ol>
+<blockquote>
+<p>把这套思路翻译成中文版工程语言就一句话：<strong>别把 CI runner 当内网机器，把它当成挂公网的不信任服务器来防。</strong></p>
+</blockquote>
+<p>国内的开发者会很熟悉「隔离 + 重建 + 最小权限」这套组合——它就是政企客户内部红蓝对抗的常规打法搬到个人开发流上的版本。Jorijn 把它做得克制：每一层都用现成开源软件、配置文件都不超过 200 行、整套维护成本一个周末 + 每月 30 分钟巡检。这套设计对国内一些规模不大但又确实接外部贡献的开源项目（比如个人维护的知名脚手架、学术工具、私有协议库），是可以直接拿过来照搬的参考实现。</p>
+<h2>四、GitHub 这边的「推力」：12 个月 257 起事件</h2>
+<p>只有「政策不舒服」一条理由当然撑不起整套搬迁——成本太高、惯性太强。Jorijn 在文章里把另一条推力也摆出来：GitHub 近一年的稳定性，给基础设施依赖者敲了警钟。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/14/forgejo-github-incidents-chart.png" alt="GitHub 近 12 个月稳定性 incidents chart 总事件 257 起重大 48 起"></p>
+<p>2025 年 5 月到 2026 年 4 月这滚动 12 个月里，GitHub Status Page 上累计登记 257 起事件、48 起标记为重大（majorish），合计宕机时长大约 112 小时——折算约一周整工作时长。GitHub CTO 在公开场合承认平台需要做 30 倍扩容才能跟上当前 Actions / Codespaces / Copilot 的负载增长。</p>
+<p>这些数字本身不是末日叙事——同样体量下任何 SaaS 都难免事故——但叠加另一条信息就显得敏感：2025 年 8 月，GitHub 被并入 Microsoft 内部的 CoreAI 部门，原有独立 CEO 离任后没有等量级继任者，运营节奏的话语权从 GitHub Plaza 转到 Redmond。基础设施服务对独立公司治理结构的敏感度，远高于消费产品。</p>
+<p>把政策、稳定性、治理三条线放在一起看，欧洲开源社区这次的反应不是激情消费——是工程师群体一次有节奏的对冲。</p>
+<p>国内开发者其实经历过更剧烈的版本。2018 年到 2020 年那几次 git 仓库被批量下架、2021 年某些组织域名一夜消失的事件，让本土开源社区的「基础设施备份意识」普遍比欧美早成熟两三年。Gitee / Coding（已并入腾讯）/ 极狐 GitLab 那时候就是在这种压力下长出来的——所以这次欧洲社区走的路，对国内同行而言不是新鲜事，是熟悉的回声。</p>
+<h2>五、Forgejo vs GitHub：要让出什么、换回什么</h2>
+<p>搬迁不是无成本的平移，是一次精确的功能换取。Jorijn 在文章里很坦诚地列了所有让步——这恰恰是这篇文章值得看的地方，作者没把自托管讲成银弹。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/14/forgejo-vs-github-feature-matrix.png" alt="Forgejo vs GitHub feature matrix 能力对比 8 项核心维度"></p>
+<p>具体损失盘点：</p>
+<ul>
+<li><strong>Actions 生态轻微不兼容</strong>：Forgejo Actions 兼容 GitHub Actions 大部分语法，但 <code>permissions:</code> 块被忽略、<code>actions/checkout@v6</code> 需要回退到 v5、<code>actions/upload-artifact@v4</code> 需要用 Forgejo fork 版本、OIDC 工作流键名略有差异。已有工作流脚本平均要花一两个小时调通。</li>
+<li><strong>没有 Dependabot</strong>：替代方案是 Renovate，配置成 3 小时巡检一次依赖更新，作者实测「半天搞定」。Renovate 的灵活性其实比 Dependabot 还高一点，缺点是要自己写一份 <code>renovate.json</code> 配置。</li>
+<li><strong>没有 Codespaces</strong>：浏览器云开发机这个特性自托管暂时没等价对应物。重度依赖云开发机的团队需要另想路径（自建 code-server / Gitpod 私有版）。</li>
+<li><strong>没有 24×7 厂商电话支持</strong>：Forgejo 是社区项目，有 issue tracker、Matrix 聊天室、邮件列表，但没有 SLA、没有专属客服经理。重度生产依赖需要自己组运维。</li>
+<li><strong>生态商业化薄</strong>：目前唯一独立的 Forgejo 商业管理服务是瑞士 VSHN 的 Codey（19 瑞郎 / 月），其他都是 DIY。</li>
+</ul>
+<p>换回来的也很具体：</p>
+<ul>
+<li><strong>代码数据自有</strong>：物理意义上的所有权——硬盘在你家、备份归你管、训练数据政策由你写。</li>
+<li><strong>不受美国司法属地约束</strong>：FISA 第 702 条、CLOUD Act 都管不到欧洲私人机房里的 NUC。这一条对涉国家安全 / 关键基础设施的开发者尤其重要。</li>
+<li><strong>AGPL-3.0 全栈可改</strong>：从 forge 到 runner 到 web UI，整套代码都能审计、能改、能 fork。商业 SaaS 不可能给你这种自由度。</li>
+<li><strong>品牌可控</strong>：Logo、域名、UI、Issue 模板全归你自己。</li>
+<li><strong>资源占用低</strong>：Forgejo 官方宣称「相比同类竞品少一个数量级的资源」——一台 NUC 撑住完整工作流就是证据。</li>
+</ul>
+<p>落到具体的迁移路径里，工程师群体常忽视一个细节：搬走不等于关停 GitHub 账号。Jorijn 自己也讲了，他的策略是「主托管位搬到 code.jorijn.com、GitHub 上保留只读 mirror 当 SEO 与发现入口」，README 顶上指向新地址。这一招实际上比「全部斩断」更稳——既保住代码主权，又保住公共项目的曝光度。</p>
+<h2>六、对国内开发者：四条同阵营的路</h2>
+<p>把欧洲开发者的故事讲完，落点必须回到国内同行身上。代码主权这件事——把代码物理位置、训练数据政策、长期可访问性都放回自己掌控里——对国内开发者其实有更天然的吸引力，因为我们这边的基础设施和合规框架本来就鼓励本地化部署。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/14/forgejo-china-alternatives-table.png" alt="国内 china alternatives 四条路 Gitee 极狐 GitLab 自建 Forgejo 自建 Gitea 选项表"></p>
+<p>四条具体路径，按起步成本由低到高：</p>
+<h3>6.1 Gitee 企业版（含 SaaS + 私有化）</h3>
+<p>国内代码托管平台第一梯队，目前服务 36 万家企业。SaaS 免费版起步，企业 SaaS 按席位计费，私有化部署支持自建机房、阿里云 / 腾讯云 / 华为云一键导入，完整支持国产化生态（鲲鹏 / 飞腾 / 麒麟操作系统、达梦 / GaussDB 数据库）。数据 100% 境内存储，对照《网络安全法》《数据安全法》《个人信息保护法》合规框架直接对齐。</p>
+<p>适合谁：中小团队、SaaS 起步、对国产化合规有硬要求的行业（金融、政企、运营商、国央企）。</p>
+<h3>6.2 极狐 GitLab（GitLab 中国合资公司）</h3>
+<p>极狐是 GitLab 公司以技术入股形式在中国成立的合资公司，中国管理团队独立运营、拥有不可撤销的 GitLab 技术与品牌授权。极狐有自己独立的代码仓库（与 GitLab Inc. 完全分离），SaaS 服务与 GitLab.com 不共享任何基础设施、网络、系统、数据。客户数据保存在中国本地。</p>
+<p>适合谁：中大型团队、DevSecOps 一体化、已经用过 GitLab 想保留同样工作流但要数据出境合规的客户。</p>
+<h3>6.3 自建 Forgejo</h3>
+<p>完全照搬 Jorijn 那套——一台机器、Docker、Forgejo + PostgreSQL + Traefik。国内开发者的硬件成本反而更低（家用宽带 + 一台二手服务器或闲置工作站），社区中文资料近一年迅速补齐。Forgejo v15 LTS 长期支持承诺至 2027 年 7 月，作为个人 / 极客团队基础设施依赖足够稳。</p>
+<p>适合谁：个人开发者、3–5 人极客团队、想完整掌控代码栈又愿意承担运维责任的群体。</p>
+<h3>6.4 自建 Gogs / Gitea</h3>
+<p>更轻量的两个选项。Gogs 是早年的 Go 实现 Git forge，30 分钟能起一个实例；Gitea 是 Gogs 的分支（也是 Forgejo 的上游父项目）。两者都比 Forgejo 体量更小、功能更精简，做个人代码盒子、家庭 NAS 上挂一个版本控制极其合适。</p>
+<p>适合谁：单人开发者、个人项目、家庭服务器、教学场景。</p>
+<h2>七、几个常见追问</h2>
+<p><strong>问：Forgejo 和 Gitea 是什么关系？</strong></p>
+<p>Forgejo 在 2022 年从 Gitea 仓库 fork 出来，原因是 Gitea 治理权被一家商业公司接管，社区担心长期方向。Forgejo 由 Codeberg e.V. 这个非营利组织治理，决策权在社区。两者代码基础最初相同，2024 年开始有较多独立演进，2026 年 Forgejo v15 起独立特性（Actions / Federated Forge / 更细的权限模型）显著领先。</p>
+<p><strong>问：国内访问 Codeberg 速度怎么样？</strong></p>
+<p>Codeberg 服务器在德国，国内访问需要良好的网络条件。但这一点不影响自建——Forgejo 是 Go 语言写的单二进制，在国内服务器跑完全不需要碰 Codeberg。从 Codeberg 仓库 git clone 源码或 docker pull 镜像可以走国内镜像加速。</p>
+<p><strong>问：自建 Forgejo 算违规吗？</strong></p>
+<p>不算。Forgejo 是开源软件，自建在自己控制的服务器上完全合法。涉及对外开放服务则需要按《网络安全法》备案——这一步与自建任何对外网站完全相同，Gitee 私有化、极狐私有化也要做同样备案。</p>
+<p><strong>问：CI 跑得动吗？</strong></p>
+<p>Jorijn 那套一台 NUC 64 GB 跑个人 + 小团队完全够用，他的 Renovate 配置是每 3 小时巡检，Actions 工作流并发 2–4 个无压力。国内开发者如果一台机器内存 32 GB 起步、有 SSD，跑日常 CI 完全可以；测试任务多的团队可以加一台二手服务器专门当 runner，runner 和 forge 主机本来就该物理分开。</p>
+<p><strong>问：和 Copilot 这种 AI 编码助手怎么共存？</strong></p>
+<p>自建 forge 不冲突 AI 编码。本地跑 Continue / Aider 接 DeepSeek / 通义千问 / Qwen Code，Copilot CLI 用 Business / Enterprise 档（不上传训练数据），通义灵码个人版本（限免至 5 月 20 日 18 点），这些都和代码物理位置无关。代码主权和 AI 编码体验是两个正交维度，可以同时拥有。</p>
+<p><strong>问：万一 Forgejo 项目挂了怎么办？</strong></p>
+<p>Forgejo 数据完全兼容 Gitea，迁移过去只需要改一行启动命令；同时也可以反向迁回 GitHub / Gitee / 极狐——所有这些 forge 都支持 git mirror push，最坏情况下损失的是 issue / PR 元数据，代码本身永远在自己手里。</p>
+<p><strong>问：备份怎么做？</strong></p>
+<p>Forgejo 的备份逻辑非常直接：一个 <code>forgejo dump</code> 命令把所有仓库 + 元数据库 + 配置打包成单个 tar 文件。常见做法是每天定时跑一次 dump 推到对象存储（自建 MinIO / 阿里云 OSS / 腾讯云 COS 任选），保留 30 天滚动副本。再加上 PostgreSQL 自身的 WAL 流复制做异机热备，整套方案的 RPO 控制在分钟级，RTO 在半小时内——比很多商业 SaaS 的恢复体验还要快。</p>
+<p><strong>问：和团队成员协作还方便吗？</strong></p>
+<p>Forgejo 支持 OIDC / SAML / OAuth2 / LDAP 等所有主流单点登录方案，企业微信、飞书、钉钉都能通过 OAuth2 协议挂上来。Issue / PR / Code Review / Wiki / Project Board 这些团队协作能力一应俱全，体验和 GitHub 95% 一致——剩下那 5% 是 GitHub Discussions / Insights 这种增值功能，多数团队用不到。</p>
+<h2>八、把这套落到自己工作流里</h2>
+<p>如果你今天读完想试一下，最低门槛的入口其实只有一台手边的电脑加一段周末时间。整个流程大致是这样：先在一台闲置工作站或 NAS 上装 Docker，拉 Forgejo 官方镜像，配 PostgreSQL 与 Traefik，跑起来后用 <code>forgejo migrate</code> 一键导入既有 GitHub 仓库——这部分 Forgejo 文档写得非常清楚，平均两小时能搞定。然后给自己一周时间让新 forge 跑稳，再逐步把日常 commit 切过去。Copilot / Codeium / 通义灵码 / Qwen Code 这些 AI 编码助手都可以继续用，只要把它们指向新 forge 的 git remote 即可。</p>
+<p>整个迁移过程里最值得记下来的体感是「自由度」——不是「我必须自托管」，而是「我可以选择自托管」。这两种心态相差很远。在 GitHub 还能用、Copilot 还可以 opt-out 的当下，主动给自己留一条备份路径，比未来被动应对要从容得多。Jorijn 在文章里没说自己再也不用 GitHub——他用的是「Leaving」，不是「Boycott」。这一个动词的克制，恰好是这次迁移潮的关键气质。</p>
+<h2>九、收尾：代码长期归谁的问题</h2>
+<p>这件事的真正分量不在「换一个平台」，在「重新审视代码长期归属」。Jorijn 那篇长文最后一段写得克制：搬过去之后他依然会把 GitHub 当作公共项目的展示窗口——README 指向 code.jorijn.com，外部贡献者依然能找到，issue 还是发回主托管位。也就是说，代码物理在自己家，对外可见性靠 GitHub mirror 维持。这个混合策略对国内开发者也成立：Gitee / 极狐 / 自建 Forgejo 是底座，GitHub 是展示橱窗。</p>
+<p>国内开发者其实站在更有利的位置上。Gitee 已经服务 36 万家企业、私有化方案早就被金融政企跑通；极狐 GitLab 做到了与 GitLab.com 完全数据隔离；Forgejo 这种 AGPL-3.0 自托管栈技术成熟到一个周末就能搭起来；国产硬件 + 国产操作系统 + 国产数据库的全栈适配也比欧洲走得更前。一位欧洲独立开发者用一台 NUC 给出的样板，国内同行其实可以做得更顺手。</p>
+<p>代码是写给未来的自己看的。把它放在哪儿、由谁定它的命运，五年后回头看，比这周加了几个 feature 重要得多。这一次欧洲社区抢先把样板间打了出来，国内同行接住的姿势可以更从容——硬件更近、合规更熟、社区更暖、上下游更全。代码主权这件事，向来不是「要不要做」的问题，是「什么时候做」的问题。这一波 Copilot 默认开训的政策线，可能就是不少国内开发者「现在做」的那个时点。</p>
+<hr>
+<p>参考资料：</p>
+<ul>
+<li>GitHub 官方公告「GitHub Copilot 交互数据使用政策更新」（Updates to GitHub Copilot interaction data usage policy），github.blog</li>
+<li>Jorijn 长文「离开 GitHub 投奔 Forgejo」（Leaving GitHub for Forgejo），jorijn.com/en/blog</li>
+<li>Forgejo 项目主页与 v15 LTS 发版说明，forgejo.org</li>
+<li>Gitee 企业版产品页，gitee.com/enterprises</li>
+<li>极狐 GitLab 中国官网，gitlab.cn</li>
+<li>Hacker News 讨论帖（456 赞 / 244 评论），news.ycombinator.com</li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

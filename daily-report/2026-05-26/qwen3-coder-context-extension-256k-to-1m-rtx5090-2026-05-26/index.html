@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>256K → 1M：千问 Coder 30B 在 RTX 5090 上的上下文扩展工程账 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-26</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-26</span><span class="tag-pill">Daily Report</span></div>
+      <h1>256K → 1M：千问 Coder 30B 在 RTX 5090 上的上下文扩展工程账</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/qwen3-coder-context-extension-256k-to-1m-rtx5090-2026-05-26.png" alt="封面：256K → 1M 上下文扩展工程账"></p>
+<h2>30 秒速览</h2>
+<ul>
+<li>千问 Qwen3-Coder-30B-A3B-Instruct 原生 max_position_embeddings 是 <strong>262,144 token（256K）</strong>，截至 2026-05-26 在 HuggingFace 模型卡里官方写明 YaRN 可外推到 <strong>1M</strong>。</li>
+<li>RTX 5090 32GB 一张卡装 BF16 全精度权重需要 61.1 GB，Q8_0 需要 32.5 GB；只有 <strong>Q4_K_M 18.6 GB</strong> 才留得出 KV cache 余量。</li>
+<li>KV cache 每 token 在 BF16 下约 98 KB，256K context 光 KV 就要 <strong>25 GB</strong>；1M 直接到 <strong>98 GB</strong>，单卡完全不够。</li>
+<li>FP8 KV cache 把每 token KV 显存压到 BF16 的 <strong>约 54%</strong>（vLLM 官方博客 2026-04-22 数据），同样 32GB 可塞约 2 倍上下文；llama.cpp 等价是 <code>-ctk q8_0 -ctv q8_0</code>。</li>
+<li>Flash Attention 3 在 5090（sm_120）截至 2026-05-26 <strong>没有完整官方支持</strong>，vLLM 实际走 FlashInfer FA2 / CUTLASS fallback；这是工程巫术，不是开箱即用。</li>
+</ul>
+<h2>这一年最贵的那张消费卡，第一个被问到的居然是 context</h2>
+<p>2026-04 之后，国内开发者群里聊 RTX 5090 的话题，从「显存够不够装 DeepSeek」迅速滑到了「能不能把千问 Coder 的上下文推到 1M」。这件事的吸引力很直接：一张消费级显卡，配上原生 256K 的 MoE 编码模型，再叠一个 YaRN，整个 monorepo 喂进去做跨文件改写——这是过去只有云端 API 才敢谈的能力。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/qwen3-coder-hf-og.jpg" alt="千问 Coder HuggingFace 模型卡"></p>
+<p>但只要真正动手装机，第一道坎就不是模型本身，而是显存。把 BF16 权重塞进 32GB 是不可能的；Q8_0 塞得下，但留给 KV cache 的空间几乎归零；只有 Q4_K_M 这个档位才有腾挪余地。<strong>真正卡在 5090 头上的瓶颈，从来不是 30B 模型够不够强，而是 KV cache 够不够省</strong>——这是这篇文章自始至终要回扣的那一句。</p>
+<h2>先看一组实测：显存到底花在哪</h2>
+<p>千问 Coder 30B-A3B 的结构信息已经公开：总参数 30.5B、激活 3.3B、num_hidden_layers 48、GQA num_key_value_heads 4。把这些数据代入显存预算公式，可以一行一行算清每个档位塞下之后剩多少。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/qwen3-coder-vram-budget-2026-05-26.png" alt="5090 显存预算账"></p>
+<table>
+<thead>
+<tr>
+<th>量化档</th>
+<th>权重显存</th>
+<th>5090 32GB 剩余 KV 余量</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>BF16 全精度</td>
+<td>61.1 GB</td>
+<td>单卡不可能</td>
+</tr>
+<tr>
+<td>Q8_0</td>
+<td>32.5 GB</td>
+<td>卡死，无 KV 余量</td>
+</tr>
+<tr>
+<td><strong>Q4_K_M / UD-Q4_K_XL</strong></td>
+<td><strong>18.6 GB</strong></td>
+<td><strong>约 13 GB 给 KV</strong></td>
+</tr>
+<tr>
+<td>MLX 4-bit（Mac 对比）</td>
+<td>约 17.2 GB</td>
+<td>32GB 统一内存跑 32K 已紧</td>
+</tr>
+</tbody></table>
+<p>这意味着，5090 上做长上下文实验，量化档几乎只剩 Q4 一条路。Unsloth 出的 UD-Q4_K_XL 是当前社区最稳的 GGUF 之一，截至 2026-05-26 在 HuggingFace 上每周下载量稳居 Qwen3-Coder 系列前三。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/unsloth-qwen3-coder-gguf-og.png" alt="Unsloth Qwen3-Coder GGUF"></p>
+<h2>KV cache 才是真正的瓶颈</h2>
+<p>把权重塞进去只是第一步，每生成或读入一个 token，都要在显存里留下对应的 K、V 两个向量；序列拉长，这部分会线性膨胀。代入 Qwen3-Coder 30B-A3B 的结构：48 层 × 4 个 KV head × 128 维 × 2（K 和 V）× 2 byte（BF16）= 每 token 约 <strong>98 KB</strong>。这是把 30B 模型推到长上下文最难绕的那一道账。</p>
+<table>
+<thead>
+<tr>
+<th>上下文长度</th>
+<th>BF16 KV cache</th>
+<th>FP8 KV cache</th>
+<th>Q4 KV cache</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>256K（262,144 token）</td>
+<td>约 25 GB</td>
+<td>约 13 GB</td>
+<td>约 6.5 GB</td>
+</tr>
+<tr>
+<td>512K</td>
+<td>约 49 GB</td>
+<td>约 26 GB</td>
+<td>约 13 GB</td>
+</tr>
+<tr>
+<td>1M（1,048,576 token）</td>
+<td>约 98 GB</td>
+<td>约 49 GB</td>
+<td>约 25 GB</td>
+</tr>
+</tbody></table>
+<p>把这张表叠到 5090 的 32GB 上，结论非常清楚：</p>
+<ul>
+<li><strong>256K + BF16 KV</strong> = 18.6 + 25 ≈ 43.6 GB，<strong>单卡装不下</strong>；</li>
+<li><strong>256K + FP8 KV</strong> = 18.6 + 13 ≈ 31.6 GB，<strong>贴着上限可行</strong>；</li>
+<li><strong>1M + FP8 KV</strong> = 18.6 + 49 ≈ 67.6 GB，<strong>单卡完全无解</strong>；</li>
+<li><strong>1M + Q4 KV</strong> = 18.6 + 25 ≈ 43.6 GB，<strong>仍超 32GB，必须配合分页 offload</strong>。</li>
+</ul>
+<p>这意味着想在一张 5090 上跑 1M context，<strong>KV cache 量化是必选项，不是优化项</strong>。vLLM 官方在 2026-04-22 的博客《The State of FP8 KV-Cache and Attention Quantization》里给的数据是：FP8 KV 让每 token KV 显存降到 BF16 的约 <strong>54%</strong>；2026-05-11 后续的《A First Comprehensive Study of TurboQuant》进一步把这条曲线压向了 8-bit 以下。</p>
+<h2>YaRN：把模型推到 1M 的那点数学魔法</h2>
+<p>千问 Coder 模型卡里专门有一节叫 Long-context Capabilities，写明原生 262,144、通过 YaRN 可外推到 1,048,576。这个 YaRN 不是工程师拍脑袋造的词；它是 2023 年 Bowen Peng、Jeffrey Quesnelle、Honglu Fan、Enrico Shippole 发在 arxiv 2309.00071 的论文，全名 Yet another RoPE extensioN method，EleutherAI 博客做过深度解读。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/qwen3-coder-github-og.png" alt="GitHub Qwen3-Coder repo"></p>
+<p>YaRN 的核心做法是同时改 RoPE 的频率基（base）和 attention 温度，再叠一个 ramp 函数对低频维度做特殊处理。论文摘要里给的对比数据是：相比早期 PI / NTK-aware 扩展，YaRN 训练只要 <strong>1/10 的 token、1/2.5 的训练步</strong>就能达到同等长度外推；s=8/16/32 都是论文给的典型档。</p>
+<p>在 llama.cpp 上启用 YaRN，社区已经验证过的一组命令（Unsloth 实测在 5090 + Q4_K_M 上推 1M）是这样：</p>
+<pre><code class="language-bash">./llama-server \
+  -m Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf \
+  -c 1048576 \
+  -ctk q8_0 -ctv q8_0 \
+  --rope-scaling yarn \
+  --rope-freq-scale 0.33 \
+  --rope-freq-base 500000 \
+  -fa
+</code></pre>
+<p>这里有两个细节值得说清楚：<code>-ctk q8_0 -ctv q8_0</code> 是 llama.cpp 的 KV cache 8-bit 量化开关，相当于 vLLM 里的 FP8 KV；<code>--rope-freq-scale 0.33</code> 对应 YaRN factor s≈3，这是从 256K 推到 1M（4×）的折中档。YaRN 论文 Fig 4 里画过 perplexity 曲线，8× 扩展几乎与原模型持平，32× 才会明显劣化；这一段细节读者要查论文 PDF，本文未独立验证更精细的数据。</p>
+<p>更现实的注意点是质量损失。阿里 Qwen2.5-1M 技术报告里坦率写过，1M 训练数据本身就稀缺，「针不在草堆」类任务的 recall 比 256K 档掉 5-10%。这意味着把上下文推到 1M 之后，不能假设模型像 256K 一样精确——把它当成「能看完整本书但偶尔漏一段」的工具更合适。</p>
+<h2>Flash Attention 3 在 5090 上的真实状况</h2>
+<p>Flash Attention 3（arxiv 2407.08608，2024 年 Tri Dao 等人）是这一年 Hopper / Blackwell 数据中心卡上最主流的 attention 算子；在 H100 上 FA3 比 FA2 又翻一倍吞吐。但截至 2026-05-26，<strong>FA3 在 RTX 5090（sm_120）上还没有完整官方支持</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/flash-attention-github-og.png" alt="FlashAttention GitHub"></p>
+<p>证据有两条：</p>
+<ul>
+<li><strong>vLLM issue #22279</strong>：标题就是「Sinks are only supported in FlashAttention 3 on 5090」，截至 2026-05-26 仍处于 open 状态；</li>
+<li><strong>Dao-AILab issue #1665</strong>：how to use flash-attn with sm120，作者明确回复 FA3 当前完整支持 sm_90（H100）和 sm_100（B100/B200），sm_120 在 roadmap 上。</li>
+</ul>
+<p>vLLM 后端兼容矩阵的现状是：sm_100（B100/B200 数据中心 Blackwell）走 FA4；<strong>sm_120（5090 消费级 Blackwell）走 FlashInfer FA2 或 CUTLASS fallback</strong>。这是一个反直觉的事实——5090 比 4090（sm_89）更新，但 attention 内核生态目前比 4090 还要折腾。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/vllm-github-og.png" alt="vLLM GitHub"></p>
+<p>社区目前最稳的栈是 vLLM 0.9.x + PyTorch 2.9.0 cu128 + FlashInfer backend，5090 上跑 Qwen3-Coder 30B 不会爆错；但要拿到 H100 那种 attention 吞吐，需要等 FA3 的 sm_120 完整支持。</p>
+<h2>三档实战配方：256K / 512K / 1M 各自怎么跑</h2>
+<p>把上面所有显存账和 attention 内核情况合起来，5090 上跑千问 Coder 的实战配方实际只有三档。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/qwen3-coder-three-recipes-2026-05-26.png" alt="三档实战配方"></p>
+<p><strong>第一档：256K + FP8 KV，vLLM</strong></p>
+<pre><code class="language-bash">vllm serve Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8 \
+  --max-model-len 262144 \
+  --kv-cache-dtype fp8 \
+  --gpu-memory-utilization 0.92 \
+  --max-num-seqs 4 \
+  --enable-prefix-caching
+</code></pre>
+<p>这是最稳的一档；CloudRift 在 2026-05 的公开实测里，1× 5090 + Qwen3-Coder 30B AWQ + vLLM + MCR=16 + 114,688 ctx 跑出 <strong>1,157 tok/s（4 并发）</strong>、TTFT 956 ms。</p>
+<p><strong>第二档：512K + FP8 KV，SGLang HiCache</strong></p>
+<pre><code class="language-bash">python -m sglang.launch_server \
+  --model Qwen/Qwen3-Coder-30B-A3B-Instruct \
+  --quantization awq \
+  --context-length 524288 \
+  --kv-cache-dtype fp8_e5m2 \
+  --enable-hicache \
+  --hicache-storage-backend mooncake-3fs
+</code></pre>
+<p>SGLang 的 HiCache 是分三层（L1 GPU / L2 CPU / L3 NVMe）的 KV 缓存，配合 Mooncake 3FS 后端，cache hit 率能从 40% 拉到 80%；官方博客给的数字是同模型多轮对话场景<strong>吞吐 6×、TTFT 降 80%</strong>。这一档适合实际编码 IDE 接入场景，因为多轮上下文复用率高。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/sglang-github-og.png" alt="SGLang GitHub"></p>
+<p><strong>第三档：1M + Q4 KV，llama.cpp + YaRN</strong></p>
+<pre><code class="language-bash">./llama-server \
+  -m Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf \
+  -c 1048576 \
+  -ctk q8_0 -ctv q8_0 \
+  --rope-scaling yarn \
+  --rope-freq-scale 0.33 \
+  --rope-freq-base 500000 \
+  -fa \
+  -ngl 99
+</code></pre>
+<p>这是把 5090 推到极限的玩法，权重 18.6 GB + Q4 KV 25 GB ≈ 43.6 GB，必须配合 llama.cpp 的分页 offload（部分层放 CPU 内存）才跑得起来；首 token 时间会从 256K 档的 956 ms 拉长到工程外推的 <strong>8-12 秒</strong>（这条数据基于 CloudRift 短上下文 TTFT 外推估算，<strong>未独立验证</strong>），decode 速度落到单路 60-80 tok/s。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/llamacpp-github-og.png" alt="llama.cpp GitHub"></p>
+<h2>五家推理引擎对长上下文的支持现状</h2>
+<p>把目前 5090 上能用的五家引擎横着摆一下，画面会清晰很多。</p>
+<table>
+<thead>
+<tr>
+<th>引擎</th>
+<th>5090 sm_120 支持</th>
+<th>KV 量化</th>
+<th>长上下文特色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>vLLM 0.17 + FA4</td>
+<td>FlashInfer FA2 fallback</td>
+<td>FP8（KV 降到 54%）</td>
+<td>Live MoE Scaling、prefix caching</td>
+</tr>
+<tr>
+<td>SGLang</td>
+<td>完整支持</td>
+<td>FP8 e5m2</td>
+<td>HiCache 三层缓存、Mooncake 后端</td>
+</tr>
+<tr>
+<td>llama.cpp</td>
+<td>完整支持</td>
+<td><code>q8_0</code>/<code>q4_0</code></td>
+<td>YaRN 命令行直接拉 1M</td>
+</tr>
+<tr>
+<td>TensorRT-LLM</td>
+<td>部分支持</td>
+<td>FP8</td>
+<td>NVIDIA 官方栈，调试成本高</td>
+</tr>
+<tr>
+<td>MLX（Mac 对比）</td>
+<td>不适用</td>
+<td>4-bit weight</td>
+<td>Mac M4 Max 128GB 才适合长 ctx</td>
+</tr>
+</tbody></table>
+<p>5090 用户实际最常用的还是 vLLM + SGLang 二选一：vLLM 工程化成熟、prefix caching 稳；SGLang 在多轮 IDE 场景下 HiCache 带来的吞吐提升更直接。llama.cpp 在 1M context 是无法替代的——它是目前唯一一条在单张 5090 上把 1M 跑通的工程路径。</p>
+<h2>5090 vs 4090 实测：长上下文吞吐到底差多少</h2>
+<p>CloudRift 在 2026-05 的实测里同时跑了 5090 和 4090，几组关键数字是这样：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/26/qwen3-coder-5090-throughput-2026-05-26.png" alt="5090 vs 4090 吞吐"></p>
+<ul>
+<li>1× 5090 + Qwen3-Coder 30B AWQ + vLLM + MCR=16 + 114,688 ctx：<strong>1,157 tok/s（4 并发）</strong>，TTFT 956 ms；</li>
+<li>同上 SGLang MCR=28：<strong>898 tok/s</strong>，TTFT 2.8s；</li>
+<li>1× 5090 vs 4090 满并发：5090 <strong>4,570 tok/s</strong>，4090 <strong>2,259 tok/s</strong>——5090 是 4090 的约 2 倍。</li>
+</ul>
+<p>另外 joshua8.ai 给的一组数据：1× 5090 + Qwen3.5-35B-A3B + vLLM + FP8 KV + 131,072 ctx，单路输出 <strong>202.3 tok/s</strong>。Alex Dong 的 Mac 对比组：M4 Max 128GB MLX + Qwen3-30B-A3B Q4，单路 <strong>78 tok/s</strong>——5090 单路吞吐是 M4 Max 的约 2.6 倍。</p>
+<p>这意味着，5090 在长上下文场景的性价比，主要不来自 attention 内核（FA3 还没完整支持），而来自显存带宽（1,792 GB/s vs 4090 的 1,008 GB/s）和 prefix caching 的工程红利。</p>
+<h2>国内 IDE 和客户端接入这条 1M 路径</h2>
+<p>把模型跑通只是第一步，最终落在编码工具里才有意义。</p>
+<ul>
+<li><strong>通义灵码（Lingma）</strong>：阿里官方说明里写「原生 256K，通过 YaRN 可拓到 1M，免费不限量」；这条路对国内开发者最顺，云端跑、本地零部署成本。</li>
+<li><strong>千问 Code 网页版</strong>：底层接的是阿里云 DashScope 的 <code>qwen-long</code> 模型，官方上限是 <strong>10M tokens</strong>——这是目前国内 SaaS 编码助手里最长的一档。</li>
+<li><strong>Cherry Studio</strong>：2026-05-22 的 hotfix 已经对接 1M context 路径，可以连接本地 vLLM / SGLang，UI 端不再卡 context 长度。</li>
+<li><strong>Cline + LM Studio</strong>：5090 本地用户最常见的组合；但 Cline 默认 context 卡 32.8K（issue #6494 详细记录），需要去 LM Studio 设置里把 context length 改到 262144 才能真正用满。</li>
+</ul>
+<p>这意味着，国内 5090 用户的现实路径其实有三条：<strong>云端用通义灵码省事、本地用 Cherry Studio + vLLM 折腾长 context、IDE 集成用 Cline + LM Studio 但要改默认配置</strong>。三条路覆盖了从纯白嫖到极限折腾的不同口味。</p>
+<h2>1M context 真实场景：哪些事过去做不了，现在能做了</h2>
+<p>长上下文不只是一个跑分数字；它在国内开发者日常里有非常具体的用法。</p>
+<ul>
+<li><strong>整库代码理解与跨文件 refactor</strong>：单 monorepo 200-500 个文件压成 token 通常落在 500K-1M 区间；过去要分块塞、靠 RAG 拼，现在一口气喂进去模型直接做跨文件改写。</li>
+<li><strong>整本技术书阅读问答</strong>：《CSAPP》中文版 token 数大约在 800K-1.2M；推到 1M 后可以让模型对全书做问答而不切片。</li>
+<li><strong>大型法律 / 合同分析</strong>：单合同 200K + 多版本 diff 200K-500K；私有化部署因为合规硬约束反而成了刚需场景。</li>
+<li><strong>长会议纪要 / 全季度客服记录</strong>：电商把 3 个月 IM 压到约 600K token 做季度复盘，过去这种事必须分段；现在一次性给出。</li>
+<li><strong>RAG 离线索引重建</strong>：不分块直接喂 1M context 做整段嵌入和摘要，能显著降低 chunk 边界错误。</li>
+</ul>
+<p>这些场景的共同特征是：<strong>它们不需要 1M 全部精确，但需要&quot;看完全部&quot;</strong>——这恰好是 YaRN 推到 1M 之后模型还能做的事。</p>
+<h2>把原生上下文长度横着排一排</h2>
+<p>把原生 context 长度横着排，能更清楚千问 Coder 在 2026-05 这个时间点的位置。</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>原生 context</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Llama 4 Scout 17B-A</td>
+<td>10M</td>
+<td>行业第一，但 GPU 不友好</td>
+</tr>
+<tr>
+<td>Llama 4 Maverick</td>
+<td>1M</td>
+<td>数据中心卡才跑得动</td>
+</tr>
+<tr>
+<td><strong>Qwen3-Coder 30B-A3B</strong></td>
+<td><strong>256K（YaRN 1M）</strong></td>
+<td><strong>5090 可单卡</strong></td>
+</tr>
+<tr>
+<td>Mistral Large 3（2025-12 发）</td>
+<td>256K</td>
+<td>与千问同档</td>
+</tr>
+<tr>
+<td>DeepSeek V3 / V4</td>
+<td>128K</td>
+<td>编码强但 ctx 短一档</td>
+</tr>
+<tr>
+<td>Kimi K2</td>
+<td>128-200K</td>
+<td>国产长上下文先驱</td>
+</tr>
+</tbody></table>
+<p>千问 Coder 在原生长度上排在第二梯队，但它有两个独特优势：<strong>MoE 结构让激活参数只有 3.3B</strong>（5090 这种消费卡才装得下），以及 <strong>YaRN 推 1M 在社区已有完整 llama.cpp 命令路径</strong>。Llama 4 Scout 的 10M 在帐面上更长，但单 5090 完全跑不动。</p>
+<h2>收尾：32GB 的真正价值，是把云端能力压回家</h2>
+<p>回到开头那句话：<strong>上下文长度的真正约束不是模型，是 KV cache</strong>。30B 模型挑显存、1M context 也挑显存，5090 的 32GB 正好卡在两道杠之间。FP8 / Q4 KV cache 不是开箱即用的官方功能，而是 vLLM / SGLang / llama.cpp 三家工程师一行一行调出来的工程巫术；YaRN 也不是 Qwen 团队拍脑袋写的，而是 2023 年那篇 EleutherAI 合作的论文里就埋好的数学。这一切叠在一起，让 5090 这张消费卡第一次真的能把过去只属于云端 API 的长上下文能力压回到家用机箱里——这是 2026 年这个时间点上，国内本地大模型用户最值得高兴的一件事。</p>
+<hr>
+<p><strong>关于本文</strong></p>
+<p>文中所有数据来自截至 2026-05-26 的公开实测（CloudRift、joshua8.ai、Alex Dong 等）、HuggingFace 模型卡、vLLM / SGLang / llama.cpp 官方博客与 GitHub issue 的实查；与 Claude Code 协作完成研究、图表生成和审稿，跑过 5 道审核 agent（内容真实性 / 图像质量 / 国内可读性 / 链接有效性 / 14 天去重）。技术细节请以官方源为准；若发现数字偏差欢迎指正。</p>
+<p><strong>参考资料</strong></p>
+<ul>
+<li>千问 Qwen3-Coder 模型卡：<a href="https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct" target="_blank" rel="noopener">https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct</a></li>
+<li>Qwen3-Coder GitHub repo：<a href="https://github.com/QwenLM/Qwen3-Coder" target="_blank" rel="noopener">https://github.com/QwenLM/Qwen3-Coder</a></li>
+<li>YaRN 论文：<a href="https://arxiv.org/abs/2309.00071" target="_blank" rel="noopener">https://arxiv.org/abs/2309.00071</a></li>
+<li>EleutherAI YaRN 解读：<a href="https://blog.eleuther.ai/yarn/" target="_blank" rel="noopener">https://blog.eleuther.ai/yarn/</a></li>
+<li>Flash Attention 3 论文：<a href="https://arxiv.org/abs/2407.08608" target="_blank" rel="noopener">https://arxiv.org/abs/2407.08608</a></li>
+<li>vLLM FP8 KV cache 博客：<a href="https://vllm.ai/blog/2026-04-22-fp8-kvcache" target="_blank" rel="noopener">https://vllm.ai/blog/2026-04-22-fp8-kvcache</a></li>
+<li>vLLM issue #22279（5090 sinks）：<a href="https://github.com/vllm-project/vllm/issues/22279" target="_blank" rel="noopener">https://github.com/vllm-project/vllm/issues/22279</a></li>
+<li>SGLang HiCache 文档：<a href="https://github.com/sgl-project/sglang" target="_blank" rel="noopener">https://github.com/sgl-project/sglang</a></li>
+<li>llama.cpp YaRN 支持：<a href="https://github.com/ggerganov/llama.cpp" target="_blank" rel="noopener">https://github.com/ggerganov/llama.cpp</a></li>
+<li>Unsloth Qwen3-Coder GGUF：<a href="https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF" target="_blank" rel="noopener">https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF</a></li>
+<li>CloudRift 5090 实测：<a href="https://www.cloudrift.ai/blog/optimizing-qwen3-coder-rtx5090-pro6000" target="_blank" rel="noopener">https://www.cloudrift.ai/blog/optimizing-qwen3-coder-rtx5090-pro6000</a></li>
+<li>joshua8.ai 5090 长 ctx 实测：<a href="https://zhuanlan.zhihu.com/p/1902008703462406116" target="_blank" rel="noopener">https://zhuanlan.zhihu.com/p/1902008703462406116</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
