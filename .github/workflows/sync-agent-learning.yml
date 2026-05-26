@@ -1,0 +1,97 @@
+name: Sync agent-learning content
+
+# 触发方式：
+#   - 手动 (workflow_dispatch) — 在 Actions 标签页点 Run workflow
+#   - 每天 00:30 UTC (08:30 北京时间) 自动跑一次
+#   - 当 wangcansunking.github.io 自己的 master 被推动时也跑（确保 portfolio 改动后 agent-learning 还在）
+#
+# 前置：需要在仓库 Settings → Secrets and variables → Actions 里加一个
+#   AGENT_LEARNING_PAT — 一个 fine-grained PAT，scope:
+#     Repository access: wangcansunking/agent-learning-cn
+#     Permissions: Contents (Read-only)
+#
+# 工作流逻辑：
+#   1. checkout 本仓库 (master)
+#   2. 用 PAT checkout agent-learning-cn 的 website-static/public/
+#   3. 把 public/ 拷到 ./agent-learning/
+#   4. 修复 lesson HTML 里的绝对路径 /assets /data /lesson → /agent-learning/...
+#   5. 如果有 diff，commit + push 回 master
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 0 * * *"
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/sync-agent-learning.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: sync-agent-learning
+      cancel-in-progress: false
+    steps:
+      - name: Checkout this repo (master)
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 1
+
+      - name: Checkout agent-learning-cn website-static/public
+        uses: actions/checkout@v4
+        with:
+          repository: wangcansunking/agent-learning-cn
+          token: ${{ secrets.AGENT_LEARNING_PAT }}
+          path: _agent-learning-src
+          fetch-depth: 1
+          sparse-checkout: |
+            website-static/public
+          sparse-checkout-cone-mode: false
+
+      - name: Replace ./agent-learning/ with new content
+        run: |
+          set -euo pipefail
+          rm -rf agent-learning
+          mkdir -p agent-learning
+          cp -r _agent-learning-src/website-static/public/. agent-learning/
+          rm -rf _agent-learning-src
+
+      - name: Rewrite absolute paths for /agent-learning subpath
+        run: |
+          set -euo pipefail
+          # All HTML / JS / CSS in agent-learning/ use absolute paths like /assets/...
+          # When served from /agent-learning/* we need them to point at /agent-learning/assets/...
+          # Safe pattern: only rewrite leading-slash references to known top-level dirs.
+          find agent-learning -type f \( -name "*.html" -o -name "*.js" -o -name "*.css" -o -name "*.json" \) -print0 \
+            | xargs -0 sed -i -E \
+                -e 's|"/assets/|"/agent-learning/assets/|g' \
+                -e "s|'/assets/|'/agent-learning/assets/|g" \
+                -e 's|"/data/|"/agent-learning/data/|g' \
+                -e "s|'/data/|'/agent-learning/data/|g" \
+                -e 's|"/lesson/|"/agent-learning/lesson/|g' \
+                -e "s|'/lesson/|'/agent-learning/lesson/|g" \
+                -e 's|href="/courses.html"|href="/agent-learning/courses.html"|g' \
+                -e 's|href="/learning-path.html"|href="/agent-learning/learning-path.html"|g' \
+                -e 's|href="/"|href="/agent-learning/"|g'
+
+      - name: Commit & push if changed
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add agent-learning
+          if git diff --cached --quiet; then
+            echo "No changes — nothing to commit."
+            exit 0
+          fi
+          ts=$(date -u +"%Y-%m-%d %H:%M UTC")
+          git commit -m "chore(sync): refresh /agent-learning content ($ts)" \
+            -m "Synced from wangcansunking/agent-learning-cn @ website-static/public" \
+            -m "" \
+            -m "Co-Authored-By: CodeBlend <aka.ms/codeblend> & Claude <noreply@anthropic.com>"
+          git push origin master
