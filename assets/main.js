@@ -2,6 +2,13 @@
    main.js — render product grid + scroll-driven UI
    ============================================================ */
 (() => {
+  // Guard against double execution (e.g. ViewTransitions, bfcache)
+  if (window.__portfolio_main_loaded) {
+    console.log('[main.js] already loaded — skipping');
+    return;
+  }
+  window.__portfolio_main_loaded = true;
+
   const root = document.documentElement;
   root.classList.add('js');
 
