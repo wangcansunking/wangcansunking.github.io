@@ -79,7 +79,7 @@
             ${p.disabled ? '即将上线' : (p.cta ?? '查看详情')}
             ${p.disabled ? '' : `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>`}
           </span>
-          ${p.repo ? `<a class="repo" href="${p.repo}" target="_blank" rel="noopener" onclick="event.stopPropagation();">${escapeHtml(p.repoLabel ?? p.repo.replace(/^https?:\\/\\/github\\.com\\//,''))}</a>` : ''}
+          ${p.repo ? `<a class="repo" href="${p.repo}" target="_blank" rel="noopener" onclick="event.stopPropagation();">${escapeHtml(p.repoLabel ?? p.repo.replace(/^https?:\/\/github\.com\//, ''))}</a>` : ''}
         </div>
       </a>
     `).join('');
