@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第1课：OpenAI API — 多 LLM 接入实战</title>
+  <meta name="description" content="GPT-4o + Tool Use Agent 完整实现">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-cyan">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-cyan">
+      <div class="crumb">
+        <div class="crumb-icon">LM</div>
+        <div class="crumb-text">多 LLM 接入实战</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ml-01-openai.html" class="active">
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">OpenAI API</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-02-deepseek.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">DeepSeek</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-03-gemini.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Google Gemini</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-04-kimi.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Kimi (Moonshot)</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-05-minimax.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MiniMax</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-06-unified.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">统一接口层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-07-selection.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">模型选型指南</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-08-fallback.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Fallback 与多模型协作</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ml-01-openai.html" class="current">多 LLM 接入实战</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">01</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第1课：OpenAI API</div>
+          <div class="desc">GPT-4o + Tool Use Agent 完整实现</div>
+          <div class="tags">
+            <span class="tag">openai</span><span class="tag">llm</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">01_openai.md</code></span>
+            <span>📏 835 行</span>
+            <span style="opacity:0.7;">multi-llm/lessons/01_openai.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第1课：OpenAI API — GPT-4o + Tool Use Agent</h1>
+<h2 id="介绍">介绍</h2>
+<p>OpenAI 是目前最广泛使用的 LLM 平台，GPT-4o 是其旗舰模型，支持文本、图像、音频的多模态输入。本课将从零开始掌握 OpenAI SDK 的核心用法：消息 API、流式输出、函数调用（Function Calling / Tool Use），并构建一个完整的工具调用 Agent 循环。学完本课你将理解 OpenAI SDK 与 Anthropic SDK 的异同，为后续多模型统一接口打下基础。</p>
+<hr>
+<h2 id="整体架构本课知识地图">整体架构：本课知识地图</h2>
+<div class="mermaid-wrapper"><pre class="mermaid">mindmap
+  root((OpenAI SDK))
+    消息API
+      chat.completions.create
+      system / user / assistant 角色
+      多轮对话历史管理
+    流式输出
+      stream: true
+      for await chunk
+      stream_options include_usage
+    Tool Use
+      工具定义 parameters
+      finish_reason tool_calls
+      工具结果 role=tool
+    Agent 循环
+      用户输入
+      LLM 决策
+      工具执行
+      结果反馈
+      最终回复</pre></div><p><strong>学习路径总览：</strong></p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart LR
+    A[安装 OpenAI SDK] --&gt; B[基础消息 API]
+    B --&gt; C[多轮对话]
+    C --&gt; D[流式输出]
+    D --&gt; E[Tool 定义]
+    E --&gt; F[工具执行器]
+    F --&gt; G[完整 Agent Loop]
+    G --&gt; H[错误处理]
+    H --&gt; I[对比 Anthropic SDK]</pre></div><hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>你已经学会了用 Anthropic SDK 构建 Agent，现在需要接入 OpenAI GPT-4o。直接上手时会遇到以下困惑：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// ❌ 把 Anthropic 的用法照搬到 OpenAI，会出错</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> anthropic</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "claude-opus-4-6"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1024</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "Hello"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// OpenAI 的字段名不同！response.content[0].text 在 OpenAI 里是 response.choices[0].message.content</span></span></code></pre><p><strong>主要差异点：</strong></p>
+<table>
+<thead>
+<tr>
+<th>方面</th>
+<th>Anthropic</th>
+<th>OpenAI</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>响应路径</td>
+<td><code>response.content[0].text</code></td>
+<td><code>response.choices[0].message.content</code></td>
+</tr>
+<tr>
+<td>Tool 定义</td>
+<td><code>input_schema</code> 字段</td>
+<td><code>parameters</code> 字段</td>
+</tr>
+<tr>
+<td>Tool 结果</td>
+<td><code>tool_result</code> type</td>
+<td><code>tool</code> role message</td>
+</tr>
+<tr>
+<td>System prompt</td>
+<td>独立 <code>system</code> 参数</td>
+<td>messages 数组中 role=system</td>
+</tr>
+<tr>
+<td>Token 统计</td>
+<td><code>response.usage.input_tokens</code></td>
+<td><code>response.usage.prompt_tokens</code></td>
+</tr>
+</tbody></table>
+<p><strong>请求-响应流对比（时序图）：</strong></p>
+<div class="mermaid-wrapper"><pre class="mermaid">sequenceDiagram
+    participant App as 你的应用
+    participant OAI as OpenAI API
+    participant ANT as Anthropic API
+
+    Note over App,OAI: OpenAI 调用方式
+    App-&gt;&gt;OAI: POST /chat/completions&lt;br/&gt;{messages: [{role:&quot;system&quot;,...},{role:&quot;user&quot;,...}]}
+    OAI--&gt;&gt;App: {choices:[{message:{content:&quot;...&quot;}, finish_reason:&quot;stop&quot;}]}
+
+    Note over App,ANT: Anthropic 调用方式
+    App-&gt;&gt;ANT: POST /messages&lt;br/&gt;{system:&quot;...&quot;, messages:[{role:&quot;user&quot;,...}]}
+    ANT--&gt;&gt;App: {content:[{type:&quot;text&quot;, text:&quot;...&quot;}], stop_reason:&quot;end_turn&quot;}</pre></div><blockquote>
+<p><strong>关键差异</strong>：OpenAI 把 system 放在 messages 数组里，响应包在 <code>choices[0]</code> 中；Anthropic 的 system 是顶层参数，响应在 <code>content</code> 数组中。</p>
+</blockquote>
+<hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a直接使用-openai-sdk">方案 A：直接使用 OpenAI SDK</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> client </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "You are a helpful assistant."</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "What is 2+2?"</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content)</span><span style="color:#7C7F93">;</span></span></code></pre><p>✅ 原生支持，类型完整
+✅ 所有新功能第一时间可用
+❌ 每个模型 SDK 不同，多模型时需维护多套代码</p>
+<h3 id="方案-b使用-langchain-抽象层">方案 B：使用 LangChain 抽象层</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> ChatOpenAI </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "@langchain/openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> model </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> ChatOpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> model</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">invoke</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"What is 2+2?"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>✅ 统一接口，可切换模型
+❌ 引入大量依赖，调试困难
+❌ 抽象层掩盖底层行为，学习成本高</p>
+<h3 id="方案-c自己封装统一接口推荐学习路径">方案 C：自己封装统一接口（推荐学习路径）</h3>
+<p>先掌握各 SDK 原生用法，后续课程中自己封装统一接口。</p>
+<p>✅ 深刻理解各 SDK 差异
+✅ 封装符合自己需求
+❌ 需要投入时间设计</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p><strong>本课使用方案 A</strong>：直接用 OpenAI SDK 原生 API，彻底理解其行为模式。第6课我们会手动设计统一接口。</p>
+<hr>
+<h2 id="核心概念详解">核心概念详解</h2>
+<h3 id="消息格式设计">消息格式设计</h3>
+<p>OpenAI 的消息以数组形式传入，每条消息都有 <code>role</code> 和 <code>content</code>。理解消息结构是构建 Agent 的基础。</p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    A[&quot;messages 数组&quot;] --&gt; B[&quot;role: system\n（可选，设定角色/规则）&quot;]
+    A --&gt; C[&quot;role: user\n（用户输入）&quot;]
+    A --&gt; D[&quot;role: assistant\n（模型上一轮回复）&quot;]
+    A --&gt; E[&quot;role: tool\n（工具执行结果）&quot;]
+
+    B --&gt; F[&quot;放在数组第一位\n定义模型行为准则&quot;]
+    C --&gt; G[&quot;每轮用户问题\n内容可以是字符串或数组&quot;]
+    D --&gt; H[&quot;模型历史回复\n包含 tool_calls 时有调用信息&quot;]
+    E --&gt; I[&quot;需携带 tool_call_id\n匹配对应的工具调用&quot;]</pre></div><p><strong>消息角色说明：</strong></p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>作用</th>
+<th>使用时机</th>
+<th>注意事项</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>system</code></td>
+<td>设置模型的行为、角色、规则</td>
+<td>对话开始前，放数组第一位</td>
+<td>不计入对话轮次；OpenAI 放在 messages 内，Anthropic 是独立参数</td>
+</tr>
+<tr>
+<td><code>user</code></td>
+<td>用户的每一次输入</td>
+<td>每轮用户发言时</td>
+<td>内容可以是字符串或内容块数组（图文混合）</td>
+</tr>
+<tr>
+<td><code>assistant</code></td>
+<td>模型的历史回复</td>
+<td>多轮对话时，把模型上一轮结果存入</td>
+<td>包含 <code>tool_calls</code> 时不能省略，否则工具结果无法关联</td>
+</tr>
+<tr>
+<td><code>tool</code></td>
+<td>工具执行的返回结果</td>
+<td>调用工具后，把结果以此角色加入</td>
+<td>必须携带 <code>tool_call_id</code>，与 <code>tool_calls</code> 一一对应</td>
+</tr>
+</tbody></table>
+<p><strong>多轮对话消息数组示意：</strong></p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart LR
+    S[&quot;system\n你是数学老师&quot;] --&gt; U1[&quot;user\n什么是勾股定理？&quot;]
+    U1 --&gt; A1[&quot;assistant\n勾股定理是...&quot;]
+    A1 --&gt; U2[&quot;user\n举个实际例子&quot;]
+    U2 --&gt; A2[&quot;assistant\n比如建筑施工中...&quot;]</pre></div><blockquote>
+<p>每轮请求都要把<strong>完整历史</strong>发送给 API，模型本身无状态记忆。</p>
+</blockquote>
+<hr>
+<h3 id="tool-use-机制">Tool Use 机制</h3>
+<p>Tool Use（工具调用）是 Agent 的核心能力，让模型能够调用外部函数获取实时信息或执行操作。</p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    A[&quot;用户输入&quot;] --&gt; B[&quot;LLM 处理\n携带 tools 定义&quot;]
+    B --&gt; C{finish_reason?}
+    C --&gt;|tool_calls| D[&quot;解析 tool_calls\n获取工具名+参数&quot;]
+    D --&gt; E[&quot;执行对应工具函数\n获取真实结果&quot;]
+    E --&gt; F[&quot;将结果以 role=tool 加入历史&quot;]
+    F --&gt; B
+    C --&gt;|stop| G[&quot;返回最终文本回复给用户&quot;]
+    C --&gt;|length| H[&quot;警告：回复被截断\n增大 max_tokens&quot;]</pre></div><p><strong>工具调用的消息流：</strong></p>
+<div class="mermaid-wrapper"><pre class="mermaid">sequenceDiagram
+    participant App as 应用代码
+    participant GPT as GPT-4o
+
+    App-&gt;&gt;GPT: 消息 + tools 定义
+    GPT--&gt;&gt;App: finish_reason=&quot;tool_calls&quot;&lt;br/&gt;tool_calls=[{id, name, arguments}]
+    Note over App: 执行工具，获得结果
+    App-&gt;&gt;GPT: 原消息历史 + assistant(tool_calls) + tool(结果)
+    GPT--&gt;&gt;App: finish_reason=&quot;stop&quot;&lt;br/&gt;message.content=&quot;最终回答&quot;</pre></div><hr>
+<h3 id="finish_reason-对照表">finish_reason 对照表</h3>
+<p><code>finish_reason</code> 告诉你模型为什么停止生成，必须根据它决定下一步操作。</p>
+<table>
+<thead>
+<tr>
+<th>finish_reason 值</th>
+<th>含义</th>
+<th>下一步操作</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>stop</code></td>
+<td>模型正常完成回复</td>
+<td>提取 <code>message.content</code> 返回给用户</td>
+</tr>
+<tr>
+<td><code>tool_calls</code></td>
+<td>模型需要调用工具</td>
+<td>解析 <code>message.tool_calls</code>，执行工具，继续循环</td>
+</tr>
+<tr>
+<td><code>length</code></td>
+<td>达到 <code>max_tokens</code> 限制被截断</td>
+<td>警告用户，或增大 <code>max_tokens</code> 重试</td>
+</tr>
+<tr>
+<td><code>content_filter</code></td>
+<td>内容被安全过滤器拦截</td>
+<td>向用户提示内容不合规，不要重试相同内容</td>
+</tr>
+<tr>
+<td><code>null</code></td>
+<td>流式输出中间 chunk，尚未完成</td>
+<td>继续迭代 stream，等待最终 chunk</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="1-安装与初始化">1. 安装与初始化</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#1E66F5;font-style:italic">npm</span><span style="color:#40A02B"> install</span><span style="color:#40A02B"> openai</span></span></code></pre><pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/openai-client.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 客户端初始化，读取环境变量</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 为什么这样初始化：OpenAI SDK 支持多种配置，apiKey 是必须的</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// organization 用于多组织账号区分账单；timeout/maxRetries 防止网络抖动导致任务失败</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> client </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  // 必须设置，从 platform.openai.com 获取</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // organization: "org-xxx",          // 可选：组织 ID，用于企业账号</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // timeout: 30000,                   // 可选：超时毫秒，默认 10 分钟</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // maxRetries: 3,                    // 可选：自动重试次数，遇到 5xx 时自动重试</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> default</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">;</span></span></code></pre><pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># .env</span></span>
+<span class="line"><span style="color:#4C4F69">OPENAI_API_KEY</span><span style="color:#179299">=</span><span style="color:#40A02B">sk-proj-xxxxxxxxxxxxxxxxxxxx</span></span></code></pre><hr>
+<h3 id="2-基础消息-api">2. 基础消息 API</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/basic-chat.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> client </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "./openai-client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> basicChat</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1024</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        // 为什么要有 system：定义模型的角色和行为规则，影响所有后续回复的风格</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一位专业的技术顾问，回答简洁准确。"</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "解释一下什么是 REST API？"</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 注意：OpenAI 的响应路径与 Anthropic 不同</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // Anthropic: response.content[0].text</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // OpenAI:    response.choices[0].message.content</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> message </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"回复:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // finish_reason 决定下一步操作（见上方对照表）</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"停止原因:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">finish_reason)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // Token 字段名与 Anthropic 不同</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"Token 使用:"</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    input</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">?.</span><span style="color:#4C4F69">prompt_tokens</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">      // 注意：不是 input_tokens（Anthropic 的命名）</span></span>
+<span class="line"><span style="color:#4C4F69">    output</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">?.</span><span style="color:#4C4F69">completion_tokens</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic"> // 注意：不是 output_tokens（Anthropic 的命名）</span></span>
+<span class="line"><span style="color:#4C4F69">    total</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">?.</span><span style="color:#4C4F69">total_tokens</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">basicChat</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span></code></pre><p><strong>多轮对话：</strong></p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/multi-turn.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> client </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "./openai-client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> Message</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">system</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">user</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">assistant</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  content</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> multiTurnChat</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 维护完整历史是多轮对话的关键</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 因为 OpenAI API 是无状态的，每次请求都必须带完整上下文</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> history</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个数学老师，擅长用简单的例子解释概念。"</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 第一轮</span></span>
+<span class="line"><span style="color:#4C4F69">  history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "什么是勾股定理？"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> history  </span><span style="color:#9CA0B0;font-style:italic">// 发送完整历史</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> reply1 </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"Assistant:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> reply1)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 把模型的回复存入历史，下一轮才有上下文</span></span>
+<span class="line"><span style="color:#4C4F69">  history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> reply1 </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 第二轮（上下文延续）</span></span>
+<span class="line"><span style="color:#4C4F69">  history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "给我一个实际应用的例子"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> history  </span><span style="color:#9CA0B0;font-style:italic">// 包含了第一轮的问答</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> reply2 </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"Assistant:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> reply2)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">multiTurnChat</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="3-流式输出streaming">3. 流式输出（Streaming）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/streaming.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> client </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "./openai-client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> streamingChat</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"开始流式输出...</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 为什么用流式：</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 非流式：等待模型生成完所有文字后一次性返回，用户等待时间长</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 流式：每生成一个 token 就立即发给客户端，用户体验好（像 ChatGPT 网页）</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> stream </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 500</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    stream</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  // 关键：启用流式，返回值变为 AsyncIterable</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "用100字介绍量子计算"</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> fullContent </span><span style="color:#179299">=</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // for await 遍历每个 chunk（通常每个 chunk 包含 1-5 个 token）</span></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // delta 是这个 chunk 新增的内容，不是完整内容</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> delta </span><span style="color:#179299">=</span><span style="color:#4C4F69"> chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">?.</span><span style="color:#4C4F69">delta</span><span style="color:#179299">?.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (delta) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(delta)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 实时打印，不换行</span></span>
+<span class="line"><span style="color:#4C4F69">      fullContent </span><span style="color:#179299">+=</span><span style="color:#4C4F69"> delta</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 流结束信号：finish_reason 变为 "stop"</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">?.</span><span style="color:#4C4F69">finish_reason </span><span style="color:#179299">===</span><span style="color:#40A02B"> "stop"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">[流式结束]"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> fullContent</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">streamingChat</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span></code></pre><p><strong>流式输出 + Token 统计（需要 stream_options）：</strong></p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> streamingWithUsage</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 默认流式模式不返回 usage，需要显式开启 include_usage</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 这是因为 usage 只有在全部生成完成后才能统计，会附在最后一个 chunk</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> stream </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    stream</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    stream_options</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> include_usage</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93"> },</span><span style="color:#9CA0B0;font-style:italic">  // 在流末尾包含 usage 信息</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "Hello!"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> delta </span><span style="color:#179299">=</span><span style="color:#4C4F69"> chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">?.</span><span style="color:#4C4F69">delta</span><span style="color:#179299">?.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (delta) process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(delta)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 最后一个 chunk（choices 为空时）包含 usage</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">Token 统计:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h3 id="4-function-calling-tool-use">4. Function Calling / Tool Use</h3>
+<p>这是最重要的部分。OpenAI 的工具格式与 Anthropic 有所不同：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/tool-definition.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// OpenAI 工具定义格式</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 为什么要这样定义：模型需要知道每个工具的名称、用途、参数格式</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 才能在合适的时机选择调用，并生成正确格式的参数</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tools</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">Chat</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">Completions</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionTool[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "function"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">       // 目前只有 "function" 类型</span></span>
+<span class="line"><span style="color:#4C4F69">    function</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "get_weather"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "获取指定城市的当前天气信息"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // OpenAI 用 parameters（Anthropic 用 input_schema）</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 两者内部的 JSON Schema 结构相同，只是字段名不同</span></span>
+<span class="line"><span style="color:#4C4F69">      parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">          city</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">            type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">            description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "城市名称，如 '北京', '上海'"</span></span>
+<span class="line"><span style="color:#7C7F93">          },</span></span>
+<span class="line"><span style="color:#4C4F69">          unit</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">            type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">            enum</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"celsius"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "fahrenheit"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">            description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "温度单位"</span></span>
+<span class="line"><span style="color:#7C7F93">          }</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#4C4F69">        required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"city"</span><span style="color:#4C4F69">]  </span><span style="color:#9CA0B0;font-style:italic">// city 必填，unit 可选</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "function"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    function</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "calculate"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "执行数学计算"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">          expression</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">            type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">            description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "数学表达式，如 '2 + 3 * 4'"</span></span>
+<span class="line"><span style="color:#7C7F93">          }</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#4C4F69">        required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"expression"</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span></code></pre><p><strong>模拟工具实现：</strong></p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/tools.ts</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> WeatherResult</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  city</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  temperature</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  unit</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  condition</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  humidity</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 模拟天气 API</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 实际项目中替换为真实 API 调用（如 OpenWeatherMap）</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> getWeather</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">city</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> unit</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "celsius"</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> WeatherResult</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> mockData</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> Omit</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">WeatherResult</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">city</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">unit</span><span style="color:#40A02B">"</span><span style="color:#04A5E5">>></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">    "北京"</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 22</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> condition</span><span style="color:#179299">:</span><span style="color:#40A02B"> "晴朗"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> humidity</span><span style="color:#179299">:</span><span style="color:#FE640B"> 45</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#40A02B">    "上海"</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 26</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> condition</span><span style="color:#179299">:</span><span style="color:#40A02B"> "多云"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> humidity</span><span style="color:#179299">:</span><span style="color:#FE640B"> 72</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#40A02B">    "深圳"</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 30</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> condition</span><span style="color:#179299">:</span><span style="color:#40A02B"> "小雨"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> humidity</span><span style="color:#179299">:</span><span style="color:#FE640B"> 85</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> data </span><span style="color:#179299">=</span><span style="color:#4C4F69"> mockData[city] </span><span style="color:#179299">||</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 20</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> condition</span><span style="color:#179299">:</span><span style="color:#40A02B"> "未知"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> humidity</span><span style="color:#179299">:</span><span style="color:#FE640B"> 60</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> temp </span><span style="color:#179299">=</span><span style="color:#4C4F69"> unit </span><span style="color:#179299">===</span><span style="color:#40A02B"> "fahrenheit"</span></span>
+<span class="line"><span style="color:#179299">    ?</span><span style="color:#4C4F69"> Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">round</span><span style="color:#4C4F69">(data</span><span style="color:#179299">.</span><span style="color:#4C4F69">temperature </span><span style="color:#179299">*</span><span style="color:#FE640B"> 9</span><span style="color:#179299">/</span><span style="color:#FE640B">5</span><span style="color:#179299"> +</span><span style="color:#FE640B"> 32</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">    :</span><span style="color:#4C4F69"> data</span><span style="color:#179299">.</span><span style="color:#4C4F69">temperature</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> city</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> temperature</span><span style="color:#179299">:</span><span style="color:#4C4F69"> temp</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> unit</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">data</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> temperature</span><span style="color:#179299">:</span><span style="color:#4C4F69"> temp </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 安全的数学计算器</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> calculate</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">expression</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#179299"> |</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 注意：生产环境不要用 eval，使用 mathjs 等库</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> sanitized </span><span style="color:#179299">=</span><span style="color:#4C4F69"> expression</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">replace</span><span style="color:#4C4F69">(</span><span style="color:#EA76CB">/</span><span style="color:#DF8E1D">[</span><span style="color:#179299">^</span><span style="color:#DC8A78">0-9</span><span style="color:#4C4F69">+</span><span style="color:#DC8A78">\-*</span><span style="color:#4C4F69">/()</span><span style="color:#EA76CB">.\s</span><span style="color:#DF8E1D">]</span><span style="color:#EA76CB">/</span><span style="color:#8839EF">g</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> ""</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#1E66F5;font-style:italic"> Function</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`"use strict"; return (</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">sanitized</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">)`</span><span style="color:#4C4F69">)()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> catch</span><span style="color:#4C4F69"> (e) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#40A02B"> `计算错误: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">e</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 工具执行分发器：根据工具名路由到对应函数</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 这是 Agent 架构中的"工具注册表"模式</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> executeTool</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> args</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> unknown</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  switch</span><span style="color:#4C4F69"> (name) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    case</span><span style="color:#40A02B"> "get_weather"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> weather </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> getWeather</span><span style="color:#4C4F69">(args</span><span style="color:#179299">.</span><span style="color:#4C4F69">city </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> args</span><span style="color:#179299">.</span><span style="color:#4C4F69">unit </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> string</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 工具结果必须返回字符串，模型只能接收文本格式的结果</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(weather)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    case</span><span style="color:#40A02B"> "calculate"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> calculate</span><span style="color:#4C4F69">(args</span><span style="color:#179299">.</span><span style="color:#4C4F69">expression </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> string</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> expression</span><span style="color:#179299">:</span><span style="color:#4C4F69"> args</span><span style="color:#179299">.</span><span style="color:#4C4F69">expression</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> result </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    default</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> error</span><span style="color:#179299">:</span><span style="color:#40A02B"> `未知工具: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h3 id="5-完整的-agentic-loop">5. 完整的 Agentic Loop</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/agent-loop.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> executeTool </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./tools"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> client </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tools</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">Chat</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">Completions</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionTool[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "function"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    function</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "get_weather"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "获取指定城市的当前天气信息"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">          city</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "城市名称"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">          unit</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> enum</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"celsius"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "fahrenheit"</span><span style="color:#4C4F69">] </span><span style="color:#7C7F93">}</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#4C4F69">        required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"city"</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "function"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    function</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "calculate"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "执行数学计算"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">          expression</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "数学表达式"</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#4C4F69">        required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"expression"</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> Message </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">Chat</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">Completions</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionMessageParam</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runAgent</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userMessage</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#4C4F69">      role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个有用的助手，可以查天气和进行数学计算。"</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#4C4F69">      role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userMessage</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">用户: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">userMessage</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // Agent 循环：最多10轮防止无限循环</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 正常情况下 1-3 轮就能完成，设上限是安全防护</span></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">let</span><span style="color:#4C4F69"> i </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i </span><span style="color:#179299">&#x3C;</span><span style="color:#FE640B"> 10</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i</span><span style="color:#179299">++</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      tools</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      tool_choice</span><span style="color:#179299">:</span><span style="color:#40A02B"> "auto"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  // auto：模型自己决定要不要调用工具；也可强制 "required"</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> choice </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> assistantMessage </span><span style="color:#179299">=</span><span style="color:#4C4F69"> choice</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 必须把 assistant 消息加入历史</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 原因：下一轮发送工具结果时，模型需要知道它之前请求了哪些工具调用</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(assistantMessage)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 分支1：模型请求调用工具</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (choice</span><span style="color:#179299">.</span><span style="color:#4C4F69">finish_reason </span><span style="color:#179299">===</span><span style="color:#40A02B"> "tool_calls"</span><span style="color:#179299"> &#x26;&#x26;</span><span style="color:#4C4F69"> assistantMessage</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool_calls) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[第 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">i</span><span style="color:#179299">+</span><span style="color:#FE640B">1</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 轮] 模型调用工具...`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // OpenAI 支持并行调用多个工具（一次返回多个 tool_calls）</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 所以要遍历处理所有工具调用，然后一次性把所有结果加入历史</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> toolResults</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> toolCall </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> assistantMessage</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool_calls) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> toolName </span><span style="color:#179299">=</span><span style="color:#4C4F69"> toolCall</span><span style="color:#179299">.</span><span style="color:#4C4F69">function</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> toolArgs </span><span style="color:#179299">=</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(toolCall</span><span style="color:#179299">.</span><span style="color:#4C4F69">function</span><span style="color:#179299">.</span><span style="color:#4C4F69">arguments)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // arguments 是 JSON 字符串，需要解析</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  → 工具: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">toolName</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`    参数: </span><span style="color:#7C7F93">${</span><span style="color:#FE640B">JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">toolArgs</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> executeTool</span><span style="color:#4C4F69">(toolName</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> toolArgs)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`    结果: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        // OpenAI 的工具结果格式：role = "tool"</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        // 与 Anthropic 的 role = "user" + type = "tool_result" 完全不同</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        // tool_call_id 是关键：模型用它来匹配请求和结果</span></span>
+<span class="line"><span style="color:#4C4F69">        toolResults</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">          role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "tool"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">                    // OpenAI 特有的 role（Anthropic 没有这个 role）</span></span>
+<span class="line"><span style="color:#4C4F69">          tool_call_id</span><span style="color:#179299">:</span><span style="color:#4C4F69"> toolCall</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">       // 必须与对应 tool_call 的 id 匹配</span></span>
+<span class="line"><span style="color:#4C4F69">          content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> result                  </span><span style="color:#9CA0B0;font-style:italic">// 工具执行结果（字符串）</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 将所有工具结果加入消息历史，继续下一轮</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#179299">...</span><span style="color:#4C4F69">toolResults)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      continue</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 分支2：模型完成回复</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (choice</span><span style="color:#179299">.</span><span style="color:#4C4F69">finish_reason </span><span style="color:#179299">===</span><span style="color:#40A02B"> "stop"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> finalContent </span><span style="color:#179299">=</span><span style="color:#4C4F69"> assistantMessage</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">助手: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">finalContent</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#4C4F69"> finalContent</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 分支3：被截断（max_tokens 不够用）</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (choice</span><span style="color:#179299">.</span><span style="color:#4C4F69">finish_reason </span><span style="color:#179299">===</span><span style="color:#40A02B"> "length"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">warn</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"回复被截断（max_tokens 限制）"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#4C4F69"> assistantMessage</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#40A02B"> "Agent 循环次数超限"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 测试</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> main</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 测试1：只需计算</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> runAgent</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"25 乘以 36 等于多少？再加上 144 的平方根是多少？"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 测试2：只需查天气</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> runAgent</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"北京现在的天气怎么样？"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 测试3：综合使用两个工具</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> runAgent</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"上海的温度是多少摄氏度？如果换算成华氏度是多少？"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">main</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="6-与-anthropic-sdk-的对比总结">6. 与 Anthropic SDK 的对比总结</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 对比：相同任务在两个 SDK 中的实现</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ========== Anthropic ==========</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Anthropic </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "@anthropic-ai/sdk"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> anthropic </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Anthropic</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> anthropicResponse </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> anthropic</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "claude-opus-4-6"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1024</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  system</span><span style="color:#179299">:</span><span style="color:#40A02B"> "You are helpful."</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">           // system 是独立参数（OpenAI 是放在 messages 里）</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "Hello"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  tools</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "get_weather"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "Get weather"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    input_schema</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#9CA0B0;font-style:italic">                      // 注意：input_schema（OpenAI 用 parameters）</span></span>
+<span class="line"><span style="color:#4C4F69">      type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> city</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93"> }</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">      required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"city"</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// Anthropic 响应路径</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> textBlock </span><span style="color:#179299">=</span><span style="color:#4C4F69"> anthropicResponse</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">find</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">b</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> b</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "text"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> toolUseBlock </span><span style="color:#179299">=</span><span style="color:#4C4F69"> anthropicResponse</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">find</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">b</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> b</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "tool_use"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ========== OpenAI ==========</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> openai </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> openaiResponse </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1024</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "You are helpful."</span><span style="color:#7C7F93"> },</span><span style="color:#9CA0B0;font-style:italic">  // system 在 messages 里（Anthropic 是独立参数）</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "Hello"</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  tools</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "function"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    function</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "get_weather"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "Get weather"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#9CA0B0;font-style:italic">                      // 注意：parameters（Anthropic 用 input_schema）</span></span>
+<span class="line"><span style="color:#4C4F69">        type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> city</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93"> }</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">        required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"city"</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// OpenAI 响应路径</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> content </span><span style="color:#179299">=</span><span style="color:#4C4F69"> openaiResponse</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> toolCalls </span><span style="color:#179299">=</span><span style="color:#4C4F69"> openaiResponse</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool_calls</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="7-错误处理最佳实践">7. 错误处理最佳实践</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/error-handling.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> client </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> robustChat</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userMessage</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userMessage </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> catch</span><span style="color:#4C4F69"> (error) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (error </span><span style="color:#8839EF">instanceof</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">APIError</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // OpenAI 特定错误，包含 HTTP 状态码</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`OpenAI API 错误: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">error</span><span style="color:#179299">.</span><span style="color:#4C4F69">status</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> - </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">error</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      switch</span><span style="color:#4C4F69"> (error</span><span style="color:#179299">.</span><span style="color:#4C4F69">status) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        case</span><span style="color:#FE640B"> 401</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">          // API Key 问题，不应重试（重试也会失败）</span></span>
+<span class="line"><span style="color:#8839EF">          throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"API Key 无效"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        case</span><span style="color:#FE640B"> 429</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">          // 速率限制：等待后重试（指数退避更好，这里简化为固定等待）</span></span>
+<span class="line"><span style="color:#4C4F69">          console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"达到速率限制，等待 60 秒..."</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">          await</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> setTimeout</span><span style="color:#4C4F69">(r</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 60000</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">          return</span><span style="color:#1E66F5;font-style:italic"> robustChat</span><span style="color:#4C4F69">(userMessage)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 重试</span></span>
+<span class="line"><span style="color:#8839EF">        case</span><span style="color:#FE640B"> 500</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">          // 服务器错误：OpenAI 侧的问题，短暂等待后可重试</span></span>
+<span class="line"><span style="color:#8839EF">          throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"OpenAI 服务器错误，请稍后重试"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        default</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">          throw</span><span style="color:#4C4F69"> error</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#8839EF">    throw</span><span style="color:#4C4F69"> error</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="api-差异速查表">API 差异速查表</h2>
+<p>构建多模型应用时，最容易混淆的是各 SDK 的字段命名差异。本表可作为快速参考：</p>
+<table>
+<thead>
+<tr>
+<th>字段 / 功能</th>
+<th>OpenAI</th>
+<th>Anthropic</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>客户端初始化</strong></td>
+<td><code>new OpenAI({apiKey})</code></td>
+<td><code>new Anthropic({apiKey})</code></td>
+<td>包名不同：<code>openai</code> vs <code>@anthropic-ai/sdk</code></td>
+</tr>
+<tr>
+<td><strong>发起请求</strong></td>
+<td><code>client.chat.completions.create(...)</code></td>
+<td><code>client.messages.create(...)</code></td>
+<td>方法路径不同</td>
+</tr>
+<tr>
+<td><strong>System prompt</strong></td>
+<td>messages 数组第一个元素，<code>role: &quot;system&quot;</code></td>
+<td>顶层 <code>system</code> 参数（独立于 messages）</td>
+<td>Anthropic 不允许 system 在 messages 里</td>
+</tr>
+<tr>
+<td><strong>获取文本回复</strong></td>
+<td><code>response.choices[0].message.content</code></td>
+<td><code>response.content[0].text</code></td>
+<td>层级结构完全不同</td>
+</tr>
+<tr>
+<td><strong>停止原因字段</strong></td>
+<td><code>response.choices[0].finish_reason</code></td>
+<td><code>response.stop_reason</code></td>
+<td>值也不同：<code>stop</code> vs <code>end_turn</code></td>
+</tr>
+<tr>
+<td><strong>Tool 定义容器</strong></td>
+<td><code>tools[].function.parameters</code></td>
+<td><code>tools[].input_schema</code></td>
+<td>内部 JSON Schema 结构相同</td>
+</tr>
+<tr>
+<td><strong>输入 Token 数</strong></td>
+<td><code>response.usage.prompt_tokens</code></td>
+<td><code>response.usage.input_tokens</code></td>
+<td>命名风格不同</td>
+</tr>
+<tr>
+<td><strong>输出 Token 数</strong></td>
+<td><code>response.usage.completion_tokens</code></td>
+<td><code>response.usage.output_tokens</code></td>
+<td>命名风格不同</td>
+</tr>
+<tr>
+<td><strong>工具结果消息</strong></td>
+<td><code>{role: &quot;tool&quot;, tool_call_id, content}</code></td>
+<td><code>{role: &quot;user&quot;, content: [{type: &quot;tool_result&quot;, tool_use_id, content}]}</code></td>
+<td>OpenAI 有 tool role；Anthropic 用 user role 包装</td>
+</tr>
+<tr>
+<td><strong>流式输出字段</strong></td>
+<td><code>chunk.choices[0].delta.content</code></td>
+<td><code>event.delta.text</code>（事件流）</td>
+<td>数据结构不同</td>
+</tr>
+<tr>
+<td><strong>并行工具调用</strong></td>
+<td>原生支持（一次返回多个 tool_calls）</td>
+<td>原生支持（content 数组包含多个 tool_use）</td>
+<td>两者都支持，但格式不同</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="常见坑与解决方案">常见坑与解决方案</h2>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>原因</th>
+<th>解决方法</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>response.content</code> 是 <code>null</code></td>
+<td>模型调用了工具，此时 <code>content</code> 为 null，<code>tool_calls</code> 有值</td>
+<td>先检查 <code>finish_reason</code>，为 <code>tool_calls</code> 时不读 <code>content</code></td>
+</tr>
+<tr>
+<td>工具调用后模型&quot;忘了&quot;上下文</td>
+<td>把 assistant 消息（含 tool_calls）加入历史时漏掉了</td>
+<td>调用工具前必须先 <code>messages.push(assistantMessage)</code></td>
+</tr>
+<tr>
+<td><code>tool_call_id</code> 不匹配报错</td>
+<td>工具结果的 <code>tool_call_id</code> 与请求时的 <code>id</code> 不一致</td>
+<td>从 <code>toolCall.id</code> 复制，不要手写</td>
+</tr>
+<tr>
+<td>多轮对话越来越慢且贵</td>
+<td>messages 历史无限增长，每次都传所有内容</td>
+<td>实现滑动窗口或摘要压缩，控制历史长度</td>
+</tr>
+<tr>
+<td>流式输出丢失最后几个字</td>
+<td>没有处理 <code>finish_reason === &quot;stop&quot;</code> 后的最后一个 chunk</td>
+<td>确保循环在 <code>finish_reason</code> 出现后仍处理最后一个 delta</td>
+</tr>
+<tr>
+<td><code>arguments</code> 解析失败</td>
+<td><code>toolCall.function.arguments</code> 是字符串，忘记 <code>JSON.parse</code></td>
+<td>始终用 <code>JSON.parse(toolCall.function.arguments)</code></td>
+</tr>
+<tr>
+<td>429 速率限制频繁触发</td>
+<td>请求频率超过 API 配额</td>
+<td>实现指数退避重试；升级 API 使用层级</td>
+</tr>
+<tr>
+<td>TypeScript 类型报错</td>
+<td>某些字段可能为 <code>null</code>（如 <code>message.content</code>）</td>
+<td>使用 <code>??</code> 空值合并或 <code>!</code> 非空断言（确认安全时）</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="下一步">下一步</h2>
+<p>掌握了 OpenAI SDK 的完整用法后，下一课我们学习 DeepSeek：一个兼容 OpenAI 格式但成本低 10-20 倍的模型，特别是 DeepSeek-R1 推理模型，适合复杂数学和逻辑任务。</p>
+<p>→ <strong>第2课：DeepSeek — 推理模型 + 低成本 Agent</strong></p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/cc-06-v4.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第6课：MVP v4 Skill 系统</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ml-02-deepseek.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第2课：DeepSeek</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#整体架构本课知识地图">整体架构：本课知识地图</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a直接使用-openai-sdk">方案 A：直接使用 OpenAI SDK</a></li><li class="lvl-3"><a href="#方案-b使用-langchain-抽象层">方案 B：使用 LangChain 抽象层</a></li><li class="lvl-3"><a href="#方案-c自己封装统一接口推荐学习路径">方案 C：自己封装统一接口（推荐学习路径）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#核心概念详解">核心概念详解</a></li><li class="lvl-3"><a href="#消息格式设计">消息格式设计</a></li><li class="lvl-3"><a href="#tool-use-机制">Tool Use 机制</a></li><li class="lvl-3"><a href="#finish_reason-对照表">finish_reason 对照表</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#1-安装与初始化">1. 安装与初始化</a></li><li class="lvl-3"><a href="#2-基础消息-api">2. 基础消息 API</a></li><li class="lvl-3"><a href="#3-流式输出streaming">3. 流式输出（Streaming）</a></li><li class="lvl-3"><a href="#4-function-calling-tool-use">4. Function Calling / Tool Use</a></li><li class="lvl-3"><a href="#5-完整的-agentic-loop">5. 完整的 Agentic Loop</a></li><li class="lvl-3"><a href="#6-与-anthropic-sdk-的对比总结">6. 与 Anthropic SDK 的对比总结</a></li><li class="lvl-3"><a href="#7-错误处理最佳实践">7. 错误处理最佳实践</a></li><li class="lvl-2"><a href="#api-差异速查表">API 差异速查表</a></li><li class="lvl-2"><a href="#常见坑与解决方案">常见坑与解决方案</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

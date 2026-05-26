@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第11课：结构化输出 — TypeScript Agent 开发</title>
+  <meta name="description" content="Zod + messages.parse() 类型安全提取">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-blue">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-blue">
+      <div class="crumb">
+        <div class="crumb-icon">TS</div>
+        <div class="crumb-text">TypeScript Agent 开发</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ts-01-hello.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Hello Claude</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-02-multi-turn.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多轮对话</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-03-streaming.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">流式输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-04-first-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第一个工具</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-05-multi-tools.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多工具并行</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-06-agent-loop.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agentic Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-07-context.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">上下文管理</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-09-orchestrator.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Orchestrator + Worker</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-10-handoff.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Handoff</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-11-structured.html" class="active">
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">结构化输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-12-memory.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">记忆 Agent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-13-skill.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill + Tool Runner</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ts-01-hello.html" class="current">TypeScript Agent 开发</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">11</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第11课：结构化输出</div>
+          <div class="desc">Zod + messages.parse() 类型安全提取</div>
+          <div class="tags">
+            <span class="tag">advanced</span><span class="tag">zod</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">11_structured_output.md</code></span>
+            <span>📏 270 行</span>
+            <span style="opacity:0.7;">typescript/lessons/11_structured_output.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第11课：结构化输出</h1>
+<h2 id="学习目标">学习目标</h2>
+<ol>
+<li>理解为什么需要结构化输出</li>
+<li>用 <strong>Zod</strong> 定义输出 Schema</li>
+<li>使用 OpenAI <code>response_format: { type: &#39;json_schema&#39; }</code> 获取类型安全的结果</li>
+<li>处理嵌套结构和枚举类型</li>
+</ol>
+<hr>
+<h2 id="为什么需要结构化输出">为什么需要结构化输出？</h2>
+<p>让模型返回自然语言很容易，但如果你需要把结果存入数据库或传给下一个系统，就需要<strong>可靠的 JSON 格式</strong>：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>❌ 自然语言（难以解析）：</span></span>
+<span class="line"><span>"该职位是一个高级工程师职位，薪资在 20-30K 之间，要求 5 年经验..."</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>✅ 结构化 JSON（直接使用）：</span></span>
+<span class="line"><span>{</span></span>
+<span class="line"><span>  "title": "高级工程师",</span></span>
+<span class="line"><span>  "salary": { "min": 20000, "max": 30000 },</span></span>
+<span class="line"><span>  "requiredYears": 5</span></span>
+<span class="line"><span>}</span></span></code></pre><hr>
+<h2 id="provider-支持情况">Provider 支持情况</h2>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>强约束 JSON Schema</th>
+<th>仅 JSON 模式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>OpenAI / GPT</td>
+<td>✅ <code>response_format: { type: &#39;json_schema&#39;, strict: true }</code></td>
+<td>✅ <code>{ type: &#39;json_object&#39; }</code></td>
+</tr>
+<tr>
+<td><strong>DeepSeek</strong></td>
+<td>⚠️ 暂未支持 strict schema</td>
+<td>✅ <code>{ type: &#39;json_object&#39; }</code></td>
+</tr>
+<tr>
+<td><strong>Kimi</strong></td>
+<td>⚠️ 暂未支持 strict schema</td>
+<td>✅ <code>{ type: &#39;json_object&#39; }</code></td>
+</tr>
+<tr>
+<td>Anthropic</td>
+<td>✅ <code>messages.parse()</code> + Zod（原生 SDK）</td>
+<td>✅</td>
+</tr>
+</tbody></table>
+<p>本课提供两种实现：</p>
+<ol>
+<li><strong>通用版（DeepSeek 默认）</strong>：用 <code>response_format: { type: &#39;json_object&#39; }</code> + Zod 在客户端验证（兼容三家）</li>
+<li><strong>Anthropic 版</strong>：用原生 <code>messages.parse()</code> 享受更强约束</li>
+</ol>
+<hr>
+<h2 id="安装依赖">安装依赖</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#1E66F5;font-style:italic">npm</span><span style="color:#40A02B"> install</span><span style="color:#40A02B"> zod</span><span style="color:#40A02B"> zod-to-json-schema</span></span></code></pre><hr>
+<h2 id="通用版json-模式-zod-验证deepseek-kimi-任意-openai-兼容">通用版：JSON 模式 + Zod 验证（DeepSeek / Kimi / 任意 OpenAI 兼容）</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../shared/llmClient"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> z </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "zod"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> zodToJsonSchema </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "zod-to-json-schema"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 1. 用 Zod 定义期望的输出结构</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> JobPostingSchema </span><span style="color:#179299">=</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  title</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"职位名称"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  company</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"公司名称"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  location</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"工作地点"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  salary</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    min</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">number</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"最低薪资（元/月）"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">number</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"最高薪资（元/月）"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"薪资范围"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  requiredYears</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">number</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"要求工作年限"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  skills</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">array</span><span style="color:#4C4F69">(z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">())</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"必须技能列表"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  isRemote</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">boolean</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"是否支持远程办公"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> JobPosting </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> z</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">infer</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">typeof</span><span style="color:#4C4F69;font-style:italic"> JobPostingSchema</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 2. 把 Zod schema 转成 JSON Schema，喂给系统提示，让模型严格按它输出</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> parseJob</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">JobPosting</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> jsonSchema </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> zodToJsonSchema</span><span style="color:#4C4F69">(JobPostingSchema)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    response_format</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "json_object"</span><span style="color:#7C7F93"> },</span><span style="color:#9CA0B0;font-style:italic">          // 强制 JSON 模式</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `你是数据提取助手。严格按以下 JSON Schema 输出，不要任何额外文字：</span></span>
+<span class="line"><span style="color:#7C7F93">${</span><span style="color:#FE640B">JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">jsonSchema</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 2</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `从以下招聘信息中提取结构化数据：</span><span style="color:#EA76CB">\n\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">text</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 3. 客户端用 Zod 验证（兜底校验）</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> raw </span><span style="color:#179299">=</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> "{}"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> JobPostingSchema</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(raw)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">                   // 不通过会抛 ZodError</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 4. 使用</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> job </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> parseJob</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`招聘：高级 TypeScript 工程师 | 字节跳动 | 北京/上海</span></span>
+<span class="line"><span style="color:#40A02B">薪资：25K-40K，5年以上经验</span></span>
+<span class="line"><span style="color:#40A02B">技能要求：TypeScript、React、Node.js、微服务架构</span></span>
+<span class="line"><span style="color:#40A02B">可远程：支持每周2天居家办公`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`职位：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">job</span><span style="color:#179299">.</span><span style="color:#4C4F69">title</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> @ </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">job</span><span style="color:#179299">.</span><span style="color:#4C4F69">company</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`薪资：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">job</span><span style="color:#179299">.</span><span style="color:#4C4F69">salary</span><span style="color:#179299">.</span><span style="color:#4C4F69">min</span><span style="color:#179299"> /</span><span style="color:#FE640B"> 1000</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">K - </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">job</span><span style="color:#179299">.</span><span style="color:#4C4F69">salary</span><span style="color:#179299">.</span><span style="color:#4C4F69">max</span><span style="color:#179299"> /</span><span style="color:#FE640B"> 1000</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">K`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`技能：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">job</span><span style="color:#179299">.</span><span style="color:#4C4F69">skills</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#40A02B">(</span><span style="color:#40A02B">", "</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`远程：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">job</span><span style="color:#179299">.</span><span style="color:#4C4F69">isRemote</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> "支持"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "不支持"</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><blockquote>
+<p><strong>关键</strong>：<code>response_format: { type: &#39;json_object&#39; }</code> 强制模型只输出合法 JSON，不会有&quot;```json&quot;包裹或前后多余文字；<code>Zod.parse()</code> 在客户端做最终校验。</p>
+</blockquote>
+<hr>
+<h2 id="枚举和联合类型">枚举和联合类型</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> SentimentSchema </span><span style="color:#179299">=</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  sentiment</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">enum</span><span style="color:#4C4F69">([</span><span style="color:#40A02B">"positive"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "negative"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "neutral"</span><span style="color:#4C4F69">])</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"情感倾向"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  confidence</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">number</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">min</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">max</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">1</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"置信度 0-1"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  keywords</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">array</span><span style="color:#4C4F69">(z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">())</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"关键词列表"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  summary</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"一句话总结"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> SentimentResult </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> z</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">infer</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">typeof</span><span style="color:#4C4F69;font-style:italic"> SentimentSchema</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> analyzeSentiment</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">SentimentResult</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> jsonSchema </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> zodToJsonSchema</span><span style="color:#4C4F69">(SentimentSchema)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 512</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    response_format</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "json_object"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `按此 Schema 严格输出 JSON：</span><span style="color:#7C7F93">${</span><span style="color:#FE640B">JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">jsonSchema</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69">   content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `分析以下文本的情感倾向：</span><span style="color:#EA76CB">\n\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">text</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> SentimentSchema</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> "{}"</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> analysis </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> analyzeSentiment</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">  "这个产品真的超出预期！界面设计精美，性能流畅，客服也很及时。强烈推荐！"</span></span>
+<span class="line"><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(analysis</span><span style="color:#179299">.</span><span style="color:#4C4F69">sentiment)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">    // "positive"</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(analysis</span><span style="color:#179299">.</span><span style="color:#4C4F69">keywords)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">     // ["超出预期", "精美", "流畅", "推荐"]</span></span></code></pre><hr>
+<h2 id="复杂嵌套结构">复杂嵌套结构</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> BookingIntentSchema </span><span style="color:#179299">=</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  intent</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">enum</span><span style="color:#4C4F69">([</span></span>
+<span class="line"><span style="color:#40A02B">    "create_booking"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "modify_booking"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "cancel_booking"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "query_booking"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  ])</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"用户意图"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  booking</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">enum</span><span style="color:#4C4F69">([</span><span style="color:#40A02B">"flight"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "hotel"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "car"</span><span style="color:#4C4F69">])</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"预订类型"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    destination</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">optional</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"目的地"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    checkIn</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">optional</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"入住日期 YYYY-MM-DD"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    checkOut</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">optional</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"离开日期 YYYY-MM-DD"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    passengers</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">number</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">optional</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"人数"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"预订详情"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  urgency</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">enum</span><span style="color:#4C4F69">([</span><span style="color:#40A02B">"low"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "medium"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "high"</span><span style="color:#4C4F69">])</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"紧急程度"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  missingInfo</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">array</span><span style="color:#4C4F69">(z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">())</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"还需要用户提供的信息"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>调用方式与上面 <code>parseJob</code> 完全一样——通用模板：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> parseStructured</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">T</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">schema</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> z</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ZodSchema</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">T</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> userInput</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">T</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> jsonSchema </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> zodToJsonSchema</span><span style="color:#4C4F69">(schema)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    response_format</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "json_object"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `严格按此 JSON Schema 输出：</span><span style="color:#7C7F93">${</span><span style="color:#FE640B">JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">jsonSchema</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69">   content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userInput </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> schema</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> "{}"</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 用法</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> booking </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> parseStructured</span><span style="color:#4C4F69">(BookingIntentSchema</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "我想订明天从北京到上海的机票，两个人，越快越好"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(booking</span><span style="color:#179299">.</span><span style="color:#4C4F69">intent)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">            // "create_booking"</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(booking</span><span style="color:#179299">.</span><span style="color:#4C4F69">booking</span><span style="color:#179299">.</span><span style="color:#4C4F69">type)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">      // "flight"</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(booking</span><span style="color:#179299">.</span><span style="color:#4C4F69">missingInfo)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">       // ["出发时间", "舱位要求"]</span></span></code></pre><hr>
+<h2 id="错误处理">错误处理</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> data </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> parseJob</span><span style="color:#4C4F69">(text)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 安全使用</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#8839EF"> catch</span><span style="color:#4C4F69"> (e) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (e </span><span style="color:#8839EF">instanceof</span><span style="color:#DF8E1D;font-style:italic"> z</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ZodError</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"模型输出不符合 Schema："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> e</span><span style="color:#179299">.</span><span style="color:#4C4F69">errors)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 可以重试，让模型修正</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> ((e </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#4C4F69">status </span><span style="color:#179299">===</span><span style="color:#FE640B"> 400</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"API 拒绝请求（可能触发内容审查）"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    throw</span><span style="color:#4C4F69"> e</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="anthropic-原生-messagesparse更强约束">Anthropic 原生 <code>messages.parse()</code>（更强约束）</h2>
+<p>如果你切到 Anthropic 原生 SDK，可以享受 SDK 内置的 schema 验证：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Anthropic </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "@anthropic-ai/sdk"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> zodOutputFormat </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "@anthropic-ai/sdk/helpers/zod"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> ant </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Anthropic</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ant</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "claude-opus-4-7"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "..."</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  output_config</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> format</span><span style="color:#179299">:</span><span style="color:#1E66F5;font-style:italic"> zodOutputFormat</span><span style="color:#4C4F69">(JobPostingSchema) </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> job </span><span style="color:#179299">=</span><span style="color:#4C4F69"> result</span><span style="color:#179299">.</span><span style="color:#4C4F69">parsed_output</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">     // 类型化</span></span></code></pre><p>差异点：</p>
+<table>
+<thead>
+<tr>
+<th>通用版（DeepSeek/Kimi）</th>
+<th>Anthropic 原生</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>response_format: { type: &#39;json_object&#39; }</code></td>
+<td><code>output_config: { format: zodOutputFormat(...) }</code></td>
+</tr>
+<tr>
+<td>客户端 <code>Zod.parse()</code> 校验</td>
+<td>SDK 自动验证</td>
+</tr>
+<tr>
+<td>失败抛 <code>ZodError</code></td>
+<td><code>parsed_output === null</code>，需检查 <code>stop_reason</code></td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="与-tool-use-的对比">与 Tool Use 的对比</h2>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>response_format: &#39;json_object&#39;</code> + Zod</td>
+<td>提取信息、分类、数据转换</td>
+</tr>
+<tr>
+<td>Tool Use（function calling）</td>
+<td>触发函数调用、外部操作</td>
+</tr>
+<tr>
+<td>纯提示词要求 JSON</td>
+<td>不推荐（格式不稳定，无 strict 保证）</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="小结">小结</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 三步走：定义 → 解析 → 使用</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> Schema </span><span style="color:#179299">=</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#179299"> ...</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">                              // 1. 定义结构</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#9CA0B0;font-style:italic">       // 2. JSON 模式</span></span>
+<span class="line"><span style="color:#4C4F69">  response_format</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "json_object"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> data </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Schema</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content))</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 3. 验证类型化使用</span></span></code></pre><p>下一课：让 Agent 拥有<strong>记忆能力</strong>，跨对话记住用户信息 →</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ts-10-handoff.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第10课：Agent Handoff</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ts-12-memory.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第12课：记忆 Agent</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#学习目标">学习目标</a></li><li class="lvl-2"><a href="#为什么需要结构化输出">为什么需要结构化输出？</a></li><li class="lvl-2"><a href="#provider-支持情况">Provider 支持情况</a></li><li class="lvl-2"><a href="#安装依赖">安装依赖</a></li><li class="lvl-2"><a href="#通用版json-模式-zod-验证deepseek-kimi-任意-openai-兼容">通用版：JSON 模式 + Zod 验证（DeepSeek / Kimi / 任意 OpenAI 兼容）</a></li><li class="lvl-2"><a href="#枚举和联合类型">枚举和联合类型</a></li><li class="lvl-2"><a href="#复杂嵌套结构">复杂嵌套结构</a></li><li class="lvl-2"><a href="#错误处理">错误处理</a></li><li class="lvl-2"><a href="#anthropic-原生-messagesparse更强约束">Anthropic 原生 messages.parse()（更强约束）</a></li><li class="lvl-2"><a href="#与-tool-use-的对比">与 Tool Use 的对比</a></li><li class="lvl-2"><a href="#小结">小结</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

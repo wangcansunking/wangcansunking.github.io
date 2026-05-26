@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第6课：统一接口层 — 多 LLM 接入实战</title>
+  <meta name="description" content="一套代码适配所有模型，Provider 抽象">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-cyan">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-cyan">
+      <div class="crumb">
+        <div class="crumb-icon">LM</div>
+        <div class="crumb-text">多 LLM 接入实战</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ml-01-openai.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">OpenAI API</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-02-deepseek.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">DeepSeek</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-03-gemini.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Google Gemini</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-04-kimi.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Kimi (Moonshot)</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-05-minimax.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MiniMax</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-06-unified.html" class="active">
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">统一接口层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-07-selection.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">模型选型指南</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-08-fallback.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Fallback 与多模型协作</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ml-01-openai.html" class="current">多 LLM 接入实战</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">06</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第6课：统一接口层</div>
+          <div class="desc">一套代码适配所有模型，Provider 抽象</div>
+          <div class="tags">
+            <span class="tag">architecture</span><span class="tag">llm</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">06_unified_interface.md</code></span>
+            <span>📏 752 行</span>
+            <span style="opacity:0.7;">multi-llm/lessons/06_unified_interface.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第6课：统一 LLM 接口 — 一套代码接入所有模型</h1>
+<h2 id="介绍">介绍</h2>
+<p>每个 LLM 提供商都有自己的 SDK 和 API 格式，导致业务代码和具体模型强耦合。想换一个模型，就要修改大量代码。本课介绍三种统一接口方案，核心目标是：<strong>业务代码只依赖标准接口，切换模型只需修改一行配置</strong>。</p>
+<p>三种方案各有适用场景：</p>
+<ul>
+<li><strong>方案 A（LiteLLM）</strong>：Python 项目首选，39.6k 星，支持 100+ 模型，开箱即用</li>
+<li><strong>方案 B（Adapter Pattern）</strong>：TypeScript 项目首选，零依赖，类型安全，完全可控</li>
+<li><strong>方案 C（Vercel AI SDK）</strong>：Next.js / React 前端项目首选</li>
+</ul>
+<hr>
+<h2 id="核心问题四种-sdk四种写法">核心问题：四种 SDK，四种写法</h2>
+<p>以下是目前各主流提供商的 SDK 调用方式对比，差异相当大：</p>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>OpenAI</th>
+<th>Anthropic</th>
+<th>Gemini</th>
+<th>DeepSeek</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>客户端初始化</td>
+<td><code>new OpenAI()</code></td>
+<td><code>new Anthropic()</code></td>
+<td><code>new GoogleGenAI()</code></td>
+<td><code>new OpenAI({baseURL})</code></td>
+</tr>
+<tr>
+<td>发送消息</td>
+<td><code>chat.completions.create</code></td>
+<td><code>messages.create</code></td>
+<td><code>ai.chats.create</code> + <code>chat.sendMessage</code></td>
+<td><code>chat.completions.create</code></td>
+</tr>
+<tr>
+<td>响应内容</td>
+<td><code>choices[0].message.content</code></td>
+<td><code>content[0].text</code></td>
+<td><code>result.text</code></td>
+<td><code>choices[0].message.content</code></td>
+</tr>
+<tr>
+<td>System 消息</td>
+<td>放在 <code>messages</code> 数组中</td>
+<td>独立的 <code>system</code> 参数</td>
+<td><code>config.systemInstruction</code></td>
+<td>放在 <code>messages</code> 数组中</td>
+</tr>
+<tr>
+<td>流式输出</td>
+<td><code>stream: true</code></td>
+<td><code>messages.stream()</code></td>
+<td><code>sendMessageStream()</code></td>
+<td><code>stream: true</code></td>
+</tr>
+</tbody></table>
+<p>这种碎片化导致：多模型 Agent 需要维护多套 SDK 代码，业务逻辑和模型实现混在一起，切换模型成本极高。统一接口层就是解决这个问题的。</p>
+<hr>
+<h2 id="整体架构adapter-设计模式">整体架构：Adapter 设计模式</h2>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    BIZ[&quot;业务代码&lt;br/&gt;runChatAgent / compareProviders&quot;] --&gt; IFACE[&quot;LLMAdapter 接口&lt;br/&gt;chat() / stream()&quot;]
+
+    IFACE --&gt; OA[&quot;OpenAIAdapter&lt;br/&gt;gpt-4o 等&quot;]
+    IFACE --&gt; AA[&quot;AnthropicAdapter&lt;br/&gt;claude-sonnet-4-6 等&quot;]
+    IFACE --&gt; GA[&quot;GeminiAdapter&lt;br/&gt;gemini-2.0-flash 等&quot;]
+    IFACE --&gt; DA[&quot;DeepSeekAdapter&lt;br/&gt;复用 OpenAIAdapter&quot;]
+    IFACE --&gt; KA[&quot;KimiAdapter&lt;br/&gt;复用 OpenAIAdapter&quot;]
+
+    OA --&gt; SDK_OAI[&quot;openai npm 包&quot;]
+    AA --&gt; SDK_ANT[&quot;@anthropic-ai/sdk&quot;]
+    GA --&gt; SDK_GEM[&quot;@google/genai&quot;]
+    DA --&gt; SDK_OAI
+    KA --&gt; SDK_OAI</pre></div><p>Adapter 模式的核心思想：<strong>为每个不兼容的接口创建一个包装类，将其转换为统一的接口</strong>。业务代码只知道 <code>LLMAdapter</code> 接口，完全不感知底层使用的是哪个 SDK。</p>
+<hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-alitellmpython推荐396k-星">方案 A：LiteLLM（Python，推荐，39.6k 星）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> litellm</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 统一接口：支持 100+ 模型，全部用 OpenAI 格式</span></span>
+<span class="line"><span style="color:#4C4F69">response </span><span style="color:#179299">=</span><span style="color:#4C4F69"> litellm</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">completion</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    model</span><span style="color:#179299">=</span><span style="color:#40A02B">"claude-opus-4-6"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">       # 或 "gpt-4o", "gemini/gemini-2.0-flash"</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    messages</span><span style="color:#179299">=</span><span style="color:#7C7F93">[{</span><span style="color:#40A02B">"role"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "content"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "你好"</span><span style="color:#7C7F93">}],</span></span>
+<span class="line"><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">print</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">response</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">choices</span><span style="color:#7C7F93">[</span><span style="color:#FE640B;font-style:italic">0</span><span style="color:#7C7F93">].</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">)</span></span></code></pre><h3 id="方案-b自定义-adapter-patterntypescript">方案 B：自定义 Adapter Pattern（TypeScript）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 统一接口</span></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> LLMAdapter</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  chat</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> options</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ChatOptions</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">LLMResponse</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  stream</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> options</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ChatOptions</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AsyncGenerator</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="方案-cvercel-ai-sdk前端">方案 C：Vercel AI SDK（前端）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> generateText </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "ai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> anthropic </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "@ai-sdk/anthropic"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> text </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> generateText</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#1E66F5;font-style:italic"> anthropic</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"claude-opus-4-6"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  prompt</span><span style="color:#179299">:</span><span style="color:#40A02B"> "Hello"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="方案对比">方案对比</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>LiteLLM</th>
+<th>Adapter Pattern</th>
+<th>Vercel AI SDK</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>支持语言</td>
+<td>Python 为主</td>
+<td>TypeScript</td>
+<td>TypeScript / JS</td>
+</tr>
+<tr>
+<td>模型支持数量</td>
+<td>100+ 开箱即用</td>
+<td>手动实现，按需添加</td>
+<td>主流模型</td>
+</tr>
+<tr>
+<td>类型安全</td>
+<td>部分（Python 类型提示）</td>
+<td>完整（TypeScript）</td>
+<td>完整</td>
+</tr>
+<tr>
+<td>定制灵活性</td>
+<td>中（内置策略）</td>
+<td>高（完全可控）</td>
+<td>中</td>
+</tr>
+<tr>
+<td>生产依赖</td>
+<td>有外部依赖（litellm 包）</td>
+<td>零额外依赖</td>
+<td>有外部依赖（ai 包）</td>
+</tr>
+<tr>
+<td>内置 Fallback</td>
+<td>有</td>
+<td>需自己实现</td>
+<td>部分</td>
+</tr>
+<tr>
+<td>内置成本追踪</td>
+<td>有</td>
+<td>需自己实现</td>
+<td>无</td>
+</tr>
+<tr>
+<td>适合场景</td>
+<td>Python 后端、数据脚本</td>
+<td>TypeScript 后端</td>
+<td>Next.js 前端</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<table>
+<thead>
+<tr>
+<th>项目类型</th>
+<th>推荐方案</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Python 后端服务</td>
+<td>方案 A（LiteLLM）</td>
+<td>100+ 模型开箱即用，内置可靠性特性</td>
+</tr>
+<tr>
+<td>Python 脚本 / 数据处理</td>
+<td>方案 A（LiteLLM）</td>
+<td>一行切换模型，快速迭代</td>
+</tr>
+<tr>
+<td>TypeScript / Node.js 后端</td>
+<td>方案 B（Adapter Pattern）</td>
+<td>类型安全，零依赖，可完全掌控行为</td>
+</tr>
+<tr>
+<td>Next.js / React 应用</td>
+<td>方案 C（Vercel AI SDK）</td>
+<td>专为前端优化，Streaming 体验好</td>
+</tr>
+<tr>
+<td>需要同时支持 Python 和 TS</td>
+<td>方案 A + 方案 B 各用各的</td>
+<td>不同语言不强求统一</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="方案alitellm-完整使用指南">方案A：LiteLLM 完整使用指南</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># pip install litellm</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> litellm</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> asyncio</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> os</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 配置 API Keys（LiteLLM 从环境变量自动读取）</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># ANTHROPIC_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY 等</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 1. 基础调用（统一 OpenAI 格式）</span></span>
+<span class="line"><span style="color:#8839EF">def</span><span style="color:#1E66F5;font-style:italic"> chat</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">model</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> user_message</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#179299"> **</span><span style="color:#E64553;font-style:italic">kwargs</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">    response </span><span style="color:#179299">=</span><span style="color:#4C4F69"> litellm</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">completion</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">        model</span><span style="color:#179299">=</span><span style="color:#4C4F69">model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">        messages</span><span style="color:#179299">=</span><span style="color:#7C7F93">[{</span><span style="color:#40A02B">"role"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "content"</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> user_message</span><span style="color:#7C7F93">}],</span></span>
+<span class="line"><span style="color:#179299">        **</span><span style="color:#4C4F69">kwargs</span></span>
+<span class="line"><span style="color:#7C7F93">    )</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> response</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">choices</span><span style="color:#7C7F93">[</span><span style="color:#FE640B;font-style:italic">0</span><span style="color:#7C7F93">].</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">content</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 切换模型只需改一个字符串</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">print</span><span style="color:#7C7F93">(</span><span style="color:#1E66F5">chat</span><span style="color:#7C7F93">(</span><span style="color:#40A02B">"claude-opus-4-6"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "用 Python 写冒泡排序"</span><span style="color:#7C7F93">))</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">print</span><span style="color:#7C7F93">(</span><span style="color:#1E66F5">chat</span><span style="color:#7C7F93">(</span><span style="color:#40A02B">"gpt-4o"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "用 Python 写冒泡排序"</span><span style="color:#7C7F93">))</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">print</span><span style="color:#7C7F93">(</span><span style="color:#1E66F5">chat</span><span style="color:#7C7F93">(</span><span style="color:#40A02B">"deepseek/deepseek-chat"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "用 Python 写冒泡排序"</span><span style="color:#7C7F93">))</span><span style="color:#9CA0B0;font-style:italic">  # 中文最强+最便宜</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">print</span><span style="color:#7C7F93">(</span><span style="color:#1E66F5">chat</span><span style="color:#7C7F93">(</span><span style="color:#40A02B">"gemini/gemini-2.0-flash"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "用 Python 写冒泡排序"</span><span style="color:#7C7F93">))</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 2. 流式输出</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> def</span><span style="color:#1E66F5;font-style:italic"> stream_chat</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">model</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> message</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#8839EF">    async</span><span style="color:#8839EF"> for</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">in</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> litellm</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">acompletion</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">        model</span><span style="color:#179299">=</span><span style="color:#4C4F69">model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">        messages</span><span style="color:#179299">=</span><span style="color:#7C7F93">[{</span><span style="color:#40A02B">"role"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "content"</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> message</span><span style="color:#7C7F93">}],</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">        stream</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span></span>
+<span class="line"><span style="color:#7C7F93">    ):</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">        print</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">chunk</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">choices</span><span style="color:#7C7F93">[</span><span style="color:#FE640B;font-style:italic">0</span><span style="color:#7C7F93">].</span><span style="color:#4C4F69">delta</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">content </span><span style="color:#8839EF">or</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> end</span><span style="color:#179299">=</span><span style="color:#40A02B">""</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> flush</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">    print</span><span style="color:#7C7F93">()</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 3. Fallback（主模型失败自动切换）</span></span>
+<span class="line"><span style="color:#4C4F69">response </span><span style="color:#179299">=</span><span style="color:#4C4F69"> litellm</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">completion</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    model</span><span style="color:#179299">=</span><span style="color:#40A02B">"claude-opus-4-6"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    messages</span><span style="color:#179299">=</span><span style="color:#7C7F93">[{</span><span style="color:#40A02B">"role"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "content"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "Hello"</span><span style="color:#7C7F93">}],</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    fallbacks</span><span style="color:#179299">=</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"gpt-4o"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "deepseek/deepseek-chat"</span><span style="color:#7C7F93">],</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    num_retries</span><span style="color:#179299">=</span><span style="color:#FE640B">3</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    timeout</span><span style="color:#179299">=</span><span style="color:#FE640B">30</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    request_timeout</span><span style="color:#179299">=</span><span style="color:#FE640B">60</span></span>
+<span class="line"><span style="color:#7C7F93">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 4. 成本追踪</span></span>
+<span class="line"><span style="color:#4C4F69">response </span><span style="color:#179299">=</span><span style="color:#4C4F69"> litellm</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">completion</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    model</span><span style="color:#179299">=</span><span style="color:#40A02B">"claude-opus-4-6"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    messages</span><span style="color:#179299">=</span><span style="color:#7C7F93">[{</span><span style="color:#40A02B">"role"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "content"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "分析这段代码..."</span><span style="color:#7C7F93">}]</span></span>
+<span class="line"><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">cost </span><span style="color:#179299">=</span><span style="color:#4C4F69"> litellm</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">completion_cost</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">completion_response</span><span style="color:#179299">=</span><span style="color:#4C4F69">response</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">print</span><span style="color:#7C7F93">(</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"本次调用成本: $</span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">cost</span><span style="color:#8839EF">:.6f</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 5. 批量并行调用（自动处理并发）</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> def</span><span style="color:#1E66F5;font-style:italic"> batch_compare</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">question</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#4C4F69">    models </span><span style="color:#179299">=</span><span style="color:#7C7F93"> [</span><span style="color:#40A02B">"claude-opus-4-6"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "deepseek/deepseek-chat"</span><span style="color:#7C7F93">]</span></span>
+<span class="line"><span style="color:#4C4F69">    tasks </span><span style="color:#179299">=</span><span style="color:#7C7F93"> [</span></span>
+<span class="line"><span style="color:#4C4F69">        litellm</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">acompletion</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            model</span><span style="color:#179299">=</span><span style="color:#4C4F69">m</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            messages</span><span style="color:#179299">=</span><span style="color:#7C7F93">[{</span><span style="color:#40A02B">"role"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "content"</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> question</span><span style="color:#7C7F93">}],</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            max_tokens</span><span style="color:#179299">=</span><span style="color:#FE640B">200</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"><span style="color:#8839EF">        for</span><span style="color:#4C4F69"> m </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> models</span></span>
+<span class="line"><span style="color:#7C7F93">    ]</span></span>
+<span class="line"><span style="color:#4C4F69">    responses </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> asyncio</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">gather</span><span style="color:#7C7F93">(</span><span style="color:#179299">*</span><span style="color:#4C4F69">tasks</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> return_exceptions</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> model</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> resp </span><span style="color:#8839EF">in</span><span style="color:#FE640B;font-style:italic"> zip</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">models</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> responses</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#FE640B;font-style:italic"> isinstance</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">resp</span><span style="color:#7C7F93">,</span><span style="color:#FE640B;font-style:italic"> Exception</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">            print</span><span style="color:#7C7F93">(</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"[</span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">model</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">] 错误: </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">resp</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#8839EF">        else</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">            text </span><span style="color:#179299">=</span><span style="color:#4C4F69"> resp</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">choices</span><span style="color:#7C7F93">[</span><span style="color:#FE640B;font-style:italic">0</span><span style="color:#7C7F93">].</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">content</span></span>
+<span class="line"><span style="color:#4C4F69">            cost </span><span style="color:#179299">=</span><span style="color:#4C4F69"> litellm</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">completion_cost</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">resp</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">            print</span><span style="color:#7C7F93">(</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">[</span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">model</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">] 成本 $</span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">cost</span><span style="color:#8839EF">:.6f</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">:</span><span style="color:#EA76CB">\n{</span><span style="color:#E64553;font-style:italic">text</span><span style="color:#7C7F93">[:</span><span style="color:#FE640B;font-style:italic">200</span><span style="color:#7C7F93">]</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">asyncio</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">run</span><span style="color:#7C7F93">(</span><span style="color:#1E66F5">batch_compare</span><span style="color:#7C7F93">(</span><span style="color:#40A02B">"什么是 Agent？用一句话解释"</span><span style="color:#7C7F93">))</span></span></code></pre><h3 id="litellm-proxy-server生产部署推荐">LiteLLM Proxy Server（生产部署推荐）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># litellm_config.yaml</span></span>
+<span class="line"><span style="color:#1E66F5">model_list</span><span style="color:#179299">:</span></span>
+<span class="line"><span style="color:#7C7F93">  -</span><span style="color:#1E66F5"> model_name</span><span style="color:#179299">:</span><span style="color:#40A02B"> fast-model</span><span style="color:#9CA0B0;font-style:italic">      # 业务代码用的名字</span></span>
+<span class="line"><span style="color:#1E66F5">    litellm_params</span><span style="color:#179299">:</span></span>
+<span class="line"><span style="color:#1E66F5">      model</span><span style="color:#179299">:</span><span style="color:#40A02B"> claude-haiku-4-5</span></span>
+<span class="line"><span style="color:#1E66F5">      api_key</span><span style="color:#179299">:</span><span style="color:#40A02B"> os.environ/ANTHROPIC_API_KEY</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#7C7F93">  -</span><span style="color:#1E66F5"> model_name</span><span style="color:#179299">:</span><span style="color:#40A02B"> smart-model</span></span>
+<span class="line"><span style="color:#1E66F5">    litellm_params</span><span style="color:#179299">:</span></span>
+<span class="line"><span style="color:#1E66F5">      model</span><span style="color:#179299">:</span><span style="color:#40A02B"> claude-opus-4-6</span></span>
+<span class="line"><span style="color:#1E66F5">      api_key</span><span style="color:#179299">:</span><span style="color:#40A02B"> os.environ/ANTHROPIC_API_KEY</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#7C7F93">  -</span><span style="color:#1E66F5"> model_name</span><span style="color:#179299">:</span><span style="color:#40A02B"> chinese-model</span></span>
+<span class="line"><span style="color:#1E66F5">    litellm_params</span><span style="color:#179299">:</span></span>
+<span class="line"><span style="color:#1E66F5">      model</span><span style="color:#179299">:</span><span style="color:#40A02B"> deepseek/deepseek-chat</span></span>
+<span class="line"><span style="color:#1E66F5">      api_key</span><span style="color:#179299">:</span><span style="color:#40A02B"> os.environ/DEEPSEEK_API_KEY</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5">router_settings</span><span style="color:#179299">:</span></span>
+<span class="line"><span style="color:#1E66F5">  routing_strategy</span><span style="color:#179299">:</span><span style="color:#40A02B"> least-busy</span><span style="color:#9CA0B0;font-style:italic">   # 按负载路由</span></span>
+<span class="line"><span style="color:#1E66F5">  num_retries</span><span style="color:#179299">:</span><span style="color:#FE640B"> 3</span></span>
+<span class="line"><span style="color:#1E66F5">  fallbacks</span><span style="color:#179299">:</span></span>
+<span class="line"><span style="color:#7C7F93">    -</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"fast-model"</span><span style="color:#179299">:</span><span style="color:#7C7F93"> [</span><span style="color:#40A02B">"chinese-model"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "smart-model"</span><span style="color:#7C7F93">]}</span></span></code></pre><pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># 启动 LiteLLM 代理服务器（兼容 OpenAI API 格式）</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">litellm</span><span style="color:#40A02B"> --config</span><span style="color:#40A02B"> litellm_config.yaml</span><span style="color:#40A02B"> --port</span><span style="color:#FE640B"> 4000</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 所有服务通过代理访问，无需改代码</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">curl</span><span style="color:#40A02B"> http://localhost:4000/v1/chat/completions</span><span style="color:#EA76CB"> \</span></span>
+<span class="line"><span style="color:#40A02B">  -H</span><span style="color:#40A02B"> "Content-Type: application/json"</span><span style="color:#EA76CB"> \</span></span>
+<span class="line"><span style="color:#40A02B">  -d</span><span style="color:#40A02B"> '{"model": "fast-model", "messages": [{"role": "user", "content": "Hello"}]}'</span></span></code></pre><hr>
+<h2 id="方案b统一接口设计">方案B：统一接口设计</h2>
+<h3 id="接口定义原则">接口定义原则</h3>
+<p>设计这套接口时遵循了几个关键原则：</p>
+<ol>
+<li><strong>最小接口面积</strong>：只暴露最核心的 <code>chat()</code> 和 <code>stream()</code> 两个方法，不过度设计</li>
+<li><strong>与原始 SDK 相同的心智模型</strong>：<code>messages</code> 数组、<code>options</code> 覆盖，和各家 SDK 的思维方式一致</li>
+<li><strong>标准化响应结构</strong>：<code>content</code>、<code>usage</code>、<code>model</code> 字段统一，不管底层 SDK 格式如何不同</li>
+<li><strong>可选覆盖</strong>：<code>ChatOptions</code> 中的所有字段都是可选的，有合理默认值</li>
+</ol>
+<h3 id="接口定义typests">接口定义（types.ts）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/unified/types.ts</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">user</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">assistant</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">system</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  content</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> ChatOptions</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">           // 覆盖默认模型</span></span>
+<span class="line"><span style="color:#4C4F69">  temperature</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">     // 0-2，默认 0.7</span></span>
+<span class="line"><span style="color:#4C4F69">  maxTokens</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">       // 最大输出 token 数</span></span>
+<span class="line"><span style="color:#4C4F69">  systemPrompt</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">    // 覆盖系统提示（优先级高于 messages 中的 system）</span></span>
+<span class="line"><span style="color:#4C4F69">  stream</span><span style="color:#179299">?:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> LLMResponse</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  content</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  usage</span><span style="color:#179299">?:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    input</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">    // 输入 token 数</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    output</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 输出 token 数</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    total</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">     // 实际使用的模型</span></span>
+<span class="line"><span style="color:#4C4F69">  finishReason</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> LLMAdapter</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  readonly</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  readonly</span><span style="color:#4C4F69"> defaultModel</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  chat</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> options</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ChatOptions</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">LLMResponse</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  stream</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> options</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ChatOptions</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AsyncGenerator</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="openai-adapter">OpenAI Adapter</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/unified/adapters/openai.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#8839EF"> type</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> LLMAdapter</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> LLMMessage</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> ChatOptions</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> LLMResponse </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../types"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> OpenAIAdapter</span><span style="color:#8839EF"> implements</span><span style="color:#DF8E1D;font-style:italic"> LLMAdapter</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  readonly</span><span style="color:#4C4F69"> name </span><span style="color:#179299">=</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  readonly</span><span style="color:#4C4F69"> defaultModel</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> client</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">options</span><span style="color:#179299">?:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> apiKey</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> baseURL</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> defaultModel</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> })</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">client </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">apiKey </span><span style="color:#179299">||</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      baseURL</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">baseURL</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">defaultModel </span><span style="color:#179299">=</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">defaultModel </span><span style="color:#179299">||</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> chat</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> options</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ChatOptions</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">LLMResponse</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">model </span><span style="color:#179299">||</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">defaultModel</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">buildMessages</span><span style="color:#4C4F69">(messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">systemPrompt)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      temperature</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">temperature </span><span style="color:#179299">??</span><span style="color:#FE640B"> 0.7</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      max_tokens</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">maxTokens</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> choice </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> choice</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">||</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      usage</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span></span>
+<span class="line"><span style="color:#179299">        ?</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">            input</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">.</span><span style="color:#4C4F69">prompt_tokens</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">            output</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">.</span><span style="color:#4C4F69">completion_tokens</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">            total</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">.</span><span style="color:#4C4F69">total_tokens</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">          }</span></span>
+<span class="line"><span style="color:#179299">        :</span><span style="color:#8839EF"> undefined</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      finishReason</span><span style="color:#179299">:</span><span style="color:#4C4F69"> choice</span><span style="color:#179299">.</span><span style="color:#4C4F69">finish_reason</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    };</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#8839EF"> *</span><span style="color:#1E66F5;font-style:italic">stream</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    options</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ChatOptions</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AsyncGenerator</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> stream </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">model </span><span style="color:#179299">||</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">defaultModel</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">buildMessages</span><span style="color:#4C4F69">(messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">systemPrompt)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      temperature</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">temperature </span><span style="color:#179299">??</span><span style="color:#FE640B"> 0.7</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      max_tokens</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">maxTokens</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      stream</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> delta </span><span style="color:#179299">=</span><span style="color:#4C4F69"> chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">?.</span><span style="color:#4C4F69">delta</span><span style="color:#179299">?.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (delta) </span><span style="color:#8839EF">yield</span><span style="color:#4C4F69"> delta</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#1E66F5;font-style:italic"> buildMessages</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    systemPrompt</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionMessageParam[]</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> result</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionMessageParam[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (systemPrompt) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      result</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> systemPrompt </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> msg </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> messages) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">role </span><span style="color:#179299">===</span><span style="color:#40A02B"> "system"</span><span style="color:#179299"> &#x26;&#x26;</span><span style="color:#4C4F69"> systemPrompt) </span><span style="color:#8839EF">continue</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 已有 systemPrompt，跳过</span></span>
+<span class="line"><span style="color:#4C4F69">      result</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#4C4F69"> msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">role</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> result</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// DeepSeek 复用 OpenAI Adapter（只改 baseURL 和 defaultModel）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> createDeepSeekAdapter</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> OpenAIAdapter</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAIAdapter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">DEEPSEEK_API_KEY</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    baseURL</span><span style="color:#179299">:</span><span style="color:#40A02B"> "https://api.deepseek.com/v1"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    defaultModel</span><span style="color:#179299">:</span><span style="color:#40A02B"> "deepseek-chat"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// Kimi 同理</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> createKimiAdapter</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> OpenAIAdapter</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAIAdapter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">MOONSHOT_API_KEY</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    baseURL</span><span style="color:#179299">:</span><span style="color:#40A02B"> "https://api.moonshot.cn/v1"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    defaultModel</span><span style="color:#179299">:</span><span style="color:#40A02B"> "moonshot-v1-8k"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="anthropic-adapter">Anthropic Adapter</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/unified/adapters/anthropic.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Anthropic </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "@anthropic-ai/sdk"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#8839EF"> type</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> LLMAdapter</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> LLMMessage</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> ChatOptions</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> LLMResponse </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../types"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> AnthropicAdapter</span><span style="color:#8839EF"> implements</span><span style="color:#DF8E1D;font-style:italic"> LLMAdapter</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  readonly</span><span style="color:#4C4F69"> name </span><span style="color:#179299">=</span><span style="color:#40A02B"> "anthropic"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  readonly</span><span style="color:#4C4F69"> defaultModel</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> client</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Anthropic</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">options</span><span style="color:#179299">?:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> apiKey</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> defaultModel</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> })</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">client </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Anthropic</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">apiKey </span><span style="color:#179299">||</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">ANTHROPIC_API_KEY</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">defaultModel </span><span style="color:#179299">=</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">defaultModel </span><span style="color:#179299">||</span><span style="color:#40A02B"> "claude-sonnet-4-6"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> chat</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> options</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ChatOptions</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">LLMResponse</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // Anthropic 的 system 消息是独立参数，不在 messages 数组中</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> systemPrompt</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> anthropicMessages </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">separateSystemMessage</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">systemPrompt</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">client</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">model </span><span style="color:#179299">||</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">defaultModel</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      max_tokens</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">maxTokens </span><span style="color:#179299">||</span><span style="color:#FE640B"> 8192</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      system</span><span style="color:#179299">:</span><span style="color:#4C4F69"> systemPrompt</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> anthropicMessages</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      temperature</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">temperature </span><span style="color:#179299">??</span><span style="color:#FE640B"> 0.7</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> contentBlock </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">content[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> content </span><span style="color:#179299">=</span><span style="color:#4C4F69"> contentBlock</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "text"</span><span style="color:#179299"> ?</span><span style="color:#4C4F69"> contentBlock</span><span style="color:#179299">.</span><span style="color:#4C4F69">text </span><span style="color:#179299">:</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      content</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      usage</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        input</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">.</span><span style="color:#4C4F69">input_tokens</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        output</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">.</span><span style="color:#4C4F69">output_tokens</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        total</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">.</span><span style="color:#4C4F69">input_tokens </span><span style="color:#179299">+</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">.</span><span style="color:#4C4F69">output_tokens</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      finishReason</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">stop_reason </span><span style="color:#179299">||</span><span style="color:#8839EF"> undefined</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    };</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#8839EF"> *</span><span style="color:#1E66F5;font-style:italic">stream</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    options</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ChatOptions</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AsyncGenerator</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> systemPrompt</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> anthropicMessages </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">separateSystemMessage</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">systemPrompt</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> stream </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">client</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stream</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">model </span><span style="color:#179299">||</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">defaultModel</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      max_tokens</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">maxTokens </span><span style="color:#179299">||</span><span style="color:#FE640B"> 8192</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      system</span><span style="color:#179299">:</span><span style="color:#4C4F69"> systemPrompt</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> anthropicMessages</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      temperature</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">temperature </span><span style="color:#179299">??</span><span style="color:#FE640B"> 0.7</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> event </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span></span>
+<span class="line"><span style="color:#4C4F69">        event</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "content_block_delta"</span><span style="color:#179299"> &#x26;&#x26;</span></span>
+<span class="line"><span style="color:#4C4F69">        event</span><span style="color:#179299">.</span><span style="color:#4C4F69">delta</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "text_delta"</span></span>
+<span class="line"><span style="color:#4C4F69">      ) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        yield</span><span style="color:#4C4F69"> event</span><span style="color:#179299">.</span><span style="color:#4C4F69">delta</span><span style="color:#179299">.</span><span style="color:#4C4F69">text</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#1E66F5;font-style:italic"> separateSystemMessage</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    overrideSystem</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    systemPrompt</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#179299"> |</span><span style="color:#8839EF;font-style:italic"> undefined</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    anthropicMessages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Anthropic</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">MessageParam[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> systemMsg </span><span style="color:#179299">=</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">find</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">role </span><span style="color:#179299">===</span><span style="color:#40A02B"> "system"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> systemPrompt </span><span style="color:#179299">=</span><span style="color:#4C4F69"> overrideSystem </span><span style="color:#179299">||</span><span style="color:#4C4F69"> systemMsg</span><span style="color:#179299">?.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> anthropicMessages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Anthropic</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">MessageParam[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> messages</span></span>
+<span class="line"><span style="color:#179299">      .</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">role </span><span style="color:#179299">!==</span><span style="color:#40A02B"> "system"</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">      .</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> (</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">role </span><span style="color:#8839EF">as</span><span style="color:#40A02B"> "user"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> systemPrompt</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> anthropicMessages </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="gemini-adapter使用新版-googlegenai-sdk">Gemini Adapter（使用新版 @google/genai SDK）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/unified/adapters/gemini.ts</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 使用 2025 年新版 @google/genai SDK（替代旧版 @google/generative-ai）</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> GoogleGenAI </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "@google/genai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#8839EF"> type</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> LLMAdapter</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> LLMMessage</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> ChatOptions</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> LLMResponse </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../types"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> GeminiAdapter</span><span style="color:#8839EF"> implements</span><span style="color:#DF8E1D;font-style:italic"> LLMAdapter</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  readonly</span><span style="color:#4C4F69"> name </span><span style="color:#179299">=</span><span style="color:#40A02B"> "gemini"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  readonly</span><span style="color:#4C4F69"> defaultModel</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> GoogleGenAI</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">options</span><span style="color:#179299">?:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> apiKey</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> defaultModel</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> })</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">ai </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> GoogleGenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">apiKey </span><span style="color:#179299">||</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">GEMINI_API_KEY</span><span style="color:#179299">!</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">defaultModel </span><span style="color:#179299">=</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">defaultModel </span><span style="color:#179299">||</span><span style="color:#40A02B"> "gemini-2.0-flash"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> chat</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> options</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ChatOptions</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">LLMResponse</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> modelId </span><span style="color:#179299">=</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">model </span><span style="color:#179299">||</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">defaultModel</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> history</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> lastUserMessage</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> systemInstruction </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">convertMessages</span><span style="color:#4C4F69">(messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">systemPrompt)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> chat </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chats</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> modelId</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      history</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      config</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        systemInstruction</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        temperature</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">temperature </span><span style="color:#179299">??</span><span style="color:#FE640B"> 0.7</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        maxOutputTokens</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">maxTokens</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> chat</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">sendMessage</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> message</span><span style="color:#179299">:</span><span style="color:#4C4F69"> lastUserMessage </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> result</span><span style="color:#179299">.</span><span style="color:#4C4F69">text </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      usage</span><span style="color:#179299">:</span><span style="color:#4C4F69"> result</span><span style="color:#179299">.</span><span style="color:#4C4F69">usageMetadata</span></span>
+<span class="line"><span style="color:#179299">        ?</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">            input</span><span style="color:#179299">:</span><span style="color:#4C4F69"> result</span><span style="color:#179299">.</span><span style="color:#4C4F69">usageMetadata</span><span style="color:#179299">.</span><span style="color:#4C4F69">promptTokenCount </span><span style="color:#179299">||</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">            output</span><span style="color:#179299">:</span><span style="color:#4C4F69"> result</span><span style="color:#179299">.</span><span style="color:#4C4F69">usageMetadata</span><span style="color:#179299">.</span><span style="color:#4C4F69">candidatesTokenCount </span><span style="color:#179299">||</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">            total</span><span style="color:#179299">:</span><span style="color:#4C4F69"> result</span><span style="color:#179299">.</span><span style="color:#4C4F69">usageMetadata</span><span style="color:#179299">.</span><span style="color:#4C4F69">totalTokenCount </span><span style="color:#179299">||</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">          }</span></span>
+<span class="line"><span style="color:#179299">        :</span><span style="color:#8839EF"> undefined</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> modelId</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    };</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#8839EF"> *</span><span style="color:#1E66F5;font-style:italic">stream</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    options</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ChatOptions</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AsyncGenerator</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> modelId </span><span style="color:#179299">=</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">model </span><span style="color:#179299">||</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">defaultModel</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> history</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> lastUserMessage</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> systemInstruction </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">convertMessages</span><span style="color:#4C4F69">(messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">systemPrompt)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> chat </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chats</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> modelId</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      history</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      config</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        systemInstruction</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        temperature</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">temperature </span><span style="color:#179299">??</span><span style="color:#FE640B"> 0.7</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> chat</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">sendMessageStream</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> message</span><span style="color:#179299">:</span><span style="color:#4C4F69"> lastUserMessage </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> response) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">text) </span><span style="color:#8839EF">yield</span><span style="color:#4C4F69"> chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">text</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 把统一格式转换为 Gemini 的 history + 最后一条消息格式</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#1E66F5;font-style:italic"> convertMessages</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    overrideSystem</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    history</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> role</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> parts</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> }</span><span style="color:#DF8E1D;font-style:italic">[] </span><span style="color:#7C7F93">}</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    lastUserMessage</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    systemInstruction</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> nonSystemMessages </span><span style="color:#179299">=</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">role </span><span style="color:#179299">!==</span><span style="color:#40A02B"> "system"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> systemMsg </span><span style="color:#179299">=</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">find</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">role </span><span style="color:#179299">===</span><span style="color:#40A02B"> "system"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> systemInstruction </span><span style="color:#179299">=</span><span style="color:#4C4F69"> overrideSystem </span><span style="color:#179299">||</span><span style="color:#4C4F69"> systemMsg</span><span style="color:#179299">?.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (nonSystemMessages</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">===</span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"至少需要一条用户消息"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> lastMessage </span><span style="color:#179299">=</span><span style="color:#4C4F69"> nonSystemMessages[nonSystemMessages</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">-</span><span style="color:#FE640B"> 1</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (lastMessage</span><span style="color:#179299">.</span><span style="color:#4C4F69">role </span><span style="color:#179299">!==</span><span style="color:#40A02B"> "user"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"最后一条消息必须是用户消息"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // Gemini history 不包含最后一条消息</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> history </span><span style="color:#179299">=</span><span style="color:#4C4F69"> nonSystemMessages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#179299"> -</span><span style="color:#FE640B">1</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> (</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      role</span><span style="color:#179299">:</span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">role </span><span style="color:#179299">===</span><span style="color:#40A02B"> "assistant"</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> "model"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic"> // assistant → model</span></span>
+<span class="line"><span style="color:#4C4F69">      parts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      history</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      lastUserMessage</span><span style="color:#179299">:</span><span style="color:#4C4F69"> lastMessage</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      systemInstruction</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    };</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="factory-工厂函数">Factory 工厂函数</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/unified/factory.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#8839EF"> type</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> LLMAdapter </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./types"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> OpenAIAdapter</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> createDeepSeekAdapter</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> createKimiAdapter </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./adapters/openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> AnthropicAdapter </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./adapters/anthropic"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> GeminiAdapter </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./adapters/gemini"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> type</span><span style="color:#DF8E1D;font-style:italic"> ProviderName </span><span style="color:#179299">=</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">openai</span><span style="color:#40A02B">"</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">anthropic</span><span style="color:#40A02B">"</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">gemini</span><span style="color:#40A02B">"</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">deepseek</span><span style="color:#40A02B">"</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">kimi</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> createLLM</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">provider</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ProviderName</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMAdapter</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  switch</span><span style="color:#4C4F69"> (provider) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    case</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAIAdapter</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    case</span><span style="color:#40A02B"> "anthropic"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> AnthropicAdapter</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    case</span><span style="color:#40A02B"> "gemini"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> GeminiAdapter</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    case</span><span style="color:#40A02B"> "deepseek"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#1E66F5;font-style:italic"> createDeepSeekAdapter</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    case</span><span style="color:#40A02B"> "kimi"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#1E66F5;font-style:italic"> createKimiAdapter</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    default</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">      throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`未知的 provider: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">provider</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 从环境变量读取默认 provider</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> createDefaultLLM</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMAdapter</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> provider </span><span style="color:#179299">=</span><span style="color:#4C4F69"> (process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">LLM_PROVIDER</span><span style="color:#8839EF"> as</span><span style="color:#DF8E1D;font-style:italic"> ProviderName</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#1E66F5;font-style:italic"> createLLM</span><span style="color:#4C4F69">(provider)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="使用示例业务代码完全解耦">使用示例：业务代码完全解耦</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/unified/demo.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> createLLM</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> createDefaultLLM </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./factory"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#8839EF"> type</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> LLMMessage </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./types"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 业务代码：完全不依赖具体的模型 SDK</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runChatAgent</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">provider</span><span style="color:#179299">:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">openai</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">anthropic</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">gemini</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> llm </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> createLLM</span><span style="color:#4C4F69">(provider)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "用 TypeScript 写一个冒泡排序函数"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`=== 使用 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">llm</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">（</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">llm</span><span style="color:#179299">.</span><span style="color:#4C4F69">defaultModel</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">）===`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 同样的代码，切换 provider 只需改一个参数</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> llm</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">chat</span><span style="color:#4C4F69">(messages</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.3</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    systemPrompt</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个专业的 TypeScript 开发者，代码简洁高效。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"回复:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">content)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"Token 用量:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 流式输出：所有 adapter 同样的调用方式</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runStreamingChat</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> llm </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> createDefaultLLM</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 从环境变量读取</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "解释一下 React Hooks 的工作原理"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">llm</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">] `</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> llm</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stream</span><span style="color:#4C4F69">(messages)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(chunk)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 对比多个模型的输出</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> compareProviders</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">question</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> providers </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"openai"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "anthropic"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "gemini"</span><span style="color:#4C4F69">] </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> results </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">all</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">    providers</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#8839EF">async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">provider</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> llm </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> createLLM</span><span style="color:#4C4F69">(provider)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> llm</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">chat</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">        [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> question </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span><span style="color:#4C4F69"> temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.5</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> maxTokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 200</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#4C4F69">      )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> provider</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> usage</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> result </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> results) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">provider</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> ===`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(result</span><span style="color:#179299">.</span><span style="color:#4C4F69">content)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`Token: 输入 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">?.</span><span style="color:#4C4F69">input</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">, 输出 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">?.</span><span style="color:#4C4F69">output</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 测试三个 provider</span></span>
+<span class="line"><span style="color:#DF8E1D;font-style:italic">Promise</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">all</span><span style="color:#4C4F69">([</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  runChatAgent</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"openai"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  runChatAgent</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"anthropic"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  runChatAgent</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"gemini"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">])</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">then</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">()</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> runStreamingChat</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="adapter-实现要点">Adapter 实现要点</h2>
+<p>AnthropicAdapter 中最关键的处理是 system 消息的分离。Anthropic API 不接受 messages 数组中的 system 角色消息，必须作为独立参数传入：</p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    INPUT[&quot;输入 messages 数组&lt;br/&gt;[{role:system,...}, {role:user,...}]&quot;]
+    INPUT --&gt; FIND[&quot;查找 system 消息&quot;]
+    FIND --&gt; SYS[&quot;提取 system 内容&lt;br/&gt;作为独立 system 参数&quot;]
+    FIND --&gt; FILTER[&quot;过滤掉 system 消息&lt;br/&gt;剩余作为 messages 参数&quot;]
+    SYS --&gt; API[&quot;Anthropic API 调用&lt;br/&gt;{ system: &#39;...&#39;, messages: [...] }&quot;]
+    FILTER --&gt; API</pre></div><p>GeminiAdapter 的消息转换也有特殊处理：Gemini 使用 <code>history</code> + 最后一条消息的结构，而不是完整的 messages 数组。</p>
+<hr>
+<h2 id="各-adapter-差异处理说明">各 Adapter 差异处理说明</h2>
+<table>
+<thead>
+<tr>
+<th>Adapter</th>
+<th>特殊处理</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>OpenAIAdapter</td>
+<td>system 消息放在 messages 数组第一位</td>
+<td>OpenAI API 规范，支持 messages 中的 system 角色</td>
+</tr>
+<tr>
+<td>AnthropicAdapter</td>
+<td>system 作为独立参数，messages 中过滤掉 system</td>
+<td>Anthropic API 要求，messages 只能包含 user/assistant</td>
+</tr>
+<tr>
+<td>GeminiAdapter</td>
+<td><code>assistant</code> 角色替换为 <code>model</code>，history 不含最后一条消息</td>
+<td>Gemini API 特性，角色名不同且使用 history + 当前消息结构</td>
+</tr>
+<tr>
+<td>DeepSeekAdapter</td>
+<td>复用 OpenAIAdapter，仅修改 baseURL 和 apiKey</td>
+<td>DeepSeek API 完全兼容 OpenAI 格式</td>
+</tr>
+<tr>
+<td>KimiAdapter</td>
+<td>复用 OpenAIAdapter，仅修改 baseURL 和 apiKey</td>
+<td>Kimi API 完全兼容 OpenAI 格式</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="注意事项">注意事项</h2>
+<table>
+<thead>
+<tr>
+<th>注意点</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Gemini 使用新版 SDK</td>
+<td>必须用 <code>@google/genai</code>，不是旧版的 <code>@google/generative-ai</code>，初始化方式不同</td>
+</tr>
+<tr>
+<td>Anthropic 默认模型</td>
+<td>默认模型为 <code>claude-sonnet-4-6</code>，不是 claude-3-5-sonnet 等旧版模型名</td>
+</tr>
+<tr>
+<td>Gemini 默认模型</td>
+<td>默认模型为 <code>gemini-2.0-flash</code>，不是 gemini-pro</td>
+</tr>
+<tr>
+<td>DeepSeek 复用 OpenAI Adapter</td>
+<td>直接传 <code>baseURL</code> 和 <code>apiKey</code> 参数，无需单独实现 DeepSeekAdapter 类</td>
+</tr>
+<tr>
+<td>systemPrompt 优先级</td>
+<td><code>ChatOptions.systemPrompt</code> 优先级高于 messages 数组中的 system 消息，会覆盖后者</td>
+</tr>
+<tr>
+<td>Gemini 最后一条消息</td>
+<td><code>convertMessages</code> 方法会把最后一条 user 消息从 history 中分离出来单独发送，是 Gemini API 的要求</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课学习<strong>第7课：模型选型策略 — 什么任务用什么模型</strong>。有了统一接口，我们可以轻松切换模型。但何时用哪个模型呢？本课建立系统的选型框架：能力矩阵、成本对比、场景决策树，并实现一个自动根据任务类型选择最优模型的 <code>ModelRouter</code>。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ml-05-minimax.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第5课：MiniMax</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ml-07-selection.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第7课：模型选型指南</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#核心问题四种-sdk四种写法">核心问题：四种 SDK，四种写法</a></li><li class="lvl-2"><a href="#整体架构adapter-设计模式">整体架构：Adapter 设计模式</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-alitellmpython推荐396k-星">方案 A：LiteLLM（Python，推荐，39.6k 星）</a></li><li class="lvl-3"><a href="#方案-b自定义-adapter-patterntypescript">方案 B：自定义 Adapter Pattern（TypeScript）</a></li><li class="lvl-3"><a href="#方案-cvercel-ai-sdk前端">方案 C：Vercel AI SDK（前端）</a></li><li class="lvl-2"><a href="#方案对比">方案对比</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#方案alitellm-完整使用指南">方案A：LiteLLM 完整使用指南</a></li><li class="lvl-3"><a href="#litellm-proxy-server生产部署推荐">LiteLLM Proxy Server（生产部署推荐）</a></li><li class="lvl-2"><a href="#方案b统一接口设计">方案B：统一接口设计</a></li><li class="lvl-3"><a href="#接口定义原则">接口定义原则</a></li><li class="lvl-3"><a href="#接口定义typests">接口定义（types.ts）</a></li><li class="lvl-3"><a href="#openai-adapter">OpenAI Adapter</a></li><li class="lvl-3"><a href="#anthropic-adapter">Anthropic Adapter</a></li><li class="lvl-3"><a href="#gemini-adapter使用新版-googlegenai-sdk">Gemini Adapter（使用新版 @google/genai SDK）</a></li><li class="lvl-3"><a href="#factory-工厂函数">Factory 工厂函数</a></li><li class="lvl-3"><a href="#使用示例业务代码完全解耦">使用示例：业务代码完全解耦</a></li><li class="lvl-2"><a href="#adapter-实现要点">Adapter 实现要点</a></li><li class="lvl-2"><a href="#各-adapter-差异处理说明">各 Adapter 差异处理说明</a></li><li class="lvl-2"><a href="#注意事项">注意事项</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

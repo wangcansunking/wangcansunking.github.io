@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第9课：Agent Memory 分层 — Claude Code 源码剖析</title>
+  <meta name="description" content="4 层 memory / MEMORY.md 索引 / 轻量召回器">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-rose">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-rose">
+      <div class="crumb">
+        <div class="crumb-icon">CA</div>
+        <div class="crumb-text">Claude Code 源码剖析</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/cca-01-overview.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">泄露事件与全景导览</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-02-startup.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">启动路径剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-03-query.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Query 执行内核</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-04-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool 抽象与工具池</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-05-orchestration.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">工具调度与并发</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-06-permission.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">权限模型与 Sandbox</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-07-skills.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill 系统</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-09-memory.html" class="active">
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Memory 分层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-10-compaction.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 自动压缩</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-11-prompt.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Prompt Runtime</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-12-multi-agent.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 三层模型</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-13-session.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Session 持久化与 Resume</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-14-hidden.html" >
+            <span class="num">14</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第14课（番外）：隐藏命令与 Feature Flag</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/cca-01-overview.html" class="current">Claude Code 源码剖析</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">09</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第9课：Agent Memory 分层</div>
+          <div class="desc">4 层 memory / MEMORY.md 索引 / 轻量召回器</div>
+          <div class="tags">
+            <span class="tag">analysis</span><span class="tag">memory</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">09_memory_system.md</code></span>
+            <span>📏 410 行</span>
+            <span style="opacity:0.7;">claude-code-analysis/lessons/09_memory_system.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第9课：Agent Memory 分层 — 文件化记忆系统</h1>
+<h2 id="介绍">介绍</h2>
+<p>很多 Agent 项目把&quot;memory&quot;做成单一数据库或大文件。Claude Code 不是。</p>
+<p>它把记忆做成<strong>分 4 层、文件化、用户可见可治理</strong>的系统：Auto / Session / Agent / Team Memory，每层独立目录、独立 prompt、独立更新策略，再加上一个轻量召回器选出本轮真正需要的那几个文件。</p>
+<hr>
+<h2 id="源码定位">源码定位</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>src/memdir/memdir.ts</code></td>
+<td>底层文件存储 + buildMemoryPrompt</td>
+</tr>
+<tr>
+<td><code>src/memdir/paths.ts</code></td>
+<td>路径解析与 isAutoMemoryEnabled</td>
+</tr>
+<tr>
+<td><code>src/memdir/findRelevantMemories.ts</code></td>
+<td>相关记忆召回</td>
+</tr>
+<tr>
+<td><code>src/services/SessionMemory/sessionMemory.ts</code></td>
+<td>会话摘要</td>
+</tr>
+<tr>
+<td><code>src/tools/AgentTool/agentMemory.ts</code></td>
+<td>Agent 专属记忆</td>
+</tr>
+<tr>
+<td><code>src/tools/AgentTool/agentMemorySnapshot.ts</code></td>
+<td>Memory 资产化</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="4-层架构">4 层架构</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>+---------------------------+</span></span>
+<span class="line"><span>| Auto Memory               |  → 用户/项目长期协作记忆</span></span>
+<span class="line"><span>| &#x3C;memoryBase>/projects/    |     • durable</span></span>
+<span class="line"><span>| &#x3C;git-root>/memory/        |     • 跨会话持续</span></span>
+<span class="line"><span>+---------------------------+</span></span>
+<span class="line"><span>+---------------------------+</span></span>
+<span class="line"><span>| Session Memory            |  → 当前会话摘要</span></span>
+<span class="line"><span>| ~/.claude/sessions/.../   |     • 0o600 权限</span></span>
+<span class="line"><span>| session-mem-*.md          |     • token 阈值触发</span></span>
+<span class="line"><span>+---------------------------+</span></span>
+<span class="line"><span>+---------------------------+</span></span>
+<span class="line"><span>| Agent Memory              |  → 某个 agent 类型的专属记忆</span></span>
+<span class="line"><span>|   user / project / local  |     • 三种 scope</span></span>
+<span class="line"><span>|   /agent-memory/&#x3C;type>/   |     • 自动绑定 read/write/edit 工具</span></span>
+<span class="line"><span>+---------------------------+</span></span>
+<span class="line"><span>+---------------------------+</span></span>
+<span class="line"><span>| Team Memory               |  → 团队共享 repo 级知识</span></span>
+<span class="line"><span>| 带 pull/push/checksum     |     • 可同步</span></span>
+<span class="line"><span>|   /optimistic-locking     |     • 受控</span></span>
+<span class="line"><span>+---------------------------+</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>每层都靠：</span></span>
+<span class="line"><span>  - 入口文件 MEMORY.md（≤200 行 / 25KB 截断保护）</span></span>
+<span class="line"><span>  - topic memories/*.md（独立文件存每条记忆）</span></span>
+<span class="line"><span>  - findRelevantMemories（轻量召回器选 ≤5 个文件）</span></span></code></pre><hr>
+<h2 id="底层存储memorymd-索引-topic-文件">底层存储：MEMORY.md 索引 + topic 文件</h2>
+<p><code>src/memdir/memdir.ts</code> 里几个关键常量：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> ENTRYPOINT_NAME    </span><span style="color:#179299">=</span><span style="color:#40A02B"> 'MEMORY.md'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> MAX_ENTRYPOINT_LINES </span><span style="color:#179299">=</span><span style="color:#FE640B"> 200</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> MAX_ENTRYPOINT_BYTES </span><span style="color:#179299">=</span><span style="color:#FE640B"> 25_000</span><span style="color:#7C7F93">;</span></span></code></pre><p>设计意图：</p>
+<ul>
+<li><strong><code>MEMORY.md</code> 是入口索引</strong>，不是正文</li>
+<li>每条 memory 单独一个 markdown 文件</li>
+<li>agent / model 默认只看到 <code>MEMORY.md</code> 索引；需要细节再读具体文件</li>
+</ul>
+<p>为什么不把所有记忆堆一个大文件？因为单文件会有四个问题：</p>
+<ol>
+<li>prompt 爆炸</li>
+<li>更新冲突</li>
+<li>历史垃圾难治理</li>
+<li>单条错误污染整份上下文</li>
+</ol>
+<p><strong>索引 + 分文件</strong>是对这四个问题的工程答案。</p>
+<hr>
+<h2 id="buildmemoryprompt装配上下文的硬截断保护">buildMemoryPrompt：装配上下文的硬截断保护</h2>
+<p>真实源码（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/memdir/memdir.ts"><code>src/memdir/memdir.ts:272</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> buildMemoryPrompt</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">params</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  displayName</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  memoryDir</span><span style="color:#179299">:</span><span style="color:#8839EF">   string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  extraGuidelines</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">})</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> entrypoint </span><span style="color:#179299">=</span><span style="color:#4C4F69"> params</span><span style="color:#179299">.</span><span style="color:#4C4F69">memoryDir </span><span style="color:#179299">+</span><span style="color:#4C4F69"> ENTRYPOINT_NAME</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ⚠️ 同步读取（getSystemPrompt 在 React render 路径上，不能 await）</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> entrypointContent </span><span style="color:#179299">=</span><span style="color:#40A02B"> ''</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    entrypointContent </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFileSync</span><span style="color:#4C4F69">(entrypoint</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> encoding</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'utf-8'</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> {</span><span style="color:#9CA0B0;font-style:italic"> /* 文件不存在静默忽略 */</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> lines </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> buildMemoryLines</span><span style="color:#4C4F69">(</span><span style="color:#179299">...</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (entrypointContent</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">trim</span><span style="color:#4C4F69">()) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> t </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> truncateEntrypointContent</span><span style="color:#4C4F69">(entrypointContent)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // ⚠️ 硬截断</span></span>
+<span class="line"><span style="color:#4C4F69">    lines</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`## </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">ENTRYPOINT_NAME</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> ''</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> t</span><span style="color:#179299">.</span><span style="color:#4C4F69">content)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> lines</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>两个工程细节：</p>
+<ol>
+<li><strong>同步读取</strong>：<code>getSystemPrompt()</code> 在 React render 路径上，不能 <code>await</code></li>
+<li><strong>硬截断保护</strong>：超过 200 行 / 25KB 自动切掉，防 prompt 爆炸</li>
+</ol>
+<hr>
+<h2 id="findrelevantmemories不是全塞-prompt而是做选择">findRelevantMemories：不是全塞 prompt，而是做选择</h2>
+<p>很多 Agent 一旦有 memory，就把所有历史塞 prompt。Claude Code 不是。</p>
+<p><code>findRelevantMemories()</code> 做的事：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>memoryDir</span></span>
+<span class="line"><span>  -> scanMemoryFiles()              扫文件头</span></span>
+<span class="line"><span>  -> 过滤 alreadySurfaced 已展示过的</span></span>
+<span class="line"><span>  -> formatMemoryManifest()         "文件名 + 描述"清单</span></span>
+<span class="line"><span>  -> sideQuery(...)                 调一个轻量模型选</span></span>
+<span class="line"><span>  -> 最多选 5 个 memory 文件</span></span>
+<span class="line"><span>  -> 返回绝对路径 + mtimeMs</span></span></code></pre><p>几个关键细节：</p>
+<ul>
+<li>选的是<strong>文件名</strong>，不是整段正文</li>
+<li>选择器只看 header / manifest，不灌全文</li>
+<li><code>MEMORY.md</code> 本身不在这里选（已单独注入 system prompt）</li>
+<li><code>recentTools</code> 影响选择（避免重复召回当前活跃工具的文档）</li>
+<li><code>alreadySurfaced</code> 避免每轮都选同一批</li>
+</ul>
+<p>所以这层是<strong>轻量检索器</strong>，不是全文向量库。</p>
+<hr>
+<h2 id="session-memory智能摘要的触发逻辑">Session Memory：智能摘要的触发逻辑</h2>
+<p>阈值（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/services/SessionMemory/sessionMemoryUtils.ts"><code>src/services/SessionMemory/sessionMemoryUtils.ts</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#4C4F69">minimumMessageTokensToInit </span><span style="color:#179299">=</span><span style="color:#FE640B"> 10000</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">     // 短会话不开</span></span>
+<span class="line"><span style="color:#4C4F69">minimumTokensBetweenUpdate </span><span style="color:#179299">=</span><span style="color:#FE640B"> 5000</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">      // 每次更新最小间隔</span></span>
+<span class="line"><span style="color:#4C4F69">toolCallsBetweenUpdates    </span><span style="color:#179299">=</span><span style="color:#FE640B"> 3</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">         // 工具调用次数阈值</span></span></code></pre><p><code>shouldExtractMemory</code> 真实源码（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/services/SessionMemory/sessionMemory.ts"><code>src/services/SessionMemory/sessionMemory.ts:134</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> shouldExtractMemory</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> currentTokenCount </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> tokenCountWithEstimation</span><span style="color:#4C4F69">(messages)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#1E66F5;font-style:italic">isSessionMemoryInitialized</span><span style="color:#4C4F69">()) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#1E66F5;font-style:italic">hasMetInitializationThreshold</span><span style="color:#4C4F69">(currentTokenCount)) </span><span style="color:#8839EF">return</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    markSessionMemoryInitialized</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> hasMetTokenThreshold    </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> hasMetUpdateThreshold</span><span style="color:#4C4F69">(currentTokenCount)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> hasMetToolCallThreshold </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> countToolCallsSince</span><span style="color:#4C4F69">(messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> lastMemoryMessageUuid) </span><span style="color:#179299">>=</span><span style="color:#FE640B"> 3</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> hasToolCallsInLastTurn  </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> hasToolCallsInLastAssistantTurn</span><span style="color:#4C4F69">(messages)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // token 阈值始终必要；</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 在自然断点（无 tool_use）或双阈值都满足时才触发</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> shouldExtract </span><span style="color:#179299">=</span></span>
+<span class="line"><span style="color:#4C4F69">    (hasMetTokenThreshold </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> hasMetToolCallThreshold) </span><span style="color:#179299">||</span></span>
+<span class="line"><span style="color:#4C4F69">    (hasMetTokenThreshold </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#179299"> !</span><span style="color:#4C4F69">hasToolCallsInLastTurn)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (shouldExtract) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    lastMemoryMessageUuid </span><span style="color:#179299">=</span><span style="color:#4C4F69"> messages[messages</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">-</span><span style="color:#FE640B"> 1</span><span style="color:#4C4F69">]</span><span style="color:#179299">?.</span><span style="color:#4C4F69">uuid</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p><strong><code>!hasToolCallsInLastTurn</code> 是寻找自然断点</strong>——防止在 tool_use 链中间截断、生成孤立摘要。</p>
+<hr>
+<h2 id="session-memory-文件权限0o600">Session Memory 文件权限：0o600</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> setupSessionMemoryFile</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">ctx</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> sessionMemoryDir </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> getSessionMemoryDir</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">mkdir</span><span style="color:#4C4F69">(sessionMemoryDir</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> mode</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0o700</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 目录：只有属主可读写执行</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> memoryPath </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> getSessionMemoryPath</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> writeFile</span><span style="color:#4C4F69">(memoryPath</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> ''</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    mode</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0o600</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">    // 文件：只有属主可读写</span></span>
+<span class="line"><span style="color:#4C4F69">    flag</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'wx'</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">     // O_CREAT|O_EXCL：文件不存在才创建，防覆盖</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p><code>0o700</code> + <code>0o600</code> 说明：Session Memory 是<strong>敏感本地状态</strong>，不是普通缓存。</p>
+<hr>
+<h2 id="memory-提取子-agent-的最小权限">Memory 提取子 agent 的最小权限</h2>
+<p>第 6 课已经看过这个例子，这里再点一下它的精妙。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/services/SessionMemory/sessionMemory.ts:460</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> createMemoryFileCanUseTool</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">memoryPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> CanUseToolFn</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">tool</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> input</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span></span>
+<span class="line"><span style="color:#4C4F69">      tool</span><span style="color:#179299">.</span><span style="color:#4C4F69">name </span><span style="color:#179299">===</span><span style="color:#4C4F69"> FILE_EDIT_TOOL_NAME </span><span style="color:#179299">&#x26;&#x26;</span></span>
+<span class="line"><span style="color:#4C4F69">      input</span><span style="color:#179299">.</span><span style="color:#4C4F69">file_path </span><span style="color:#179299">===</span><span style="color:#4C4F69"> memoryPath</span></span>
+<span class="line"><span style="color:#4C4F69">    ) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> behavior</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'allow'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> updatedInput</span><span style="color:#179299">:</span><span style="color:#4C4F69"> input </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> behavior</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'deny'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> message</span><span style="color:#179299">:</span><span style="color:#40A02B"> `only </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">FILE_EDIT_TOOL_NAME</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> on </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">memoryPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> is allowed`</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>Session Memory 提取子 agent 是<strong>严密沙箱化的摘要代理</strong>：</p>
+<ul>
+<li>只有 FileEditTool</li>
+<li>只能编辑那个精确路径</li>
+<li>连 FileReadTool / Bash / Grep 都被 deny</li>
+</ul>
+<p>这是把&quot;最小权限原则&quot;用到极致的范例。</p>
+<hr>
+<h2 id="agent-memory让-agent-真正成长">Agent Memory：让 agent 真正&quot;成长&quot;</h2>
+<p>Auto Memory 是用户 / 项目维度的；<strong>Agent Memory 是某个 agent 类型维度的</strong>。它有三种 scope：</p>
+<table>
+<thead>
+<tr>
+<th>Scope</th>
+<th>目录</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>user</code></td>
+<td><code>&lt;memoryBase&gt;/agent-memory/&lt;type&gt;/</code></td>
+<td>跨项目复用的 agent 长期记忆</td>
+</tr>
+<tr>
+<td><code>project</code></td>
+<td><code>&lt;cwd&gt;/.claude/agent-memory/&lt;type&gt;/</code></td>
+<td>当前项目共享</td>
+</tr>
+<tr>
+<td><code>local</code></td>
+<td><code>&lt;cwd&gt;/.claude/agent-memory-local/&lt;type&gt;/</code></td>
+<td>当前机器/工作区</td>
+</tr>
+</tbody></table>
+<p>所以 agent 不再是静态 prompt 模板，而是：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>agent =</span></span>
+<span class="line"><span>  静态角色 prompt</span></span>
+<span class="line"><span>  + memory scope</span></span>
+<span class="line"><span>  + memory 目录</span></span>
+<span class="line"><span>  + 可写 memory tools (Write/Edit/Read 自动注入)</span></span>
+<span class="line"><span>  + snapshot 初始化能力</span></span></code></pre><p>这意味着同一个 agent 被多次召唤，它的记忆是<strong>累积的</strong>，不只是&quot;重新读一遍 prompt&quot;。</p>
+<hr>
+<h2 id="agent-memory-snapshot把记忆做成可分发资产">Agent Memory Snapshot：把记忆做成可分发资产</h2>
+<p><code>src/tools/AgentTool/agentMemorySnapshot.ts</code> 引入了一个有意思的概念——<strong>snapshot 让 agent memory 可以随项目分发</strong>。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>&#x3C;cwd>/.claude/agent-memory-snapshots/&#x3C;type>/</span></span>
+<span class="line"><span>  ├── snapshot.json          ← updatedAt 时间戳</span></span>
+<span class="line"><span>  └── &#x3C;topic-1>.md</span></span>
+<span class="line"><span>  └── &#x3C;topic-2>.md</span></span></code></pre><p><code>checkAgentMemorySnapshot()</code> 返回三种动作：</p>
+<table>
+<thead>
+<tr>
+<th>动作</th>
+<th>触发</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>none</code></td>
+<td>没 snapshot 或已是最新</td>
+</tr>
+<tr>
+<td><code>initialize</code></td>
+<td>有 snapshot 但本地 memory 空</td>
+</tr>
+<tr>
+<td><code>prompt-update</code></td>
+<td>有 snapshot，本地非空，但 snapshot 更新了</td>
+</tr>
+</tbody></table>
+<p>这把 agent memory 从&quot;运行时副产物&quot;提升成了<strong>可分发的角色资产</strong>——一个项目可以发布带初始记忆的 agent，让团队成员一起从同一起点开始。</p>
+<hr>
+<h2 id="pattern-提炼">Pattern 提炼</h2>
+<h3 id="pattern-1索引-分文件而不是单大文件">Pattern 1：索引 + 分文件，而不是单大文件</h3>
+<p><code>MEMORY.md</code> 索引 + <code>topic-*.md</code> 主文件。让记忆<strong>可治理、可单独删除、可单独编辑</strong>。</p>
+<h3 id="pattern-2硬截断保护必不可少">Pattern 2：硬截断保护必不可少</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> MAX_ENTRYPOINT_LINES </span><span style="color:#179299">=</span><span style="color:#FE640B"> 200</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> MAX_ENTRYPOINT_BYTES </span><span style="color:#179299">=</span><span style="color:#FE640B"> 25_000</span><span style="color:#7C7F93">;</span></span></code></pre><p>任何动态注入 prompt 的字段都需要硬上限。</p>
+<h3 id="pattern-3自然断点触发不破坏工具链">Pattern 3：自然断点触发，不破坏工具链</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#4C4F69">shouldExtract </span><span style="color:#179299">=</span><span style="color:#179299"> ...</span><span style="color:#179299"> &#x26;&#x26;</span><span style="color:#179299"> !</span><span style="color:#1E66F5;font-style:italic">hasToolCallsInLastAssistantTurn</span><span style="color:#4C4F69">(messages)</span><span style="color:#7C7F93">;</span></span></code></pre><p>后台任务在自然语义断点触发，不打断进行中的工具链。</p>
+<h3 id="pattern-4子-agent-最小权限">Pattern 4：子 agent 最小权限</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#1E66F5;font-style:italic">createMemoryFileCanUseTool</span><span style="color:#4C4F69">(memoryPath)</span></span></code></pre><p>每个子任务用专属 CanUseToolFn 闭包，把允许的工具+路径硬编码进去。</p>
+<h3 id="pattern-5memory-也是产品资产">Pattern 5：Memory 也是产品资产</h3>
+<p>Snapshot 让 agent memory 可分发、可版本化、可初始化——它不是日志，是<strong>资产</strong>。</p>
+<hr>
+<h2 id="自己实现60-行的-memorymd-索引系统">自己实现：60 行的 MEMORY.md 索引系统</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// my-memory.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> 'fs/promises'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> path </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> 'path'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> MAX_INDEX_LINES </span><span style="color:#179299">=</span><span style="color:#FE640B"> 200</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> MAX_INDEX_BYTES </span><span style="color:#179299">=</span><span style="color:#FE640B"> 25_000</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> MarkdownMemory</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span><span style="color:#8839EF">private</span><span style="color:#E64553;font-style:italic"> memoryDir</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> ensureDir</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">mkdir</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memoryDir</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> recursive</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> mode</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0o700</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> getIndex</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> indexPath </span><span style="color:#179299">=</span><span style="color:#4C4F69"> path</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memoryDir</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'MEMORY.md'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> raw </span><span style="color:#179299">=</span><span style="color:#40A02B"> ''</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> raw </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFile</span><span style="color:#4C4F69">(indexPath</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'utf-8'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> {}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">truncate</span><span style="color:#4C4F69">(raw)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#1E66F5;font-style:italic"> truncate</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">raw</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> s </span><span style="color:#179299">=</span><span style="color:#4C4F69"> raw</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">trim</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> lines </span><span style="color:#179299">=</span><span style="color:#4C4F69"> s</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">split</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (lines</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#4C4F69"> MAX_INDEX_LINES) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      s </span><span style="color:#179299">=</span><span style="color:#4C4F69"> lines</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> MAX_INDEX_LINES)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">'</span><span style="color:#4C4F69">) </span><span style="color:#179299">+</span><span style="color:#40A02B"> '</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">> WARNING: truncated'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (Buffer</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">byteLength</span><span style="color:#4C4F69">(s</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'utf-8'</span><span style="color:#4C4F69">) </span><span style="color:#179299">></span><span style="color:#4C4F69"> MAX_INDEX_BYTES) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      s </span><span style="color:#179299">=</span><span style="color:#4C4F69"> s</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> MAX_INDEX_BYTES) </span><span style="color:#179299">+</span><span style="color:#40A02B"> '</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">> WARNING: byte-truncated'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> s</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> appendTopic</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">slug</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> content</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> indexLine</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">ensureDir</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> topicPath </span><span style="color:#179299">=</span><span style="color:#4C4F69"> path</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memoryDir</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">slug</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">.md`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">writeFile</span><span style="color:#4C4F69">(topicPath</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> mode</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0o600</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> indexPath </span><span style="color:#179299">=</span><span style="color:#4C4F69"> path</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memoryDir</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'MEMORY.md'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> index </span><span style="color:#179299">=</span><span style="color:#40A02B"> ''</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> index </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFile</span><span style="color:#4C4F69">(indexPath</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'utf-8'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> {}</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">index</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(slug)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      index </span><span style="color:#179299">+=</span><span style="color:#40A02B"> `</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">- [</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">slug</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">](./</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">slug</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">.md) — </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">indexLine</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      await</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">writeFile</span><span style="color:#4C4F69">(indexPath</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> index</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> mode</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0o600</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  /** 用关键词从索引里轻量召回（不读 topic 全文） */</span></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> findRelevant</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">keyword</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> max</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 5</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> index </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">getIndex</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> lines </span><span style="color:#179299">=</span><span style="color:#4C4F69"> index</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">split</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">'</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">l</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> l</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(keyword))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> lines</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> max)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ===== 用法 =====</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> mem </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> MarkdownMemory</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'/Users/xx/.my-agent/memory'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#4C4F69"> mem</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">appendTopic</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'user-prefers-typescript'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> '# User prefers TypeScript</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">用 TS 不要 JS'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> '用户明确要求 TypeScript'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 后续会话装配 prompt 时</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> indexContent </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> mem</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">getIndex</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> promptWithMemory </span><span style="color:#179299">=</span><span style="color:#40A02B"> `# Persistent Memory</span><span style="color:#EA76CB">\n\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">indexContent</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B"># Current Task</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">userInput</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span></code></pre><p>60 行就实现了 Claude Code memory 的核心 pattern：<strong>索引文件 + topic 文件 + 硬截断 + 0o600 权限</strong>。</p>
+<hr>
+<h2 id="本课小结">本课小结</h2>
+<ul>
+<li>4 层 memory：Auto / Session / Agent / Team，每层独立目录与策略</li>
+<li><strong>MEMORY.md 是索引，不是正文</strong>——单条记忆单独成文件</li>
+<li><strong>硬截断保护</strong>（200 行 / 25KB）和 <strong>0o600 权限</strong>是基本动作</li>
+<li><code>findRelevantMemories</code> 是<strong>轻量检索器</strong>，不是全文向量库</li>
+<li>Session Memory 提取子 agent 用<strong>最严格的精确路径权限</strong></li>
+<li>Agent Memory Snapshot 让记忆成为<strong>可分发的角色资产</strong></li>
+</ul>
+<hr>
+<h2 id="延伸阅读">延伸阅读</h2>
+<ul>
+<li><code>analysis/04-agent-memory.md</code> 全文 - 全 13 节，最完整的 memory 解读</li>
+<li><code>analysis/05-differentiators-and-comparison.md</code> §3 - &quot;Memory 不是黑盒&quot;为什么是核心差异</li>
+<li>下一课：<code>10_context_compaction.md</code> - 上下文自动压缩与 State Re-injection</li>
+</ul>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/cca-08-mcp.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第8课：MCP 集成</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/cca-10-compaction.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第10课：Context 自动压缩</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#源码定位">源码定位</a></li><li class="lvl-2"><a href="#4-层架构">4 层架构</a></li><li class="lvl-2"><a href="#底层存储memorymd-索引-topic-文件">底层存储：MEMORY.md 索引 + topic 文件</a></li><li class="lvl-2"><a href="#buildmemoryprompt装配上下文的硬截断保护">buildMemoryPrompt：装配上下文的硬截断保护</a></li><li class="lvl-2"><a href="#findrelevantmemories不是全塞-prompt而是做选择">findRelevantMemories：不是全塞 prompt，而是做选择</a></li><li class="lvl-2"><a href="#session-memory智能摘要的触发逻辑">Session Memory：智能摘要的触发逻辑</a></li><li class="lvl-2"><a href="#session-memory-文件权限0o600">Session Memory 文件权限：0o600</a></li><li class="lvl-2"><a href="#memory-提取子-agent-的最小权限">Memory 提取子 agent 的最小权限</a></li><li class="lvl-2"><a href="#agent-memory让-agent-真正成长">Agent Memory：让 agent 真正&quot;成长&quot;</a></li><li class="lvl-2"><a href="#agent-memory-snapshot把记忆做成可分发资产">Agent Memory Snapshot：把记忆做成可分发资产</a></li><li class="lvl-2"><a href="#pattern-提炼">Pattern 提炼</a></li><li class="lvl-3"><a href="#pattern-1索引-分文件而不是单大文件">Pattern 1：索引 + 分文件，而不是单大文件</a></li><li class="lvl-3"><a href="#pattern-2硬截断保护必不可少">Pattern 2：硬截断保护必不可少</a></li><li class="lvl-3"><a href="#pattern-3自然断点触发不破坏工具链">Pattern 3：自然断点触发，不破坏工具链</a></li><li class="lvl-3"><a href="#pattern-4子-agent-最小权限">Pattern 4：子 agent 最小权限</a></li><li class="lvl-3"><a href="#pattern-5memory-也是产品资产">Pattern 5：Memory 也是产品资产</a></li><li class="lvl-2"><a href="#自己实现60-行的-memorymd-索引系统">自己实现：60 行的 MEMORY.md 索引系统</a></li><li class="lvl-2"><a href="#本课小结">本课小结</a></li><li class="lvl-2"><a href="#延伸阅读">延伸阅读</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

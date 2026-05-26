@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第2课：启动路径剖析 — Claude Code 源码剖析</title>
+  <meta name="description" content="cli.tsx 快路径分流 / main.tsx 编排中心 / 双阶段初始化">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-rose">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-rose">
+      <div class="crumb">
+        <div class="crumb-icon">CA</div>
+        <div class="crumb-text">Claude Code 源码剖析</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/cca-01-overview.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">泄露事件与全景导览</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-02-startup.html" class="active">
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">启动路径剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-03-query.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Query 执行内核</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-04-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool 抽象与工具池</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-05-orchestration.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">工具调度与并发</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-06-permission.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">权限模型与 Sandbox</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-07-skills.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill 系统</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-09-memory.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Memory 分层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-10-compaction.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 自动压缩</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-11-prompt.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Prompt Runtime</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-12-multi-agent.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 三层模型</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-13-session.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Session 持久化与 Resume</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-14-hidden.html" >
+            <span class="num">14</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第14课（番外）：隐藏命令与 Feature Flag</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/cca-01-overview.html" class="current">Claude Code 源码剖析</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">02</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第2课：启动路径剖析</div>
+          <div class="desc">cli.tsx 快路径分流 / main.tsx 编排中心 / 双阶段初始化</div>
+          <div class="tags">
+            <span class="tag">analysis</span><span class="tag">pattern</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">02_startup_path.md</code></span>
+            <span>📏 310 行</span>
+            <span style="opacity:0.7;">claude-code-analysis/lessons/02_startup_path.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第2课：启动路径剖析</h1>
+<h2 id="介绍">介绍</h2>
+<p><code>claude --version</code> 应该多快返回？理论上越快越好——但很多 CLI 工具会先把整个应用初始化完，才发现&quot;哦，用户只想看版本号&quot;。</p>
+<p>Claude Code 这件事做得很优雅。本课拆解它的启动路径，看 <code>cli.tsx → main.tsx → init.ts + setup.ts</code> 这条链上每个角色到底干了什么。</p>
+<hr>
+<h2 id="源码定位">源码定位</h2>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>文件</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>入口分流器</td>
+<td><code>src/entrypoints/cli.tsx</code></td>
+</tr>
+<tr>
+<td>主启动器</td>
+<td><code>src/main.tsx</code></td>
+</tr>
+<tr>
+<td>早期初始化</td>
+<td><code>src/entrypoints/init.ts</code></td>
+</tr>
+<tr>
+<td>运行环境初始化</td>
+<td><code>src/setup.ts</code></td>
+</tr>
+<tr>
+<td>REPL 启动</td>
+<td><code>src/replLauncher.tsx</code></td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="启动链全景">启动链全景</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>node bin/claude.mjs &#x3C;args></span></span>
+<span class="line"><span>       │</span></span>
+<span class="line"><span>       ▼</span></span>
+<span class="line"><span>src/entrypoints/cli.tsx          ← 入口分流器（轻量）</span></span>
+<span class="line"><span>       │</span></span>
+<span class="line"><span>       ├─ argv 命中 --version         → console.log + exit</span></span>
+<span class="line"><span>       ├─ argv 命中 --dump-system-prompt → 输出 prompt + exit</span></span>
+<span class="line"><span>       ├─ argv 命中 remote-control     → runRemoteControl()</span></span>
+<span class="line"><span>       ├─ argv 命中 daemon / bg / runner → runDaemonOrBackground()</span></span>
+<span class="line"><span>       │</span></span>
+<span class="line"><span>       └─ 兜底：动态 import('./main.tsx')</span></span>
+<span class="line"><span>                    │</span></span>
+<span class="line"><span>                    ▼</span></span>
+<span class="line"><span>            src/main.tsx          ← 编排中心（重）</span></span>
+<span class="line"><span>                    │</span></span>
+<span class="line"><span>                    ├─ init(argv)                   ← entrypoints/init.ts</span></span>
+<span class="line"><span>                    │   └─ trust 前的安全初始化</span></span>
+<span class="line"><span>                    │</span></span>
+<span class="line"><span>                    ├─ 解析 CLI 参数</span></span>
+<span class="line"><span>                    ├─ 选择执行路径（headless / bridge / remote / REPL）</span></span>
+<span class="line"><span>                    │</span></span>
+<span class="line"><span>                    ├─ fetchBootstrapData()</span></span>
+<span class="line"><span>                    ├─ getMcpToolsCommandsAndResources()</span></span>
+<span class="line"><span>                    ├─ getTools(permissionContext)</span></span>
+<span class="line"><span>                    ├─ initBundledSkills()</span></span>
+<span class="line"><span>                    ├─ getAgentDefinitionsWithOverrides()</span></span>
+<span class="line"><span>                    │</span></span>
+<span class="line"><span>                    ├─ initializeTelemetryAfterTrust()  ← trust 之后再启用</span></span>
+<span class="line"><span>                    ├─ settingsChangeDetector.start()</span></span>
+<span class="line"><span>                    │</span></span>
+<span class="line"><span>                    └─ launchRepl(...)</span></span></code></pre><hr>
+<h2 id="clitsx快路径分流的工程价值">cli.tsx：快路径分流的工程价值</h2>
+<p><code>cli.tsx</code> 是入口分流器，<strong>不是完整应用</strong>。它的职责是：识别快路径，提前退出，避免加载完整应用。</p>
+<p>伪代码：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/entrypoints/cli.tsx</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> main</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> argv </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> parseArgs</span><span style="color:#4C4F69">(process</span><span style="color:#179299">.</span><span style="color:#4C4F69">argv)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 快路径 —— 命中即执行并退出</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (argv[</span><span style="color:#40A02B">'--version'</span><span style="color:#4C4F69">]) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(version)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    process</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">exit</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (argv[</span><span style="color:#40A02B">'--dump-system-prompt'</span><span style="color:#4C4F69">]) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#1E66F5;font-style:italic"> dumpSystemPrompt</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    process</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">exit</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (argv[</span><span style="color:#40A02B">'remote-control'</span><span style="color:#4C4F69">]) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#1E66F5;font-style:italic"> runRemoteControl</span><span style="color:#4C4F69">(argv)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (argv[</span><span style="color:#40A02B">'daemon'</span><span style="color:#4C4F69">] </span><span style="color:#179299">||</span><span style="color:#4C4F69"> argv[</span><span style="color:#40A02B">'bg'</span><span style="color:#4C4F69">] </span><span style="color:#179299">||</span><span style="color:#4C4F69"> argv[</span><span style="color:#40A02B">'runner'</span><span style="color:#4C4F69">]) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#1E66F5;font-style:italic"> runDaemonOrBackground</span><span style="color:#4C4F69">(argv)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 兜底：进入完整主启动器</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#179299"> import</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'./main.tsx'</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">then</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">main</span><span style="color:#4C4F69">(argv))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p><strong>关键技巧</strong>：使用<strong>动态 <code>import()</code></strong> 而非 <code>import</code> 语句。这意味着：</p>
+<ul>
+<li><code>--version</code> 命中时，main.tsx 这条链上的所有依赖（React、Ink、MCP Client、80+ 模块）<strong>根本不会加载</strong></li>
+<li>TTY 启动时间从<del>1.5s 降到</del>0.05s</li>
+</ul>
+<p>这是一个非常普遍但又经常被忽视的工程模式：<strong>给 CLI 加快路径，靠动态 import 拆模块加载边界</strong>。</p>
+<hr>
+<h2 id="maintsx编排中心">main.tsx：编排中心</h2>
+<p><code>main.tsx</code> 才是真正的总控入口。从它的 import 列表（约 80 个模块）就能看出职责范围：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/main.tsx —— 关键 import 反映职责</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> init</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> initializeTelemetryAfterTrust </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> './entrypoints/init.js'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> launchRepl </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> './replLauncher.js'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> fetchBootstrapData </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> './services/api/bootstrap.js'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> getMcpToolsCommandsAndResources </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> './services/mcp/client.js'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> getTools </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> './tools.js'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> getAgentDefinitionsWithOverrides </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> './tools/AgentTool/loadAgentsDir.js'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> initBundledSkills </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> './skills/bundled/index.js'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> showSetupScreens</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> exitWithError </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> './interactiveHelpers.js'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> settingsChangeDetector </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> './utils/settings/changeDetector.js'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ... 还有约 80 个 import</span></span></code></pre><p>主流程伪代码：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> main</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">argv</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ParsedArgs</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 1. 早期初始化（不依赖 trust）</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> init</span><span style="color:#4C4F69">(argv)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 2. 解析 CLI 参数 → 决定 permission mode、模型、工具等</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> permissionMode </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> initialPermissionModeFromCLI</span><span style="color:#4C4F69">(argv)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> model </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> resolveModel</span><span style="color:#4C4F69">(argv)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 3. 条件分支：选择执行路径</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (argv[</span><span style="color:#40A02B">'--print'</span><span style="color:#4C4F69">] </span><span style="color:#179299">||</span><span style="color:#4C4F69"> argv[</span><span style="color:#40A02B">'--sdk'</span><span style="color:#4C4F69">]) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#1E66F5;font-style:italic"> runHeadless</span><span style="color:#4C4F69">(argv</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> permissionMode)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (argv[</span><span style="color:#40A02B">'bridge'</span><span style="color:#4C4F69">]) </span><span style="color:#8839EF">return</span><span style="color:#1E66F5;font-style:italic"> runBridge</span><span style="color:#4C4F69">(argv)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (argv[</span><span style="color:#40A02B">'remote'</span><span style="color:#4C4F69">]) </span><span style="color:#8839EF">return</span><span style="color:#1E66F5;font-style:italic"> runRemote</span><span style="color:#4C4F69">(argv)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 4. 默认路径：完整运行时初始化</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> bootstrap </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> fetchBootstrapData</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> mcpTools  </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> getMcpToolsCommandsAndResources</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> tools     </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> getTools</span><span style="color:#4C4F69">(permissionContext)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> skills    </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> initBundledSkills</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> agents    </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> getAgentDefinitionsWithOverrides</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 5. trust 后再启用 telemetry</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> initializeTelemetryAfterTrust</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 6. 配置文件热更新监听</span></span>
+<span class="line"><span style="color:#4C4F69">  settingsChangeDetector</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">start</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 7. 进入 REPL</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> launchRepl</span><span style="color:#4C4F69">(root</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> appProps</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> replProps</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> renderAndRun)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>注意几件事：</p>
+<ol>
+<li><strong>headless / bridge / remote 都在 main.tsx 里分流</strong>，但都共享相同的&quot;装配阶段&quot;（bootstrap / mcp / tools / skills / agents）</li>
+<li><strong>能力装配是顺序的</strong>——这里没有 <code>Promise.all</code>，因为某些后续装配依赖前面的结果（比如 agent 定义可能引用 MCP server）</li>
+<li><strong>telemetry 开启时机受 trust 控制</strong>——这是双阶段启动的核心</li>
+</ol>
+<hr>
+<h2 id="initts-setupts双阶段初始化">init.ts + setup.ts：双阶段初始化</h2>
+<p>项目把初始化分成逻辑独立的两个文件，<strong>职责严格区分</strong>：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/entrypoints/init.ts —— 逻辑初始化（trust 前）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> init</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">argv</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  applySafeEnvironmentVariables</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">    // 只应用安全的 env var</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  initializeCertificates</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">           // 证书与 HTTPS 代理</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  initializeHttpAgent</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">              // HTTP agent 配置</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  initTelemetrySkeleton</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">            // 注册 telemetry sink，但不发事件</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ⚠️ 不调 applyFullEnvironmentVariables() / 不 attachAnalyticsSink()</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> initializeTelemetryAfterTrust</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  applyFullEnvironmentVariables</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">    // trust 通过后才应用全部 env var</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  attachAnalyticsSink</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">              // 开始处理 telemetry 事件队列</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// src/setup.ts —— 运行环境初始化（trust 之后）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> setup</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">argv</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> permissionContext</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  setCwd</span><span style="color:#4C4F69">(resolvedWorkingDir)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">         // 设置工作目录</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  startHooksWatcher</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">                // 监听 hooks 配置变化</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  initWorktreeSnapshot</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">             // tmux/worktree 快照</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  initSessionMemory</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">                // session memory 系统</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  startTeamMemoryWatcher</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">           // team memory 文件监听</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>为什么要这样切？</p>
+<blockquote>
+<p>Trust 建立前只应用<strong>安全的环境变量</strong>，防止&quot;配置文件 / includes 本身是攻击面&quot;的风险。</p>
+</blockquote>
+<p>举例：用户克隆了一个恶意 repo，repo 的 <code>.claude/settings.json</code> 里塞了 <code>env: { CLAUDE_API_KEY: &#39;&lt;exfiltrate&gt;&#39; }</code>。如果不分阶段，这个 env 会在用户被询问&quot;是否信任此目录？&quot;之前就被应用——攻击成立。</p>
+<p><strong>这套思路适用于一切&quot;接受用户提供配置&quot;的工具</strong>：先做安全的部分，等用户确认信任后再加载危险的部分。</p>
+<hr>
+<h2 id="pattern-提炼">Pattern 提炼</h2>
+<h3 id="pattern-1动态-import-拆解启动成本">Pattern 1：动态 import 拆解启动成本</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 不要这样：</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> main </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> './main.tsx'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">isFastPath) </span><span style="color:#1E66F5;font-style:italic">main</span><span style="color:#4C4F69">(argv)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 这样：</span></span>
+<span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">isFastPath) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#179299"> import</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'./main.tsx'</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">then</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">main</span><span style="color:#4C4F69">(argv))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>这一行差别，决定了你的 CLI 从 1500ms 启动还是 50ms 启动。</p>
+<h3 id="pattern-2init-setup-trust-三段式">Pattern 2：<code>init</code> / <code>setup</code> / <code>trust</code> 三段式</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>init     ←—— 安全的、不依赖任何用户输入的初始化</span></span>
+<span class="line"><span>trust    ←—— 用户决策点</span></span>
+<span class="line"><span>setup    ←—— 完整环境初始化</span></span></code></pre><p>凡是接收用户配置的工具，都建议把&quot;加载用户配置之前能做的事&quot;和&quot;加载用户配置之后才做的事&quot;拆成两组函数。</p>
+<h3 id="pattern-3装配与执行分离">Pattern 3：装配与执行分离</h3>
+<p>main.tsx 用一组 <code>getX()</code> / <code>initX()</code> 做能力装配，再把装配结果传给 <code>launchRepl(...)</code>。装配阶段没有副作用，REPL 阶段才开始消耗资源。这种&quot;build-then-run&quot;结构有两个好处：</p>
+<ol>
+<li>单测可以替换装配函数</li>
+<li>headless / bridge / remote 等不同形态可以共用装配逻辑、只换执行函数</li>
+</ol>
+<hr>
+<h2 id="自己实现双阶段启动的最小骨架">自己实现：双阶段启动的最小骨架</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// my-cli.ts</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ===== 入口分流器 =====</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> cli</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> argv </span><span style="color:#179299">=</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">argv</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">2</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (argv</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'--version'</span><span style="color:#4C4F69">)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'0.1.0'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 动态 import：版本号路径不会加载下面这一堆</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> main </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#8839EF"> await</span><span style="color:#179299"> import</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'./main.js'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> main</span><span style="color:#4C4F69">(argv)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ===== 双阶段初始化 =====</span></span>
+<span class="line"><span style="color:#8839EF">let</span><span style="color:#4C4F69"> trusted </span><span style="color:#179299">=</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> initBeforeTrust</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 只做安全的事：证书、HTTP agent、telemetry skeleton</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  applySafeEnvVars</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  initTelemetrySkeleton</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> initAfterTrust</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  applyFullEnvVars</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  attachAnalyticsSink</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ===== 编排中心 =====</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> main</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">argv</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> initBeforeTrust</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> userTrust </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> confirmTrust</span><span style="color:#4C4F69">(process</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">cwd</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  trusted </span><span style="color:#179299">=</span><span style="color:#4C4F69"> userTrust</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">trusted) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">warn</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'Untrusted directory; running in safe mode'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (trusted) </span><span style="color:#8839EF">await</span><span style="color:#1E66F5;font-style:italic"> initAfterTrust</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 装配</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> tools </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> getTools</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> mcp </span><span style="color:#179299">=</span><span style="color:#4C4F69"> trusted </span><span style="color:#179299">?</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> loadMcp</span><span style="color:#4C4F69">() </span><span style="color:#179299">:</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 执行</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> runRepl</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> tools</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#4C4F69">tools</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">mcp] </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">cli</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span></code></pre><p>40 行就抓住了 Claude Code 启动逻辑的全部精髓：<strong>快路径分流 + 双阶段启动 + 装配执行分离</strong>。</p>
+<hr>
+<h2 id="本课小结">本课小结</h2>
+<ul>
+<li><code>cli.tsx</code> 用动态 import 把启动成本切成两段，给快路径让路</li>
+<li><code>main.tsx</code> 是真正的编排中心，负责装配能力 + 选择执行路径</li>
+<li><code>init</code> / <code>setup</code> 双阶段初始化是处理&quot;用户配置即攻击面&quot;的工程答案</li>
+<li>装配阶段无副作用、执行阶段才开消耗，让 headless / REPL / bridge 复用同一套装配</li>
+</ul>
+<hr>
+<h2 id="延伸阅读">延伸阅读</h2>
+<ul>
+<li><code>analysis/01-architecture-overview.md</code> §3 - 三种入口形态（cli / main / mcp）的伪代码细节</li>
+<li><code>analysis/06-extra-findings.md</code> §2 - &quot;include 即攻击面&quot;的具体案例</li>
+<li>下一课：<code>03_query_kernel.md</code> - 进入心脏——<code>query()</code> 主循环</li>
+</ul>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/cca-01-overview.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第1课：泄露事件与全景导览</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/cca-03-query.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第3课：Query 执行内核</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#源码定位">源码定位</a></li><li class="lvl-2"><a href="#启动链全景">启动链全景</a></li><li class="lvl-2"><a href="#clitsx快路径分流的工程价值">cli.tsx：快路径分流的工程价值</a></li><li class="lvl-2"><a href="#maintsx编排中心">main.tsx：编排中心</a></li><li class="lvl-2"><a href="#initts-setupts双阶段初始化">init.ts + setup.ts：双阶段初始化</a></li><li class="lvl-2"><a href="#pattern-提炼">Pattern 提炼</a></li><li class="lvl-3"><a href="#pattern-1动态-import-拆解启动成本">Pattern 1：动态 import 拆解启动成本</a></li><li class="lvl-3"><a href="#pattern-2init-setup-trust-三段式">Pattern 2：init / setup / trust 三段式</a></li><li class="lvl-3"><a href="#pattern-3装配与执行分离">Pattern 3：装配与执行分离</a></li><li class="lvl-2"><a href="#自己实现双阶段启动的最小骨架">自己实现：双阶段启动的最小骨架</a></li><li class="lvl-2"><a href="#本课小结">本课小结</a></li><li class="lvl-2"><a href="#延伸阅读">延伸阅读</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

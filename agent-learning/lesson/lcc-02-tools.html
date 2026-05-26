@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第2课：Tool Dispatch Map — Agent Harness 工程</title>
+  <meta name="description" content="TOOL_HANDLERS 字典 + 4 大文件工具">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-indigo">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-indigo">
+      <div class="crumb">
+        <div class="crumb-icon">HC</div>
+        <div class="crumb-text">Agent Harness 工程</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/lcc-01-loop.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-02-tools.html" class="active">
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool Dispatch Map</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-03-planning.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">TodoWrite 规划</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-04-subagents.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Subagents</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-05-skills.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill Loading</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-06-compression.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context Compression</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-07-tasks.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Task System</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-08-background.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Background Tasks</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-09-teams.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Teams</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-10-protocols.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Team Protocols</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-11-autonomous.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Autonomous Agents</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-12-worktree.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Worktree Isolation</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/lcc-01-loop.html" class="current">Agent Harness 工程</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">02</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第2课：Tool Dispatch Map</div>
+          <div class="desc">TOOL_HANDLERS 字典 + 4 大文件工具</div>
+          <div class="tags">
+            <span class="tag">tools</span><span class="tag">agent</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">02_tool_use.md</code></span>
+            <span>📏 279 行</span>
+            <span style="opacity:0.7;">learn-claude-code/lessons/02_tool_use.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第2课：Tool Use — 工具分发架构</h1>
+<h2 id="介绍">介绍</h2>
+<p>本课展示 Agent Harness 最核心的扩展模式：<strong>添加工具不改循环</strong>。通过工具定义数组 + 分发 Map，把 Agent 能力从单一 bash 扩展到文件读写编辑，架构保持不变。这正是 Claude Code 的工具层设计思路。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>源码参考：github.com/shareAI-lab/learn-claude-code — agents/s02_tool_use.py</span></span></code></pre><hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>用 bash 做文件操作（<code>cat file.py</code>、<code>echo &quot;...&quot; &gt;&gt; file</code>）存在问题：</p>
+<ul>
+<li>输出解析复杂，容易出错</li>
+<li>写入时转义地狱，内容容易被截断</li>
+<li>没有原子性的&quot;精确替换&quot;能力</li>
+</ul>
+<p>需要专用工具：<code>read_file</code>、<code>write_file</code>、<code>edit_file</code>。</p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    A[LLM 调用工具] --&gt; B{block.name}
+    B --&gt;|bash| C[run_bash]
+    B --&gt;|read_file| D[run_read]
+    B --&gt;|write_file| E[run_write]
+    B --&gt;|edit_file| F[run_edit]
+    C &amp; D &amp; E &amp; F --&gt; G[追加 tool_result]
+    G --&gt; A</pre></div><hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a只用-bash通过-shell-命令操作文件">方案 A：只用 bash，通过 shell 命令操作文件</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># 模型调用：bash("cat src/app.py")</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 模型调用：bash("echo 'def foo():' > src/app.py")</span></span></code></pre><p>✅ 工具少，系统 prompt 短
+❌ 写入内容含特殊字符时失败
+❌ 精确替换极难实现</p>
+<h3 id="方案-b硬编码-ifelif-分发">方案 B：硬编码 if/elif 分发</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> block</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">name </span><span style="color:#179299">==</span><span style="color:#40A02B"> "bash"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">    output </span><span style="color:#179299">=</span><span style="color:#1E66F5"> run_bash</span><span style="color:#7C7F93">(</span><span style="color:#179299">**</span><span style="color:#4C4F69">block</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">input</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#8839EF">elif</span><span style="color:#4C4F69"> block</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">name </span><span style="color:#179299">==</span><span style="color:#40A02B"> "read_file"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">    output </span><span style="color:#179299">=</span><span style="color:#1E66F5"> run_read</span><span style="color:#7C7F93">(</span><span style="color:#179299">**</span><span style="color:#4C4F69">block</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">input</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># ...</span></span></code></pre><p>✅ 简单直接
+❌ 每加一个工具就要修改分发逻辑</p>
+<h3 id="方案-c工具分发-map推荐">方案 C：工具分发 Map（推荐）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#4C4F69">TOOL_HANDLERS </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">    "bash"</span><span style="color:#7C7F93">:</span><span style="color:#8839EF">       lambda</span><span style="color:#179299"> **</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">:</span><span style="color:#1E66F5"> run_bash</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">command</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">]),</span></span>
+<span class="line"><span style="color:#40A02B">    "read_file"</span><span style="color:#7C7F93">:</span><span style="color:#8839EF">  lambda</span><span style="color:#179299"> **</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">:</span><span style="color:#1E66F5"> run_read</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">path</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">],</span><span style="color:#4C4F69"> kw</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">get</span><span style="color:#7C7F93">(</span><span style="color:#40A02B">"limit"</span><span style="color:#7C7F93">)),</span></span>
+<span class="line"><span style="color:#40A02B">    "write_file"</span><span style="color:#7C7F93">:</span><span style="color:#8839EF"> lambda</span><span style="color:#179299"> **</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">:</span><span style="color:#1E66F5"> run_write</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">path</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">],</span><span style="color:#E64553;font-style:italic"> kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">content</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">]),</span></span>
+<span class="line"><span style="color:#40A02B">    "edit_file"</span><span style="color:#7C7F93">:</span><span style="color:#8839EF">  lambda</span><span style="color:#179299"> **</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">:</span><span style="color:#1E66F5"> run_edit</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">path</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">],</span><span style="color:#E64553;font-style:italic"> kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">old_text</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">],</span><span style="color:#E64553;font-style:italic"> kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">new_text</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">]),</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 分发：一行</span></span>
+<span class="line"><span style="color:#4C4F69">output </span><span style="color:#179299">=</span><span style="color:#4C4F69"> TOOL_HANDLERS</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">get</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">block</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> lambda</span><span style="color:#179299"> **</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "Unknown tool"</span><span style="color:#7C7F93">)(</span><span style="color:#179299">**</span><span style="color:#4C4F69">block</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">input</span><span style="color:#7C7F93">)</span></span></code></pre><p>✅ 添加工具只需两步：写函数 + 注册到 Map
+✅ 核心循环零改动</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p><strong>方案 C</strong>。分发 Map 是工具层的标准模式，扩展性强，测试方便（每个处理函数可独立测试）。</p>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="工具实现">工具实现</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># agents/s02_tool_use.py</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> os</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> subprocess</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> pathlib </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Path</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> anthropic </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Anthropic</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> dotenv </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> load_dotenv</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5">load_dotenv</span><span style="color:#7C7F93">()</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">WORKDIR </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Path</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">cwd</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#4C4F69">client </span><span style="color:#179299">=</span><span style="color:#1E66F5"> Anthropic</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#4C4F69">MODEL </span><span style="color:#179299">=</span><span style="color:#4C4F69"> os</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">environ</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">MODEL_ID</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">]</span></span>
+<span class="line"><span style="color:#4C4F69">SYSTEM </span><span style="color:#179299">=</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"You are a coding agent at </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">WORKDIR</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">. Use tools to solve tasks. Act, don't explain."</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">def</span><span style="color:#1E66F5;font-style:italic"> safe_path</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">p</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#4C4F69"> Path</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#40A02B">    """路径安全检查：防止跳出工作目录"""</span></span>
+<span class="line"><span style="color:#4C4F69">    path </span><span style="color:#179299">=</span><span style="color:#7C7F93"> (</span><span style="color:#4C4F69">WORKDIR </span><span style="color:#179299">/</span><span style="color:#4C4F69"> p</span><span style="color:#7C7F93">).</span><span style="color:#1E66F5">resolve</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#8839EF"> not</span><span style="color:#4C4F69"> path</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">is_relative_to</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">WORKDIR</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#8839EF">        raise</span><span style="color:#FE640B;font-style:italic"> ValueError</span><span style="color:#7C7F93">(</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"Path escapes workspace: </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">p</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> path</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">def</span><span style="color:#1E66F5;font-style:italic"> run_bash</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">command</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">    dangerous </span><span style="color:#179299">=</span><span style="color:#7C7F93"> [</span><span style="color:#40A02B">"rm -rf /"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "sudo"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "shutdown"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "reboot"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "> /dev/"</span><span style="color:#7C7F93">]</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#FE640B;font-style:italic"> any</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">d </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> command </span><span style="color:#8839EF">for</span><span style="color:#4C4F69"> d </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> dangerous</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B"> "Error: Dangerous command blocked"</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">        r </span><span style="color:#179299">=</span><span style="color:#4C4F69"> subprocess</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">run</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#4C4F69">            command</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> shell</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> cwd</span><span style="color:#179299">=</span><span style="color:#4C4F69">WORKDIR</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            capture_output</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> text</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> timeout</span><span style="color:#179299">=</span><span style="color:#FE640B">120</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"><span style="color:#4C4F69">        out </span><span style="color:#179299">=</span><span style="color:#7C7F93"> (</span><span style="color:#4C4F69">r</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">stdout </span><span style="color:#179299">+</span><span style="color:#4C4F69"> r</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">stderr</span><span style="color:#7C7F93">).</span><span style="color:#1E66F5">strip</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#E64553;font-style:italic"> out</span><span style="color:#7C7F93">[:</span><span style="color:#FE640B;font-style:italic">50000</span><span style="color:#7C7F93">]</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> out </span><span style="color:#8839EF">else</span><span style="color:#40A02B"> "(no output)"</span></span>
+<span class="line"><span style="color:#8839EF">    except</span><span style="color:#4C4F69"> subprocess</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">TimeoutExpired</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B"> "Error: Timeout (120s)"</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">def</span><span style="color:#1E66F5;font-style:italic"> run_read</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">path</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> limit</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> int</span><span style="color:#179299"> =</span><span style="color:#8839EF"> None</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">        text </span><span style="color:#179299">=</span><span style="color:#1E66F5"> safe_path</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">path</span><span style="color:#7C7F93">).</span><span style="color:#1E66F5">read_text</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#4C4F69">        lines </span><span style="color:#179299">=</span><span style="color:#4C4F69"> text</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">splitlines</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#4C4F69"> limit </span><span style="color:#8839EF">and</span><span style="color:#4C4F69"> limit </span><span style="color:#179299">&#x3C;</span><span style="color:#FE640B;font-style:italic"> len</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">lines</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#4C4F69">            lines </span><span style="color:#179299">=</span><span style="color:#E64553;font-style:italic"> lines</span><span style="color:#7C7F93">[:</span><span style="color:#E64553;font-style:italic">limit</span><span style="color:#7C7F93">]</span><span style="color:#179299"> +</span><span style="color:#7C7F93"> [</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"... (</span><span style="color:#EA76CB">{</span><span style="color:#FE640B;font-style:italic">len</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">lines</span><span style="color:#7C7F93">)</span><span style="color:#179299"> -</span><span style="color:#4C4F69"> limit</span><span style="color:#EA76CB">}</span><span style="color:#40A02B"> more lines)"</span><span style="color:#7C7F93">]</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B"> "</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">join</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">lines</span><span style="color:#7C7F93">)[:</span><span style="color:#FE640B">50000</span><span style="color:#7C7F93">]</span></span>
+<span class="line"><span style="color:#8839EF">    except</span><span style="color:#FE640B;font-style:italic"> Exception</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> e</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"Error: </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">e</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">def</span><span style="color:#1E66F5;font-style:italic"> run_write</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">path</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> content</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">        fp </span><span style="color:#179299">=</span><span style="color:#1E66F5"> safe_path</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">path</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">        fp</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">parent</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">mkdir</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">parents</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> exist_ok</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">        fp</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">write_text</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"Wrote </span><span style="color:#EA76CB">{</span><span style="color:#FE640B;font-style:italic">len</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">)</span><span style="color:#EA76CB">}</span><span style="color:#40A02B"> bytes to </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">path</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span></span>
+<span class="line"><span style="color:#8839EF">    except</span><span style="color:#FE640B;font-style:italic"> Exception</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> e</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"Error: </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">e</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">def</span><span style="color:#1E66F5;font-style:italic"> run_edit</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">path</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> old_text</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> new_text</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#40A02B">    """原子性精确替换 — 比 sed 可靠得多"""</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">        fp </span><span style="color:#179299">=</span><span style="color:#1E66F5"> safe_path</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">path</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">        content </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fp</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">read_text</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#4C4F69"> old_text </span><span style="color:#8839EF">not</span><span style="color:#8839EF"> in</span><span style="color:#4C4F69"> content</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">            return</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"Error: Text not found in </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">path</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span></span>
+<span class="line"><span style="color:#4C4F69">        fp</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">write_text</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">replace</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">old_text</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> new_text</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">))</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"Edited </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">path</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span></span>
+<span class="line"><span style="color:#8839EF">    except</span><span style="color:#FE640B;font-style:italic"> Exception</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> e</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"Error: </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">e</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># ── 分发 Map：工具名 → 处理函数 ──</span></span>
+<span class="line"><span style="color:#4C4F69">TOOL_HANDLERS </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">    "bash"</span><span style="color:#7C7F93">:</span><span style="color:#8839EF">       lambda</span><span style="color:#179299"> **</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">:</span><span style="color:#1E66F5"> run_bash</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">command</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">]),</span></span>
+<span class="line"><span style="color:#40A02B">    "read_file"</span><span style="color:#7C7F93">:</span><span style="color:#8839EF">  lambda</span><span style="color:#179299"> **</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">:</span><span style="color:#1E66F5"> run_read</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">path</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">],</span><span style="color:#4C4F69"> kw</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">get</span><span style="color:#7C7F93">(</span><span style="color:#40A02B">"limit"</span><span style="color:#7C7F93">)),</span></span>
+<span class="line"><span style="color:#40A02B">    "write_file"</span><span style="color:#7C7F93">:</span><span style="color:#8839EF"> lambda</span><span style="color:#179299"> **</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">:</span><span style="color:#1E66F5"> run_write</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">path</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">],</span><span style="color:#E64553;font-style:italic"> kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">content</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">]),</span></span>
+<span class="line"><span style="color:#40A02B">    "edit_file"</span><span style="color:#7C7F93">:</span><span style="color:#8839EF">  lambda</span><span style="color:#179299"> **</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">:</span><span style="color:#1E66F5"> run_edit</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">path</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">],</span><span style="color:#E64553;font-style:italic"> kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">old_text</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">],</span><span style="color:#E64553;font-style:italic"> kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">new_text</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">]),</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="工具-schema-定义">工具 Schema 定义</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#4C4F69">TOOLS </span><span style="color:#179299">=</span><span style="color:#7C7F93"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#40A02B">        "name"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "bash"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">        "description"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "Run a shell command."</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">        "input_schema"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">            "type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">            "properties"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"command"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">}},</span></span>
+<span class="line"><span style="color:#40A02B">            "required"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> [</span><span style="color:#40A02B">"command"</span><span style="color:#7C7F93">],</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#40A02B">        "name"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "read_file"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">        "description"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "Read file contents."</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">        "input_schema"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">            "type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">            "properties"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">                "path"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#40A02B">                "limit"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "integer"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "description"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "Max lines to return"</span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">            },</span></span>
+<span class="line"><span style="color:#40A02B">            "required"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> [</span><span style="color:#40A02B">"path"</span><span style="color:#7C7F93">],</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#40A02B">        "name"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "write_file"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">        "description"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "Write content to a file (creates parent dirs)."</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">        "input_schema"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">            "type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">            "properties"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">                "path"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#40A02B">                "content"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">            },</span></span>
+<span class="line"><span style="color:#40A02B">            "required"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> [</span><span style="color:#40A02B">"path"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "content"</span><span style="color:#7C7F93">],</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#40A02B">        "name"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "edit_file"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">        "description"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "Replace exact text in a file. Fails if old_text not found."</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">        "input_schema"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">            "type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">            "properties"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">                "path"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#40A02B">                "old_text"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#40A02B">                "new_text"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">            },</span></span>
+<span class="line"><span style="color:#40A02B">            "required"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> [</span><span style="color:#40A02B">"path"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "old_text"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "new_text"</span><span style="color:#7C7F93">],</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">]</span></span></code></pre><h3 id="agent-loop核心循环不变">Agent Loop（核心循环不变）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">def</span><span style="color:#1E66F5;font-style:italic"> agent_loop</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> list</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#8839EF">    while</span><span style="color:#8839EF"> True</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">        response </span><span style="color:#179299">=</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">messages</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">create</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            model</span><span style="color:#179299">=</span><span style="color:#4C4F69">MODEL</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> system</span><span style="color:#179299">=</span><span style="color:#4C4F69">SYSTEM</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            messages</span><span style="color:#179299">=</span><span style="color:#4C4F69">messages</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> tools</span><span style="color:#179299">=</span><span style="color:#4C4F69">TOOLS</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> max_tokens</span><span style="color:#179299">=</span><span style="color:#FE640B">8000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"><span style="color:#4C4F69">        messages</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">append</span><span style="color:#7C7F93">({</span><span style="color:#40A02B">"role"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "content"</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> response</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">})</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#4C4F69"> response</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">stop_reason </span><span style="color:#179299">!=</span><span style="color:#40A02B"> "tool_use"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">            return</span></span>
+<span class="line"><span style="color:#4C4F69">        results </span><span style="color:#179299">=</span><span style="color:#7C7F93"> []</span></span>
+<span class="line"><span style="color:#8839EF">        for</span><span style="color:#4C4F69"> block </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> response</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">            if</span><span style="color:#4C4F69"> block</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">==</span><span style="color:#40A02B"> "tool_use"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">                handler </span><span style="color:#179299">=</span><span style="color:#4C4F69"> TOOL_HANDLERS</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">get</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">block</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">                output </span><span style="color:#179299">=</span><span style="color:#1E66F5"> handler</span><span style="color:#7C7F93">(</span><span style="color:#179299">**</span><span style="color:#4C4F69">block</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">input</span><span style="color:#7C7F93">)</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> handler </span><span style="color:#8839EF">else</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"Unknown tool: </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">block</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">name</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">                print</span><span style="color:#7C7F93">(</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"> </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">block</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">name</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">: </span><span style="color:#EA76CB">{</span><span style="color:#E64553;font-style:italic">output</span><span style="color:#7C7F93">[:</span><span style="color:#FE640B;font-style:italic">200</span><span style="color:#7C7F93">]</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">                results</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">append</span><span style="color:#7C7F93">({</span></span>
+<span class="line"><span style="color:#40A02B">                    "type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "tool_result"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">                    "tool_use_id"</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> block</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">                    "content"</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> output</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">                })</span></span>
+<span class="line"><span style="color:#4C4F69">        messages</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">append</span><span style="color:#7C7F93">({</span><span style="color:#40A02B">"role"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "content"</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> results</span><span style="color:#7C7F93">})</span></span></code></pre><h3 id="新增工具只需两步">新增工具只需两步</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># Step 1: 实现处理函数</span></span>
+<span class="line"><span style="color:#8839EF">def</span><span style="color:#1E66F5;font-style:italic"> run_grep</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">pattern</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> path</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#1E66F5"> run_bash</span><span style="color:#7C7F93">(</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"grep -rn '</span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">pattern</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">' </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">path</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># Step 2: 注册到 Map 和 Schema</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">TOOL_HANDLERS</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">grep</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">]</span><span style="color:#179299"> =</span><span style="color:#8839EF"> lambda</span><span style="color:#179299"> **</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">:</span><span style="color:#1E66F5"> run_grep</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">pattern</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">],</span><span style="color:#E64553;font-style:italic"> kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">path</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">])</span></span>
+<span class="line"><span style="color:#4C4F69">TOOLS</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">append</span><span style="color:#7C7F93">({</span></span>
+<span class="line"><span style="color:#40A02B">    "name"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "grep"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "description"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "Search for a pattern in files."</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "input_schema"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">        "type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">        "properties"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">            "pattern"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#40A02B">            "path"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#40A02B">        "required"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> [</span><span style="color:#40A02B">"pattern"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "path"</span><span style="color:#7C7F93">],</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">})</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 循环代码：一字未动</span></span></code></pre><hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课学习<strong>第3课：Planning — Agent 先规划再行动</strong>。没有规划的 Agent 像无头苍蝇——随机尝试、重复操作、遗忘步骤。<code>TodoWrite</code> 工具让 Agent 在开始任务前写出计划，大幅提升复杂任务的完成率。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/lcc-01-loop.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第1课：Agent Loop</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/lcc-03-planning.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第3课：TodoWrite 规划</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a只用-bash通过-shell-命令操作文件">方案 A：只用 bash，通过 shell 命令操作文件</a></li><li class="lvl-3"><a href="#方案-b硬编码-ifelif-分发">方案 B：硬编码 if/elif 分发</a></li><li class="lvl-3"><a href="#方案-c工具分发-map推荐">方案 C：工具分发 Map（推荐）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#工具实现">工具实现</a></li><li class="lvl-3"><a href="#工具-schema-定义">工具 Schema 定义</a></li><li class="lvl-3"><a href="#agent-loop核心循环不变">Agent Loop（核心循环不变）</a></li><li class="lvl-3"><a href="#新增工具只需两步">新增工具只需两步</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第10课：Agent Handoff — TypeScript Agent 开发</title>
+  <meta name="description" content="智能路由与专家 Agent 交接">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-blue">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-blue">
+      <div class="crumb">
+        <div class="crumb-icon">TS</div>
+        <div class="crumb-text">TypeScript Agent 开发</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ts-01-hello.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Hello Claude</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-02-multi-turn.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多轮对话</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-03-streaming.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">流式输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-04-first-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第一个工具</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-05-multi-tools.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多工具并行</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-06-agent-loop.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agentic Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-07-context.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">上下文管理</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-09-orchestrator.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Orchestrator + Worker</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-10-handoff.html" class="active">
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Handoff</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-11-structured.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">结构化输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-12-memory.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">记忆 Agent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-13-skill.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill + Tool Runner</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ts-01-hello.html" class="current">TypeScript Agent 开发</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">10</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第10课：Agent Handoff</div>
+          <div class="desc">智能路由与专家 Agent 交接</div>
+          <div class="tags">
+            <span class="tag">multi-agent</span><span class="tag">routing</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">10_agent_handoff.md</code></span>
+            <span>📏 244 行</span>
+            <span style="opacity:0.7;">typescript/lessons/10_agent_handoff.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第10课：Agent Handoff（智能路由）</h1>
+<h2 id="学习目标">学习目标</h2>
+<ol>
+<li>理解 Agent Handoff 的适用场景</li>
+<li>实现智能路由器（Router）自动判断分配</li>
+<li>实现专家 Agent 的注册与调用机制</li>
+<li>处理 Handoff 链（多级转交）</li>
+</ol>
+<hr>
+<h2 id="什么是-agent-handoff">什么是 Agent Handoff？</h2>
+<p>Handoff 是&quot;接力棒&quot;模式——当一个 Agent 遇到超出其专业范围的问题时，<strong>主动将用户转交给更合适的 Agent</strong>：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>用户问题</span></span>
+<span class="line"><span>    ↓</span></span>
+<span class="line"><span>Router（路由器）—— 判断意图</span></span>
+<span class="line"><span>    ├── 技术问题   → TechAgent</span></span>
+<span class="line"><span>    ├── 账单问题   → BillingAgent</span></span>
+<span class="line"><span>    ├── 销售问题   → SalesAgent</span></span>
+<span class="line"><span>    └── 其他问题   → GeneralAgent</span></span></code></pre><p>与 Orchestrator 的区别：</p>
+<ul>
+<li>Orchestrator：主动分解任务，统筹多个 Worker</li>
+<li>Handoff：被动路由，用户问题决定去哪个 Agent</li>
+</ul>
+<hr>
+<h2 id="专家-agent-定义">专家 Agent 定义</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../shared/llmClient"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> ExpertAgent</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">    // 路由器用这个判断是否匹配</span></span>
+<span class="line"><span style="color:#4C4F69">  systemPrompt</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // Agent 的专业能力设定</span></span>
+<span class="line"><span style="color:#4C4F69">  keywords</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">     // 辅助匹配的关键词</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 注册所有专家 Agent</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> expertAgents</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ExpertAgent[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "TechSupport"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "处理技术问题：Bug、代码、API 使用、性能优化"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    systemPrompt</span><span style="color:#179299">:</span><span style="color:#40A02B"> `你是高级技术支持工程师，专精于：</span></span>
+<span class="line"><span style="color:#40A02B">- TypeScript / Node.js 开发</span></span>
+<span class="line"><span style="color:#40A02B">- LLM API 使用（OpenAI 兼容 / Anthropic / DeepSeek / Kimi）</span></span>
+<span class="line"><span style="color:#40A02B">- 代码调试和性能优化</span></span>
+<span class="line"><span style="color:#40A02B">请给出具体的技术解决方案，必要时提供代码示例。`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    keywords</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"bug"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "错误"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "代码"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "api"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "报错"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "性能"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "BillingSupport"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "处理账单和费用问题：计费规则、账单查询、退款申请"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    systemPrompt</span><span style="color:#179299">:</span><span style="color:#40A02B"> `你是客户账单支持专员，负责：</span></span>
+<span class="line"><span style="color:#40A02B">- 解释 token 计费规则</span></span>
+<span class="line"><span style="color:#40A02B">- 帮助分析费用来源</span></span>
+<span class="line"><span style="color:#40A02B">- 指导如何优化费用</span></span>
+<span class="line"><span style="color:#40A02B">请用通俗语言解释，避免技术术语。`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    keywords</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"费用"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "账单"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "token"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "价格"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "扣费"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "退款"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "SalesAdvisor"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "产品咨询和方案推荐：使用场景、版本对比、最佳实践"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    systemPrompt</span><span style="color:#179299">:</span><span style="color:#40A02B"> `你是 AI 解决方案顾问，帮助客户：</span></span>
+<span class="line"><span style="color:#40A02B">- 选择适合的 LLM 模型（DeepSeek / Kimi / Claude / GPT 等）</span></span>
+<span class="line"><span style="color:#40A02B">- 规划 AI Agent 技术方案</span></span>
+<span class="line"><span style="color:#40A02B">- 评估项目可行性</span></span>
+<span class="line"><span style="color:#40A02B">请了解客户需求后给出个性化建议。`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    keywords</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"推荐"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "方案"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "选型"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "适合"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "比较"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "使用场景"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "GeneralSupport"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "通用咨询：文档查询、功能介绍、使用入门"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    systemPrompt</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是友好的通用客服，帮助用户了解产品基础功能，解答一般性问题。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    keywords</span><span style="color:#179299">:</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="路由器实现">路由器实现</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> routeToAgent</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userMessage</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">ExpertAgent</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 构建路由选项列表</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> agentOptions </span><span style="color:#179299">=</span><span style="color:#4C4F69"> expertAgents</span></span>
+<span class="line"><span style="color:#179299">    .</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">a</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `- </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">a</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">a</span><span style="color:#179299">.</span><span style="color:#4C4F69">description</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">    .</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 路由判断用便宜小模型即可（DeepSeek-Chat 已经够便宜，Kimi-v1-8k 更适合短判断）</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> routingResponse </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 50</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `你是智能路由器。根据用户消息，选择最合适的专家 Agent。</span></span>
+<span class="line"><span style="color:#40A02B">只返回 Agent 名称，不要其他内容。</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">可用 Agents：</span></span>
+<span class="line"><span style="color:#7C7F93">${</span><span style="color:#4C4F69">agentOptions</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userMessage </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> selectedName </span><span style="color:#179299">=</span><span style="color:#4C4F69"> (routingResponse</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">trim</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> agent </span><span style="color:#179299">=</span><span style="color:#4C4F69"> expertAgents</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">find</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">a</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> a</span><span style="color:#179299">.</span><span style="color:#4C4F69">name </span><span style="color:#179299">===</span><span style="color:#4C4F69"> selectedName)</span></span>
+<span class="line"><span style="color:#179299">    ??</span><span style="color:#4C4F69"> expertAgents</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">find</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">a</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> a</span><span style="color:#179299">.</span><span style="color:#4C4F69">name </span><span style="color:#179299">===</span><span style="color:#40A02B"> "GeneralSupport"</span><span style="color:#4C4F69">)</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  🔀 路由到: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">agent</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> agent</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="带-handoff-的对话系统">带 Handoff 的对话系统</h2>
+<p>专家 Agent 可以主动触发 Handoff，将对话转交给另一个 Agent：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 定义 handoff 工具（OpenAI function calling 格式）</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> handoffTool </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "function"</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  function</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "handoff_to_agent"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "当问题超出当前专业范围时，将用户转交给更合适的 Agent"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        target_agent</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">          type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          enum</span><span style="color:#179299">:</span><span style="color:#4C4F69"> expertAgents</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">a</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> a</span><span style="color:#179299">.</span><span style="color:#4C4F69">name)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "目标 Agent 名称"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#4C4F69">        reason</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">          type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "转交原因"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#4C4F69">        context_summary</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">          type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "为目标 Agent 提供的上下文摘要"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">      required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"target_agent"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "reason"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> handleWithAgent</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  agent</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ExpertAgent</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  userMessage</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  context</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#179299"> =</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  depth</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 0</span><span style="color:#9CA0B0;font-style:italic">  // 防止无限转交</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (depth </span><span style="color:#179299">></span><span style="color:#FE640B"> 3</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">return</span><span style="color:#40A02B"> "抱歉，无法处理此请求，请联系人工客服。"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  💬 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">agent</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 正在处理...`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    tools</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [handoffTool]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> agent</span><span style="color:#179299">.</span><span style="color:#4C4F69">systemPrompt </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#179299">      ...</span><span style="color:#4C4F69">(context</span></span>
+<span class="line"><span style="color:#179299">        ?</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">            {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `上下文：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">context</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">            {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "我已了解背景，请告诉我你的问题。"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">          ]</span></span>
+<span class="line"><span style="color:#179299">        :</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userMessage </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> msg </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 检查是否触发了 Handoff</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">finish_reason </span><span style="color:#179299">===</span><span style="color:#40A02B"> "tool_calls"</span><span style="color:#179299"> &#x26;&#x26;</span><span style="color:#4C4F69"> msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool_calls</span><span style="color:#179299">?.</span><span style="color:#4C4F69">length) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> call </span><span style="color:#179299">=</span><span style="color:#4C4F69"> msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool_calls[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (call</span><span style="color:#179299">.</span><span style="color:#4C4F69">function</span><span style="color:#179299">.</span><span style="color:#4C4F69">name </span><span style="color:#179299">===</span><span style="color:#40A02B"> "handoff_to_agent"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> target_agent</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> reason</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> context_summary </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(call</span><span style="color:#179299">.</span><span style="color:#4C4F69">function</span><span style="color:#179299">.</span><span style="color:#4C4F69">arguments) </span><span style="color:#8839EF">as</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        target_agent</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        reason</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        context_summary</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  ↗️  Handoff: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">agent</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> → </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">target_agent</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">（原因：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">reason</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">）`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> targetAgent </span><span style="color:#179299">=</span><span style="color:#4C4F69"> expertAgents</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">find</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">a</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> a</span><span style="color:#179299">.</span><span style="color:#4C4F69">name </span><span style="color:#179299">===</span><span style="color:#4C4F69"> target_agent)</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#1E66F5;font-style:italic"> handleWithAgent</span><span style="color:#4C4F69">(targetAgent</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> userMessage</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> context_summary</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> depth </span><span style="color:#179299">+</span><span style="color:#FE640B"> 1</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 正常返回答案</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="完整使用示例">完整使用示例</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> customerService</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userMessage</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">用户: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">userMessage</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 1. 路由器判断</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> agent </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> routeToAgent</span><span style="color:#4C4F69">(userMessage)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 2. 专家 Agent 处理（可能触发 Handoff）</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> answer </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> handleWithAgent</span><span style="color:#4C4F69">(agent</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> userMessage)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">回答: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">answer</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> answer</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 测试</span></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#1E66F5;font-style:italic"> customerService</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"我的 API 调用一直报 401 错误，如何解决？"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// → 路由到 TechSupport → 提供技术解决方案</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#1E66F5;font-style:italic"> customerService</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"为什么这个月的账单比上个月多了 200 元？"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// → 路由到 BillingSupport → 解释计费规则</span></span></code></pre><hr>
+<h2 id="小结">小结</h2>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>核心价值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>路由器（Router）</td>
+<td>用最快模型做意图判断，降低成本</td>
+</tr>
+<tr>
+<td>专家 Agent</td>
+<td>专注单一领域，回答质量更高</td>
+</tr>
+<tr>
+<td>Handoff 工具</td>
+<td>主动转交，无缝衔接对话上下文</td>
+</tr>
+<tr>
+<td>深度限制</td>
+<td>防止循环转交，最多 3 层</td>
+</tr>
+</tbody></table>
+<p>下一课：用 Zod 实现<strong>结构化输出</strong>，让模型返回类型安全的 JSON →</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ts-09-orchestrator.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第9课：Orchestrator + Worker</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ts-11-structured.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第11课：结构化输出</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#学习目标">学习目标</a></li><li class="lvl-2"><a href="#什么是-agent-handoff">什么是 Agent Handoff？</a></li><li class="lvl-2"><a href="#专家-agent-定义">专家 Agent 定义</a></li><li class="lvl-2"><a href="#路由器实现">路由器实现</a></li><li class="lvl-2"><a href="#带-handoff-的对话系统">带 Handoff 的对话系统</a></li><li class="lvl-2"><a href="#完整使用示例">完整使用示例</a></li><li class="lvl-2"><a href="#小结">小结</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

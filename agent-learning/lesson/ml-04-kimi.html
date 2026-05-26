@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第4课：Kimi (Moonshot) — 多 LLM 接入实战</title>
+  <meta name="description" content="128k 超长上下文，文档分析专家">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-cyan">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-cyan">
+      <div class="crumb">
+        <div class="crumb-icon">LM</div>
+        <div class="crumb-text">多 LLM 接入实战</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ml-01-openai.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">OpenAI API</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-02-deepseek.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">DeepSeek</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-03-gemini.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Google Gemini</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-04-kimi.html" class="active">
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Kimi (Moonshot)</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-05-minimax.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MiniMax</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-06-unified.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">统一接口层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-07-selection.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">模型选型指南</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-08-fallback.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Fallback 与多模型协作</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ml-01-openai.html" class="current">多 LLM 接入实战</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">04</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第4课：Kimi (Moonshot)</div>
+          <div class="desc">128k 超长上下文，文档分析专家</div>
+          <div class="tags">
+            <span class="tag">kimi</span><span class="tag">llm</span><span class="tag">context</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">04_kimi.md</code></span>
+            <span>📏 687 行</span>
+            <span style="opacity:0.7;">multi-llm/lessons/04_kimi.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第4课：Kimi — 长文本专家（月之暗面）</h1>
+<h2 id="介绍">介绍</h2>
+<p>Kimi 是月之暗面（Moonshot AI）推出的大语言模型，在中文长文本处理领域表现突出：</p>
+<ul>
+<li><strong>完全兼容 OpenAI API</strong>：只需修改 <code>apiKey</code> 和 <code>baseURL</code>，无需改动其他代码</li>
+<li><strong>128K 超长上下文</strong>：一次性处理整本书、完整合同、超长研究报告</li>
+<li><strong>中文优化</strong>：对中文分词和语义理解有专项优化，特别适合中文文档处理</li>
+<li><strong>文件 API</strong>：支持直接上传 PDF、Word、TXT 等文件并提取内容分析</li>
+<li><strong>性价比高</strong>：相比 GPT-4 同等能力，Kimi 在中文长文本场景价格更具优势</li>
+</ul>
+<p><strong>适用场景</strong>：法律合同审查、学术论文分析、长篇报告摘要、整本书内容问答。</p>
+<hr>
+<h2 id="整体架构kimi-的核心优势">整体架构：Kimi 的核心优势</h2>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TB
+    subgraph 长文本优势
+        A[128K 上下文] --&gt; B[整本书分析]
+        A --&gt; C[完整合同审查]
+        A --&gt; D[超长报告摘要]
+    end
+
+    subgraph OpenAI兼容层
+        E[你的现有代码] --&gt;|只改两行| F[OpenAI SDK]
+        F --&gt;|baseURL 转发| G[Kimi API]
+        G --&gt;|OpenAI 格式响应| F
+        F --&gt; E
+    end
+
+    subgraph 需要修改的配置
+        H[&quot;apiKey: process.env.KIMI_API_KEY&quot;]
+        I[&quot;baseURL: &#39;https://api.moonshot.cn/v1&#39;&quot;]
+    end
+
+    长文本优势-.-&gt;OpenAI兼容层
+    需要修改的配置--&gt;OpenAI兼容层</pre></div><hr>
+<h2 id="kimi-模型一览">Kimi 模型一览</h2>
+<table>
+<thead>
+<tr>
+<th>模型 ID</th>
+<th>上下文</th>
+<th>适用场景</th>
+<th>价格特点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>kimi-latest</code></td>
+<td>128K</td>
+<td>推荐默认，自动匹配最新最好版本</td>
+<td>自动优化，综合性价比最佳</td>
+</tr>
+<tr>
+<td><code>moonshot-v1-8k</code></td>
+<td>8K</td>
+<td>短文本对话、简单问答</td>
+<td>最便宜，适合高频简单任务</td>
+</tr>
+<tr>
+<td><code>moonshot-v1-32k</code></td>
+<td>32K</td>
+<td>中等长度文档、多轮对话</td>
+<td>中等价格，平衡性能与成本</td>
+</tr>
+<tr>
+<td><code>moonshot-v1-128k</code></td>
+<td>128K</td>
+<td>超长文档、完整书籍分析</td>
+<td>按实际使用 token 计费</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>推荐</strong>：日常开发直接用 <code>kimi-latest</code>，它会自动匹配当前最佳版本，无需手动追踪模型版本更新。</p>
+</blockquote>
+<hr>
+<h2 id="模型自动选择逻辑">模型自动选择逻辑</h2>
+<p>当你需要根据文档长度动态选择模型时，可以参考以下决策流程：</p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    A[输入文档] --&gt; B[估算 token 数量]
+    B --&gt; C{token 数量}
+    C --&gt;|小于 6,000 tokens| D[moonshot-v1-8k]
+    C --&gt;|6,000 到 28,000 tokens| E[moonshot-v1-32k]
+    C --&gt;|大于 28,000 tokens| F[moonshot-v1-128k]
+
+    D --&gt; G[成本最低]
+    E --&gt; H[平衡性价比]
+    F --&gt; I[支持超长文档]
+
+    style D fill:#90EE90
+    style E fill:#FFD700
+    style F fill:#FFA07A</pre></div><blockquote>
+<p><strong>中文估算参考</strong>：中文约 1.5 字/token，英文约 4 字/token。一份 10 万字的中文报告约 67,000 tokens，需要用 128k 模型。</p>
+</blockquote>
+<hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>从 OpenAI 直接迁移到 Kimi 时，有 4 个关键差异需要了解：</p>
+<h3 id="1-baseurl-不同">1. baseURL 不同</h3>
+<p>必须将请求指向 Kimi 的端点：<code>https://api.moonshot.cn/v1</code></p>
+<h3 id="2-模型名称不同">2. 模型名称不同</h3>
+<p>不能用 <code>gpt-4</code> 等 OpenAI 模型名，必须用 Kimi 的模型名（<code>moonshot-v1-8k</code> 等）。</p>
+<h3 id="3-文件-api-独立">3. 文件 API 独立</h3>
+<p>Kimi 有自己的文件上传 API，用于上传 PDF、Word 等文档并提取文本内容，然后将内容插入对话中使用。</p>
+<h3 id="4-中文语义优化">4. 中文语义优化</h3>
+<p>Kimi 对中文的理解和生成质量比 OpenAI 在某些中文场景下更优，特别是涉及中国法律、政策、文化背景的内容。</p>
+<hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-aopenai-sdk-修改-baseurl推荐">方案 A：OpenAI SDK + 修改 baseURL（推荐）</h3>
+<p>使用 <code>openai</code> 包，只修改 <code>apiKey</code> 和 <code>baseURL</code>，其余代码保持不变。</p>
+<p><strong>优点</strong>：</p>
+<ul>
+<li>代码改动最小，只需两行配置</li>
+<li>TypeScript 类型完整</li>
+<li>与 OpenAI 代码可无缝切换</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li>文件 API 需要用原生 fetch 或 Kimi 专用方法调用</li>
+</ul>
+<h3 id="方案-b原生-fetch-调用">方案 B：原生 fetch 调用</h3>
+<p>直接用 <code>fetch</code> 调用 Kimi REST API，无需任何 SDK。</p>
+<p><strong>优点</strong>：无依赖，轻量</p>
+<p><strong>缺点</strong>：需要手写请求格式，无类型提示，维护成本高</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p><strong>推荐方案 A（OpenAI SDK + baseURL）</strong>。</p>
+<p>理由：</p>
+<ol>
+<li>最小改动，降低迁移风险</li>
+<li>如果以后需要切回 OpenAI 或切换其他 OpenAI 兼容服务，只改两行配置</li>
+<li>TypeScript 类型支持完整，开发体验好</li>
+</ol>
+<hr>
+<h2 id="核心设计openai-兼容层工作原理">核心设计：OpenAI 兼容层工作原理</h2>
+<div class="mermaid-wrapper"><pre class="mermaid">sequenceDiagram
+    participant Code as 你的代码
+    participant SDK as OpenAI SDK
+    participant Kimi as Kimi API
+    participant Resp as 响应处理
+
+    Code-&gt;&gt;SDK: new OpenAI({ apiKey: KIMI_KEY, baseURL: KIMI_URL })
+    Code-&gt;&gt;SDK: client.chat.completions.create({ model: &quot;moonshot-v1-8k&quot;, ... })
+    SDK-&gt;&gt;Kimi: POST https://api.moonshot.cn/v1/chat/completions
+    Note over Kimi: 接收 OpenAI 格式请求
+    Note over Kimi: 用 Kimi 模型处理
+    Kimi--&gt;&gt;SDK: 返回 OpenAI 格式响应
+    SDK--&gt;&gt;Code: ChatCompletion 对象（与 OpenAI 完全一致）
+    Code-&gt;&gt;Resp: response.choices[0].message.content</pre></div><p><strong>你需要改的 vs 不需要改的</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>你需要改的</th>
+<th>你不需要改的</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>apiKey</code>：换成 Kimi API Key</td>
+<td>请求体结构（messages、temperature 等）</td>
+</tr>
+<tr>
+<td><code>baseURL</code>：换成 Kimi 端点</td>
+<td>响应体解析方式</td>
+</tr>
+<tr>
+<td><code>model</code>：换成 Kimi 模型名</td>
+<td>流式输出处理逻辑</td>
+</tr>
+<tr>
+<td>文件上传（用 Kimi File API）</td>
+<td>错误处理逻辑</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="安装与配置">安装与配置</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#1E66F5;font-style:italic">npm</span><span style="color:#40A02B"> install</span><span style="color:#40A02B"> openai</span></span></code></pre><pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># .env</span></span>
+<span class="line"><span style="color:#4C4F69">KIMI_API_KEY</span><span style="color:#179299">=</span><span style="color:#40A02B">your_kimi_api_key_here</span></span></code></pre><pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// client.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 只需修改 apiKey 和 baseURL，其余与 OpenAI 完全一致</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> client </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">KIMI_API_KEY</span><span style="color:#179299">!</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  baseURL</span><span style="color:#179299">:</span><span style="color:#40A02B"> "https://api.moonshot.cn/v1"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> KIMI_MODELS </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  LATEST</span><span style="color:#179299">:</span><span style="color:#40A02B"> "kimi-latest"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">           // 推荐默认：自动匹配最新最好版本</span></span>
+<span class="line"><span style="color:#4C4F69">  SHORT</span><span style="color:#179299">:</span><span style="color:#40A02B"> "moonshot-v1-8k"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">         // 短文本：最便宜</span></span>
+<span class="line"><span style="color:#4C4F69">  MEDIUM</span><span style="color:#179299">:</span><span style="color:#40A02B"> "moonshot-v1-32k"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">       // 中文档：平衡性价比</span></span>
+<span class="line"><span style="color:#4C4F69">  LONG</span><span style="color:#179299">:</span><span style="color:#40A02B"> "moonshot-v1-128k"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">        // 超长文档：128K 上下文</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> type</span><span style="color:#DF8E1D;font-style:italic"> KimiModel </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> (</span><span style="color:#8839EF">typeof</span><span style="color:#4C4F69;font-style:italic"> KIMI_MODELS</span><span style="color:#DF8E1D;font-style:italic">)[</span><span style="color:#8839EF">keyof</span><span style="color:#8839EF"> typeof</span><span style="color:#4C4F69;font-style:italic"> KIMI_MODELS</span><span style="color:#DF8E1D;font-style:italic">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 根据估计 token 数自动选择最合适的模型</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> selectModel</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">estimatedTokens</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> KimiModel</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (estimatedTokens </span><span style="color:#179299">&#x3C;</span><span style="color:#FE640B"> 6000</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#FE640B"> KIMI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">SHORT</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">    // 最便宜</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (estimatedTokens </span><span style="color:#179299">&#x3C;</span><span style="color:#FE640B"> 28000</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#FE640B"> KIMI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">MEDIUM</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 平衡</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#FE640B"> KIMI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">LONG</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">     // 超长文档</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 估算中文文本的 token 数（中文约 1.5 字/token）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> estimateChineseTokens</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">ceil</span><span style="color:#4C4F69">(text</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">/</span><span style="color:#FE640B"> 1.5</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h3 id="基础对话">基础对话</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// basic.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> KIMI_MODELS </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> basicChat</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> KIMI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">LATEST</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个专业的文档分析助手，善于提炼关键信息和结构化总结。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "请简单介绍一下月之暗面（Moonshot AI）公司。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.3</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"回答："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"使用 tokens："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">?.</span><span style="color:#4C4F69">total_tokens)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> multiTurnChat</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionMessageParam[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#4C4F69">      role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个法律助手，熟悉中国合同法。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> questions </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#40A02B">    "什么是合同的必备条款？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "违约金条款有哪些注意事项？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "能给我一个简单的服务合同模板吗？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> question </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> questions) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> question </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#FE640B"> KIMI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">LATEST</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> answer </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> answer </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">问：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">question</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`答：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">answer</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">substring</span><span style="color:#40A02B">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 200</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">...`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> main</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"=== 基础对话 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> basicChat</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 多轮对话 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> multiTurnChat</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">main</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="128k-上下文处理长文档">128K 上下文处理长文档</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// long_document.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> KIMI_MODELS</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> estimateChineseTokens</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> selectModel </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 分析完整文档（自动选择模型）</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> analyzeFullDocument</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">documentText</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> estimatedTokens </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> estimateChineseTokens</span><span style="color:#4C4F69">(documentText)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> model </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> selectModel</span><span style="color:#4C4F69">(estimatedTokens)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`文档长度：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">documentText</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 字`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`估算 tokens：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">estimatedTokens</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`选用模型：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">model</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个专业的文档分析师，擅长提炼文档核心内容并生成结构化报告。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `请对以下文档进行全面分析：</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#7C7F93">${</span><span style="color:#4C4F69">documentText</span><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">请提供：</span></span>
+<span class="line"><span style="color:#40A02B">1. 执行摘要（200字以内）</span></span>
+<span class="line"><span style="color:#40A02B">2. 核心观点列表（5-10条）</span></span>
+<span class="line"><span style="color:#40A02B">3. 关键数据和事实</span></span>
+<span class="line"><span style="color:#40A02B">4. 潜在风险或关注点</span></span>
+<span class="line"><span style="color:#40A02B">5. 行动建议`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.2</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 合同审查（专门针对法律文档优化）</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> analyzeContract</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">contractText</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> KIMI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">LONG</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic"> // 合同通常较长，直接用 128K</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `你是一位经验丰富的法律顾问，专注于合同审查。</span></span>
+<span class="line"><span style="color:#40A02B">请从以下角度审查合同：</span></span>
+<span class="line"><span style="color:#40A02B">- 权利义务是否平衡</span></span>
+<span class="line"><span style="color:#40A02B">- 违约条款是否合理</span></span>
+<span class="line"><span style="color:#40A02B">- 争议解决机制</span></span>
+<span class="line"><span style="color:#40A02B">- 潜在法律风险</span></span>
+<span class="line"><span style="color:#40A02B">- 需要补充或修改的条款`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `请审查以下合同，并以结构化格式给出审查意见：</span><span style="color:#EA76CB">\n\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">contractText</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.1</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic"> // 法律分析需要低随机性</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 研究报告摘要（处理学术/商业报告）</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> summarizeResearchReport</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">reportText</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> KIMI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">LONG</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一位研究分析师，擅长将复杂的研究报告提炼为清晰的管理层摘要。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `请为以下研究报告生成一份管理层摘要：</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#7C7F93">${</span><span style="color:#4C4F69">reportText</span><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">摘要需要包含：</span></span>
+<span class="line"><span style="color:#40A02B">- 研究背景和目的（2-3句）</span></span>
+<span class="line"><span style="color:#40A02B">- 核心发现（3-5个要点）</span></span>
+<span class="line"><span style="color:#40A02B">- 数据支撑（关键数字和统计）</span></span>
+<span class="line"><span style="color:#40A02B">- 结论和建议（2-3条）`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> main</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 示例：读取本地文档</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> docPath </span><span style="color:#179299">=</span><span style="color:#40A02B"> "./sample_contract.txt"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">existsSync</span><span style="color:#4C4F69">(docPath)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> documentText </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFileSync</span><span style="color:#4C4F69">(docPath</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "utf-8"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"=== 合同审查 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> review </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> analyzeContract</span><span style="color:#4C4F69">(documentText)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(review)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 用占位内容演示</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> sampleDoc </span><span style="color:#179299">=</span><span style="color:#40A02B"> `</span></span>
+<span class="line"><span style="color:#40A02B">    本服务协议（以下简称"协议"）由甲方（服务提供商）与乙方（用户）签订。</span></span>
+<span class="line"><span style="color:#40A02B">    甲方同意提供软件开发服务，乙方同意支付相应费用。</span></span>
+<span class="line"><span style="color:#40A02B">    服务期限为2024年1月1日至2024年12月31日。</span></span>
+<span class="line"><span style="color:#40A02B">    服务费用为每月人民币50,000元，于每月5日前支付。</span></span>
+<span class="line"><span style="color:#40A02B">    任何一方违约，须向对方支付合同总额20%的违约金。</span></span>
+<span class="line"><span style="color:#40A02B">    `</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">repeat</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">50</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 模拟较长文档</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"=== 文档分析演示 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> analysis </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> analyzeFullDocument</span><span style="color:#4C4F69">(sampleDoc)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(analysis)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">main</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="流式输出">流式输出</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// streaming.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> KIMI_MODELS </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> streamingChat</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">prompt</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">问：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">prompt</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"答："</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> stream </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> KIMI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">LATEST</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个知识渊博的助手，回答简洁清晰。"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> prompt </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    stream</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic"> // 开启流式输出</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> fullResponse </span><span style="color:#179299">=</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> delta </span><span style="color:#179299">=</span><span style="color:#4C4F69"> chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">?.</span><span style="color:#4C4F69">delta</span><span style="color:#179299">?.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (delta) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(delta)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      fullResponse </span><span style="color:#179299">+=</span><span style="color:#4C4F69"> delta</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`（共 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">fullResponse</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 字）`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> fullResponse</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> streamingDocumentAnalysis</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">documentText</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"开始流式分析文档...</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> stream </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> KIMI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">LONG</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是专业的文档分析师。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `请分析以下文档并生成摘要：</span><span style="color:#EA76CB">\n\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">documentText</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    stream</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1500</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> delta </span><span style="color:#179299">=</span><span style="color:#4C4F69"> chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">?.</span><span style="color:#4C4F69">delta</span><span style="color:#179299">?.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (delta) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(delta)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 检查是否完成</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">?.</span><span style="color:#4C4F69">finish_reason </span><span style="color:#179299">===</span><span style="color:#40A02B"> "stop"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">分析完成。"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> main</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> streamingChat</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"请解释什么是向量数据库，以及它在 AI 应用中的作用。"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> sampleDoc </span><span style="color:#179299">=</span><span style="color:#40A02B"> "人工智能正在快速改变各行各业。"</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">repeat</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">100</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> streamingDocumentAnalysis</span><span style="color:#4C4F69">(sampleDoc)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">main</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="文件读取与分析kimi-文件-api">文件读取与分析（Kimi 文件 API）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// file_api.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> path </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "path"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> KIMI_MODELS </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 上传文件到 Kimi（返回 file_id）</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> uploadFile</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">filePath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`正在上传文件：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">path</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">basename</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">filePath</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> fileStream </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">createReadStream</span><span style="color:#4C4F69">(filePath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> fileName </span><span style="color:#179299">=</span><span style="color:#4C4F69"> path</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">basename</span><span style="color:#4C4F69">(filePath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 使用 OpenAI SDK 的 files.create（兼容 Kimi File API）</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> uploadedFile </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">files</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    file</span><span style="color:#179299">:</span><span style="color:#4C4F69"> fileStream </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    purpose</span><span style="color:#179299">:</span><span style="color:#40A02B"> "assistants"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`上传成功，file_id: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">uploadedFile</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> uploadedFile</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 获取文件内容（提取文本）</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> getFileContent</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">fileId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // Kimi 文件内容提取端点</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> fetch</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">    `https://api.moonshot.cn/v1/files/</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">fileId</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">/content`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#4C4F69">      headers</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        Authorization</span><span style="color:#179299">:</span><span style="color:#40A02B"> `Bearer </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">KIMI_API_KEY</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">ok) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`获取文件内容失败: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">statusText</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> data </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">text</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> data</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 删除文件（释放存储）</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> deleteFile</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">fileId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">files</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">del</span><span style="color:#4C4F69">(fileId)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`文件 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">fileId</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 已删除`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 完整流程：上传文件 → 提取内容 → 分析 → 删除文件</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> analyzeFileWithKimi</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  filePath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  analysisPrompt</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> fileId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#179299"> |</span><span style="color:#8839EF;font-style:italic"> null</span><span style="color:#179299"> =</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 步骤 1：上传文件</span></span>
+<span class="line"><span style="color:#4C4F69">    fileId </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> uploadFile</span><span style="color:#4C4F69">(filePath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 步骤 2：提取文件内容</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"正在提取文件内容..."</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> fileContent </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> getFileContent</span><span style="color:#4C4F69">(fileId)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`提取完成，内容长度：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">fileContent</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 字符`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 步骤 3：将文件内容加入对话并分析</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#FE640B"> KIMI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">LONG</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span></span>
+<span class="line"><span style="color:#4C4F69">          role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是专业的文档分析助手，能够准确理解和分析各类文档内容。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span></span>
+<span class="line"><span style="color:#4C4F69">          role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `以下是文件内容：</span><span style="color:#EA76CB">\n\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">fileContent</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span></span>
+<span class="line"><span style="color:#4C4F69">          role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> analysisPrompt</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#4C4F69">      ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> finally</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 步骤 4：无论成功失败，都删除文件释放存储</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (fileId) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      await</span><span style="color:#1E66F5;font-style:italic"> deleteFile</span><span style="color:#4C4F69">(fileId)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> main</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> testFilePath </span><span style="color:#179299">=</span><span style="color:#40A02B"> "./sample.pdf"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">existsSync</span><span style="color:#4C4F69">(testFilePath)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"=== 文件分析 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> analyzeFileWithKimi</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">      testFilePath</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">      "请总结这份文档的主要内容，并列出3个最重要的观点。"</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">分析结果："</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(result)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"提示：请提供 sample.pdf 文件以测试文件 API 功能"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"支持格式：PDF、Word(.docx)、TXT、Markdown 等"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">main</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="kimi-文件-api-流程">Kimi 文件 API 流程</h2>
+<div class="mermaid-wrapper"><pre class="mermaid">sequenceDiagram
+    participant Dev as 开发者代码
+    participant KimiFiles as Kimi File API
+    participant KimiChat as Kimi Chat API
+
+    Dev-&gt;&gt;KimiFiles: POST /v1/files (上传文件)
+    KimiFiles--&gt;&gt;Dev: { id: &quot;file_xxx&quot;, status: &quot;ok&quot; }
+
+    Dev-&gt;&gt;KimiFiles: GET /v1/files/{file_id}/content
+    KimiFiles--&gt;&gt;Dev: 文件文本内容（已提取）
+
+    Note over Dev: 将文件内容插入消息
+
+    Dev-&gt;&gt;KimiChat: POST /v1/chat/completions
+    Note over Dev: messages 包含文件内容 + 分析问题
+    KimiChat--&gt;&gt;Dev: 分析结果
+
+    Dev-&gt;&gt;KimiFiles: DELETE /v1/files/{file_id}
+    KimiFiles--&gt;&gt;Dev: 删除成功（释放存储）</pre></div><hr>
+<h2 id="支持的文件格式">支持的文件格式</h2>
+<table>
+<thead>
+<tr>
+<th>文件类型</th>
+<th>格式</th>
+<th>注意事项</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>PDF 文档</strong></td>
+<td><code>.pdf</code></td>
+<td>支持文本型 PDF，扫描版 PDF（图片）可能提取效果差</td>
+</tr>
+<tr>
+<td><strong>Word 文档</strong></td>
+<td><code>.docx</code>, <code>.doc</code></td>
+<td>支持文字内容，复杂排版可能丢失格式</td>
+</tr>
+<tr>
+<td><strong>纯文本</strong></td>
+<td><code>.txt</code></td>
+<td>完美支持，无损提取</td>
+</tr>
+<tr>
+<td><strong>Markdown</strong></td>
+<td><code>.md</code></td>
+<td>支持，格式基本保留</td>
+</tr>
+<tr>
+<td><strong>电子表格</strong></td>
+<td><code>.xlsx</code>, <code>.xls</code></td>
+<td>支持，表格数据会转为文本</td>
+</tr>
+<tr>
+<td><strong>演示文稿</strong></td>
+<td><code>.pptx</code></td>
+<td>支持，提取幻灯片文本内容</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="适用场景-vs-不适用场景">适用场景 vs 不适用场景</h2>
+<table>
+<thead>
+<tr>
+<th>最适合用 Kimi</th>
+<th>不推荐用 Kimi</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>整本书分析（10-30万字）</td>
+<td>图像识别、图片描述</td>
+</tr>
+<tr>
+<td>长篇法律合同审查</td>
+<td>代码执行与调试</td>
+</tr>
+<tr>
+<td>学术论文全文理解</td>
+<td>需要实时联网搜索的任务</td>
+</tr>
+<tr>
+<td>超长研究报告摘要</td>
+<td>复杂数学计算</td>
+</tr>
+<tr>
+<td>中文政策文件解读</td>
+<td>多模态（视频、音频）处理</td>
+</tr>
+<tr>
+<td>完整项目文档问答</td>
+<td>超低延迟实时对话（用 Flash 版本更快）</td>
+</tr>
+<tr>
+<td>多版本合同对比</td>
+<td>需要代码解释器执行的任务</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="常见注意事项">常见注意事项</h2>
+<table>
+<thead>
+<tr>
+<th>注意点</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>优先用 kimi-latest</strong></td>
+<td><code>kimi-latest</code> 会自动选择当前最新最好的 Kimi 版本，无需手动追踪版本更新。适合大多数场景。</td>
+</tr>
+<tr>
+<td><strong>128K 模型按实际 token 计费</strong></td>
+<td>发送一份 10 万字的文档，即使问题很简单，也会消耗大量 input tokens。批量处理长文档成本需要评估。</td>
+</tr>
+<tr>
+<td><strong>文件上传后记得删除</strong></td>
+<td>Kimi 文件 API 有存储配额限制，每次分析完成后调用 <code>deleteFile</code> 释放存储，避免积压。</td>
+</tr>
+<tr>
+<td><strong>中文分词估算</strong></td>
+<td>中文约 1.5 字/token，英文约 4 字/token。一份 10 万字中文文档 ≈ 67,000 tokens，接近 8K 模型上限的 8 倍。</td>
+</tr>
+<tr>
+<td><strong>system 消息放文件内容</strong></td>
+<td>将提取的文件内容放在第二个 <code>system</code> 消息里，而不是 <code>user</code> 消息，有助于模型更好地理解文档角色。</td>
+</tr>
+<tr>
+<td><strong>温度设置要低</strong></td>
+<td>文档分析、合同审查等场景建议 <code>temperature: 0.1-0.3</code>，减少幻觉，提高准确性。</td>
+</tr>
+<tr>
+<td><strong>baseURL 末尾不加斜杠</strong></td>
+<td><code>baseURL</code> 应为 <code>&quot;https://api.moonshot.cn/v1&quot;</code>，末尾不加 <code>/</code>，否则可能导致路径拼接错误。</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课（第5课）将介绍 <strong>MiniMax</strong> —— 具备语音合成能力的多模态大模型。MiniMax 除了文本对话外，还支持文生语音（TTS）和语音识别，特别适合需要语音交互功能的应用场景。</p>
+<p>继续学习：<a href="./05_minimax.md">第5课：MiniMax — 语音多模态</a></p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ml-03-gemini.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第3课：Google Gemini</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ml-05-minimax.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第5课：MiniMax</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#整体架构kimi-的核心优势">整体架构：Kimi 的核心优势</a></li><li class="lvl-2"><a href="#kimi-模型一览">Kimi 模型一览</a></li><li class="lvl-2"><a href="#模型自动选择逻辑">模型自动选择逻辑</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-3"><a href="#1-baseurl-不同">1. baseURL 不同</a></li><li class="lvl-3"><a href="#2-模型名称不同">2. 模型名称不同</a></li><li class="lvl-3"><a href="#3-文件-api-独立">3. 文件 API 独立</a></li><li class="lvl-3"><a href="#4-中文语义优化">4. 中文语义优化</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-aopenai-sdk-修改-baseurl推荐">方案 A：OpenAI SDK + 修改 baseURL（推荐）</a></li><li class="lvl-3"><a href="#方案-b原生-fetch-调用">方案 B：原生 fetch 调用</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#核心设计openai-兼容层工作原理">核心设计：OpenAI 兼容层工作原理</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#安装与配置">安装与配置</a></li><li class="lvl-3"><a href="#基础对话">基础对话</a></li><li class="lvl-3"><a href="#128k-上下文处理长文档">128K 上下文处理长文档</a></li><li class="lvl-3"><a href="#流式输出">流式输出</a></li><li class="lvl-3"><a href="#文件读取与分析kimi-文件-api">文件读取与分析（Kimi 文件 API）</a></li><li class="lvl-2"><a href="#kimi-文件-api-流程">Kimi 文件 API 流程</a></li><li class="lvl-2"><a href="#支持的文件格式">支持的文件格式</a></li><li class="lvl-2"><a href="#适用场景-vs-不适用场景">适用场景 vs 不适用场景</a></li><li class="lvl-2"><a href="#常见注意事项">常见注意事项</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

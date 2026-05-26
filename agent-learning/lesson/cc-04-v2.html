@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第4课：MVP v2 完整工具 — Mini Claude Code 系列</title>
+  <meta name="description" content="Read/Write/Edit/Glob + 权限检查 + CLAUDE.md">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-violet">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-violet">
+      <div class="crumb">
+        <div class="crumb-icon">CC</div>
+        <div class="crumb-text">Mini Claude Code 系列</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/cc-01-philosophy.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">设计哲学</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cc-02-architecture.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">整体架构</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cc-03-v1.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MVP v1</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cc-04-v2.html" class="active">
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MVP v2 完整工具</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cc-05-v3.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MVP v3 SubAgent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cc-06-v4.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MVP v4 Skill 系统</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/cc-01-philosophy.html" class="current">Mini Claude Code 系列</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">04</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第4课：MVP v2 完整工具</div>
+          <div class="desc">Read/Write/Edit/Glob + 权限检查 + CLAUDE.md</div>
+          <div class="tags">
+            <span class="tag">mvp</span><span class="tag">tools</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">04_mvp_v2.md</code></span>
+            <span>📏 291 行</span>
+            <span style="opacity:0.7;">claude-code-series/lessons/04_mvp_v2.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第4课：MVP v2 — 完整工具 + 权限 + CLAUDE.md</h1>
+<h2 id="介绍">介绍</h2>
+<p>v1 能跑，但在真实项目里用它你会很快碰壁：AI 想读一个文件，却只能绕路用 <code>cat</code>；想改代码，却只能先读全文再整体覆写——容易把不该改的行也改掉。</p>
+<p>本课升级三件事：<strong>完整工具集、权限保护、项目上下文（CLAUDE.md）</strong>。</p>
+<hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>v1 的三个痛点：</p>
+<p><strong>1. 只有 Bash，文件操作笨拙</strong></p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># AI 想精确修改第 42 行，只能这么做：</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 先读整个文件</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">cat</span><span style="color:#40A02B"> src/index.ts</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 再整体覆写（危险！容易丢失其他内容）</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">cat</span><span style="color:#179299"> ></span><span style="color:#40A02B"> src/index.ts</span><span style="color:#179299"> &#x3C;&#x3C;</span><span style="color:#40A02B"> 'EOF'</span></span>
+<span class="line"><span style="color:#40A02B">... 整个文件内容 ...</span></span>
+<span class="line"><span style="color:#40A02B">EOF</span></span></code></pre><p><strong>2. 没有权限保护</strong></p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># AI 一旦理解错需求，可能执行：</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">rm</span><span style="color:#40A02B"> -rf</span><span style="color:#40A02B"> dist/</span><span style="color:#9CA0B0;font-style:italic">    # 删掉整个构建目录</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">git</span><span style="color:#40A02B"> push</span><span style="color:#40A02B"> --force</span><span style="color:#9CA0B0;font-style:italic"> # 强制推送覆盖远程</span></span></code></pre><p>v1 对此毫无防御。</p>
+<p><strong>3. 没有项目上下文</strong></p>
+<p>AI 不知道：这个项目用什么框架？有哪些约定？哪些目录不能动？每次都要靠对话重新说明。</p>
+<hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a把所有防护逻辑写进-system-prompt">方案 A：把所有防护逻辑写进 System Prompt</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>"你不能运行 rm -rf，你不能修改 .env，你应该用 Edit 而不是 Write..."</span></span></code></pre><p>❌ Prompt 越来越长，AI 容易遗忘
+❌ 用户无法动态配置</p>
+<h3 id="方案-b在工具执行层拦截硬编码黑名单">方案 B：在工具执行层拦截（硬编码黑名单）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> (command</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'rm -rf'</span><span style="color:#4C4F69">)) </span><span style="color:#8839EF">throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'禁止操作'</span><span style="color:#4C4F69">)</span></span></code></pre><p>✅ 可靠，AI 绕不过去
+❌ 黑名单难以穷举，灵活性差</p>
+<h3 id="方案-c权限分级-用户确认白名单-询问">方案 C：权限分级 + 用户确认（白名单 + 询问）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>低风险操作  → 直接执行（读文件、跑测试）</span></span>
+<span class="line"><span>中风险操作  → 询问用户是否确认（git push）</span></span>
+<span class="line"><span>高危操作    → 直接拒绝（rm -rf /）</span></span></code></pre><p>✅ 安全且灵活
+✅ 用户保持控制权</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p><strong>采用方案 C</strong>，同时加入：</p>
+<ul>
+<li>专用文件工具（Read/Write/Edit/Glob）替代纯 Bash 文件操作</li>
+<li>CLAUDE.md 自动加载到 System Prompt</li>
+</ul>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="新增工具定义">新增工具定义</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> readFileSync</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> writeFileSync</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> existsSync </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> glob </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "glob"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tools</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Anthropic</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">Tool[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "bash"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "执行 Bash 命令（非文件读写操作优先用此工具）"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    input_schema</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        command</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "Bash 命令"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">      required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"command"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "read"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "读取文件内容。比 cat 更可靠，支持行号范围。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    input_schema</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        path</span><span style="color:#179299">:</span><span style="color:#7C7F93">       {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "文件路径"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">        start_line</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "number"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "起始行（可选）"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">        end_line</span><span style="color:#179299">:</span><span style="color:#7C7F93">   {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "number"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "结束行（可选）"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">      required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"path"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "write"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "写入文件（覆盖）。创建新文件时使用，修改已有文件请用 edit。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    input_schema</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        path</span><span style="color:#179299">:</span><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "文件路径"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "文件内容"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">      required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"path"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "content"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "edit"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "精确替换文件中的特定文本片段。比 write 安全，不影响其他内容。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    input_schema</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        path</span><span style="color:#179299">:</span><span style="color:#7C7F93">       {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "文件路径"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">        old_string</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "要替换的原始文本（必须精确匹配）"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">        new_string</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "替换后的新文本"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">      required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"path"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "old_string"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "new_string"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "glob"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "按模式匹配文件路径，例如 src/**/*.ts"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    input_schema</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        pattern</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "glob 模式"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">      required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"pattern"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span></code></pre><h3 id="权限系统">权限系统</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> readline </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "readline"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 危险命令黑名单（直接拒绝）</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> DENY_PATTERNS </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#EA76CB">  /</span><span style="color:#4C4F69">rm</span><span style="color:#EA76CB">\s</span><span style="color:#179299">+</span><span style="color:#4C4F69">-rf</span><span style="color:#EA76CB">\s</span><span style="color:#179299">+</span><span style="color:#EA76CB">\//</span><span style="color:#7C7F93">,</span><span style="color:#EA76CB"> /</span><span style="color:#4C4F69">mkfs</span><span style="color:#EA76CB">/</span><span style="color:#7C7F93">,</span><span style="color:#EA76CB"> /</span><span style="color:#4C4F69">dd</span><span style="color:#EA76CB">\s</span><span style="color:#179299">+</span><span style="color:#4C4F69">if=</span><span style="color:#EA76CB">.</span><span style="color:#179299">*</span><span style="color:#4C4F69">of=</span><span style="color:#EA76CB">\/</span><span style="color:#4C4F69">dev</span><span style="color:#EA76CB">/</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 需要确认的命令（询问用户）</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> ASK_PATTERNS </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#EA76CB">  /</span><span style="color:#4C4F69">git</span><span style="color:#EA76CB">\s</span><span style="color:#179299">+</span><span style="color:#4C4F69">push</span><span style="color:#EA76CB">/</span><span style="color:#7C7F93">,</span><span style="color:#EA76CB"> /</span><span style="color:#4C4F69">rm</span><span style="color:#EA76CB">\s</span><span style="color:#179299">+</span><span style="color:#4C4F69">-rf</span><span style="color:#EA76CB">/</span><span style="color:#7C7F93">,</span><span style="color:#EA76CB"> /</span><span style="color:#4C4F69">git</span><span style="color:#EA76CB">\s</span><span style="color:#179299">+</span><span style="color:#4C4F69">reset</span><span style="color:#EA76CB">\s</span><span style="color:#179299">+</span><span style="color:#4C4F69">--hard</span><span style="color:#EA76CB">/</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#EA76CB">  /</span><span style="color:#4C4F69">sudo</span><span style="color:#EA76CB">/</span><span style="color:#7C7F93">,</span><span style="color:#EA76CB"> /</span><span style="color:#4C4F69">chmod</span><span style="color:#EA76CB">\s</span><span style="color:#179299">+</span><span style="color:#4C4F69">777</span><span style="color:#EA76CB">/</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> checkPermission</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">command</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">boolean</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 硬拒绝</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#FE640B">DENY_PATTERNS</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">some</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">p</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> p</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">test</span><span style="color:#4C4F69">(command))) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`🚫 拒绝执行危险命令: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">command</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 询问用户</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#FE640B">ASK_PATTERNS</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">some</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">p</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> p</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">test</span><span style="color:#4C4F69">(command))) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> rl </span><span style="color:#179299">=</span><span style="color:#4C4F69"> readline</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">createInterface</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> input</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdin</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> output</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> answer </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">resolve</span><span style="color:#179299"> =></span></span>
+<span class="line"><span style="color:#4C4F69">      rl</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">question</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`⚠️  确认执行 "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">command</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">"? (y/n): `</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> resolve)</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    rl</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">close</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> answer</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toLowerCase</span><span style="color:#4C4F69">() </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'y'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 默认允许</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="工具执行含权限检查">工具执行（含权限检查）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> executeTool</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  input</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> any</span><span style="color:#04A5E5">></span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  switch</span><span style="color:#4C4F69"> (name) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    case</span><span style="color:#40A02B"> "bash"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">(</span><span style="color:#8839EF">await</span><span style="color:#1E66F5;font-style:italic"> checkPermission</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">command))) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B"> "操作已被用户取消。"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#8839EF">      try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> stdout</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> stderr </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> execAsync</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">command</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">          cwd</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">cwd</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> timeout</span><span style="color:#179299">:</span><span style="color:#FE640B"> 30_000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#4C4F69"> stdout </span><span style="color:#179299">||</span><span style="color:#4C4F69"> stderr </span><span style="color:#179299">||</span><span style="color:#40A02B"> "(无输出)"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">err</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B"> `错误: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">err</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    case</span><span style="color:#40A02B"> "read"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#1E66F5;font-style:italic">existsSync</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path)) </span><span style="color:#8839EF">return</span><span style="color:#40A02B"> `文件不存在: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> content </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> readFileSync</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "utf-8"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (input</span><span style="color:#179299">.</span><span style="color:#4C4F69">start_line </span><span style="color:#179299">||</span><span style="color:#4C4F69"> input</span><span style="color:#179299">.</span><span style="color:#4C4F69">end_line) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> lines </span><span style="color:#179299">=</span><span style="color:#4C4F69"> content</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">split</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> start </span><span style="color:#179299">=</span><span style="color:#4C4F69"> (input</span><span style="color:#179299">.</span><span style="color:#4C4F69">start_line </span><span style="color:#179299">??</span><span style="color:#FE640B"> 1</span><span style="color:#4C4F69">) </span><span style="color:#179299">-</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> end   </span><span style="color:#179299">=</span><span style="color:#4C4F69"> input</span><span style="color:#179299">.</span><span style="color:#4C4F69">end_line </span><span style="color:#179299">??</span><span style="color:#4C4F69"> lines</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#4C4F69"> lines</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(start</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> end)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#4C4F69"> content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    case</span><span style="color:#40A02B"> "write"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">      writeFileSync</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> input</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "utf-8"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#40A02B"> `已写入: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    case</span><span style="color:#40A02B"> "edit"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#1E66F5;font-style:italic">existsSync</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path)) </span><span style="color:#8839EF">return</span><span style="color:#40A02B"> `文件不存在: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> content </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> readFileSync</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "utf-8"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">content</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">old_string)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B"> `错误: 未找到要替换的文本。请检查 old_string 是否与文件内容完全匹配。`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> updated </span><span style="color:#179299">=</span><span style="color:#4C4F69"> content</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">replace</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">old_string</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> input</span><span style="color:#179299">.</span><span style="color:#4C4F69">new_string)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">      writeFileSync</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> updated</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "utf-8"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#40A02B"> `已修改: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    case</span><span style="color:#40A02B"> "glob"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> files </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> glob</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">pattern</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> ignore</span><span style="color:#179299">:</span><span style="color:#40A02B"> "node_modules/**"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#4C4F69"> files</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">?</span><span style="color:#4C4F69"> files</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">) </span><span style="color:#179299">:</span><span style="color:#40A02B"> "(无匹配文件)"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    default</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#40A02B"> `未知工具: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="claudemd-自动加载">CLAUDE.md 自动加载</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> loadClaudeMd</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> paths </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"./CLAUDE.md"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "../CLAUDE.md"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> p </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> paths) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#1E66F5;font-style:italic">existsSync</span><span style="color:#4C4F69">(p)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> content </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> readFileSync</span><span style="color:#4C4F69">(p</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "utf-8"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`📋 已加载 CLAUDE.md (</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">content</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 字符)`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#40A02B"> `</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">## 项目规范（来自 CLAUDE.md）</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> systemPrompt </span><span style="color:#179299">=</span><span style="color:#40A02B"> `你是一个 AI 编程助手。</span></span>
+<span class="line"><span style="color:#40A02B">通过工具完成用户的编程任务。</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">工具使用规范：</span></span>
+<span class="line"><span style="color:#40A02B">- 修改已有文件：优先用 edit，不要用 write 覆盖整个文件</span></span>
+<span class="line"><span style="color:#40A02B">- 读文件：用 read，不要用 bash cat</span></span>
+<span class="line"><span style="color:#40A02B">- 搜索文件：用 glob，不要用 bash find</span></span>
+<span class="line"><span style="color:#40A02B">- 执行命令：用 bash（已配置权限保护）</span></span>
+<span class="line"><span style="color:#7C7F93">${</span><span style="color:#1E66F5;font-style:italic">loadClaudeMd</span><span style="color:#40A02B">()</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="下一步">下一步</h2>
+<p>v2 已经是一个可以日常使用的编程助手了。但还有一个重要场景没覆盖：<strong>大任务需要并行处理</strong>。</p>
+<p>比如&quot;帮我重构整个 src 目录下的所有文件&quot;——如果一个接一个处理，太慢了。</p>
+<p>下一课引入 <strong>SubAgent</strong>：主 Agent 分配任务，多个子 Agent 并行执行。</p>
+<p>→ <strong>第5课：MVP v3 — SubAgent 并行执行</strong></p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/cc-03-v1.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第3课：MVP v1</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/cc-05-v3.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第5课：MVP v3 SubAgent</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a把所有防护逻辑写进-system-prompt">方案 A：把所有防护逻辑写进 System Prompt</a></li><li class="lvl-3"><a href="#方案-b在工具执行层拦截硬编码黑名单">方案 B：在工具执行层拦截（硬编码黑名单）</a></li><li class="lvl-3"><a href="#方案-c权限分级-用户确认白名单-询问">方案 C：权限分级 + 用户确认（白名单 + 询问）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#新增工具定义">新增工具定义</a></li><li class="lvl-3"><a href="#权限系统">权限系统</a></li><li class="lvl-3"><a href="#工具执行含权限检查">工具执行（含权限检查）</a></li><li class="lvl-3"><a href="#claudemd-自动加载">CLAUDE.md 自动加载</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

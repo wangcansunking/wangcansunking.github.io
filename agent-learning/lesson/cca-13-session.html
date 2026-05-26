@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第13课：Session 持久化与 Resume — Claude Code 源码剖析</title>
+  <meta name="description" content="append-only JSONL / sidechain transcript / 写简单读复杂">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-rose">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-rose">
+      <div class="crumb">
+        <div class="crumb-icon">CA</div>
+        <div class="crumb-text">Claude Code 源码剖析</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/cca-01-overview.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">泄露事件与全景导览</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-02-startup.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">启动路径剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-03-query.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Query 执行内核</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-04-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool 抽象与工具池</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-05-orchestration.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">工具调度与并发</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-06-permission.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">权限模型与 Sandbox</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-07-skills.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill 系统</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-09-memory.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Memory 分层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-10-compaction.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 自动压缩</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-11-prompt.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Prompt Runtime</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-12-multi-agent.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 三层模型</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-13-session.html" class="active">
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Session 持久化与 Resume</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-14-hidden.html" >
+            <span class="num">14</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第14课（番外）：隐藏命令与 Feature Flag</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/cca-01-overview.html" class="current">Claude Code 源码剖析</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">13</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第13课：Session 持久化与 Resume</div>
+          <div class="desc">append-only JSONL / sidechain transcript / 写简单读复杂</div>
+          <div class="tags">
+            <span class="tag">analysis</span><span class="tag">pattern</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">13_session_resume.md</code></span>
+            <span>📏 401 行</span>
+            <span style="opacity:0.7;">claude-code-analysis/lessons/13_session_resume.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第13课：Session 持久化与 Resume — append-only JSONL</h1>
+<h2 id="介绍">介绍</h2>
+<p>聊到一半电脑重启了，怎么继续？</p>
+<p>很多 Agent 项目把会话写成&quot;内存里聊完就没&quot;，重启即丢失。Claude Code 把它做成了<strong>append-only JSONL 事件流 + 恢复时按需修复</strong>——写入端尽量简单，恢复端负责复杂性。本课拆这个机制。</p>
+<hr>
+<h2 id="源码定位">源码定位</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>src/utils/sessionStorage.ts</code></td>
+<td>append-only 写入 + 路径解析 + 分流</td>
+</tr>
+<tr>
+<td><code>src/utils/conversationRecovery.ts</code></td>
+<td>恢复流水线 + 链路修复</td>
+</tr>
+<tr>
+<td><code>src/screens/ResumeConversation.tsx</code></td>
+<td>UI 入口</td>
+</tr>
+<tr>
+<td><code>src/services/api/sessionIngress.ts</code></td>
+<td>远端 ingress 副本</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="五层结构">五层结构</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>一、主 transcript                  → 每个 session 一个 .jsonl</span></span>
+<span class="line"><span>   user / assistant / attachment / system 都 append-only</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>二、附加元数据条目                  → summary / custom-title / tag / agent-setting / mode / worktree-state / pr-link</span></span>
+<span class="line"><span>   写进同一文件，但单独按类型恢复</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>三、subagent sidechain transcript  → 每个 agent 独立 .jsonl</span></span>
+<span class="line"><span>   用于 fork / teammate / subagent 恢复</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>四、远端 ingress 副本               → 主 transcript 的远端 append 链</span></span>
+<span class="line"><span>   用于 hydrate 和跨进程恢复</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>五、resume 恢复流水线              → JSONL 读 → compact/snip 修复 → metadata/file/contextCollapse 恢复 → REPL 接管</span></span></code></pre><p>把&quot;会话状态&quot;拆成两层：</p>
+<ul>
+<li><strong>写入层尽量简单</strong>：只追加，不原地改写</li>
+<li><strong>恢复层负责复杂性</strong>：读取时补齐、修复、重建</li>
+</ul>
+<hr>
+<h2 id="什么算-transcript-message">什么算 transcript message</h2>
+<p>真实源码（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/utils/sessionStorage.ts"><code>src/utils/sessionStorage.ts:139</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> isTranscriptMessage</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">entry</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Entry</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#E64553;font-style:italic"> entry</span><span style="color:#8839EF"> is</span><span style="color:#DF8E1D;font-style:italic"> TranscriptMessage</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> (</span></span>
+<span class="line"><span style="color:#4C4F69">    entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'user'</span><span style="color:#179299"> ||</span></span>
+<span class="line"><span style="color:#4C4F69">    entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'assistant'</span><span style="color:#179299"> ||</span></span>
+<span class="line"><span style="color:#4C4F69">    entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'attachment'</span><span style="color:#179299"> ||</span></span>
+<span class="line"><span style="color:#4C4F69">    entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'system'</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>注释还明确说：</p>
+<ul>
+<li><code>progress</code> <strong>不是</strong> transcript message</li>
+<li><code>progress</code> 不能进入 <code>parentUuid</code> 主链</li>
+<li>旧版本把 progress 混进 transcript 后，恢复时会把真实对话链截断</li>
+</ul>
+<p>设计目标很清楚：</p>
+<ul>
+<li>保留真正影响上下文重建的消息</li>
+<li>把高频 UI 状态从持久化层排除</li>
+</ul>
+<hr>
+<h2 id="transcript-路径联动-session-切换">transcript 路径联动 session 切换</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/utils/sessionStorage.ts:202</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> getTranscriptPath</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> projectDir </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> getSessionProjectDir</span><span style="color:#4C4F69">() </span><span style="color:#179299">??</span><span style="color:#1E66F5;font-style:italic"> getProjectDir</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">getOriginalCwd</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#1E66F5;font-style:italic"> join</span><span style="color:#4C4F69">(projectDir</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#1E66F5;font-style:italic">getSessionId</span><span style="color:#40A02B">()</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">.jsonl`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> getAgentTranscriptPath</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">agentId</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AgentId</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> projectDir </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> getSessionProjectDir</span><span style="color:#4C4F69">() </span><span style="color:#179299">??</span><span style="color:#1E66F5;font-style:italic"> getProjectDir</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">getOriginalCwd</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> sessionId </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> getSessionId</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> subdir </span><span style="color:#179299">=</span><span style="color:#4C4F69"> agentTranscriptSubdirs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(agentId)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> base </span><span style="color:#179299">=</span><span style="color:#4C4F69"> subdir</span></span>
+<span class="line"><span style="color:#179299">    ?</span><span style="color:#1E66F5;font-style:italic"> join</span><span style="color:#4C4F69">(projectDir</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> sessionId</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'subagents'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> subdir)</span></span>
+<span class="line"><span style="color:#179299">    :</span><span style="color:#1E66F5;font-style:italic"> join</span><span style="color:#4C4F69">(projectDir</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> sessionId</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'subagents'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#1E66F5;font-style:italic"> join</span><span style="color:#4C4F69">(base</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> `agent-</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">agentId</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">.jsonl`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>三个关键：</p>
+<ol>
+<li>主 transcript 是 <code>&lt;projectDir&gt;/&lt;sessionId&gt;.jsonl</code></li>
+<li><strong>subagent transcript 单独 sidechain 文件</strong>，不和主链混写</li>
+<li>路径解析联动 sessionId，resume / branch / switch 都能落到正确目录</li>
+</ol>
+<p>不是&quot;当前目录写聊天记录&quot;，而是带 session 路由能力的日志存储层。</p>
+<hr>
+<h2 id="写入批量-flush-0o600-权限">写入：批量 flush + 0o600 权限</h2>
+<p>底层写盘器：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/utils/sessionStorage.ts:634</span></span>
+<span class="line"><span style="color:#4C4F69">private async </span><span style="color:#1E66F5;font-style:italic">appendToFile</span><span style="color:#4C4F69">(filePath: string</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> data: string): </span><span style="color:#DF8E1D;font-style:italic">Promise</span><span style="color:#179299">&#x3C;void></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  try </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#1E66F5;font-style:italic"> fsAppendFile</span><span style="color:#4C4F69">(filePath</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> data</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> mode</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0o600</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69"> catch </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#1E66F5;font-style:italic"> mkdir</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">dirname</span><span style="color:#4C4F69">(filePath)</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> recursive</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> mode</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0o700</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#1E66F5;font-style:italic"> fsAppendFile</span><span style="color:#4C4F69">(filePath</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> data</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> mode</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0o600</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">private async </span><span style="color:#1E66F5;font-style:italic">drainWriteQueue</span><span style="color:#4C4F69">(): </span><span style="color:#DF8E1D;font-style:italic">Promise</span><span style="color:#179299">&#x3C;void></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  for</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">const</span><span style="color:#7C7F93"> [</span><span style="color:#E64553;font-style:italic">filePath</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> queue</span><span style="color:#7C7F93">]</span><span style="color:#E64553;font-style:italic"> of</span><span style="color:#4C4F69"> this.writeQueues</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> batch </span><span style="color:#179299">=</span><span style="color:#4C4F69"> queue</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">splice</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> content </span><span style="color:#179299">=</span><span style="color:#40A02B"> ''</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> entry </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> of</span><span style="color:#4C4F69"> batch) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      content </span><span style="color:#179299">+=</span><span style="color:#1E66F5;font-style:italic"> jsonStringify</span><span style="color:#4C4F69">(entry) </span><span style="color:#179299">+</span><span style="color:#40A02B"> '</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">appendToFile</span><span style="color:#4C4F69">(filePath</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>特点：</p>
+<ul>
+<li>进入内存队列，由 <code>drainWriteQueue()</code> 批量 flush</li>
+<li>文件 / 目录权限固定 0o600 / 0o700</li>
+<li>文件不存在时 catch → mkdir 重试一次</li>
+</ul>
+<p>典型的日志系统设计：追加简单、崩溃恢复容易、不必每次重写整份 transcript。</p>
+<hr>
+<h2 id="appendentry分流器">appendEntry：分流器</h2>
+<p><code>appendEntry()</code> 决定一条 entry 写到哪：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> appendEntry</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">entry</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> sessionId</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (当前 session 文件还没 materialize) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    pendingEntries</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(entry)</span><span style="color:#7C7F93">;</span><span style="color:#8839EF"> return</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (entry 是 metadata: summary</span><span style="color:#179299">/</span><span style="color:#4C4F69">title</span><span style="color:#179299">/</span><span style="color:#4C4F69">tag</span><span style="color:#179299">/</span><span style="color:#4C4F69">mode</span><span style="color:#179299">/</span><span style="color:#4C4F69">worktree</span><span style="color:#179299">/</span><span style="color:#4C4F69">pr</span><span style="color:#179299">-</span><span style="color:#4C4F69">link) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    enqueueWrite</span><span style="color:#4C4F69">(mainSessionFile</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> entry)</span><span style="color:#7C7F93">;</span><span style="color:#8839EF"> return</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'content-replacement'</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    target </span><span style="color:#179299">=</span><span style="color:#4C4F69"> entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">agentId </span><span style="color:#179299">?</span><span style="color:#4C4F69"> agentSidechainFile </span><span style="color:#179299">:</span><span style="color:#4C4F69"> mainSessionFile</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    enqueueWrite</span><span style="color:#4C4F69">(target</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> entry)</span><span style="color:#7C7F93">;</span><span style="color:#8839EF"> return</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 剩下的：transcript message</span></span>
+<span class="line"><span style="color:#4C4F69">  target </span><span style="color:#179299">=</span><span style="color:#4C4F69"> entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">isSidechain </span><span style="color:#179299">?</span><span style="color:#4C4F69"> agentSidechainFile </span><span style="color:#179299">:</span><span style="color:#4C4F69"> mainSessionFile</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (target 是 sidechain 本地文件) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // ⚠️ 允许写入与主链重复 UUID，保证 fork 后上下文完整</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    enqueueWrite</span><span style="color:#4C4F69">(target</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> entry)</span><span style="color:#7C7F93">;</span><span style="color:#8839EF"> return</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (uuid 之前没写过) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    enqueueWrite</span><span style="color:#4C4F69">(mainSessionFile</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> entry)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    messageSet</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">add</span><span style="color:#4C4F69">(entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">uuid)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    persistToRemote</span><span style="color:#4C4F69">(sessionId</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> entry)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>最巧妙的是 <strong>sidechain 允许重复 UUID</strong>：</p>
+<ul>
+<li>主 transcript 不能重复（否则 resume 链路有 409 冲突）</li>
+<li>sidechain 必须允许重复（否则 fork 出来的子 agent 会丢继承的父消息）</li>
+</ul>
+<p>源码里写得很直白：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/utils/sessionStorage.ts:1212</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> isAgentSidechain </span><span style="color:#179299">=</span><span style="color:#4C4F69"> entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">isSidechain </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">agentId </span><span style="color:#179299">!==</span><span style="color:#8839EF"> undefined</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> targetFile </span><span style="color:#179299">=</span><span style="color:#4C4F69"> isAgentSidechain </span><span style="color:#179299">?</span><span style="color:#1E66F5;font-style:italic"> getAgentTranscriptPath</span><span style="color:#4C4F69">(</span><span style="color:#179299">...</span><span style="color:#4C4F69">) </span><span style="color:#179299">:</span><span style="color:#4C4F69"> sessionFile</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> isNewUuid </span><span style="color:#179299">=</span><span style="color:#179299"> !</span><span style="color:#4C4F69">messageSet</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">has</span><span style="color:#4C4F69">(entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">uuid)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> (isAgentSidechain </span><span style="color:#179299">||</span><span style="color:#4C4F69"> isNewUuid) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#179299">  void</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">enqueueWrite</span><span style="color:#4C4F69">(targetFile</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> entry)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">isAgentSidechain) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    messageSet</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">add</span><span style="color:#4C4F69">(entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">uuid)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#1E66F5;font-style:italic">isTranscriptMessage</span><span style="color:#4C4F69">(entry)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 同步到远端 ingress</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="恢复流水线">恢复流水线</h2>
+<p>读 JSONL 不是简单 <code>for of</code>：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>read JSONL</span></span>
+<span class="line"><span>  -> 跳过 progress 等非 transcript message</span></span>
+<span class="line"><span>  -> 修复链路：</span></span>
+<span class="line"><span>     - compact 边界还原</span></span>
+<span class="line"><span>     - snip / progress 留下的孤立 tool_result 处理</span></span>
+<span class="line"><span>     - parallel tool result 重新关联</span></span>
+<span class="line"><span>  -> 恢复 metadata（summary / title / mode / worktree）</span></span>
+<span class="line"><span>  -> 恢复 fileHistory（哪些文件还在 active）</span></span>
+<span class="line"><span>  -> 恢复 contextCollapse（compact 后哪些被折叠）</span></span>
+<span class="line"><span>  -> 恢复 worktree / agent 状态</span></span>
+<span class="line"><span>  -> 把还原好的 message 数组交给 REPL</span></span></code></pre><p>最关键的一句话：<strong>写入端尽量简单，恢复端负责复杂性</strong>。这是 append-only 日志系统的通用思路——日志是单向的、不可变的，所有&quot;修复 / 重组&quot;在读取时做。</p>
+<p>为什么这样？因为：</p>
+<ul>
+<li>写入端复杂 → 崩溃时容易留半截烂帐</li>
+<li>读取端复杂 → 崩溃只是少了几行 entry，下次 resume 再补救</li>
+</ul>
+<hr>
+<h2 id="举一个具体场景fork-subagent-恢复">举一个具体场景：fork subagent 恢复</h2>
+<p>主线程派出 subagent A，A 又调了 5 个工具，然后用户 <code>Ctrl+C</code> 退出。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>主 transcript:                   subagent sidechain:</span></span>
+<span class="line"><span>[user: "do x"]                  [继承的父消息: user "do x"]   ← 重复 UUID 允许</span></span>
+<span class="line"><span>[assistant: "I'll fork"]        [继承的父消息: assistant ...]</span></span>
+<span class="line"><span>[tool_use: AgentTool(...)]      [tool_use: Read(a.ts)]</span></span>
+<span class="line"><span>                                [tool_result: ...]</span></span>
+<span class="line"><span>                                [tool_use: Edit(a.ts)]</span></span>
+<span class="line"><span>                                [tool_result: ...]</span></span></code></pre><p>resume 时：</p>
+<ol>
+<li>读主 transcript → 知道有个 subagent A</li>
+<li>读 sidechain → 拿到 A 的完整对话 + 工具调用历史</li>
+<li>链路修复：把孤立 tool_use（用户中断时还没收到 result）补完整</li>
+<li>恢复 A 的 ToolUseContext，让它能继续执行</li>
+</ol>
+<p>如果不允许 sidechain 重复 UUID，第 3 步就会因为找不到父消息而出错。</p>
+<hr>
+<h2 id="pattern-提炼">Pattern 提炼</h2>
+<h3 id="pattern-1append-only-jsonl-是黄金存储格式">Pattern 1：append-only JSONL 是黄金存储格式</h3>
+<ul>
+<li>简单</li>
+<li>崩溃容忍</li>
+<li>每行独立可解析</li>
+<li>可流式读</li>
+</ul>
+<p>任何&quot;事件流 / 操作日志&quot;都该首选 JSONL。</p>
+<h3 id="pattern-2写入端简单恢复端复杂">Pattern 2：写入端简单，恢复端复杂</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>write:  append entry → 完事</span></span>
+<span class="line"><span>read:   修复 + 重组 + 还原状态</span></span></code></pre><p>这是分布式系统里 LSM-Tree、日志结构文件系统的核心思想。</p>
+<h3 id="pattern-3metadata-和-message-同表存">Pattern 3：metadata 和 message 同表存</h3>
+<p>不为 metadata 单建一张表。同 JSONL 文件 + 类型字段过滤。读取时按类型分流。</p>
+<h3 id="pattern-4sidechain-允许重复-uuid">Pattern 4：sidechain 允许重复 UUID</h3>
+<p>主链不允许，sidechain 必须允许。<strong>两个文件，两套约束</strong>。</p>
+<h3 id="pattern-5什么进-transcript-决定了恢复能力">Pattern 5：什么进 transcript 决定了恢复能力</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> isTranscriptMessage</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">e</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> e</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'user'</span><span style="color:#179299"> ||</span><span style="color:#179299"> ...</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>什么算&quot;该持久化的 message&quot;必须明确定义，否则恢复链路会被乱七八糟的 UI 事件污染。</p>
+<h3 id="pattern-60o600-文件权限是默认值">Pattern 6：0o600 文件权限是默认值</h3>
+<p>会话内容是敏感数据。</p>
+<hr>
+<h2 id="自己实现80-行的-append-only-session">自己实现：80 行的 append-only session</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// my-session.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> 'fs/promises'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> path </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> 'path'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> Entry </span><span style="color:#179299">=</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">user</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> content</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> uuid</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> ts</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">assistant</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> content</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> uuid</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> ts</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">tool_use</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> input</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> uuid</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> ts</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">tool_result</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> toolUseId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> output</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> uuid</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> ts</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">metadata</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> key</span><span style="color:#179299">:</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">title</span><span style="color:#40A02B">'</span><span style="color:#179299"> |</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">tag</span><span style="color:#40A02B">'</span><span style="color:#179299"> |</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">summary</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> value</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> ts</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> SessionLogger</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> writeQueue</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Entry[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> flushing </span><span style="color:#179299">=</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> uuids </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Set</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span><span style="color:#8839EF">private</span><span style="color:#E64553;font-style:italic"> sessionPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> ensureDir</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">mkdir</span><span style="color:#4C4F69">(path</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">dirname</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">sessionPath)</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> recursive</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> mode</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0o700</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> append</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">entry</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Entry</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#40A02B">'uuid'</span><span style="color:#8839EF"> in</span><span style="color:#4C4F69"> entry) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">uuids</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">has</span><span style="color:#4C4F69">(entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">uuid)) </span><span style="color:#8839EF">return</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 主链不重复</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">uuids</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">add</span><span style="color:#4C4F69">(entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">uuid)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">writeQueue</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(entry)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">flushing) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">flushing </span><span style="color:#179299">=</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">      setImmediate</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">()</span><span style="color:#179299"> =></span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">flush</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#8839EF"> async</span><span style="color:#1E66F5;font-style:italic"> flush</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">ensureDir</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> batch </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">writeQueue</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">splice</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> content </span><span style="color:#179299">=</span><span style="color:#4C4F69"> batch</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">e</span><span style="color:#179299"> =></span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(e))</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">'</span><span style="color:#4C4F69">) </span><span style="color:#179299">+</span><span style="color:#40A02B"> '</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">appendFile</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">sessionPath</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> mode</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0o600</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">flushing </span><span style="color:#179299">=</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">writeQueue</span><span style="color:#179299">.</span><span style="color:#4C4F69">length) </span><span style="color:#1E66F5;font-style:italic">setImmediate</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">()</span><span style="color:#179299"> =></span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">flush</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> readAll</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Entry[]</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> raw </span><span style="color:#179299">=</span><span style="color:#40A02B"> ''</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> raw </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFile</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">sessionPath</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'utf-8'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> {</span><span style="color:#8839EF"> return</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> raw</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">split</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">'</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(Boolean)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">l</span><span style="color:#179299"> =></span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(l))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  /** 恢复：把日志重组成可继续的 messages 数组 */</span></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> resume</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69;font-style:italic"> messages</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> metadata</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> }</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> entries </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readAll</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#DF8E1D;font-style:italic">[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> metadata</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> string</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> e </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> entries) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (e</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'metadata'</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        metadata[e</span><span style="color:#179299">.</span><span style="color:#4C4F69">key] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> e</span><span style="color:#179299">.</span><span style="color:#4C4F69">value</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (e</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'user'</span><span style="color:#179299"> ||</span><span style="color:#4C4F69"> e</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'assistant'</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#4C4F69"> e</span><span style="color:#179299">.</span><span style="color:#4C4F69">type</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> e</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> uuid</span><span style="color:#179299">:</span><span style="color:#4C4F69"> e</span><span style="color:#179299">.</span><span style="color:#4C4F69">uuid </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // tool_use / tool_result 这里简化处理，真实场景要修复链路</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> metadata </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ===== 用法 =====</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> session </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> SessionLogger</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`/tmp/my-agent/sessions/</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#40A02B">()</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">.jsonl`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#4C4F69"> session</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">append</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'user'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'hello'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> uuid</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'u1'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> ts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">() </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#4C4F69"> session</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">append</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'metadata'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> key</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'title'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> value</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'Greeting'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> ts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">() </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 重启后</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> next </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> SessionLogger</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'/tmp/my-agent/sessions/.../...jsonl'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> metadata </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> next</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">resume</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'Resumed:'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> metadata</span><span style="color:#179299">.</span><span style="color:#4C4F69">title</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> messages)</span><span style="color:#7C7F93">;</span></span></code></pre><p>80 行就有了 Claude Code session 的核心 pattern：<strong>append-only + 队列批量 flush + UUID 去重 + resume 恢复</strong>。</p>
+<hr>
+<h2 id="本课小结">本课小结</h2>
+<ul>
+<li>transcript 是 <strong>append-only JSONL 事件流</strong>，不是数据库快照</li>
+<li>主链 UUID 不能重复，<strong>sidechain 必须允许重复</strong>——两个文件两套约束</li>
+<li>什么进 transcript 必须明确定义（progress 不进，否则污染恢复）</li>
+<li><strong>写入端简单、恢复端复杂</strong>：日志结构存储的黄金法则</li>
+<li>metadata 与 message 同表存，按类型分流</li>
+<li>0o600 文件权限是基本动作</li>
+</ul>
+<hr>
+<h2 id="延伸阅读">延伸阅读</h2>
+<ul>
+<li><code>analysis/04i-session-storage-resume.md</code> 全文 - 757 行最完整解读</li>
+<li><code>analysis/05-differentiators-and-comparison.md</code> §6 - &quot;可恢复 = 可信赖&quot;为什么是核心差异</li>
+<li>下一课：<code>14_hidden_features.md</code> - 隐藏命令、Feature Flag、负面词埋点</li>
+</ul>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/cca-12-multi-agent.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第12课：多 Agent 三层模型</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/cca-14-hidden.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第14课（番外）：隐藏命令与 Feature Flag</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#源码定位">源码定位</a></li><li class="lvl-2"><a href="#五层结构">五层结构</a></li><li class="lvl-2"><a href="#什么算-transcript-message">什么算 transcript message</a></li><li class="lvl-2"><a href="#transcript-路径联动-session-切换">transcript 路径联动 session 切换</a></li><li class="lvl-2"><a href="#写入批量-flush-0o600-权限">写入：批量 flush + 0o600 权限</a></li><li class="lvl-2"><a href="#appendentry分流器">appendEntry：分流器</a></li><li class="lvl-2"><a href="#恢复流水线">恢复流水线</a></li><li class="lvl-2"><a href="#举一个具体场景fork-subagent-恢复">举一个具体场景：fork subagent 恢复</a></li><li class="lvl-2"><a href="#pattern-提炼">Pattern 提炼</a></li><li class="lvl-3"><a href="#pattern-1append-only-jsonl-是黄金存储格式">Pattern 1：append-only JSONL 是黄金存储格式</a></li><li class="lvl-3"><a href="#pattern-2写入端简单恢复端复杂">Pattern 2：写入端简单，恢复端复杂</a></li><li class="lvl-3"><a href="#pattern-3metadata-和-message-同表存">Pattern 3：metadata 和 message 同表存</a></li><li class="lvl-3"><a href="#pattern-4sidechain-允许重复-uuid">Pattern 4：sidechain 允许重复 UUID</a></li><li class="lvl-3"><a href="#pattern-5什么进-transcript-决定了恢复能力">Pattern 5：什么进 transcript 决定了恢复能力</a></li><li class="lvl-3"><a href="#pattern-60o600-文件权限是默认值">Pattern 6：0o600 文件权限是默认值</a></li><li class="lvl-2"><a href="#自己实现80-行的-append-only-session">自己实现：80 行的 append-only session</a></li><li class="lvl-2"><a href="#本课小结">本课小结</a></li><li class="lvl-2"><a href="#延伸阅读">延伸阅读</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

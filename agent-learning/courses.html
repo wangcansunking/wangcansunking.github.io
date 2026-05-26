@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>课程总览 — Agent 开发学习</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body>
+
+  <nav class="topnav">
+    <a class="brand" href="/agent-learning/">
+      <span class="logo">🌿</span>
+      <span>Agent 开发学习</span>
+    </a>
+    <div class="links">
+      <a href="/agent-learning/">首页</a>
+      <a href="/agent-learning/courses.html" class="active">课程</a>
+      <a href="/agent-learning/learning-path.html">学习路径</a>
+    </div>
+  </nav>
+
+  <section class="section" style="padding-top: 3rem;">
+    <div class="container">
+
+      <!-- Heading + view switcher -->
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem;">
+        <div>
+          <h1 style="font-size: 1.75rem; font-weight: 700; margin-bottom: 0.3rem;">课程总览</h1>
+          <p style="color: var(--muted); font-size: 0.9rem;">7 门课程 · 71 节实战 · 点击卡片直达第一节</p>
+        </div>
+
+        <div class="view-switcher" data-view-switcher>
+          <button data-view-target="grid" class="active">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+            <span>网格</span>
+          </button>
+          <button data-view-target="compact">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            <span>列表</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Grid view -->
+      <div class="grid-courses" data-view="grid" id="grid-view"></div>
+
+      <!-- Compact view -->
+      <div class="compact-list" data-view="compact" id="compact-view" style="display: none;"></div>
+
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div>仅供学术研究与技术学习使用</div>
+  </footer>
+
+  <script src="/agent-learning/assets/scroll.js" defer></script>
+  <script src="/agent-learning/assets/pages.js" defer></script>
+
+  <script>
+    (async () => {
+      const res = await fetch('/agent-learning/data/courses.json');
+      const { courses } = await res.json();
+      const tone = c => `tone-${c}`;
+
+      // ===== Grid =====
+      const gridHtml = courses.map((c, i) => `
+        <a href="/agent-learning/lesson/${c.lessons[0].slug}.html" class="island course-card reveal ${tone(c.color)}" style="transition-delay: ${40 * (i % 4)}ms;">
+          <span class="top-bar"></span>
+          <span class="badge">${c.lessons.length} 课</span>
+          <div class="head">
+            <div class="icon-tile">${c.icon}</div>
+            <div>
+              <div class="title">${c.title}</div>
+              <div class="desc">${c.description}</div>
+            </div>
+          </div>
+          <div class="lesson-list">
+            ${c.lessons.slice(0, 5).map(l => `
+              <div class="lesson-row">
+                <div class="lesson-num">${l.lessonNumber}</div>
+                <div class="lesson-title-text">${l.title.replace(/^第\d+课[：:]\s*/, '')}</div>
+              </div>
+            `).join('')}
+            ${c.lessons.length > 5 ? `<div style="font-size:0.78rem; color:var(--muted); padding-left:0.55rem; padding-top:0.3rem;">… 还有 ${c.lessons.length - 5} 节</div>` : ''}
+          </div>
+        </a>
+      `).join('');
+      document.getElementById('grid-view').innerHTML = gridHtml;
+
+      // ===== Compact =====
+      const compactHtml = courses.map((c, i) => `
+        <div class="compact-row reveal ${tone(c.color)}" style="transition-delay: ${30 * i}ms;">
+          <div class="head">
+            <div class="icon-tile">${c.icon}</div>
+            <div style="flex: 1; min-width: 0;">
+              <div class="title">${c.title}</div>
+              <div class="desc">${c.description}</div>
+            </div>
+            <div class="meta">${c.lessons.length} 课</div>
+            <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          </div>
+          <div class="lessons">
+            ${c.lessons.map(l => `
+              <a href="/agent-learning/lesson/${l.slug}.html">
+                <span class="num">${String(l.lessonNumber).padStart(2,'0')}</span>
+                <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${l.title.replace(/^第\d+课[：:]\s*/, '')}</span>
+                <span style="font-size: 0.75rem; color: var(--muted); margin-left: auto;">${l.description}</span>
+              </a>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+      document.getElementById('compact-view').innerHTML = compactHtml;
+
+      // Plug into the global reveal engine (with safety-net fallback)
+      const newReveal = document.querySelectorAll('.reveal');
+      if (window.revealEngine) {
+        window.revealEngine.observe(newReveal);
+      } else {
+        window.addEventListener('load', () => window.revealEngine?.observe(newReveal), { once: true });
+      }
+      // Bind compact expand (pages.js bound to existing rows; bind for newly injected too)
+      document.querySelectorAll('.compact-row > .head').forEach(head => {
+        head.addEventListener('click', () => head.parentElement.classList.toggle('expanded'));
+      });
+    })();
+  </script>
+</body>
+</html>

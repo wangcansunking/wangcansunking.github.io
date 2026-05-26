@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第3课：Google Gemini — 多 LLM 接入实战</title>
+  <meta name="description" content="原生多模态旗舰，1M 超长上下文">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-cyan">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-cyan">
+      <div class="crumb">
+        <div class="crumb-icon">LM</div>
+        <div class="crumb-text">多 LLM 接入实战</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ml-01-openai.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">OpenAI API</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-02-deepseek.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">DeepSeek</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-03-gemini.html" class="active">
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Google Gemini</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-04-kimi.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Kimi (Moonshot)</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-05-minimax.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MiniMax</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-06-unified.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">统一接口层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-07-selection.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">模型选型指南</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-08-fallback.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Fallback 与多模型协作</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ml-01-openai.html" class="current">多 LLM 接入实战</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">03</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第3课：Google Gemini</div>
+          <div class="desc">原生多模态旗舰，1M 超长上下文</div>
+          <div class="tags">
+            <span class="tag">gemini</span><span class="tag">llm</span><span class="tag">multimodal</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">03_gemini.md</code></span>
+            <span>📏 763 行</span>
+            <span style="opacity:0.7;">multi-llm/lessons/03_gemini.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第3课：Gemini — Google AI + 多模态原生支持</h1>
+<h2 id="介绍">介绍</h2>
+<p>Gemini 是 Google 的旗舰大语言模型系列，具备以下核心优势：</p>
+<ul>
+<li><strong>原生多模态</strong>：天生支持文本、图像、音频、视频混合输入，不需要额外插件</li>
+<li><strong>超长上下文</strong>：Gemini 2.5 Pro 支持高达 <strong>200万 token</strong> 的上下文窗口，业界领先</li>
+<li><strong>原生 Function Calling</strong>：内置工具调用支持，格式与 OpenAI 略有不同</li>
+<li><strong>文件 API</strong>：支持上传大型文件（PDF、图片、视频等）并在对话中引用</li>
+</ul>
+<p><strong>2025 年 SDK 重要变更</strong>：Google 推出了全新的 <code>@google/genai</code> SDK，<strong>取代</strong>了旧版 <code>@google/generative-ai</code>。新版 SDK 的 API 设计更简洁，功能更完整。本课所有代码均使用新版 SDK。</p>
+<hr>
+<h2 id="整体架构gemini-能力全景">整体架构：Gemini 能力全景</h2>
+<div class="mermaid-wrapper"><pre class="mermaid">mindmap
+  root((Gemini))
+    文本对话
+      单轮问答
+      多轮对话
+      系统指令 systemInstruction
+    流式输出
+      generateContentStream
+      实时打印 token
+    Function Calling
+      定义工具 tools
+      模型选择工具
+      返回结果给模型
+    图像分析
+      base64 内联图片
+      多图对比
+      图表数据提取
+    长文档处理
+      200万 token 上下文
+      File API 上传
+      等待 ACTIVE 状态
+    文件上传
+      ai.files.upload
+      支持 PDF 图片 视频
+      引用 fileUri</pre></div><hr>
+<h2 id="gemini-2025-模型对比">Gemini 2025 模型对比</h2>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>模型 ID</th>
+<th>上下文窗口</th>
+<th>价格（输入）</th>
+<th>价格（输出）</th>
+<th>最适合场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Gemini 2.5 Pro</td>
+<td><code>gemini-2.5-pro</code></td>
+<td>2,000,000 tokens</td>
+<td>$1.25 / M tokens</td>
+<td>$10.00 / M tokens</td>
+<td>复杂推理、长文档分析、代码生成</td>
+</tr>
+<tr>
+<td>Gemini 2.0 Flash</td>
+<td><code>gemini-2.0-flash</code></td>
+<td>1,000,000 tokens</td>
+<td>$0.10 / M tokens</td>
+<td>$0.40 / M tokens</td>
+<td>日常任务、高吞吐量场景</td>
+</tr>
+<tr>
+<td>Gemini 2.0 Flash Lite</td>
+<td><code>gemini-2.0-flash-lite</code></td>
+<td>1,000,000 tokens</td>
+<td>极低（见官网）</td>
+<td>极低（见官网）</td>
+<td>简单分类、轻量摘要</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>选择建议</strong>：</p>
+<ul>
+<li>需要深度推理或分析超长文档 → <code>gemini-2.5-pro</code></li>
+<li>日常对话、API 调用频繁 → <code>gemini-2.0-flash</code>（性价比最高）</li>
+<li>大批量简单任务 → <code>gemini-2.0-flash-lite</code></li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="sdk-迁移指南旧版-vs-新版">SDK 迁移指南：旧版 vs 新版</h2>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>旧版 <code>@google/generative-ai</code></th>
+<th>新版 <code>@google/genai</code></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>安装</strong></td>
+<td><code>npm install @google/generative-ai</code></td>
+<td><code>npm install @google/genai</code></td>
+</tr>
+<tr>
+<td><strong>导入</strong></td>
+<td><code>import { GoogleGenerativeAI } from &quot;@google/generative-ai&quot;</code></td>
+<td><code>import { GoogleGenAI } from &quot;@google/genai&quot;</code></td>
+</tr>
+<tr>
+<td><strong>初始化客户端</strong></td>
+<td><code>const genAI = new GoogleGenerativeAI(apiKey)</code></td>
+<td><code>const ai = new GoogleGenAI({ apiKey })</code></td>
+</tr>
+<tr>
+<td><strong>获取模型</strong></td>
+<td><code>const model = genAI.getGenerativeModel({ model: &quot;...&quot; })</code></td>
+<td>直接在调用时指定 model 参数</td>
+</tr>
+<tr>
+<td><strong>基础生成</strong></td>
+<td><code>model.generateContent(&quot;...&quot;)</code></td>
+<td><code>ai.models.generateContent({ model, contents })</code></td>
+</tr>
+<tr>
+<td><strong>创建对话</strong></td>
+<td><code>model.startChat({ history })</code></td>
+<td><code>ai.chats.create({ model, history, config })</code></td>
+</tr>
+<tr>
+<td><strong>发送消息</strong></td>
+<td><code>chat.sendMessage(&quot;...&quot;)</code></td>
+<td><code>chat.sendMessage({ message: &quot;...&quot; })</code></td>
+</tr>
+<tr>
+<td><strong>文件上传</strong></td>
+<td><code>fileManager.uploadFile(...)</code></td>
+<td><code>ai.files.upload(...)</code></td>
+</tr>
+<tr>
+<td><strong>读取响应文本</strong></td>
+<td><code>response.text()</code> （方法调用）</td>
+<td><code>response.text</code> （属性访问）</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>注意</strong>：旧版 <code>response.text()</code> 是函数，新版 <code>response.text</code> 是属性。这是最常见的迁移错误！</p>
+</blockquote>
+<hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>从 OpenAI 切换到 Gemini 时，有 4 个核心差异需要注意：</p>
+<h3 id="1-role-名称不同">1. role 名称不同</h3>
+<p>OpenAI 用 <code>&quot;assistant&quot;</code>，Gemini 用 <code>&quot;model&quot;</code>。如果写错会直接报错。</p>
+<h3 id="2-content-格式不同">2. content 格式不同</h3>
+<p>OpenAI 的消息内容是字符串，Gemini 必须是 <code>parts</code> 数组格式：</p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart LR
+    subgraph OpenAI格式
+        A[&quot;{ role: &#39;user&#39;, content: &#39;你好&#39; }&quot;]
+    end
+    subgraph Gemini格式
+        B[&quot;{ role: &#39;user&#39;, parts: [{ text: &#39;你好&#39; }] }&quot;]
+    end
+    A --&gt;|迁移时需要转换| B</pre></div><h3 id="3-工具tool格式不同">3. 工具（Tool）格式不同</h3>
+<p>OpenAI 使用 JSON Schema 字符串，Gemini 使用自己的 <code>FunctionDeclaration</code> 格式，需要用 <code>Type</code> 枚举指定类型。</p>
+<h3 id="4-history-管理方式不同">4. history 管理方式不同</h3>
+<p>Gemini 的 chat history <strong>不包含当前正在发送的消息</strong>。历史记录是过去的对话轮次，当前消息通过 <code>sendMessage</code> 发送。这与 OpenAI 不同（OpenAI 把所有消息包括当前的都放在 messages 数组里）。</p>
+<hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a使用-googlegenai-sdk推荐">方案 A：使用 <code>@google/genai</code> SDK（推荐）</h3>
+<p>直接使用 Google 官方最新 SDK，功能完整，支持所有 Gemini 特性（文件上传、多模态、Function Calling 等）。</p>
+<p><strong>优点</strong>：功能最完整、文档最新、支持 File API 和流式输出</p>
+<p><strong>缺点</strong>：与 OpenAI 代码不兼容，需要单独维护</p>
+<h3 id="方案-b通过-openai-兼容模式">方案 B：通过 OpenAI 兼容模式</h3>
+<p>Gemini 提供了 OpenAI 兼容的 API 端点，可以直接用 OpenAI SDK 调用。</p>
+<p><strong>优点</strong>：复用现有 OpenAI 代码</p>
+<p><strong>缺点</strong>：部分 Gemini 特有功能（如 File API、原生多模态）无法使用</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p><strong>推荐方案 A（<code>@google/genai</code> SDK）</strong>。</p>
+<p>原因：</p>
+<ol>
+<li>Gemini 的核心优势（长上下文、多模态、File API）只有原生 SDK 才能完整使用</li>
+<li>2025 年新 SDK 设计简洁，学习成本低</li>
+<li>Google 官方维护，安全可靠</li>
+</ol>
+<p>只有当你已有大量 OpenAI 代码需要快速切换时，才考虑方案 B。</p>
+<hr>
+<h2 id="核心设计消息格式转换">核心设计：消息格式转换</h2>
+<p>Gemini 的多轮对话设计与 OpenAI 有本质区别：</p>
+<div class="mermaid-wrapper"><pre class="mermaid">sequenceDiagram
+    participant Dev as 开发者代码
+    participant SDK as @google/genai SDK
+    participant API as Gemini API
+
+    Dev-&gt;&gt;SDK: ai.chats.create({ model, history: [过去的对话] })
+    Note over SDK: history 只包含历史轮次
+    Note over SDK: 格式: {role: &quot;user&quot;/&quot;model&quot;, parts: [{text}]}
+
+    Dev-&gt;&gt;SDK: chat.sendMessage({ message: &quot;新问题&quot; })
+    SDK-&gt;&gt;API: 发送 history + 新消息
+    API--&gt;&gt;SDK: 返回响应
+    SDK--&gt;&gt;Dev: response.text (属性，非方法)
+
+    Note over Dev,API: 每次 sendMessage 后，SDK 自动更新内部 history</pre></div><p><strong>关键点</strong>：</p>
+<ul>
+<li><code>history</code> 数组存放过去已完成的对话轮次（user + model 成对出现）</li>
+<li><code>sendMessage</code> 发送当前新消息，SDK 自动将其加入历史</li>
+<li>不需要手动维护历史数组</li>
+</ul>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="安装依赖">安装依赖</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#1E66F5;font-style:italic">npm</span><span style="color:#40A02B"> install</span><span style="color:#40A02B"> @google/genai</span></span></code></pre><p>配置环境变量：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># .env</span></span>
+<span class="line"><span style="color:#4C4F69">GEMINI_API_KEY</span><span style="color:#179299">=</span><span style="color:#40A02B">your_api_key_here</span></span></code></pre><hr>
+<h3 id="客户端初始化">客户端初始化</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// client.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> GoogleGenAI </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "@google/genai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> ai </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> GoogleGenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">GEMINI_API_KEY</span><span style="color:#179299">!</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> GEMINI_MODELS </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  PRO</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gemini-2.5-pro"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">               // 最强推理，200万 token 上下文</span></span>
+<span class="line"><span style="color:#4C4F69">  FLASH</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gemini-2.0-flash"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">            // 日常任务，性价比最高</span></span>
+<span class="line"><span style="color:#4C4F69">  FLASH_LITE</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gemini-2.0-flash-lite"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  // 简单任务，成本最低</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> type</span><span style="color:#DF8E1D;font-style:italic"> GeminiModel </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> (</span><span style="color:#8839EF">typeof</span><span style="color:#4C4F69;font-style:italic"> GEMINI_MODELS</span><span style="color:#DF8E1D;font-style:italic">)[</span><span style="color:#8839EF">keyof</span><span style="color:#8839EF"> typeof</span><span style="color:#4C4F69;font-style:italic"> GEMINI_MODELS</span><span style="color:#DF8E1D;font-style:italic">]</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="基础对话">基础对话</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// basic.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> ai</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> GEMINI_MODELS </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> basicChat</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 最简单的单轮对话</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">models</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">generateContent</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> GEMINI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">FLASH</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contents</span><span style="color:#179299">:</span><span style="color:#40A02B"> "用一句话解释什么是大语言模型。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 注意：response.text 是属性，不是方法</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"回答："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">text)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> withSystemInstruction</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 带系统指令的对话</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">models</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">generateContent</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> GEMINI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">FLASH</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contents</span><span style="color:#179299">:</span><span style="color:#40A02B"> "今天天气怎么样？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    config</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      systemInstruction</span><span style="color:#179299">:</span></span>
+<span class="line"><span style="color:#40A02B">        "你是一个幽默的天气播报员，用夸张有趣的方式描述天气，并加入一些自创的天气预测段子。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"系统指令效果："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">text)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> main</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"=== 基础对话 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> basicChat</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 带系统指令 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> withSystemInstruction</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">main</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="多轮对话注意-history-格式">多轮对话（注意 history 格式）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// multi_turn.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> ai</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> GEMINI_MODELS </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> multiTurnChat</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 重要：history 中 role 必须是 "user" 或 "model"</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 不能用 "assistant"！这是最常见的错误</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> chat </span><span style="color:#179299">=</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chats</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> GEMINI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">FLASH</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    history</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        parts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你好，我叫小明，是一名前端工程师。"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "model"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic"> // 注意：是 "model" 不是 "assistant"</span></span>
+<span class="line"><span style="color:#4C4F69">        parts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你好，小明！很高兴认识你。作为前端工程师，你主要使用哪些技术栈呢？"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    config</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      systemInstruction</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个友好的技术顾问，善于根据用户的背景给出针对性建议。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 第一轮：发送新消息</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response1 </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> chat</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">sendMessage</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    message</span><span style="color:#179299">:</span><span style="color:#40A02B"> "我最近想学习 AI 开发，应该从哪里入手？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"回答 1："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response1</span><span style="color:#179299">.</span><span style="color:#4C4F69">text)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 第二轮：继续对话，SDK 自动维护历史</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response2 </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> chat</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">sendMessage</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    message</span><span style="color:#179299">:</span><span style="color:#40A02B"> "我的 Python 基础不太好，这样可以吗？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"回答 2："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response2</span><span style="color:#179299">.</span><span style="color:#4C4F69">text)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 第三轮</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response3 </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> chat</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">sendMessage</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    message</span><span style="color:#179299">:</span><span style="color:#40A02B"> "能推荐一些具体的学习资源吗？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"回答 3："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response3</span><span style="color:#179299">.</span><span style="color:#4C4F69">text)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">multiTurnChat</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="流式输出">流式输出</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// streaming.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> ai</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> GEMINI_MODELS </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> streamingOutput</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"开始流式输出...</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> stream </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">models</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">generateContentStream</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> GEMINI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">FLASH</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contents</span><span style="color:#179299">:</span><span style="color:#40A02B"> "请详细介绍一下 Transformer 架构的工作原理，包括注意力机制的核心思想。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    config</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      systemInstruction</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一位擅长用通俗易懂语言解释技术概念的讲师。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 逐 chunk 打印，实现打字机效果</span></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">text) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">text)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">流式输出完成。"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> streamingChat</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 流式多轮对话 ===</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> chat </span><span style="color:#179299">=</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chats</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> GEMINI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">FLASH</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    history</span><span style="color:#179299">:</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> questions </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#40A02B">    "什么是向量数据库？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "它和传统数据库有什么区别？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> question </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> questions) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">问：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">question</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"答："</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> stream </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> chat</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">sendMessageStream</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      message</span><span style="color:#179299">:</span><span style="color:#4C4F69"> question</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">text) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">text)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> main</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> streamingOutput</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> streamingChat</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">main</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="function-calling工具格式与-openai-不同">Function Calling（工具格式与 OpenAI 不同）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// function_calling.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> Type </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "@google/genai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> ai</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> GEMINI_MODELS </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// Gemini 工具定义：使用 Type 枚举，不用 JSON Schema 字符串</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> weatherTool </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "get_weather"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "获取指定城市的当前天气信息"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Type</span><span style="color:#179299">.</span><span style="color:#FE640B">OBJECT</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      city</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        type</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Type</span><span style="color:#179299">.</span><span style="color:#FE640B">STRING</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "城市名称，例如：北京、上海"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">      unit</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        type</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Type</span><span style="color:#179299">.</span><span style="color:#FE640B">STRING</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        enum</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"celsius"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "fahrenheit"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "温度单位"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#4C4F69">    required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"city"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> searchTool </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "search_web"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "搜索网络获取最新信息"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Type</span><span style="color:#179299">.</span><span style="color:#FE640B">OBJECT</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      query</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        type</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Type</span><span style="color:#179299">.</span><span style="color:#FE640B">STRING</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "搜索关键词"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#4C4F69">    required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"query"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 模拟工具执行</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> executeWeather</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">city</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> unit</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "celsius"</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> temps</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> number</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> 北京</span><span style="color:#179299">:</span><span style="color:#FE640B"> 22</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> 上海</span><span style="color:#179299">:</span><span style="color:#FE640B"> 28</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> 广州</span><span style="color:#179299">:</span><span style="color:#FE640B"> 32</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> temp </span><span style="color:#179299">=</span><span style="color:#4C4F69"> temps[city] </span><span style="color:#179299">??</span><span style="color:#FE640B"> 20</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    city</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    temperature</span><span style="color:#179299">:</span><span style="color:#4C4F69"> unit </span><span style="color:#179299">===</span><span style="color:#40A02B"> "fahrenheit"</span><span style="color:#179299"> ?</span><span style="color:#4C4F69"> temp </span><span style="color:#179299">*</span><span style="color:#FE640B"> 1.8</span><span style="color:#179299"> +</span><span style="color:#FE640B"> 32</span><span style="color:#179299"> :</span><span style="color:#4C4F69"> temp</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    unit</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    condition</span><span style="color:#179299">:</span><span style="color:#40A02B"> "晴天"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    humidity</span><span style="color:#179299">:</span><span style="color:#40A02B"> "45%"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> executeSearch</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">query</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    results</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> title</span><span style="color:#179299">:</span><span style="color:#40A02B"> `关于"</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">query</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">"的最新资讯`</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> url</span><span style="color:#179299">:</span><span style="color:#40A02B"> "https://example.com/1"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> title</span><span style="color:#179299">:</span><span style="color:#40A02B"> `"</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">query</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">"深度分析`</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> url</span><span style="color:#179299">:</span><span style="color:#40A02B"> "https://example.com/2"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> functionCallingDemo</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">models</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">generateContent</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> GEMINI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">FLASH</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contents</span><span style="color:#179299">:</span><span style="color:#40A02B"> "北京今天天气怎么样？用摄氏度显示。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    config</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      tools</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> functionDeclarations</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [weatherTool</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> searchTool] </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 检查是否有工具调用</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> candidate </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">candidates</span><span style="color:#179299">?.</span><span style="color:#4C4F69">[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> content </span><span style="color:#179299">=</span><span style="color:#4C4F69"> candidate</span><span style="color:#179299">?.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">content</span><span style="color:#179299">?.</span><span style="color:#4C4F69">parts) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"直接回答："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">text)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> part </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> content</span><span style="color:#179299">.</span><span style="color:#4C4F69">parts) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (part</span><span style="color:#179299">.</span><span style="color:#4C4F69">functionCall) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> args </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#4C4F69"> part</span><span style="color:#179299">.</span><span style="color:#4C4F69">functionCall</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`模型调用工具：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"参数："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> args)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 执行工具</span></span>
+<span class="line"><span style="color:#8839EF">      let</span><span style="color:#4C4F69"> toolResult</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (name </span><span style="color:#179299">===</span><span style="color:#40A02B"> "get_weather"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        toolResult </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> executeWeather</span><span style="color:#4C4F69">(args</span><span style="color:#179299">!.</span><span style="color:#4C4F69">city </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> args</span><span style="color:#179299">!.</span><span style="color:#4C4F69">unit </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> string</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (name </span><span style="color:#179299">===</span><span style="color:#40A02B"> "search_web"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        toolResult </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> executeSearch</span><span style="color:#4C4F69">(args</span><span style="color:#179299">!.</span><span style="color:#4C4F69">query </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> string</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"工具结果："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> toolResult)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 将工具结果返回给模型</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 注意：Gemini 的工具结果格式使用 functionResponse 包裹</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> finalResponse </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">models</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">generateContent</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        model</span><span style="color:#179299">:</span><span style="color:#FE640B"> GEMINI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">FLASH</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        contents</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">          {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> parts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#40A02B"> "北京今天天气怎么样？用摄氏度显示。"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">] </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">          {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "model"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> parts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> functionCall</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> args </span><span style="color:#7C7F93">}</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">] </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">          {</span></span>
+<span class="line"><span style="color:#4C4F69">            role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">            parts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">              {</span></span>
+<span class="line"><span style="color:#4C4F69">                functionResponse</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#9CA0B0;font-style:italic">  // Gemini 特有格式，不同于 OpenAI</span></span>
+<span class="line"><span style="color:#4C4F69">                  name</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">                  response</span><span style="color:#179299">:</span><span style="color:#4C4F69"> toolResult</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">                },</span></span>
+<span class="line"><span style="color:#7C7F93">              },</span></span>
+<span class="line"><span style="color:#4C4F69">            ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">          },</span></span>
+<span class="line"><span style="color:#4C4F69">        ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        config</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">          tools</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> functionDeclarations</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [weatherTool</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> searchTool] </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">最终回答："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> finalResponse</span><span style="color:#179299">.</span><span style="color:#4C4F69">text)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">functionCallingDemo</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><p><strong>OpenAI 工具格式 vs Gemini 工具格式对比</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>OpenAI 格式</th>
+<th>Gemini 格式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>工具定义结构</strong></td>
+<td><code>{ type: &quot;function&quot;, function: { name, description, parameters } }</code></td>
+<td><code>{ name, description, parameters }</code></td>
+</tr>
+<tr>
+<td><strong>参数类型写法</strong></td>
+<td>JSON Schema 字符串 <code>&quot;type&quot;: &quot;object&quot;</code></td>
+<td><code>Type</code> 枚举 <code>type: Type.OBJECT</code></td>
+</tr>
+<tr>
+<td><strong>工具放置位置</strong></td>
+<td>顶层 <code>tools</code> 数组</td>
+<td><code>config.tools[0].functionDeclarations</code></td>
+</tr>
+<tr>
+<td><strong>工具调用结果角色</strong></td>
+<td><code>role: &quot;tool&quot;</code></td>
+<td><code>role: &quot;user&quot;</code> + <code>functionResponse</code></td>
+</tr>
+<tr>
+<td><strong>调用结果格式</strong></td>
+<td><code>{ role: &quot;tool&quot;, tool_call_id: &quot;...&quot;, content: &quot;结果字符串&quot; }</code></td>
+<td><code>{ functionResponse: { name, response: {...} } }</code></td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="图像输入gemini-原生多模态">图像输入（Gemini 原生多模态）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// vision.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> path </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "path"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> ai</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> GEMINI_MODELS </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 将图片转换为 base64</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> imageToBase64</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">imagePath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> data</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> mimeType</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> }</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> imageBuffer </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFileSync</span><span style="color:#4C4F69">(imagePath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> base64Data </span><span style="color:#179299">=</span><span style="color:#4C4F69"> imageBuffer</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toString</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"base64"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> ext </span><span style="color:#179299">=</span><span style="color:#4C4F69"> path</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">extname</span><span style="color:#4C4F69">(imagePath)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toLowerCase</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> mimeTypes</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> string</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">    ".jpg"</span><span style="color:#179299">:</span><span style="color:#40A02B"> "image/jpeg"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    ".jpeg"</span><span style="color:#179299">:</span><span style="color:#40A02B"> "image/jpeg"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    ".png"</span><span style="color:#179299">:</span><span style="color:#40A02B"> "image/png"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    ".gif"</span><span style="color:#179299">:</span><span style="color:#40A02B"> "image/gif"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    ".webp"</span><span style="color:#179299">:</span><span style="color:#40A02B"> "image/webp"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    data</span><span style="color:#179299">:</span><span style="color:#4C4F69"> base64Data</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    mimeType</span><span style="color:#179299">:</span><span style="color:#4C4F69"> mimeTypes[ext] </span><span style="color:#179299">??</span><span style="color:#40A02B"> "image/jpeg"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> analyzeImage</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">imagePath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> data</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> mimeType </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#1E66F5;font-style:italic"> imageToBase64</span><span style="color:#4C4F69">(imagePath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 多模态输入：文本 + 图片</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">models</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">generateContent</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> GEMINI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">FLASH</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contents</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        parts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">          {</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#40A02B"> "请详细描述这张图片的内容，包括主要元素、颜色、构图和可能传达的含义。"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">          {</span></span>
+<span class="line"><span style="color:#4C4F69">            inlineData</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#9CA0B0;font-style:italic">   // Gemini 图片内联格式</span></span>
+<span class="line"><span style="color:#4C4F69">              mimeType</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">              data</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">            },</span></span>
+<span class="line"><span style="color:#7C7F93">          },</span></span>
+<span class="line"><span style="color:#4C4F69">        ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"图像分析结果："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">text)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> compareImages</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">imagePath1</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> imagePath2</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> img1 </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> imageToBase64</span><span style="color:#4C4F69">(imagePath1)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> img2 </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> imageToBase64</span><span style="color:#4C4F69">(imagePath2)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 多图对比：Gemini 原生支持在一次请求中传入多张图片</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">models</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">generateContent</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> GEMINI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">PRO</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contents</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        parts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">          {</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#40A02B"> "请对比这两张图片的异同，从内容、风格、色调等角度进行分析。"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">          {</span><span style="color:#4C4F69"> inlineData</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> mimeType</span><span style="color:#179299">:</span><span style="color:#4C4F69"> img1</span><span style="color:#179299">.</span><span style="color:#4C4F69">mimeType</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> data</span><span style="color:#179299">:</span><span style="color:#4C4F69"> img1</span><span style="color:#179299">.</span><span style="color:#4C4F69">data </span><span style="color:#7C7F93">}</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">          {</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#40A02B"> "第二张图片："</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">          {</span><span style="color:#4C4F69"> inlineData</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> mimeType</span><span style="color:#179299">:</span><span style="color:#4C4F69"> img2</span><span style="color:#179299">.</span><span style="color:#4C4F69">mimeType</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> data</span><span style="color:#179299">:</span><span style="color:#4C4F69"> img2</span><span style="color:#179299">.</span><span style="color:#4C4F69">data </span><span style="color:#7C7F93">}</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">        ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"对比分析："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">text)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> extractChartData</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">chartImagePath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> data</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> mimeType </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#1E66F5;font-style:italic"> imageToBase64</span><span style="color:#4C4F69">(chartImagePath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 从图表中提取结构化数据</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">models</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">generateContent</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> GEMINI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">PRO</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contents</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        parts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">          {</span></span>
+<span class="line"><span style="color:#4C4F69">            text</span><span style="color:#179299">:</span><span style="color:#40A02B"> `请分析这张图表，提取以下信息：</span></span>
+<span class="line"><span style="color:#40A02B">1. 图表类型（柱状图/折线图/饼图等）</span></span>
+<span class="line"><span style="color:#40A02B">2. 标题和坐标轴标签</span></span>
+<span class="line"><span style="color:#40A02B">3. 所有数据点或数值</span></span>
+<span class="line"><span style="color:#40A02B">4. 主要趋势或结论</span></span>
+<span class="line"><span style="color:#40A02B">请以 JSON 格式返回数据。`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">          },</span></span>
+<span class="line"><span style="color:#7C7F93">          {</span><span style="color:#4C4F69"> inlineData</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> mimeType</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> data </span><span style="color:#7C7F93">}</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">        ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"图表数据提取："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">text)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> main</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> testImagePath </span><span style="color:#179299">=</span><span style="color:#40A02B"> "./test_image.jpg"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">existsSync</span><span style="color:#4C4F69">(testImagePath)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"=== 单图分析 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#1E66F5;font-style:italic"> analyzeImage</span><span style="color:#4C4F69">(testImagePath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"提示：请提供 test_image.jpg 文件以测试图像分析功能"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">main</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="长文档处理200万-token-上下文">长文档处理（200万 token 上下文）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// long_context.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> ai</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> GEMINI_MODELS </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 方式一：直接在 contents 中放入大量文本（适合 &#x3C; 100 万 token）</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> analyzeLongText</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">longText</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">models</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">generateContent</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> GEMINI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">PRO</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic"> // 使用 Pro 版本的 200 万 token 上下文</span></span>
+<span class="line"><span style="color:#4C4F69">    contents</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        parts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">          {</span></span>
+<span class="line"><span style="color:#4C4F69">            text</span><span style="color:#179299">:</span><span style="color:#40A02B"> `以下是一份很长的文档，请进行全面分析：</span><span style="color:#EA76CB">\n\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">longText</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n\n</span></span>
+<span class="line"><span style="color:#40A02B">请提供：</span></span>
+<span class="line"><span style="color:#40A02B">1. 核心主题摘要（500字以内）</span></span>
+<span class="line"><span style="color:#40A02B">2. 关键论点列表</span></span>
+<span class="line"><span style="color:#40A02B">3. 重要数据或事实</span></span>
+<span class="line"><span style="color:#40A02B">4. 潜在风险或问题`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">          },</span></span>
+<span class="line"><span style="color:#4C4F69">        ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">text</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 方式二：通过 File API 上传文件（适合大型文件，如 PDF、视频）</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> uploadAndAnalyzeFile</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">filePath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"正在上传文件..."</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 上传文件到 Gemini File API</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> uploadedFile </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">files</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">upload</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    file</span><span style="color:#179299">:</span><span style="color:#4C4F69"> filePath</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    config</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      displayName</span><span style="color:#179299">:</span><span style="color:#40A02B"> "待分析文档"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`文件上传成功，ID: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">uploadedFile</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`文件状态: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">uploadedFile</span><span style="color:#179299">.</span><span style="color:#4C4F69">state</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 等待文件处理完成（变为 ACTIVE 状态）</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 重要：上传后不能立即使用，必须等待处理完成</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> file </span><span style="color:#179299">=</span><span style="color:#4C4F69"> uploadedFile</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  while</span><span style="color:#4C4F69"> (file</span><span style="color:#179299">.</span><span style="color:#4C4F69">state </span><span style="color:#179299">===</span><span style="color:#40A02B"> "PROCESSING"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"文件处理中，等待 2 秒..."</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">resolve</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> setTimeout</span><span style="color:#4C4F69">(resolve</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 2000</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    file </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">files</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#4C4F69"> uploadedFile</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#179299">!</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (file</span><span style="color:#179299">.</span><span style="color:#4C4F69">state </span><span style="color:#179299">===</span><span style="color:#40A02B"> "FAILED"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"文件处理失败"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"文件已就绪，开始分析..."</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 使用 fileData 引用已上传的文件（不需要重新传输内容）</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">models</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">generateContent</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> GEMINI_MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">PRO</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contents</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        parts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">          {</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#40A02B"> "请对这份文档进行全面的摘要和分析，提取关键信息。"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">          {</span></span>
+<span class="line"><span style="color:#4C4F69">            fileData</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#9CA0B0;font-style:italic">           // 引用已上传文件，用 fileUri 而不是 inlineData</span></span>
+<span class="line"><span style="color:#4C4F69">              mimeType</span><span style="color:#179299">:</span><span style="color:#4C4F69"> file</span><span style="color:#179299">.</span><span style="color:#4C4F69">mimeType</span><span style="color:#179299">!</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">              fileUri</span><span style="color:#179299">:</span><span style="color:#4C4F69"> file</span><span style="color:#179299">.</span><span style="color:#4C4F69">uri</span><span style="color:#179299">!</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">            },</span></span>
+<span class="line"><span style="color:#7C7F93">          },</span></span>
+<span class="line"><span style="color:#4C4F69">        ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 分析完成后清理文件释放存储</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#4C4F69"> ai</span><span style="color:#179299">.</span><span style="color:#4C4F69">files</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">delete</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#4C4F69"> file</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#179299">!</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"文件已删除"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">text</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> main</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 测试长文本处理</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> sampleLongText </span><span style="color:#179299">=</span><span style="color:#40A02B"> "这是一份示例长文档内容。"</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">repeat</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">1000</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"=== 长文本分析 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> analyzeLongText</span><span style="color:#4C4F69">(sampleLongText)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(result)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 测试文件上传（需要提供实际 PDF 文件路径）</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> pdfPath </span><span style="color:#179299">=</span><span style="color:#40A02B"> "./sample.pdf"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">existsSync</span><span style="color:#4C4F69">(pdfPath)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 文件上传分析 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> fileResult </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> uploadAndAnalyzeFile</span><span style="color:#4C4F69">(pdfPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(fileResult)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">main</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="关键注意事项">关键注意事项</h2>
+<table>
+<thead>
+<tr>
+<th>注意点</th>
+<th>说明</th>
+<th>错误示例</th>
+<th>正确做法</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>role 名称</strong></td>
+<td>Gemini 用 <code>&quot;model&quot;</code> 表示 AI，不是 <code>&quot;assistant&quot;</code></td>
+<td><code>role: &quot;assistant&quot;</code></td>
+<td><code>role: &quot;model&quot;</code></td>
+</tr>
+<tr>
+<td><strong>parts 数组格式</strong></td>
+<td>消息内容必须是 <code>parts</code> 数组，不能直接用字符串</td>
+<td><code>content: &quot;你好&quot;</code></td>
+<td><code>parts: [{ text: &quot;你好&quot; }]</code></td>
+</tr>
+<tr>
+<td><strong>response.text 是属性</strong></td>
+<td>新版 SDK 中 <code>text</code> 是属性，不是方法</td>
+<td><code>response.text()</code></td>
+<td><code>response.text</code></td>
+</tr>
+<tr>
+<td><strong>chat history 不含当前消息</strong></td>
+<td><code>history</code> 只放过去的对话，当前消息通过 <code>sendMessage</code> 发送</td>
+<td>把新消息也加入 history</td>
+<td>用 <code>chat.sendMessage({ message: &quot;...&quot; })</code></td>
+</tr>
+<tr>
+<td><strong>File API 需等待 ACTIVE</strong></td>
+<td>上传文件后必须轮询等待状态变为 <code>ACTIVE</code></td>
+<td>上传完立即使用</td>
+<td>循环检查 <code>file.state === &quot;PROCESSING&quot;</code></td>
+</tr>
+<tr>
+<td><strong>Function calling 结果格式</strong></td>
+<td>工具结果用 <code>functionResponse</code> 包裹，role 为 <code>&quot;user&quot;</code></td>
+<td>用 OpenAI 的 <code>role: &quot;tool&quot;</code> 格式</td>
+<td><code>{ role: &quot;user&quot;, parts: [{ functionResponse: {...} }] }</code></td>
+</tr>
+<tr>
+<td><strong>Type 枚举</strong></td>
+<td>Gemini 工具参数类型用 <code>Type.STRING</code> 等枚举，不用字符串</td>
+<td><code>&quot;type&quot;: &quot;string&quot;</code></td>
+<td><code>type: Type.STRING</code></td>
+</tr>
+<tr>
+<td><strong>模型选择成本</strong></td>
+<td>Pro 版本成本高出 Flash 约 25 倍，日常任务用 Flash 即可</td>
+<td>所有场景都用 Pro</td>
+<td>根据任务复杂度选择合适模型</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课（第4课）将介绍 <strong>Kimi</strong>（月之暗面）—— 专注于长文本处理的国产大模型。Kimi 完全兼容 OpenAI API 格式，并提供业内领先的 128K 中文长上下文支持，同时拥有独特的文件 API，可以直接上传 PDF、Word 等文档进行分析。</p>
+<p>继续学习：<a href="./04_kimi.md">第4课：Kimi — 长文本专家</a></p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ml-02-deepseek.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第2课：DeepSeek</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ml-04-kimi.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第4课：Kimi (Moonshot)</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#整体架构gemini-能力全景">整体架构：Gemini 能力全景</a></li><li class="lvl-2"><a href="#gemini-2025-模型对比">Gemini 2025 模型对比</a></li><li class="lvl-2"><a href="#sdk-迁移指南旧版-vs-新版">SDK 迁移指南：旧版 vs 新版</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-3"><a href="#1-role-名称不同">1. role 名称不同</a></li><li class="lvl-3"><a href="#2-content-格式不同">2. content 格式不同</a></li><li class="lvl-3"><a href="#3-工具tool格式不同">3. 工具（Tool）格式不同</a></li><li class="lvl-3"><a href="#4-history-管理方式不同">4. history 管理方式不同</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a使用-googlegenai-sdk推荐">方案 A：使用 @google/genai SDK（推荐）</a></li><li class="lvl-3"><a href="#方案-b通过-openai-兼容模式">方案 B：通过 OpenAI 兼容模式</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#核心设计消息格式转换">核心设计：消息格式转换</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#安装依赖">安装依赖</a></li><li class="lvl-3"><a href="#客户端初始化">客户端初始化</a></li><li class="lvl-3"><a href="#基础对话">基础对话</a></li><li class="lvl-3"><a href="#多轮对话注意-history-格式">多轮对话（注意 history 格式）</a></li><li class="lvl-3"><a href="#流式输出">流式输出</a></li><li class="lvl-3"><a href="#function-calling工具格式与-openai-不同">Function Calling（工具格式与 OpenAI 不同）</a></li><li class="lvl-3"><a href="#图像输入gemini-原生多模态">图像输入（Gemini 原生多模态）</a></li><li class="lvl-3"><a href="#长文档处理200万-token-上下文">长文档处理（200万 token 上下文）</a></li><li class="lvl-2"><a href="#关键注意事项">关键注意事项</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

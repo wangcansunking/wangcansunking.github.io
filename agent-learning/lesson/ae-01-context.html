@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第1课：Context 管理深度剖析 — Agent 工程进阶</title>
+  <meta name="description" content="滑动窗口 / 摘要压缩 / 语义检索 / 分层上下文">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-amber">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-amber">
+      <div class="crumb">
+        <div class="crumb-icon">AE</div>
+        <div class="crumb-text">Agent 工程进阶</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ae-01-context.html" class="active">
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 管理深度剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-02-rag.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">RAG 基础</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-03-rag-advanced.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">RAG 进阶</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-04-react.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">ReAct 范式</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-05-plan-execute.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Plan-and-Execute</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-06-reflexion.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Reflexion</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-07-frameworks.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 框架</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-08-langgraph.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">LangGraph</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-09-evaluation.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent 评估与可观测性</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-10-production.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">生产级 Agent</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ae-01-context.html" class="current">Agent 工程进阶</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">01</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第1课：Context 管理深度剖析</div>
+          <div class="desc">滑动窗口 / 摘要压缩 / 语义检索 / 分层上下文</div>
+          <div class="tags">
+            <span class="tag">context</span><span class="tag">memory</span><span class="tag">advanced</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">01_context_management.md</code></span>
+            <span>📏 348 行</span>
+            <span style="opacity:0.7;">agent-engineering/lessons/01_context_management.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第1课：Context 管理 — 永不丢失重要信息</h1>
+<h2 id="介绍">介绍</h2>
+<p>上下文窗口是 LLM 的&quot;短期记忆&quot;，超出就截断。Context 管理是构建长期运行 Agent 的核心挑战。用户长时间对话后，早期重要信息被挤出上下文；大任务的工具调用结果撑爆 context。本课构建完整的 ContextManager，实现分层存储：Working Memory 保留近期对话，摘要压缩保留早期要点，重要实体永久存储。</p>
+<hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>用户长时间对话后，早期重要信息被挤出上下文；大任务的工具调用结果撑爆 context：</p>
+<p>上下文窗口的压力——新内容不断加入，旧内容被挤出：</p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart LR
+    A[System Prompt\n1K tokens] --&gt; B[早期对话\n用户身份/偏好\n20K tokens]
+    B --&gt; C[中期对话\n决策/需求\n30K tokens]
+    C --&gt; D[工具调用结果\n15K tokens]
+    D --&gt; E[当前消息\n2K tokens]
+    E --&gt; F{超出上下文限制?}
+    F --&gt;|是| G[截断早期内容\n信息丢失!]
+    F --&gt;|否| H[正常处理]
+    style G fill:#ff6b6b,color:#fff</pre></div><hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a固定窗口只保留最近-n-轮">方案 A：固定窗口（只保留最近 N 轮）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> recentMessages </span><span style="color:#179299">=</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#179299">-</span><span style="color:#FE640B">10</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>✅ 简单，永不超出 context 限制
+❌ 丢失早期重要信息（用户偏好、关键决策）</p>
+<h3 id="方案-b摘要压缩定期用-llm-摘要早期对话">方案 B：摘要压缩（定期用 LLM 摘要早期对话）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> (tokenCount </span><span style="color:#179299">></span><span style="color:#4C4F69"> threshold) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> summary </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> summarize</span><span style="color:#4C4F69">(earlyMessages)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  messages </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [summaryMessage</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">recentMessages]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>✅ 保留要点，大幅压缩 token 数
+❌ 摘要有损，细节会丢失；需要额外 LLM 调用</p>
+<h3 id="方案-c向量检索把历史存向量库按需检索">方案 C：向量检索（把历史存向量库，按需检索）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">await</span><span style="color:#4C4F69"> vectorStore</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">add</span><span style="color:#4C4F69">(message)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> relevant </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> vectorStore</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">search</span><span style="color:#4C4F69">(currentQuery</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> topK</span><span style="color:#179299">=</span><span style="color:#FE640B">3</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>✅ 最完整，可检索到任意历史信息
+❌ 需要向量数据库；检索可能遗漏信息</p>
+<h3 id="方案-d分层存储working-memory-long-term-memory">方案 D：分层存储（Working Memory + Long-term Memory）</h3>
+<p>结合摘要压缩和实体提取，将重要信息持久化到 Long-term Memory。</p>
+<p>✅ 生产级方案，平衡完整性和效率
+✅ 重要信息（用户身份、决策）永不丢失</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p>选择<strong>方案 D</strong>（分层存储）作为主方案，同时展示方案 B 的核心实现。设计如下：</p>
+<ul>
+<li><strong>Working Memory</strong>：保留近期 N 条完整对话</li>
+<li><strong>Summary Layer</strong>：定期压缩早期对话为摘要注入 system prompt</li>
+<li><strong>Long-term Memory</strong>：提取关键实体（用户信息、决策、偏好）永久保存</li>
+</ul>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="token-计数">Token 计数</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/context/token_counter.ts</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> countTokens</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> encoding_for_model </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#1E66F5;font-style:italic"> require</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"tiktoken"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> enc </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> encoding_for_model</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"gpt-4o"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> count </span><span style="color:#179299">=</span><span style="color:#4C4F69"> enc</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">encode</span><span style="color:#4C4F69">(text)</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    enc</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">free</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> count</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 回退：粗略估算</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> chineseChars </span><span style="color:#179299">=</span><span style="color:#4C4F69"> (text</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">match</span><span style="color:#4C4F69">(</span><span style="color:#EA76CB">/</span><span style="color:#DF8E1D">[</span><span style="color:#FE640B">\u4e00</span><span style="color:#DC8A78">-</span><span style="color:#FE640B">\u9fa5</span><span style="color:#DF8E1D">]</span><span style="color:#EA76CB">/</span><span style="color:#8839EF">g</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> [])</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">ceil</span><span style="color:#4C4F69">(chineseChars </span><span style="color:#179299">/</span><span style="color:#FE640B"> 1.5</span><span style="color:#179299"> +</span><span style="color:#4C4F69"> (text</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">-</span><span style="color:#4C4F69"> chineseChars) </span><span style="color:#179299">/</span><span style="color:#FE640B"> 4</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> countMessagesTokens</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  messages</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> role</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> content</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> }</span><span style="color:#DF8E1D;font-style:italic">[]</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">reduce</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">total</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> msg</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> total </span><span style="color:#179299">+</span><span style="color:#1E66F5;font-style:italic"> countTokens</span><span style="color:#4C4F69">(msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">content) </span><span style="color:#179299">+</span><span style="color:#FE640B"> 4</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="摘要压缩">摘要压缩</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/context/summarizer.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> openai </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> Message</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">user</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">assistant</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">system</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  content</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  timestamp</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> summarizeMessages</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> text </span><span style="color:#179299">=</span><span style="color:#4C4F69"> messages</span></span>
+<span class="line"><span style="color:#179299">    .</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">role </span><span style="color:#179299">!==</span><span style="color:#40A02B"> "system"</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">    .</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">m</span><span style="color:#179299">.</span><span style="color:#4C4F69">role</span><span style="color:#179299"> ===</span><span style="color:#40A02B"> "user"</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> "用户"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "助手"</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">m</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">    .</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o-mini"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `请压缩以下对话，保留所有关键信息（用户身份、重要决策、明确需求、约束条件）：</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#7C7F93">${</span><span style="color:#4C4F69">text</span><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">格式：</span></span>
+<span class="line"><span style="color:#40A02B">- 对话摘要（2-3句）</span></span>
+<span class="line"><span style="color:#40A02B">- 关键信息：[列表]</span></span>
+<span class="line"><span style="color:#40A02B">- 未解决事项：[列表]`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 500</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.1</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">||</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 提取重要信息实体</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> extractEntities</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  userInfo</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  decisions</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  preferences</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  constraints</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> text </span><span style="color:#179299">=</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">m</span><span style="color:#179299">.</span><span style="color:#4C4F69">role</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">m</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o-mini"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `从对话中提取关键实体，JSON 格式：</span></span>
+<span class="line"><span style="color:#40A02B">{</span></span>
+<span class="line"><span style="color:#40A02B">  "userInfo": {"name": "...", "role": "..."},</span></span>
+<span class="line"><span style="color:#40A02B">  "decisions": ["决策1"],</span></span>
+<span class="line"><span style="color:#40A02B">  "preferences": ["偏好1"],</span></span>
+<span class="line"><span style="color:#40A02B">  "constraints": ["约束1"]</span></span>
+<span class="line"><span style="color:#40A02B">}</span></span>
+<span class="line"><span style="color:#40A02B">只提取明确提到的内容。</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">对话：</span></span>
+<span class="line"><span style="color:#7C7F93">${</span><span style="color:#4C4F69">text</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    response_format</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "json_object"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">    temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">!</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="完整-contextmanager-类">完整 ContextManager 类</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/context/context_manager.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> countMessagesTokens </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./token_counter"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> summarizeMessages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> extractEntities</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> type</span><span style="color:#4C4F69"> Message </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./summarizer"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> LongTermMemory</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  userInfo</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  decisions</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  preferences</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  constraints</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  summaries</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> timestamp</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> content</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> }</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> ContextManager</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> workingMemory</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> longTermMemory</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LongTermMemory </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    userInfo</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {},</span></span>
+<span class="line"><span style="color:#4C4F69">    decisions</span><span style="color:#179299">:</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    preferences</span><span style="color:#179299">:</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    constraints</span><span style="color:#179299">:</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    summaries</span><span style="color:#179299">:</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#8839EF"> readonly</span><span style="color:#4C4F69"> maxWorkingTokens</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">maxWorkingTokens</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 30000</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxWorkingTokens </span><span style="color:#179299">=</span><span style="color:#4C4F69"> maxWorkingTokens</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> addMessage</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">message</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">workingMemory</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> timestamp</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">() </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> tokens </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> countMessagesTokens</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">workingMemory)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (tokens </span><span style="color:#179299">></span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxWorkingTokens </span><span style="color:#179299">*</span><span style="color:#FE640B"> 0.8</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      await</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">compress</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  buildContext</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">systemPrompt</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 1. System + Long-term Memory</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">buildSystemPrompt</span><span style="color:#4C4F69">(systemPrompt) </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 2. 历史摘要</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">longTermMemory</span><span style="color:#179299">.</span><span style="color:#4C4F69">summaries</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> summaryText </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">longTermMemory</span><span style="color:#179299">.</span><span style="color:#4C4F69">summaries</span></span>
+<span class="line"><span style="color:#179299">        .</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">s</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> s</span><span style="color:#179299">.</span><span style="color:#4C4F69">content)</span></span>
+<span class="line"><span style="color:#179299">        .</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">---</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `[历史对话摘要]</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">summaryText</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 3. Working Memory（近期完整对话）</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#179299">...</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">workingMemory</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">role </span><span style="color:#179299">!==</span><span style="color:#40A02B"> "system"</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> messages</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#1E66F5;font-style:italic"> buildSystemPrompt</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">base</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> parts </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [base]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> userInfo</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> preferences</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> constraints</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> decisions </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">longTermMemory</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (Object</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">keys</span><span style="color:#4C4F69">(userInfo)</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      parts</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">用户信息：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">Object</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">entries</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">userInfo</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#40A02B">(</span><span style="color:#7C7F93">([</span><span style="color:#E64553;font-style:italic">k</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> v</span><span style="color:#7C7F93">])</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">k</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">v</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#40A02B">(</span><span style="color:#40A02B">", "</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (preferences</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) parts</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">用户偏好：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">preferences</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#40A02B">(</span><span style="color:#40A02B">"；"</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (constraints</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) parts</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">重要约束：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">constraints</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#40A02B">(</span><span style="color:#40A02B">"；"</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (decisions</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) parts</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">已确认决策：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">decisions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#40A02B">(</span><span style="color:#40A02B">"；"</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> parts</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#8839EF"> async</span><span style="color:#1E66F5;font-style:italic"> compress</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> msgs </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">workingMemory</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">role </span><span style="color:#179299">!==</span><span style="color:#40A02B"> "system"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> keepCount </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">floor</span><span style="color:#4C4F69">(msgs</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">*</span><span style="color:#FE640B"> 0.4</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> toCompress </span><span style="color:#179299">=</span><span style="color:#4C4F69"> msgs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> msgs</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">-</span><span style="color:#4C4F69"> keepCount)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[ContextManager] 压缩 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">toCompress</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 条消息，保留 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">keepCount</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 条`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#7C7F93"> [</span><span style="color:#4C4F69">summary</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> entities</span><span style="color:#7C7F93">]</span><span style="color:#179299"> =</span><span style="color:#8839EF"> await</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">all</span><span style="color:#4C4F69">([</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">      summarizeMessages</span><span style="color:#4C4F69">(toCompress)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">      extractEntities</span><span style="color:#4C4F69">(toCompress)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    ])</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">longTermMemory</span><span style="color:#179299">.</span><span style="color:#4C4F69">summaries</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> timestamp</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> summary </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    Object</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">assign</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">longTermMemory</span><span style="color:#179299">.</span><span style="color:#4C4F69">userInfo</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> entities</span><span style="color:#179299">.</span><span style="color:#4C4F69">userInfo)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">longTermMemory</span><span style="color:#179299">.</span><span style="color:#4C4F69">decisions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#179299">...</span><span style="color:#4C4F69">entities</span><span style="color:#179299">.</span><span style="color:#4C4F69">decisions)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">longTermMemory</span><span style="color:#179299">.</span><span style="color:#4C4F69">preferences</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#179299">...</span><span style="color:#4C4F69">entities</span><span style="color:#179299">.</span><span style="color:#4C4F69">preferences)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">longTermMemory</span><span style="color:#179299">.</span><span style="color:#4C4F69">constraints</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#179299">...</span><span style="color:#4C4F69">entities</span><span style="color:#179299">.</span><span style="color:#4C4F69">constraints)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">workingMemory </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#179299">      ...</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">workingMemory</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">role </span><span style="color:#179299">===</span><span style="color:#40A02B"> "system"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#179299">      ...</span><span style="color:#4C4F69">msgs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#179299">-</span><span style="color:#4C4F69">keepCount)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[ContextManager] 压缩后 tokens: </span><span style="color:#7C7F93">${</span><span style="color:#1E66F5;font-style:italic">countMessagesTokens</span><span style="color:#40A02B">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">workingMemory</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  getStats</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      workingMemory</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">workingMemory</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      tokens</span><span style="color:#179299">:</span><span style="color:#1E66F5;font-style:italic"> countMessagesTokens</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">workingMemory)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      summaries</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">longTermMemory</span><span style="color:#179299">.</span><span style="color:#4C4F69">summaries</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      entities</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Object</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">keys</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">longTermMemory</span><span style="color:#179299">.</span><span style="color:#4C4F69">userInfo)</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    };</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  serialize</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> workingMemory</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">workingMemory</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> longTermMemory</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">longTermMemory </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  static</span><span style="color:#1E66F5;font-style:italic"> deserialize</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">data</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ContextManager</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> parsed </span><span style="color:#179299">=</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(data)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> manager </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> ContextManager</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    (manager </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#4C4F69">workingMemory </span><span style="color:#179299">=</span><span style="color:#4C4F69"> parsed</span><span style="color:#179299">.</span><span style="color:#4C4F69">workingMemory</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    (manager </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#4C4F69">longTermMemory </span><span style="color:#179299">=</span><span style="color:#4C4F69"> parsed</span><span style="color:#179299">.</span><span style="color:#4C4F69">longTermMemory</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> manager</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="使用示例">使用示例</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/context/demo.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> ContextManager </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./context_manager"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> openai </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> ctx </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> ContextManager</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">20000</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> chat</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userInput</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#4C4F69"> ctx</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">addMessage</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userInput </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> messages </span><span style="color:#179299">=</span><span style="color:#4C4F69"> ctx</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">buildContext</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"你是一个专业的 AI 助手，善于记住用户的偏好和需求。"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> messages </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> reply </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">||</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#4C4F69"> ctx</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">addMessage</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> reply </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"[Context]"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> ctx</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">getStats</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> reply</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 模拟长时间对话</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runDemo</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> chat</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"我叫李明，是一家初创公司的 CTO，公司有 15 名工程师"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> chat</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"我们正在构建 AI 客服系统，预算 100 万人民币"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> chat</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"需要支持中英文双语"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ... 30 轮后</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> chat</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"请根据我的情况制定技术选型方案"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(result)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">runDemo</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课学习<strong>第2课：RAG 基础 — 给 Agent 接上知识库</strong>。Context 管理解决了&quot;记住对话历史&quot;的问题，RAG 解决更大的问题：让 Agent 能利用超出训练数据的外部知识库，回答关于最新信息或私有数据的问题。核心流程：文档→分块→Embedding→向量库→检索→注入 Prompt。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/lcc-12-worktree.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第12课：Worktree Isolation</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ae-02-rag.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第2课：RAG 基础</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a固定窗口只保留最近-n-轮">方案 A：固定窗口（只保留最近 N 轮）</a></li><li class="lvl-3"><a href="#方案-b摘要压缩定期用-llm-摘要早期对话">方案 B：摘要压缩（定期用 LLM 摘要早期对话）</a></li><li class="lvl-3"><a href="#方案-c向量检索把历史存向量库按需检索">方案 C：向量检索（把历史存向量库，按需检索）</a></li><li class="lvl-3"><a href="#方案-d分层存储working-memory-long-term-memory">方案 D：分层存储（Working Memory + Long-term Memory）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#token-计数">Token 计数</a></li><li class="lvl-3"><a href="#摘要压缩">摘要压缩</a></li><li class="lvl-3"><a href="#完整-contextmanager-类">完整 ContextManager 类</a></li><li class="lvl-3"><a href="#使用示例">使用示例</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

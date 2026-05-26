@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第7课：上下文管理 — TypeScript Agent 开发</title>
+  <meta name="description" content="滑动窗口/摘要压缩/Compaction/Caching">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-blue">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-blue">
+      <div class="crumb">
+        <div class="crumb-icon">TS</div>
+        <div class="crumb-text">TypeScript Agent 开发</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ts-01-hello.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Hello Claude</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-02-multi-turn.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多轮对话</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-03-streaming.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">流式输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-04-first-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第一个工具</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-05-multi-tools.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多工具并行</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-06-agent-loop.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agentic Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-07-context.html" class="active">
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">上下文管理</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-09-orchestrator.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Orchestrator + Worker</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-10-handoff.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Handoff</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-11-structured.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">结构化输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-12-memory.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">记忆 Agent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-13-skill.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill + Tool Runner</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ts-01-hello.html" class="current">TypeScript Agent 开发</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">07</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第7课：上下文管理</div>
+          <div class="desc">滑动窗口/摘要压缩/Compaction/Caching</div>
+          <div class="tags">
+            <span class="tag">context</span><span class="tag">memory</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">07_context_management.md</code></span>
+            <span>📏 237 行</span>
+            <span style="opacity:0.7;">typescript/lessons/07_context_management.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第7课：上下文管理</h1>
+<h2 id="学习目标">学习目标</h2>
+<ol>
+<li>理解 Context Window 限制与 Token 增长问题</li>
+<li>实现<strong>滑动窗口</strong>：只保留最近 N 轮对话</li>
+<li>实现<strong>摘要压缩</strong>：用模型自己压缩旧历史</li>
+<li>了解三家 Provider 的 <strong>Prompt Caching</strong> 机制差异</li>
+</ol>
+<hr>
+<h2 id="问题token-随轮数线性增长">问题：Token 随轮数线性增长</h2>
+<p>每轮对话，你发送的 Token 数都在增加：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>轮次 1：system(100) + 对话(50)   =  150 tokens</span></span>
+<span class="line"><span>轮次 5：system(100) + 对话(500)  =  600 tokens</span></span>
+<span class="line"><span>轮次 20：system(100) + 对话(2000) = 2100 tokens</span></span></code></pre><p>各 provider 的上下文上限：</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>模型</th>
+<th>上限</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>DeepSeek</td>
+<td><code>deepseek-chat</code></td>
+<td>64K</td>
+</tr>
+<tr>
+<td>Kimi</td>
+<td><code>moonshot-v1-128k</code></td>
+<td>128K</td>
+</tr>
+<tr>
+<td>Anthropic</td>
+<td><code>claude-opus-4-7[1m]</code></td>
+<td>1M</td>
+</tr>
+</tbody></table>
+<p>不管多大都有上限，且费用随 token 数线性增长。</p>
+<hr>
+<h2 id="策略一滑动窗口">策略一：滑动窗口</h2>
+<p>最简单的策略——只保留最近 N 轮，丢弃更早的历史：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../shared/llmClient"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> Msg </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionMessageParam</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">class</span><span style="color:#DF8E1D;font-style:italic"> SlidingWindowChat</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> history</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Msg[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#8839EF">    private</span><span style="color:#E64553;font-style:italic"> systemPrompt</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#8839EF">    private</span><span style="color:#E64553;font-style:italic"> maxTurns</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 10</span><span style="color:#9CA0B0;font-style:italic">  // 保留最近 10 轮</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> systemPrompt </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> send</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userMessage</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userMessage </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 如果超出窗口，从中间删除旧消息（保留 system + 最近 N 轮）</span></span>
+<span class="line"><span style="color:#8839EF">    while</span><span style="color:#4C4F69"> (</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 1</span><span style="color:#179299"> +</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxTurns </span><span style="color:#179299">*</span><span style="color:#FE640B"> 2</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">splice</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">1</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 2</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 删除最早的一轮（user + assistant）</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> text </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> text </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> text</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p><strong>适用场景</strong>：聊天机器人、近期上下文足够的任务
+<strong>缺点</strong>：丢失旧信息，模型可能&quot;忘记&quot;早期重要内容</p>
+<hr>
+<h2 id="策略二摘要压缩">策略二：摘要压缩</h2>
+<p>当对话过长时，让模型把旧历史<strong>压缩成一段摘要</strong>：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">class</span><span style="color:#DF8E1D;font-style:italic"> SummaryChat</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> history</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Msg[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> summary</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#179299"> =</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#8839EF">    private</span><span style="color:#E64553;font-style:italic"> systemPrompt</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#8839EF">    private</span><span style="color:#E64553;font-style:italic"> compressionThreshold</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 20</span><span style="color:#9CA0B0;font-style:italic">  // 超过 20 轮就压缩</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#7C7F93"> {}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#8839EF"> async</span><span style="color:#1E66F5;font-style:italic"> compressHistory</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">&#x3C;</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">compressionThreshold </span><span style="color:#179299">*</span><span style="color:#FE640B"> 2</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">return</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 取前半段历史进行压缩</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> toCompress </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">/</span><span style="color:#FE640B"> 2</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> recentHistory </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">/</span><span style="color:#FE640B"> 2</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> compressionResponse </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1024</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是对话摘要助手。请将以下对话历史压缩为简洁的摘要，保留所有重要信息。"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span></span>
+<span class="line"><span style="color:#4C4F69">          role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `请压缩这段对话历史：</span><span style="color:#EA76CB">\n\n</span><span style="color:#7C7F93">${</span><span style="color:#FE640B">JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">toCompress</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">已有摘要：</span><span style="color:#7C7F93">${</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">summary</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#4C4F69">      ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">summary </span><span style="color:#179299">=</span><span style="color:#4C4F69"> compressionResponse</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history </span><span style="color:#179299">=</span><span style="color:#4C4F69"> recentHistory</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 只保留近期历史</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`🗜️ 历史已压缩，保留 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">recentHistory</span><span style="color:#179299">.</span><span style="color:#40A02B">length </span><span style="color:#179299">/</span><span style="color:#FE640B"> 2</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 轮近期对话`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> send</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userMessage</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">compressHistory</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userMessage </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // System prompt = 原始提示 + 历史摘要</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> systemWithSummary </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">summary</span></span>
+<span class="line"><span style="color:#179299">      ?</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">systemPrompt</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">【对话历史摘要】</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">summary</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span></span>
+<span class="line"><span style="color:#179299">      :</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">systemPrompt</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> systemWithSummary </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#179299">        ...</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> text </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> text </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> text</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p><strong>适用场景</strong>：长期对话、需要保留整体语境
+<strong>缺点</strong>：压缩有信息损失，额外消耗 token</p>
+<hr>
+<h2 id="策略三prompt-caching三家机制不同">策略三：Prompt Caching（三家机制不同）</h2>
+<p>对<strong>重复的长 system prompt</strong>（如大型代码库、文档）启用缓存可以省 ~90% Token 费用，但三家机制完全不同：</p>
+<h3 id="deepseek自动-hard-disk-cache">DeepSeek（自动 Hard Disk Cache）</h3>
+<p>DeepSeek <strong>自动</strong> 缓存重复的 prefix（system 提示 + 早期 messages），无需任何代码改动：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 你什么都不用改，DeepSeek 自动检测重复 prefix 并缓存</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> veryLongSystemPrompt </span><span style="color:#7C7F93">},</span><span style="color:#9CA0B0;font-style:italic">  // 几千字</span></span>
+<span class="line"><span style="color:#179299">    ...</span><span style="color:#4C4F69">history</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 检查缓存命中（DeepSeek 在响应里给出）</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`缓存命中 token: </span><span style="color:#7C7F93">${</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> any</span><span style="color:#40A02B">)</span><span style="color:#179299">?.</span><span style="color:#4C4F69">prompt_cache_hit_tokens</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`未命中 token:   </span><span style="color:#7C7F93">${</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> any</span><span style="color:#40A02B">)</span><span style="color:#179299">?.</span><span style="color:#4C4F69">prompt_cache_miss_tokens</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>DeepSeek 缓存命中价格 0.1 元/百万 token（vs 未命中 1 元），降 90%。</p>
+<h3 id="kimicontext-caching-api">Kimi（Context Caching API）</h3>
+<p>Kimi 提供<strong>显式 Context Caching API</strong>，需要先创建 cache 再引用：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 1. 创建 cache（一次性）</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> cache </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> fetch</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"https://api.moonshot.cn/v1/caching"</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  method</span><span style="color:#179299">:</span><span style="color:#40A02B"> "POST"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  headers</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> Authorization</span><span style="color:#179299">:</span><span style="color:#40A02B"> `Bearer </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">apiKey</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "Content-Type"</span><span style="color:#179299">:</span><span style="color:#40A02B"> "application/json"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">  body</span><span style="color:#179299">:</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "moonshot-v1-32k"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> veryLongSystemPrompt </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    ttl</span><span style="color:#179299">:</span><span style="color:#FE640B"> 3600</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  // 1 小时</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">then</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">json</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 2. 后续请求引用 cache_id</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "moonshot-v1-32k"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#4C4F69">history]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> headers</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B"> "X-Msh-Context-Cache"</span><span style="color:#179299">:</span><span style="color:#4C4F69"> cache</span><span style="color:#179299">.</span><span style="color:#4C4F69">id </span><span style="color:#7C7F93">}</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><h3 id="anthropiccache_control-显式标记">Anthropic（cache_control 显式标记）</h3>
+<p>Anthropic 用 <code>cache_control</code> 字段显式标记可缓存的 prefix：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 注意：这里需要用 Anthropic 原生 SDK，OpenAI 兼容端点不支持 cache_control</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Anthropic </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "@anthropic-ai/sdk"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> ant </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Anthropic</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ant</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "claude-opus-4-7"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  system</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "text"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#4C4F69"> veryLongSystemPrompt</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> cache_control</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "ephemeral"</span><span style="color:#7C7F93"> }</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> history</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`缓存读取: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">.</span><span style="color:#4C4F69">cache_read_input_tokens</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`缓存写入: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">.</span><span style="color:#4C4F69">cache_creation_input_tokens</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="策略对比">策略对比</h2>
+<table>
+<thead>
+<tr>
+<th>策略</th>
+<th>实现复杂度</th>
+<th>信息保留</th>
+<th>Token 节省</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>滑动窗口</td>
+<td>⭐ 简单</td>
+<td>只保留近期</td>
+<td>中</td>
+<td>简单聊天</td>
+</tr>
+<tr>
+<td>摘要压缩</td>
+<td>⭐⭐ 中等</td>
+<td>有损压缩</td>
+<td>中高</td>
+<td>长期对话</td>
+</tr>
+<tr>
+<td>DeepSeek 自动缓存</td>
+<td>⭐ 零代码</td>
+<td>完整保留</td>
+<td>高（~90%）</td>
+<td>固定长 prefix</td>
+</tr>
+<tr>
+<td>Kimi Context Caching</td>
+<td>⭐⭐ 需创建 cache</td>
+<td>完整保留</td>
+<td>高</td>
+<td>重复长文档</td>
+</tr>
+<tr>
+<td>Anthropic cache_control</td>
+<td>⭐⭐ 显式标记</td>
+<td>完整保留</td>
+<td>高（~90%）</td>
+<td>固定长 system</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>建议</strong>：如果你的应用 system prompt 较长且重复，<strong>直接用 DeepSeek 最省事</strong>——零改动就有 90% 的成本节省。</p>
+</blockquote>
+<p>下一课：用 <strong>MCP 协议</strong> 接入外部工具和服务 →</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ts-06-agent-loop.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第6课：Agentic Loop</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ts-08-mcp.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第8课：MCP 集成</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#学习目标">学习目标</a></li><li class="lvl-2"><a href="#问题token-随轮数线性增长">问题：Token 随轮数线性增长</a></li><li class="lvl-2"><a href="#策略一滑动窗口">策略一：滑动窗口</a></li><li class="lvl-2"><a href="#策略二摘要压缩">策略二：摘要压缩</a></li><li class="lvl-2"><a href="#策略三prompt-caching三家机制不同">策略三：Prompt Caching（三家机制不同）</a></li><li class="lvl-3"><a href="#deepseek自动-hard-disk-cache">DeepSeek（自动 Hard Disk Cache）</a></li><li class="lvl-3"><a href="#kimicontext-caching-api">Kimi（Context Caching API）</a></li><li class="lvl-3"><a href="#anthropiccache_control-显式标记">Anthropic（cache_control 显式标记）</a></li><li class="lvl-2"><a href="#策略对比">策略对比</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

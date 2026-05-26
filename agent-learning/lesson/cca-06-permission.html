@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第6课：权限模型与 Sandbox — Claude Code 源码剖析</title>
+  <meta name="description" content="四层结构 / excludedCommands 不是安全边界 / 子任务专属闭包">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-rose">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-rose">
+      <div class="crumb">
+        <div class="crumb-icon">CA</div>
+        <div class="crumb-text">Claude Code 源码剖析</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/cca-01-overview.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">泄露事件与全景导览</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-02-startup.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">启动路径剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-03-query.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Query 执行内核</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-04-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool 抽象与工具池</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-05-orchestration.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">工具调度与并发</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-06-permission.html" class="active">
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">权限模型与 Sandbox</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-07-skills.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill 系统</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-09-memory.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Memory 分层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-10-compaction.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 自动压缩</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-11-prompt.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Prompt Runtime</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-12-multi-agent.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 三层模型</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-13-session.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Session 持久化与 Resume</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-14-hidden.html" >
+            <span class="num">14</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第14课（番外）：隐藏命令与 Feature Flag</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/cca-01-overview.html" class="current">Claude Code 源码剖析</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">06</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第6课：权限模型与 Sandbox</div>
+          <div class="desc">四层结构 / excludedCommands 不是安全边界 / 子任务专属闭包</div>
+          <div class="tags">
+            <span class="tag">analysis</span><span class="tag">pattern</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">06_permission_sandbox.md</code></span>
+            <span>📏 356 行</span>
+            <span style="opacity:0.7;">claude-code-analysis/lessons/06_permission_sandbox.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第6课：权限模型与 Sandbox 隔离</h1>
+<h2 id="介绍">介绍</h2>
+<p>模型说&quot;跑 <code>rm -rf /</code>&quot;的那一刻，谁来拦它？</p>
+<p>很多人会想到 sandbox。但 Claude Code 的源码里写得<strong>非常直白</strong>：</p>
+<blockquote>
+<p><code>excludedCommands</code> is a user-facing convenience feature, <strong>not a security boundary</strong>.</p>
+<p>The sandbox permission system (which prompts users) is the <strong>actual security control</strong>.</p>
+</blockquote>
+<p>本课拆解 Claude Code 的权限模型与 Sandbox 隔离——它不是单点功能，而是<strong>四层结构</strong>协作。</p>
+<hr>
+<h2 id="源码定位">源码定位</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>src/tools/BashTool/shouldUseSandbox.ts</code></td>
+<td>决定某条命令是否进沙箱</td>
+</tr>
+<tr>
+<td><code>src/utils/sandbox/sandbox-adapter.ts</code></td>
+<td>settings → sandbox runtime config 翻译</td>
+</tr>
+<tr>
+<td><code>src/tools/BashTool/bashPermissions.ts</code></td>
+<td>沙箱自动放行 + 显式 deny/ask 揉合</td>
+</tr>
+<tr>
+<td><code>src/utils/Shell.ts</code></td>
+<td>真正包一层 sandbox runtime</td>
+</tr>
+<tr>
+<td><code>src/services/SessionMemory/sessionMemory.ts</code></td>
+<td>createMemoryFileCanUseTool 精确路径权限</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="四层结构总览">四层结构总览</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>模型生成 BashTool 调用</span></span>
+<span class="line"><span>  │</span></span>
+<span class="line"><span>  ▼ 第 1 层：是否进沙箱</span></span>
+<span class="line"><span>  shouldUseSandbox()</span></span>
+<span class="line"><span>    ├─ false: 走普通 Bash 权限路径</span></span>
+<span class="line"><span>    └─ true:</span></span>
+<span class="line"><span>        │</span></span>
+<span class="line"><span>        ▼ 第 2 层：settings → sandbox config 翻译</span></span>
+<span class="line"><span>        convertToSandboxRuntimeConfig()</span></span>
+<span class="line"><span>        │</span></span>
+<span class="line"><span>        ▼ 第 3 层：沙箱自动放行 + 显式规则</span></span>
+<span class="line"><span>        bashPermissions.checkSandboxAutoAllow()</span></span>
+<span class="line"><span>        │</span></span>
+<span class="line"><span>        ▼ 第 4 层：真正包 sandbox runtime</span></span>
+<span class="line"><span>        Shell.ts → SandboxManager.wrapWithSandbox()</span></span>
+<span class="line"><span>        │</span></span>
+<span class="line"><span>        ▼ 命令执行</span></span>
+<span class="line"><span>        cleanupAfterCommand() → scrubBareGitRepoFiles()</span></span></code></pre><hr>
+<h2 id="第-1-层shouldusesandbox">第 1 层：shouldUseSandbox</h2>
+<p>真实源码（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/tools/BashTool/shouldUseSandbox.ts"><code>src/tools/BashTool/shouldUseSandbox.ts</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> shouldUseSandbox</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Partial</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">SandboxInput</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">SandboxManager</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">isSandboxingEnabled</span><span style="color:#4C4F69">()) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span></span>
+<span class="line"><span style="color:#4C4F69">    input</span><span style="color:#179299">.</span><span style="color:#4C4F69">dangerouslyDisableSandbox </span><span style="color:#179299">&#x26;&#x26;</span></span>
+<span class="line"><span style="color:#4C4F69">    SandboxManager</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">areUnsandboxedCommandsAllowed</span><span style="color:#4C4F69">()</span></span>
+<span class="line"><span style="color:#4C4F69">  ) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#4C4F69">command) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#1E66F5;font-style:italic">containsExcludedCommand</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">command)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>四个 <code>if</code>，决定一条命令是否进沙箱：</p>
+<ol>
+<li>全局开关关了？不进</li>
+<li>调用方显式 <code>dangerouslyDisableSandbox</code> 且策略允许？不进</li>
+<li>命令为空？不进</li>
+<li>命中 <code>excludedCommands</code>（用户配置的豁免列表，如 <code>bazel</code>、<code>docker</code>）？不进</li>
+</ol>
+<p>否则进沙箱。</p>
+<hr>
+<h2 id="excludedcommands-不是安全边界">&quot;excludedCommands 不是安全边界&quot;</h2>
+<p>这条注释非常重要：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// NOTE: excludedCommands is a user-facing convenience feature, not a security boundary.</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// It is not a security bug to be able to bypass excludedCommands — the sandbox permission</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// system (which prompts users) is the actual security control.</span></span></code></pre><p>它在说什么？</p>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>便利特性</strong>（Convenience）</td>
+<td>让用户对兼容性差的命令做豁免（比如 <code>docker</code>、IDE 工具）</td>
+</tr>
+<tr>
+<td><strong>安全边界</strong>（Security Boundary）</td>
+<td>系统抗攻击的真正护栏</td>
+</tr>
+</tbody></table>
+<p><code>excludedCommands</code> 属于第一类。它<strong>不</strong>是用来&quot;防止恶意命令绕过沙箱&quot;的——它只是&quot;告诉系统这类命令不要自动进沙箱&quot;。</p>
+<p>真正的安全边界是：</p>
+<ul>
+<li><strong>Sandbox runtime 本身</strong>（bwrap / macOS sandbox）</li>
+<li><strong>Permission System</strong>（用户弹窗确认）</li>
+</ul>
+<p>这是非常成熟的安全工程思维：<strong>清晰区分&quot;防错误&quot;和&quot;防恶意&quot;</strong>。</p>
+<hr>
+<h2 id="第-2-层settings-sandbox-config-翻译">第 2 层：settings → sandbox config 翻译</h2>
+<p><code>convertToSandboxRuntimeConfig()</code> 不是简单字段映射，而是<strong>语义重解释</strong>：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// settings.json 用户写的：</span></span>
+<span class="line"><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#40A02B">  "permissions"</span><span style="color:#4C4F69">: </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#40A02B">    "allow"</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"Read(./src/**)"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "deny"</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"Bash(rm -rf *)"</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#40A02B">  "sandbox"</span><span style="color:#4C4F69">: </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#40A02B">    "network"</span><span style="color:#179299">:</span><span style="color:#40A02B"> "deny"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "writeable_dirs"</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"/tmp"</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 翻译后给 sandbox runtime（bwrap / macOS sandbox）：</span></span>
+<span class="line"><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#40A02B">  "fs"</span><span style="color:#4C4F69">: </span><span style="color:#7C7F93">{</span><span style="color:#40A02B"> "ro"</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"/usr"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "/etc"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "rw"</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"/tmp"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "&#x3C;cwd>"</span><span style="color:#4C4F69">] </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#40A02B">  "net"</span><span style="color:#4C4F69">: </span><span style="color:#7C7F93">{</span><span style="color:#40A02B"> "allow"</span><span style="color:#179299">:</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "deny"</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"*"</span><span style="color:#4C4F69">] </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#40A02B">  "envOverlays"</span><span style="color:#4C4F69">: </span><span style="color:#7C7F93">{</span><span style="color:#179299"> ...</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>为什么需要这层？因为：</p>
+<ul>
+<li>Claude Code 的 settings 是<strong>用户友好的语义</strong>（&quot;允许读 src/&quot;）</li>
+<li>Sandbox runtime 接受的是<strong>系统级配置</strong>（具体的目录路径、syscalls）</li>
+<li>翻译层让用户不用学 bwrap / seatbelt 的细节</li>
+</ul>
+<hr>
+<h2 id="第-3-层bashpermissions">第 3 层：bashPermissions</h2>
+<p>这一层处理&quot;沙箱里命令能不能直接放行&quot;的判断。它把以下三类规则揉在一起：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 伪代码</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> checkSandboxAutoAllow</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">command</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> settings</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // a) 显式 deny：永远拦</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#1E66F5;font-style:italic">matchesDeny</span><span style="color:#4C4F69">(command</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> settings</span><span style="color:#179299">.</span><span style="color:#4C4F69">permissions</span><span style="color:#179299">.</span><span style="color:#4C4F69">deny)) </span><span style="color:#8839EF">return</span><span style="color:#40A02B"> 'deny'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // b) 显式 allow：直接放</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#1E66F5;font-style:italic">matchesAllow</span><span style="color:#4C4F69">(command</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> settings</span><span style="color:#179299">.</span><span style="color:#4C4F69">permissions</span><span style="color:#179299">.</span><span style="color:#4C4F69">allow)) </span><span style="color:#8839EF">return</span><span style="color:#40A02B"> 'allow'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // c) 沙箱保护下的"安全默认"：不弹窗也能跑</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (isInSandbox </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#1E66F5;font-style:italic"> isReadOnlyCommand</span><span style="color:#4C4F69">(command)) </span><span style="color:#8839EF">return</span><span style="color:#40A02B"> 'auto_allow'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // d) 否则要弹窗问</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#40A02B"> 'ask'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>注意 (c)：<strong>沙箱里跑的&quot;已知只读&quot;命令可以不弹窗</strong>——因为沙箱本身已经保护宿主机，问用户没意义。这是<strong>沙箱与权限系统的协作</strong>：沙箱让某些权限决策可以省掉。</p>
+<hr>
+<h2 id="第-4-层shellts-真正包-runtime">第 4 层：Shell.ts 真正包 runtime</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/utils/Shell.ts</span></span>
+<span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> (shouldUseSandbox) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  commandString </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> SandboxManager</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">wrapWithSandbox</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">    commandString</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    sandboxBinShell</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#8839EF">    undefined</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    abortSignal</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>这一行才是把命令真正变成&quot;沙箱内命令&quot;。</p>
+<p><code>wrapWithSandbox</code> 会根据平台调用不同 runtime：</p>
+<ul>
+<li>Linux：<code>bwrap</code> (Bubblewrap)</li>
+<li>macOS：<code>sandbox-exec</code> + <code>seatbelt</code> 配置</li>
+<li>不支持的平台：直接拒绝（fail-closed）</li>
+</ul>
+<hr>
+<h2 id="平台级权限canusetoolfn">平台级权限：CanUseToolFn</h2>
+<p>除了 sandbox，每次工具调用还要走<strong>显式权限判定</strong>（<code>CanUseToolFn</code>）。</p>
+<p>来看一个非常优雅的例子——Session Memory 提取子 agent 的权限：</p>
+<p>真实源码（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/services/SessionMemory/sessionMemory.ts"><code>src/services/SessionMemory/sessionMemory.ts:460</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> createMemoryFileCanUseTool</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">memoryPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> CanUseToolFn</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">tool</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tool</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> input</span><span style="color:#179299">:</span><span style="color:#8839EF"> unknown</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span></span>
+<span class="line"><span style="color:#4C4F69">      tool</span><span style="color:#179299">.</span><span style="color:#4C4F69">name </span><span style="color:#179299">===</span><span style="color:#4C4F69"> FILE_EDIT_TOOL_NAME </span><span style="color:#179299">&#x26;&#x26;</span></span>
+<span class="line"><span style="color:#8839EF">      typeof</span><span style="color:#4C4F69"> input </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'object'</span><span style="color:#179299"> &#x26;&#x26;</span><span style="color:#4C4F69"> input </span><span style="color:#179299">!==</span><span style="color:#8839EF"> null</span><span style="color:#179299"> &#x26;&#x26;</span></span>
+<span class="line"><span style="color:#40A02B">      'file_path'</span><span style="color:#8839EF"> in</span><span style="color:#4C4F69"> input </span><span style="color:#179299">&#x26;&#x26;</span></span>
+<span class="line"><span style="color:#8839EF">      typeof</span><span style="color:#4C4F69"> input</span><span style="color:#179299">.</span><span style="color:#4C4F69">file_path </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'string'</span><span style="color:#179299"> &#x26;&#x26;</span></span>
+<span class="line"><span style="color:#4C4F69">      input</span><span style="color:#179299">.</span><span style="color:#4C4F69">file_path </span><span style="color:#179299">===</span><span style="color:#4C4F69"> memoryPath    </span><span style="color:#9CA0B0;font-style:italic">// ⚠️ 精确路径匹配</span></span>
+<span class="line"><span style="color:#4C4F69">    ) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> behavior</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'allow'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> updatedInput</span><span style="color:#179299">:</span><span style="color:#4C4F69"> input </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      behavior</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'deny'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      message</span><span style="color:#179299">:</span><span style="color:#40A02B"> `only </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">FILE_EDIT_TOOL_NAME</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> on </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">memoryPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> is allowed`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      decisionReason</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'other'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> reason</span><span style="color:#179299">:</span><span style="color:#179299"> ...</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">    };</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>这个权限函数的语义是：</p>
+<ul>
+<li>只允许 FileEditTool</li>
+<li>且 file_path 必须<strong>精确等于</strong> memoryPath</li>
+<li>其他一切（FileRead / FileWrite / Bash / Glob / Edit 别的文件…）全部 deny</li>
+</ul>
+<p>这是 Claude Code 极致 <strong>最小权限原则</strong> 的实现：Session Memory 提取 subagent 是个严密沙箱化的摘要代理，连 FileReadTool 都被拒绝。</p>
+<hr>
+<h2 id="pattern-提炼">Pattern 提炼</h2>
+<h3 id="pattern-1分清防错误和防恶意">Pattern 1：分清&quot;防错误&quot;和&quot;防恶意&quot;</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// excludedCommands 是 convenience，不是 security boundary</span></span></code></pre><p>文档化你的安全护栏到底防什么。让&quot;漏洞报告&quot;能被正确分类。</p>
+<h3 id="pattern-2四层防御纵深">Pattern 2：四层防御纵深</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>配置 → 翻译 → 决策 → 包装</span></span></code></pre><p>每层职责单一。某一层错了不至于直接破防。</p>
+<h3 id="pattern-3沙箱与权限系统协作">Pattern 3：沙箱与权限系统协作</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> (isInSandbox </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#1E66F5;font-style:italic"> isReadOnlyCommand</span><span style="color:#4C4F69">(command)) </span><span style="color:#8839EF">return</span><span style="color:#40A02B"> 'auto_allow'</span><span style="color:#7C7F93">;</span></span></code></pre><p>沙箱保护宿主机后，权限决策可以适度放宽。两套机制不是冗余，而是协作。</p>
+<h3 id="pattern-4canusetoolfn-是闭包">Pattern 4：CanUseToolFn 是闭包</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> createMemoryFileCanUseTool</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">memoryPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> CanUseToolFn</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">tool</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> input</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span><span style="color:#179299"> ...</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>针对特定子任务生成专属权限函数，路径硬编码到闭包里。比&quot;权限规则字符串匹配&quot;更可靠。</p>
+<hr>
+<h2 id="自己实现60-行的最小权限模型">自己实现：60 行的最小权限模型</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// my-permissions.ts</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> Tool </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> isReadOnly</span><span style="color:#179299">?:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> CanUseToolFn </span><span style="color:#179299">=</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">tool</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tool</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> input</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span></span>
+<span class="line"><span style="color:#DF8E1D;font-style:italic">  Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69;font-style:italic"> behavior</span><span style="color:#179299">:</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">allow</span><span style="color:#40A02B">'</span><span style="color:#179299"> |</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">deny</span><span style="color:#40A02B">'</span><span style="color:#179299"> |</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">ask</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> message</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> }</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ===== 默认权限：白名单优先 + Fail-Closed =====</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> createDefaultPermission</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">allowList</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> denyList</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> CanUseToolFn</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">tool</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> input</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> sig </span><span style="color:#179299">=</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">tool</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">(</span><span style="color:#7C7F93">${</span><span style="color:#FE640B">JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">input</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">)`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // a) 显式 deny 优先</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (denyList</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">some</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">p</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> matchPattern</span><span style="color:#4C4F69">(sig</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> p))) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> behavior</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'deny'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> message</span><span style="color:#179299">:</span><span style="color:#40A02B"> `denied by rule`</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // b) 显式 allow</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (allowList</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">some</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">p</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> matchPattern</span><span style="color:#4C4F69">(sig</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> p))) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> behavior</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'allow'</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // c) 只读默认 allow（在沙箱前提下可以这么宽松）</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (tool</span><span style="color:#179299">.</span><span style="color:#4C4F69">isReadOnly) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> behavior</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'allow'</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // d) 其他：问用户</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> behavior</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'ask'</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ===== 子任务专属权限（闭包） =====</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> createNarrowPermission</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">allowedTool</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> allowedPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> CanUseToolFn</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">tool</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> input</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (tool</span><span style="color:#179299">.</span><span style="color:#4C4F69">name </span><span style="color:#179299">===</span><span style="color:#4C4F69"> allowedTool </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> input</span><span style="color:#179299">?.</span><span style="color:#4C4F69">file_path </span><span style="color:#179299">===</span><span style="color:#4C4F69"> allowedPath) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> behavior</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'allow'</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> behavior</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'deny'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> message</span><span style="color:#179299">:</span><span style="color:#40A02B"> `only </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">allowedTool</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> on </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">allowedPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> matchPattern</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">sig</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> pattern</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 简化：把 * 当 .*</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> re </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> RegExp</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'^'</span><span style="color:#179299"> +</span><span style="color:#4C4F69"> pattern</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">replace</span><span style="color:#4C4F69">(</span><span style="color:#EA76CB">/\*/</span><span style="color:#8839EF">g</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> '.*'</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">replace</span><span style="color:#4C4F69">(</span><span style="color:#EA76CB">/\(/</span><span style="color:#8839EF">g</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> '</span><span style="color:#EA76CB">\\</span><span style="color:#40A02B">('</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">replace</span><span style="color:#4C4F69">(</span><span style="color:#EA76CB">/\)/</span><span style="color:#8839EF">g</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> '</span><span style="color:#EA76CB">\\</span><span style="color:#40A02B">)'</span><span style="color:#4C4F69">) </span><span style="color:#179299">+</span><span style="color:#40A02B"> '$'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> re</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">test</span><span style="color:#4C4F69">(sig)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ===== 用法 =====</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> defaultPerm </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> createDefaultPermission</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">  [</span><span style="color:#40A02B">'Read(*)'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'Glob(*)'</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">          // 全允</span></span>
+<span class="line"><span style="color:#4C4F69">  [</span><span style="color:#40A02B">'Bash(rm -rf*)'</span><span style="color:#4C4F69">]                </span><span style="color:#9CA0B0;font-style:italic">// 危险拒</span></span>
+<span class="line"><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> sessionMemoryPerm </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> createNarrowPermission</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'FileEdit'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> '/tmp/session.md'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 这个 perm 给 session-memory 子 agent 用 → 只能编辑那一个文件</span></span></code></pre><p>60 行就有了 Claude Code 权限模型的核心 pattern：<strong>默认规则 + 子任务专属闭包</strong>。</p>
+<hr>
+<h2 id="本课小结">本课小结</h2>
+<ul>
+<li>安全是<strong>四层结构</strong>：shouldUseSandbox → 翻译 config → bashPermissions → Shell wrap</li>
+<li><code>excludedCommands</code> 是 convenience，<strong>不是 security boundary</strong>——文档化清楚</li>
+<li>沙箱让权限系统可以适度放宽，两者<strong>协作而非冗余</strong></li>
+<li>子任务权限用<strong>闭包硬编码</strong>比规则字符串更可靠（<code>createMemoryFileCanUseTool</code> 是教科书级例子）</li>
+</ul>
+<hr>
+<h2 id="延伸阅读">延伸阅读</h2>
+<ul>
+<li><code>analysis/04e-sandbox-implementation.md</code> 全文 - 800+ 行，是理解 sandbox 最完整的资料</li>
+<li><code>analysis/02-security-analysis.md</code> §3 - 防范性安全措施</li>
+<li>下一课：<code>07_skills.md</code> - Skill 系统：Markdown + 内嵌 Shell</li>
+</ul>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/cca-05-orchestration.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第5课：工具调度与并发</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/cca-07-skills.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第7课：Skill 系统</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#源码定位">源码定位</a></li><li class="lvl-2"><a href="#四层结构总览">四层结构总览</a></li><li class="lvl-2"><a href="#第-1-层shouldusesandbox">第 1 层：shouldUseSandbox</a></li><li class="lvl-2"><a href="#excludedcommands-不是安全边界">&quot;excludedCommands 不是安全边界&quot;</a></li><li class="lvl-2"><a href="#第-2-层settings-sandbox-config-翻译">第 2 层：settings → sandbox config 翻译</a></li><li class="lvl-2"><a href="#第-3-层bashpermissions">第 3 层：bashPermissions</a></li><li class="lvl-2"><a href="#第-4-层shellts-真正包-runtime">第 4 层：Shell.ts 真正包 runtime</a></li><li class="lvl-2"><a href="#平台级权限canusetoolfn">平台级权限：CanUseToolFn</a></li><li class="lvl-2"><a href="#pattern-提炼">Pattern 提炼</a></li><li class="lvl-3"><a href="#pattern-1分清防错误和防恶意">Pattern 1：分清&quot;防错误&quot;和&quot;防恶意&quot;</a></li><li class="lvl-3"><a href="#pattern-2四层防御纵深">Pattern 2：四层防御纵深</a></li><li class="lvl-3"><a href="#pattern-3沙箱与权限系统协作">Pattern 3：沙箱与权限系统协作</a></li><li class="lvl-3"><a href="#pattern-4canusetoolfn-是闭包">Pattern 4：CanUseToolFn 是闭包</a></li><li class="lvl-2"><a href="#自己实现60-行的最小权限模型">自己实现：60 行的最小权限模型</a></li><li class="lvl-2"><a href="#本课小结">本课小结</a></li><li class="lvl-2"><a href="#延伸阅读">延伸阅读</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

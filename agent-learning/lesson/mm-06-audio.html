@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第6课：语音处理 — 多模态 AI 开发</title>
+  <meta name="description" content="Whisper STT + TTS + 实时语音 Agent">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-green">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-green">
+      <div class="crumb">
+        <div class="crumb-icon">MM</div>
+        <div class="crumb-text">多模态 AI 开发</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/mm-01-vision.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">图像理解</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-02-image-gen.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">图像生成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-03-video.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">视频生成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-04-documents.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">文档解析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-05-ppt.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">PPT 自动生成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-06-audio.html" class="active">
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">语音处理</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-07-multimodal-agent.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多模态 Agent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-08-multimodal-rag.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多模态 RAG</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/mm-01-vision.html" class="current">多模态 AI 开发</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">06</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第6课：语音处理</div>
+          <div class="desc">Whisper STT + TTS + 实时语音 Agent</div>
+          <div class="tags">
+            <span class="tag">audio</span><span class="tag">multimodal</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">06_audio_processing.md</code></span>
+            <span>📏 430 行</span>
+            <span style="opacity:0.7;">multimodal/lessons/06_audio_processing.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第6课：音频处理 — 语音识别 + 文字转语音</h1>
+<h2 id="介绍">介绍</h2>
+<p>音频是多模态的重要维度。Whisper 做语音识别（STT），OpenAI TTS / MiniMax TTS 做文字转语音（TTS），构建语音 Agent。音频处理涉及格式转换、流式处理、实时性要求，比文本 API 复杂。本课覆盖 Whisper API（转录、翻译）、OpenAI TTS（6种声音、速度调节）、实时语音对话 Pipeline（录音→STT→LLM→TTS→播放）。</p>
+<hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>音频处理涉及格式转换、流式处理、实时性要求，比文本 API 复杂：</p>
+<ol>
+<li><strong>Whisper API 文件限制</strong>：最大 25MB，超过需要先压缩或分片</li>
+<li><strong>音频格式转换</strong>：录音设备可能输出 WAV/OGG，API 支持的格式不同</li>
+<li><strong>TTS 流式播放</strong>：等全部生成完再播放延迟高，需要边生成边播放</li>
+<li><strong>实时对话延迟</strong>：STT + LLM + TTS 三个串行调用，需要优化流水线</li>
+</ol>
+<hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-aopenai-whisper-openai-tts全-openai-方案">方案 A：OpenAI Whisper + OpenAI TTS（全 OpenAI 方案）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// STT</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> transcript </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">audio</span><span style="color:#179299">.</span><span style="color:#4C4F69">transcriptions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  file</span><span style="color:#179299">:</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">createReadStream</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"audio.mp3"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "whisper-1"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// TTS</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> speech </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">audio</span><span style="color:#179299">.</span><span style="color:#4C4F69">speech</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "tts-1-hd"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  voice</span><span style="color:#179299">:</span><span style="color:#40A02B"> "nova"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  input</span><span style="color:#179299">:</span><span style="color:#4C4F69"> text</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>✅ 统一 SDK，API 风格一致
+✅ Whisper 是业界最佳 STT 模型
+❌ TTS 声音选择少（6种），中文效果一般</p>
+<h3 id="方案-bopenai-whisper-minimax-tts">方案 B：OpenAI Whisper + MiniMax TTS</h3>
+<p>✅ 中文 TTS 效果更好（MiniMax）
+✅ Whisper STT 准确率最高
+❌ 需要两套 SDK</p>
+<h3 id="方案-cazure-speech-services企业方案">方案 C：Azure Speech Services（企业方案）</h3>
+<p>✅ 低延迟实时流式 STT，企业级 SLA
+❌ 配置复杂，成本较高</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p><strong>英文场景</strong>用方案 A；<strong>中文语音应用</strong>用方案 B（Whisper STT + MiniMax TTS 中文效果更自然）。本课同时实现两种 TTS，重点覆盖完整的语音对话 Pipeline。</p>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="whisper-api语音识别翻译">Whisper API（语音识别、翻译）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/audio/whisper.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> path </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "path"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> openai </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 支持的格式：flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> transcribe</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  audioPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  options</span><span style="color:#179299">?:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    language</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">      // "zh" 中文，"en" 英文，不填自动检测</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    prompt</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">        // 提示词，帮助识别专有名词</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    responseFormat</span><span style="color:#179299">?:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">json</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">text</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">srt</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">vtt</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">verbose_json</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69;font-style:italic"> text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> language</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> duration</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> segments</span><span style="color:#179299">?:</span><span style="color:#8839EF"> any</span><span style="color:#DF8E1D;font-style:italic">[] </span><span style="color:#7C7F93">}</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> fileStats </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">statSync</span><span style="color:#4C4F69">(audioPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> fileSizeMB </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fileStats</span><span style="color:#179299">.</span><span style="color:#4C4F69">size </span><span style="color:#179299">/</span><span style="color:#FE640B"> 1024</span><span style="color:#179299"> /</span><span style="color:#FE640B"> 1024</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (fileSizeMB </span><span style="color:#179299">></span><span style="color:#FE640B"> 25</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">warn</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`文件 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">fileSizeMB</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">1</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">MB 超过 25MB 限制，建议先压缩`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> fileStream </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">createReadStream</span><span style="color:#4C4F69">(audioPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">audio</span><span style="color:#179299">.</span><span style="color:#4C4F69">transcriptions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    file</span><span style="color:#179299">:</span><span style="color:#4C4F69"> fileStream </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "whisper-1"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    language</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">language</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    prompt</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">prompt</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    response_format</span><span style="color:#179299">:</span><span style="color:#4C4F69"> (options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">responseFormat </span><span style="color:#179299">||</span><span style="color:#40A02B"> "verbose_json"</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    timestamp_granularities</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"segment"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">typeof</span><span style="color:#4C4F69"> response </span><span style="color:#179299">===</span><span style="color:#40A02B"> "string"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    text</span><span style="color:#179299">:</span><span style="color:#4C4F69"> (response </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#4C4F69">text</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    language</span><span style="color:#179299">:</span><span style="color:#4C4F69"> (response </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#4C4F69">language</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    duration</span><span style="color:#179299">:</span><span style="color:#4C4F69"> (response </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#4C4F69">duration</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    segments</span><span style="color:#179299">:</span><span style="color:#4C4F69"> (response </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#4C4F69">segments</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 语音翻译（将任意语言翻译为英文）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> translate</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">audioPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> fileStream </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">createReadStream</span><span style="color:#4C4F69">(audioPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">audio</span><span style="color:#179299">.</span><span style="color:#4C4F69">translations</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    file</span><span style="color:#179299">:</span><span style="color:#4C4F69"> fileStream </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "whisper-1"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    response_format</span><span style="color:#179299">:</span><span style="color:#40A02B"> "text"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> response </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> unknown</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 大文件处理：先压缩再转录</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> transcribeLargeFile</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">audioPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> exec </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#8839EF"> await</span><span style="color:#179299"> import</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"child_process"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> promisify </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#8839EF"> await</span><span style="color:#179299"> import</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"util"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> execAsync </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> promisify</span><span style="color:#4C4F69">(exec)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> compressedPath </span><span style="color:#179299">=</span><span style="color:#4C4F69"> audioPath</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">replace</span><span style="color:#4C4F69">(</span><span style="color:#EA76CB">/\.</span><span style="color:#DF8E1D">[</span><span style="color:#179299">^</span><span style="color:#EA76CB">.</span><span style="color:#DF8E1D">]</span><span style="color:#179299">+</span><span style="color:#8839EF">$</span><span style="color:#EA76CB">/</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "_compressed.mp3"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 用 ffmpeg 压缩音频：降码率到 64kbps</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> execAsync</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">    `ffmpeg -i "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">audioPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">" -b:a 64k -ar 16000 -ac 1 -y "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">compressedPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">"`</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`音频已压缩: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">compressedPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> transcribe</span><span style="color:#4C4F69">(compressedPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 清理压缩文件</span></span>
+<span class="line"><span style="color:#4C4F69">  fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">unlinkSync</span><span style="color:#4C4F69">(compressedPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> result</span><span style="color:#179299">.</span><span style="color:#4C4F69">text</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 带时间戳的字幕生成</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> generateSubtitles</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  audioPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  format</span><span style="color:#179299">:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">srt</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">vtt</span><span style="color:#40A02B">"</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "srt"</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> fileStream </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">createReadStream</span><span style="color:#4C4F69">(audioPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">audio</span><span style="color:#179299">.</span><span style="color:#4C4F69">transcriptions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    file</span><span style="color:#179299">:</span><span style="color:#4C4F69"> fileStream </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "whisper-1"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    response_format</span><span style="color:#179299">:</span><span style="color:#4C4F69"> format</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> response </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> unknown</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="openai-tts6种声音速度调节">OpenAI TTS（6种声音、速度调节）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/audio/openai_tts.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> openai </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// OpenAI TTS 的 6 种声音特点：</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// alloy  - 中性，清晰，适合新闻播报</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// echo   - 男声，深沉</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// fable  - 英式口音，叙事感强</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// onyx   - 男声，权威感强</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// nova   - 女声，活泼，适合助手</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// shimmer - 女声，温柔</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> type</span><span style="color:#DF8E1D;font-style:italic"> OpenAIVoice </span><span style="color:#179299">=</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">alloy</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">echo</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">fable</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">onyx</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">nova</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">shimmer</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> textToSpeech</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  outputPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  options</span><span style="color:#179299">?:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    voice</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> OpenAIVoice</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    model</span><span style="color:#179299">?:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">tts-1</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">tts-1-hd</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // tts-1 快，tts-1-hd 高质量</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    speed</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">                // 0.25 - 4.0，默认 1.0</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    format</span><span style="color:#179299">?:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">mp3</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">opus</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">aac</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">flac</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">wav</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">pcm</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Buffer</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">audio</span><span style="color:#179299">.</span><span style="color:#4C4F69">speech</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">model </span><span style="color:#179299">||</span><span style="color:#40A02B"> "tts-1-hd"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    voice</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">voice </span><span style="color:#179299">||</span><span style="color:#40A02B"> "nova"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    input</span><span style="color:#179299">:</span><span style="color:#4C4F69"> text</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    speed</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">speed </span><span style="color:#179299">||</span><span style="color:#FE640B"> 1.0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    response_format</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">format </span><span style="color:#179299">||</span><span style="color:#40A02B"> "mp3"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> buffer </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Buffer</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">from</span><span style="color:#4C4F69">(</span><span style="color:#8839EF">await</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">arrayBuffer</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">writeFileSync</span><span style="color:#4C4F69">(outputPath</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> buffer)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`语音已保存: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> (</span><span style="color:#7C7F93">${</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">buffer</span><span style="color:#179299">.</span><span style="color:#40A02B">length </span><span style="color:#179299">/</span><span style="color:#FE640B"> 1024</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">1</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">KB)`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> buffer</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 流式 TTS（边生成边播放，降低首字节延迟）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> streamingTTS</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  outputPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  onChunk</span><span style="color:#179299">?:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">chunk</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Buffer</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#8839EF"> void</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">audio</span><span style="color:#179299">.</span><span style="color:#4C4F69">speech</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "tts-1"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    voice</span><span style="color:#179299">:</span><span style="color:#40A02B"> "nova"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    input</span><span style="color:#179299">:</span><span style="color:#4C4F69"> text</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    response_format</span><span style="color:#179299">:</span><span style="color:#40A02B"> "mp3"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> writeStream </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">createWriteStream</span><span style="color:#4C4F69">(outputPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> reader </span><span style="color:#179299">=</span><span style="color:#4C4F69"> (response</span><span style="color:#179299">.</span><span style="color:#4C4F69">body </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">getReader</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  while</span><span style="color:#4C4F69"> (</span><span style="color:#FE640B">true</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> done</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> value </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> reader</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">read</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (done) </span><span style="color:#8839EF">break</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> chunk </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Buffer</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">from</span><span style="color:#4C4F69">(value)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    writeStream</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(chunk)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    onChunk</span><span style="color:#179299">?.</span><span style="color:#4C4F69">(chunk)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  writeStream</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">end</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`流式音频已保存: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 长文本分段 TTS（超过 4096 字需要分段）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> longTextToSpeech</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  outputDir</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  voice</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> OpenAIVoice </span><span style="color:#179299">=</span><span style="color:#40A02B"> "nova"</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> MAX_CHARS </span><span style="color:#179299">=</span><span style="color:#FE640B"> 4000</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 保留一些余量</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> segments</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 按句子分割</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> sentences </span><span style="color:#179299">=</span><span style="color:#4C4F69"> text</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">split</span><span style="color:#4C4F69">(</span><span style="color:#EA76CB">/</span><span style="color:#40A02B">(</span><span style="color:#DF8E1D">[</span><span style="color:#4C4F69">。！？</span><span style="color:#EA76CB">.</span><span style="color:#4C4F69">!?</span><span style="color:#DF8E1D">]</span><span style="color:#40A02B">)</span><span style="color:#EA76CB">/</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> current </span><span style="color:#179299">=</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">let</span><span style="color:#4C4F69"> i </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i </span><span style="color:#179299">&#x3C;</span><span style="color:#4C4F69"> sentences</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i </span><span style="color:#179299">+=</span><span style="color:#FE640B"> 2</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> sentence </span><span style="color:#179299">=</span><span style="color:#4C4F69"> sentences[i] </span><span style="color:#179299">+</span><span style="color:#4C4F69"> (sentences[i </span><span style="color:#179299">+</span><span style="color:#FE640B"> 1</span><span style="color:#4C4F69">] </span><span style="color:#179299">||</span><span style="color:#40A02B"> ""</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (current</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">+</span><span style="color:#4C4F69"> sentence</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#4C4F69"> MAX_CHARS) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (current) segments</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(current)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      current </span><span style="color:#179299">=</span><span style="color:#4C4F69"> sentence</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      current </span><span style="color:#179299">+=</span><span style="color:#4C4F69"> sentence</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (current) segments</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(current)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> outputFiles</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">let</span><span style="color:#4C4F69"> i </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i </span><span style="color:#179299">&#x3C;</span><span style="color:#4C4F69"> segments</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i</span><span style="color:#179299">++</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> outputPath </span><span style="color:#179299">=</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputDir</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">/segment_</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">i</span><span style="color:#179299"> +</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">.mp3`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#1E66F5;font-style:italic"> textToSpeech</span><span style="color:#4C4F69">(segments[i]</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> outputPath</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> voice </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    outputFiles</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(outputPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`分段 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">i</span><span style="color:#179299"> +</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">/</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">segments</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 完成`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> outputFiles</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="实时语音对话-pipeline">实时语音对话 Pipeline</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/audio/voice_pipeline.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> transcribe </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./whisper"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> textToSpeech</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> streamingTTS </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./openai_tts"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> path </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "path"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> openai </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> ConversationTurn</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">user</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">assistant</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  audioPath</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 完整语音对话 Pipeline</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> VoicePipeline</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> conversationHistory</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ConversationTurn[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> outputDir</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">outputDir</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "./voice_output"</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">outputDir </span><span style="color:#179299">=</span><span style="color:#4C4F69"> outputDir</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">existsSync</span><span style="color:#4C4F69">(outputDir)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">mkdirSync</span><span style="color:#4C4F69">(outputDir</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> recursive</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 处理一轮语音对话</span></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> processVoiceTurn</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">audioInputPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    userText</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    assistantText</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    audioOutputPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> turnId </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 步骤1：STT - 语音转文字</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"[1/3] 语音识别中..."</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> sttStart </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> text</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> userText </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> transcribe</span><span style="color:#4C4F69">(audioInputPath</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> language</span><span style="color:#179299">:</span><span style="color:#40A02B"> "zh"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`    识别完成 (</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#40A02B">() </span><span style="color:#179299">-</span><span style="color:#4C4F69"> sttStart</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">ms): "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">userText</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">"`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">conversationHistory</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userText</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> audioPath</span><span style="color:#179299">:</span><span style="color:#4C4F69"> audioInputPath </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 步骤2：LLM - 生成回复</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"[2/3] LLM 生成回复中..."</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> llmStart </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> messages </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">conversationHistory</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">turn</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> (</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      role</span><span style="color:#179299">:</span><span style="color:#4C4F69"> turn</span><span style="color:#179299">.</span><span style="color:#4C4F69">role</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> turn</span><span style="color:#179299">.</span><span style="color:#4C4F69">text</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o-mini"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span></span>
+<span class="line"><span style="color:#4C4F69">          role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个语音助手。回复简洁，控制在 100 字以内，适合语音播报。不使用 Markdown 格式。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#179299">        ...</span><span style="color:#4C4F69">messages</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 200</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> assistantText </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">||</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`    生成完成 (</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#40A02B">() </span><span style="color:#179299">-</span><span style="color:#4C4F69"> llmStart</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">ms): "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">assistantText</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">"`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 步骤3：TTS - 文字转语音</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"[3/3] 语音合成中..."</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> ttsStart </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> audioOutputPath </span><span style="color:#179299">=</span><span style="color:#4C4F69"> path</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">outputDir</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> `reply_</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">turnId</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">.mp3`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#1E66F5;font-style:italic"> textToSpeech</span><span style="color:#4C4F69">(assistantText</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> audioOutputPath</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> voice</span><span style="color:#179299">:</span><span style="color:#40A02B"> "nova"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> speed</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1.1</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`    合成完成 (</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#40A02B">() </span><span style="color:#179299">-</span><span style="color:#4C4F69"> ttsStart</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">ms)`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">conversationHistory</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      text</span><span style="color:#179299">:</span><span style="color:#4C4F69"> assistantText</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      audioPath</span><span style="color:#179299">:</span><span style="color:#4C4F69"> audioOutputPath</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> userText</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> assistantText</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> audioOutputPath </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  getHistory</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ConversationTurn[]</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">conversationHistory</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  clearHistory</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">conversationHistory </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 模拟完整对话演示</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runVoiceDemo</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> pipeline </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> VoicePipeline</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"./voice_demo"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 模拟：将文字转成"用户语音"，再走完整 pipeline</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> userInputs </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#40A02B">    "你好，请介绍一下你自己"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "我想学习 AI 开发，从哪里开始好呢？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> input </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> userInputs) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 先把用户文字转成音频（模拟录音）</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> userAudioPath </span><span style="color:#179299">=</span><span style="color:#40A02B"> `./voice_demo/user_input_</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#40A02B">()</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">.mp3`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#1E66F5;font-style:italic"> textToSpeech</span><span style="color:#4C4F69">(input</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> userAudioPath</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> voice</span><span style="color:#179299">:</span><span style="color:#40A02B"> "echo"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 用户说：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> ===`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> pipeline</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">processVoiceTurn</span><span style="color:#4C4F69">(userAudioPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`助手回复：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">assistantText</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`音频输出：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">audioOutputPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="音频格式处理">音频格式处理</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/audio/format_utils.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> exec </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "child_process"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> promisify </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "util"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> execAsync </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> promisify</span><span style="color:#4C4F69">(exec)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 音频格式转换（需要 ffmpeg）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> convertAudio</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  inputPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  outputPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  options</span><span style="color:#179299">?:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> bitrate</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> sampleRate</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> channels</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> bitrate </span><span style="color:#179299">=</span><span style="color:#40A02B"> "64k"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> sampleRate </span><span style="color:#179299">=</span><span style="color:#FE640B"> 16000</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> channels </span><span style="color:#179299">=</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93"> }</span><span style="color:#179299"> =</span><span style="color:#4C4F69"> options </span><span style="color:#179299">||</span><span style="color:#7C7F93"> {};</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> execAsync</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">    `ffmpeg -i "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">inputPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">" -b:a </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">bitrate</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> -ar </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">sampleRate</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> -ac </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">channels</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> -y "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">"`</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`音频已转换: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 合并多个音频文件</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> mergeAudioFiles</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  inputPaths</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  outputPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> listFile </span><span style="color:#179299">=</span><span style="color:#40A02B"> `./concat_list_</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#40A02B">()</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">.txt`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> listContent </span><span style="color:#179299">=</span><span style="color:#4C4F69"> inputPaths</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">p</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `file '</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">p</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">'`</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  require</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"fs"</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">writeFileSync</span><span style="color:#4C4F69">(listFile</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> listContent)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> execAsync</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`ffmpeg -f concat -safe 0 -i "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">listFile</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">" -c copy -y "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">"`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  require</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"fs"</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">unlinkSync</span><span style="color:#4C4F69">(listFile)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`音频已合并: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课学习<strong>第7课：多模态 Agent — 看图、听声、读文的综合 Agent</strong>。前6课我们分别学了图像、视频、文档、音频的处理方式。现在把它们整合成一个 Agent，能处理混合输入：用户同时上传一张图和一份 PDF，Agent 能同时理解两者并给出综合分析。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/mm-05-ppt.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第5课：PPT 自动生成</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/mm-07-multimodal-agent.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第7课：多模态 Agent</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-aopenai-whisper-openai-tts全-openai-方案">方案 A：OpenAI Whisper + OpenAI TTS（全 OpenAI 方案）</a></li><li class="lvl-3"><a href="#方案-bopenai-whisper-minimax-tts">方案 B：OpenAI Whisper + MiniMax TTS</a></li><li class="lvl-3"><a href="#方案-cazure-speech-services企业方案">方案 C：Azure Speech Services（企业方案）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#whisper-api语音识别翻译">Whisper API（语音识别、翻译）</a></li><li class="lvl-3"><a href="#openai-tts6种声音速度调节">OpenAI TTS（6种声音、速度调节）</a></li><li class="lvl-3"><a href="#实时语音对话-pipeline">实时语音对话 Pipeline</a></li><li class="lvl-3"><a href="#音频格式处理">音频格式处理</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

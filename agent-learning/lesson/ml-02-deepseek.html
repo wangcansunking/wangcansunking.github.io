@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第2课：DeepSeek — 多 LLM 接入实战</title>
+  <meta name="description" content="推理模型 R1 + 低成本 V3，场景选型">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-cyan">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-cyan">
+      <div class="crumb">
+        <div class="crumb-icon">LM</div>
+        <div class="crumb-text">多 LLM 接入实战</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ml-01-openai.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">OpenAI API</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-02-deepseek.html" class="active">
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">DeepSeek</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-03-gemini.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Google Gemini</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-04-kimi.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Kimi (Moonshot)</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-05-minimax.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MiniMax</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-06-unified.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">统一接口层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-07-selection.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">模型选型指南</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-08-fallback.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Fallback 与多模型协作</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ml-01-openai.html" class="current">多 LLM 接入实战</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">02</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第2课：DeepSeek</div>
+          <div class="desc">推理模型 R1 + 低成本 V3，场景选型</div>
+          <div class="tags">
+            <span class="tag">deepseek</span><span class="tag">llm</span><span class="tag">reasoning</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">02_deepseek.md</code></span>
+            <span>📏 686 行</span>
+            <span style="opacity:0.7;">multi-llm/lessons/02_deepseek.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第2课：DeepSeek — 推理模型 + 低成本 Agent</h1>
+<h2 id="介绍">介绍</h2>
+<p>DeepSeek 是中国深度求索公司推出的高性价比大模型系列，其 API <strong>完全兼容 OpenAI 格式</strong>，只需修改 <code>baseURL</code> 即可接入，无需学习新 SDK。本课重点介绍两个核心模型：</p>
+<ul>
+<li><strong>DeepSeek-V3</strong>（<code>deepseek-chat</code>）：通用对话、代码、翻译等日常任务，价格仅为 GPT-4o 的约 1/10</li>
+<li><strong>DeepSeek-R1</strong>（<code>deepseek-reasoner</code>）：专用推理模型，内置思维链（Chain-of-Thought），擅长数学证明、逻辑分析、复杂推理，并能将推理过程完整输出</li>
+</ul>
+<p>学完本课你将掌握：如何用最小代价迁移现有 OpenAI 代码到 DeepSeek、如何利用 R1 的思维链解决 GPT-4o 不稳定的推理问题、以及如何设计按场景路由的智能模型选择器。</p>
+<hr>
+<h2 id="整体架构deepseek-模型家族">整体架构：DeepSeek 模型家族</h2>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    DS[&quot;DeepSeek API\nhttps://api.deepseek.com\n（兼容 OpenAI 格式）&quot;]
+
+    DS --&gt; V3[&quot;DeepSeek-V3\nModel: deepseek-chat&quot;]
+    DS --&gt; R1[&quot;DeepSeek-R1\nModel: deepseek-reasoner&quot;]
+
+    V3 --&gt; V3A[&quot;日常对话&quot;]
+    V3 --&gt; V3B[&quot;代码生成 / 调试&quot;]
+    V3 --&gt; V3C[&quot;中文翻译 / 写作&quot;]
+    V3 --&gt; V3D[&quot;文档摘要&quot;]
+
+    R1 --&gt; R1A[&quot;数学证明 / 计算&quot;]
+    R1 --&gt; R1B[&quot;逻辑推理&quot;]
+    R1 --&gt; R1C[&quot;复杂分析&quot;]
+    R1 --&gt; R1D[&quot;输出思维链过程&quot;]
+
+    style DS fill:#1a73e8,color:#fff
+    style V3 fill:#34a853,color:#fff
+    style R1 fill:#ea4335,color:#fff</pre></div><p><strong>与 OpenAI 的兼容关系：</strong></p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart LR
+    Code[&quot;你的现有代码\n（OpenAI SDK）&quot;]
+
+    Code --&gt;|&quot;只改 baseURL\n+ apiKey&quot;| DS[&quot;DeepSeek API&quot;]
+    Code --&gt;|&quot;原始配置&quot;| OAI[&quot;OpenAI API&quot;]
+
+    DS --&gt; V3M[&quot;deepseek-chat\nV3 模型&quot;]
+    DS --&gt; R1M[&quot;deepseek-reasoner\nR1 模型&quot;]
+    OAI --&gt; GPT4O[&quot;gpt-4o&quot;]
+
+    style DS fill:#1a73e8,color:#fff
+    style OAI fill:#10a37f,color:#fff</pre></div><blockquote>
+<p>DeepSeek 的 API 完全实现了 OpenAI Chat Completions 接口规范，同一套代码只需修改两行配置即可切换。</p>
+</blockquote>
+<hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>你在用 GPT-4o 构建 Agent 时发现成本很高——每次复杂任务消耗数千 tokens，月底账单触目惊心。同时，某些推理任务（数学证明、逻辑分析）GPT-4o 表现不稳定。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>GPT-4o 价格（2024年）：</span></span>
+<span class="line"><span>  输入：$2.50 / 1M tokens</span></span>
+<span class="line"><span>  输出：$10.00 / 1M tokens</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>一个典型 Agent 任务：~5000 tokens 输入 + ~1000 tokens 输出</span></span>
+<span class="line"><span>成本：$0.0125 + $0.010 = $0.0225 / 次</span></span>
+<span class="line"><span>月跑 10万次：≈ $2,250 / 月</span></span></code></pre><p><strong>核心问题：</strong></p>
+<ol>
+<li>日常任务用 GPT-4o 过于昂贵</li>
+<li>复杂推理任务需要更强的推理模型</li>
+<li>两种需求需要两套不同的模型策略</li>
+</ol>
+<p><strong>代码迁移有多简单：</strong></p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    A[&quot;原始 OpenAI 代码&quot;] --&gt; B{&quot;改动内容&quot;}
+    B --&gt; C[&quot;apiKey\n换成 DeepSeek key&quot;]
+    B --&gt; D[&quot;baseURL\n改为 api.deepseek.com&quot;]
+    B --&gt; E[&quot;model\n改为 deepseek-chat 或\ndeepseek-reasoner&quot;]
+    C --&gt; F[&quot;其他所有代码\n完全不变&quot;]
+    D --&gt; F
+    E --&gt; F
+    F --&gt; G[&quot;接入 DeepSeek 完成&quot;]
+
+    style G fill:#34a853,color:#fff</pre></div><hr>
+<h2 id="v3-vs-r1-对比">V3 vs R1 对比</h2>
+<table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th>DeepSeek-V3</th>
+<th>DeepSeek-R1</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>模型 ID</strong></td>
+<td><code>deepseek-chat</code></td>
+<td><code>deepseek-reasoner</code></td>
+</tr>
+<tr>
+<td><strong>适合场景</strong></td>
+<td>日常对话、代码、翻译、摘要、中文任务</td>
+<td>数学推理、逻辑证明、复杂分析、算法设计</td>
+</tr>
+<tr>
+<td><strong>输入价格</strong></td>
+<td>$0.27 / 1M tokens</td>
+<td>$0.55 / 1M tokens</td>
+</tr>
+<tr>
+<td><strong>输出价格</strong></td>
+<td>$1.10 / 1M tokens</td>
+<td>$2.19 / 1M tokens</td>
+</tr>
+<tr>
+<td><strong>特殊能力</strong></td>
+<td>中文优化，代码能力强，支持 Function Calling</td>
+<td>输出 <code>reasoning_content</code>（思维链过程可见）</td>
+</tr>
+<tr>
+<td><strong>响应速度</strong></td>
+<td>较快</td>
+<td>较慢（推理过程需要更多时间）</td>
+</tr>
+<tr>
+<td><strong>推理可见性</strong></td>
+<td>不输出推理过程</td>
+<td>输出完整推理过程（<code>reasoning_content</code> 字段）</td>
+</tr>
+<tr>
+<td><strong>支持 System Message</strong></td>
+<td>支持</td>
+<td><strong>不支持</strong>（system 会被忽略）</td>
+</tr>
+<tr>
+<td><strong>支持 Function Calling</strong></td>
+<td>支持</td>
+<td><strong>不支持</strong></td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a全用-gpt-4o">方案 A：全用 GPT-4o</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>✅ 质量稳定，英文任务优秀
+❌ 成本高，日常任务大材小用
+❌ 推理能力不如专用推理模型</p>
+<h3 id="方案-bdeepseek-v3-替换日常任务">方案 B：DeepSeek-V3 替换日常任务</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 只需修改 baseURL，其余代码完全不变</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> deepseek </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">DEEPSEEK_API_KEY</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  baseURL</span><span style="color:#179299">:</span><span style="color:#40A02B"> "https://api.deepseek.com"</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> deepseek</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "deepseek-chat"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  // DeepSeek-V3</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>✅ 代码改动极小（只改 client 初始化）
+✅ 成本降低 10-20 倍
+❌ 英文长文写作质量略逊于 GPT-4o</p>
+<h3 id="方案-cr1-v3-分场景路由推荐">方案 C：R1 + V3 分场景路由（推荐）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 根据任务类型选择模型</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> selectModel</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">taskType</span><span style="color:#179299">:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">reasoning</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">chat</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">code</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  switch</span><span style="color:#4C4F69"> (taskType) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    case</span><span style="color:#40A02B"> "reasoning"</span><span style="color:#7C7F93">:</span><span style="color:#8839EF"> return</span><span style="color:#40A02B"> "deepseek-reasoner"</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // R1：推理任务</span></span>
+<span class="line"><span style="color:#8839EF">    case</span><span style="color:#40A02B"> "code"</span><span style="color:#7C7F93">:</span><span style="color:#8839EF">      return</span><span style="color:#40A02B"> "deepseek-chat"</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">       // V3：代码能力强</span></span>
+<span class="line"><span style="color:#8839EF">    case</span><span style="color:#40A02B"> "chat"</span><span style="color:#7C7F93">:</span><span style="color:#8839EF">      return</span><span style="color:#40A02B"> "deepseek-chat"</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">       // V3：日常对话</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>✅ 推理任务用 R1，成本效益最优
+✅ 日常任务用 V3，极低成本
+❌ 需要任务分类逻辑</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p><strong>使用方案 C</strong>：R1 用于数学/逻辑/推理任务（能看到思考过程），V3 用于对话/代码/文本任务。成本对比：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>模型 ID</th>
+<th>输入价格</th>
+<th>输出价格</th>
+<th>适合场景</th>
+<th>相对成本</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>GPT-4o</td>
+<td><code>gpt-4o</code></td>
+<td>$2.50/M</td>
+<td>$10.00/M</td>
+<td>英文任务，需要可靠性</td>
+<td>$$$$$</td>
+</tr>
+<tr>
+<td>GPT-4o-mini</td>
+<td><code>gpt-4o-mini</code></td>
+<td>$0.15/M</td>
+<td>$0.60/M</td>
+<td>简单英文任务，低成本</td>
+<td>$$</td>
+</tr>
+<tr>
+<td>Claude Sonnet 4.6</td>
+<td><code>claude-sonnet-4-6</code></td>
+<td>$3.00/M</td>
+<td>$15.00/M</td>
+<td>编程，长文档，复杂指令</td>
+<td>$$$$$</td>
+</tr>
+<tr>
+<td>DeepSeek-V3</td>
+<td><code>deepseek-chat</code></td>
+<td>$0.27/M</td>
+<td>$1.10/M</td>
+<td>日常对话，中文任务</td>
+<td>$</td>
+</tr>
+<tr>
+<td>DeepSeek-R1</td>
+<td><code>deepseek-reasoner</code></td>
+<td>$0.55/M</td>
+<td>$2.19/M</td>
+<td>数学推理，逻辑分析</td>
+<td>$$</td>
+</tr>
+<tr>
+<td>Gemini 2.0 Flash</td>
+<td><code>gemini-2.0-flash</code></td>
+<td>$0.10/M</td>
+<td>$0.40/M</td>
+<td>多模态，超长上下文</td>
+<td>$</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>DeepSeek-V3 是日常任务性价比最高的选择；R1 在推理任务上超越 GPT-4o 且成本更低。</p>
+</blockquote>
+<hr>
+<h2 id="核心概念r1-的思维链输出">核心概念：R1 的思维链输出</h2>
+<p>R1 的独特之处在于它会将推理过程以 <code>reasoning_content</code> 字段单独输出，让你看到模型是如何一步步思考的。</p>
+<div class="mermaid-wrapper"><pre class="mermaid">sequenceDiagram
+    participant U as 用户
+    participant R1 as DeepSeek-R1
+
+    U-&gt;&gt;R1: 发送复杂问题&lt;br/&gt;（无需 system message）
+
+    Note over R1: 开始推理阶段
+    R1--&gt;&gt;R1: 内部思考：拆解问题&lt;br/&gt;建立推理框架&lt;br/&gt;逐步推导...
+
+    Note over R1: 推理完成，生成回答
+    R1--&gt;&gt;U: 响应包含两个字段：&lt;br/&gt;reasoning_content: &quot;让我分析这道题...&quot;&lt;br/&gt;content: &quot;最终答案是...&quot;</pre></div><p><strong>响应结构对比：</strong></p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>普通模型（V3/GPT-4o）</th>
+<th>R1 推理模型</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>message.content</code></td>
+<td>直接回复内容</td>
+<td>最终答案（推理完成后的结论）</td>
+</tr>
+<tr>
+<td><code>message.reasoning_content</code></td>
+<td>不存在此字段</td>
+<td>完整推理过程（可能很长）</td>
+</tr>
+<tr>
+<td>流式输出</td>
+<td><code>delta.content</code></td>
+<td><code>delta.reasoning_content</code>（思考中）+ <code>delta.content</code>（回答时）</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="任务路由决策树">任务路由决策树</h2>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    T[&quot;收到任务&quot;] --&gt; Q1{包含数学/逻辑/\n证明/推导关键词？}
+
+    Q1 --&gt;|是| R1[&quot;使用 DeepSeek-R1\ndeepseek-reasoner\n可看到推理过程&quot;]
+    Q1 --&gt;|否| Q2{主要是中文任务\n或需要工具调用？}
+
+    Q2 --&gt;|是| V3_CN[&quot;使用 DeepSeek-V3\ndeepseek-chat\n中文优化，支持 Function Calling&quot;]
+    Q2 --&gt;|否| Q3{需要最高英文质量\n或多模态？}
+
+    Q3 --&gt;|是| GPT[&quot;使用 GPT-4o / Claude\n质量优先，成本次之&quot;]
+    Q3 --&gt;|否| V3_EN[&quot;使用 DeepSeek-V3\n成本优先&quot;]
+
+    style R1 fill:#ea4335,color:#fff
+    style V3_CN fill:#34a853,color:#fff
+    style V3_EN fill:#34a853,color:#fff
+    style GPT fill:#1a73e8,color:#fff</pre></div><hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="1-安装与初始化">1. 安装与初始化</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#1E66F5;font-style:italic">npm</span><span style="color:#40A02B"> install</span><span style="color:#40A02B"> openai</span><span style="color:#9CA0B0;font-style:italic">  # DeepSeek 使用 OpenAI SDK，无需额外安装</span></span></code></pre><pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/deepseek-client.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// DeepSeek 客户端配置</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 关键点：与 OpenAI 完全相同的 SDK，只是修改了 baseURL 和 apiKey</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 这是 OpenAI 兼容格式的优势：一个 SDK，多个提供商</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> deepseekClient </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">DEEPSEEK_API_KEY</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  // 从 platform.deepseek.com 获取</span></span>
+<span class="line"><span style="color:#4C4F69">  baseURL</span><span style="color:#179299">:</span><span style="color:#40A02B"> "https://api.deepseek.com"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">   // DeepSeek API 端点，替换 OpenAI 默认端点</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// V3 模型 ID（日常任务）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> DEEPSEEK_V3 </span><span style="color:#179299">=</span><span style="color:#40A02B"> "deepseek-chat"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// R1 推理模型 ID（复杂推理）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> DEEPSEEK_R1 </span><span style="color:#179299">=</span><span style="color:#40A02B"> "deepseek-reasoner"</span><span style="color:#7C7F93">;</span></span></code></pre><pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># .env</span></span>
+<span class="line"><span style="color:#4C4F69">DEEPSEEK_API_KEY</span><span style="color:#179299">=</span><span style="color:#40A02B">sk-xxxxxxxxxxxxxxxxxxxx</span></span></code></pre><hr>
+<h3 id="2-deepseek-v3-基础用法">2. DeepSeek-V3 基础用法</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/v3-basic.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> deepseekClient</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> DEEPSEEK_V3 </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./deepseek-client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> chatWithV3</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">message</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 与 OpenAI 调用方式完全相同，只是 client 不同</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> deepseekClient</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> DEEPSEEK_V3</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        // V3 支持 system message，可以正常设定角色和规则</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个专业的 TypeScript 开发助手，回答简洁准确。"</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> message</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 响应格式与 OpenAI 完全一致</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 测试</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> main</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> chatWithV3</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"解释 TypeScript 中的泛型，给一个实用例子"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(result)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">main</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="3-deepseek-r1-推理模型核心特性">3. DeepSeek-R1 推理模型（核心特性）</h3>
+<p>R1 的特别之处在于它会输出<strong>思考过程</strong>（reasoning content），你可以看到模型一步步推理的内容：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/r1-reasoning.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> deepseekClient</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> DEEPSEEK_R1 </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./deepseek-client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> ReasoningResponse</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  thinking</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 推理过程（reasoning_content 字段的内容）</span></span>
+<span class="line"><span style="color:#4C4F69">  answer</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">     // 最终答案（content 字段）</span></span>
+<span class="line"><span style="color:#4C4F69">  usage</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    reasoning_tokens</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 思考过程消耗的 tokens（计费）</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    answer_tokens</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">     // 最终回答消耗的 tokens</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> reasonWithR1</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">problem</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">ReasoningResponse</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> deepseekClient</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> DEEPSEEK_R1</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        // 注意：R1 不支持 system message，这里直接用 user role</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        // 如果传入 system message，会被忽略（不报错，但不生效）</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> problem</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> message </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // R1 特有字段：reasoning_content 包含完整推理过程</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // OpenAI SDK 的 TypeScript 类型定义中没有这个字段，需要类型断言</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> extendedMessage </span><span style="color:#179299">=</span><span style="color:#4C4F69"> message </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> typeof</span><span style="color:#4C4F69"> message </span><span style="color:#179299">&#x26;</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    reasoning_content</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    thinking</span><span style="color:#179299">:</span><span style="color:#4C4F69"> extendedMessage</span><span style="color:#179299">.</span><span style="color:#4C4F69">reasoning_content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    answer</span><span style="color:#179299">:</span><span style="color:#4C4F69"> message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    usage</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // reasoning_tokens 统计推理过程本身的 token 消耗</span></span>
+<span class="line"><span style="color:#4C4F69">      reasoning_tokens</span><span style="color:#179299">:</span><span style="color:#4C4F69"> (response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#4C4F69">)</span><span style="color:#179299">?.</span><span style="color:#4C4F69">completion_tokens_details</span><span style="color:#179299">?.</span><span style="color:#4C4F69">reasoning_tokens </span><span style="color:#179299">??</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      answer_tokens</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">?.</span><span style="color:#4C4F69">completion_tokens </span><span style="color:#179299">??</span><span style="color:#FE640B"> 0</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 测试：经典数学推理题</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> testMathReasoning</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> problem </span><span style="color:#179299">=</span><span style="color:#40A02B"> `</span></span>
+<span class="line"><span style="color:#40A02B">    一个农场有鸡和兔子共 100 只，腿共 280 条。</span></span>
+<span class="line"><span style="color:#40A02B">    请问鸡有多少只？兔子有多少只？</span></span>
+<span class="line"><span style="color:#40A02B">    请详细展示你的推理过程。</span></span>
+<span class="line"><span style="color:#40A02B">  `</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"问题:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> problem)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">开始推理...</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> reasonWithR1</span><span style="color:#4C4F69">(problem)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"=== 思考过程 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(result</span><span style="color:#179299">.</span><span style="color:#4C4F69">thinking)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 最终答案 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(result</span><span style="color:#179299">.</span><span style="color:#4C4F69">answer)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== Token 消耗 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`推理 tokens: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">.</span><span style="color:#4C4F69">reasoning_tokens</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`回答 tokens: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">.</span><span style="color:#4C4F69">answer_tokens</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">testMathReasoning</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="4-r1-流式输出展示实时思考">4. R1 流式输出（展示实时思考）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/r1-streaming.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> deepseekClient</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> DEEPSEEK_R1 </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./deepseek-client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> streamR1Reasoning</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">problem</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> stream </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> deepseekClient</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> DEEPSEEK_R1</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    stream</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> problem </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> isThinking </span><span style="color:#179299">=</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> isAnswering </span><span style="color:#179299">=</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 流式时，R1 的思维链在 delta.reasoning_content 中</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 注意：OpenAI SDK 类型不包含此字段，需要类型断言</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> delta </span><span style="color:#179299">=</span><span style="color:#4C4F69"> chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">?.</span><span style="color:#4C4F69">delta </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 思考阶段：reasoning_content 有增量内容</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (delta</span><span style="color:#179299">?.</span><span style="color:#4C4F69">reasoning_content) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">isThinking) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">💭 [思考中...]</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        isThinking </span><span style="color:#179299">=</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#4C4F69">      process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(delta</span><span style="color:#179299">.</span><span style="color:#4C4F69">reasoning_content)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 回答阶段：content 有增量内容（reasoning_content 结束后开始）</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (delta</span><span style="color:#179299">?.</span><span style="color:#4C4F69">content) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">isAnswering) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">✅ [最终回答]</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        isAnswering </span><span style="color:#179299">=</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#4C4F69">      process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(delta</span><span style="color:#179299">.</span><span style="color:#4C4F69">content)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 测试：逻辑推理题</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">streamR1Reasoning</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span></span>
+<span class="line"><span style="color:#40A02B">  有三个盒子：A、B、C。</span></span>
+<span class="line"><span style="color:#40A02B">  - 只有一个盒子里有奖品。</span></span>
+<span class="line"><span style="color:#40A02B">  - 盒子 A 上写着"奖品不在这里"。</span></span>
+<span class="line"><span style="color:#40A02B">  - 盒子 B 上写着"奖品在 A 里"。</span></span>
+<span class="line"><span style="color:#40A02B">  - 盒子 C 上写着"奖品不在 B 里"。</span></span>
+<span class="line"><span style="color:#40A02B">  已知只有一个盒子上的话是真的，奖品在哪个盒子里？</span></span>
+<span class="line"><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="5-智能路由根据任务复杂度选择模型">5. 智能路由：根据任务复杂度选择模型</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/smart-router.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> deepseekClient </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">DEEPSEEK_API_KEY</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  baseURL</span><span style="color:#179299">:</span><span style="color:#40A02B"> "https://api.deepseek.com"</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> TaskComplexity </span><span style="color:#179299">=</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">simple</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">moderate</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">complex</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 任务复杂度评估（简单关键词规则，实际生产中可用 LLM 分类）</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> assessComplexity</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">task</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> TaskComplexity</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> complexKeywords </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#40A02B">    "证明"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "推导"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "分析"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "为什么"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "逻辑"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "数学"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "算法"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "prove"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "derive"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "reasoning"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "logic"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "math"</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> simpleKeywords </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#40A02B">    "翻译"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "总结"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "改写"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "格式化"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "translate"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "summarize"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "format"</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> lowerTask </span><span style="color:#179299">=</span><span style="color:#4C4F69"> task</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toLowerCase</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (complexKeywords</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">some</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> lowerTask</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(kw))) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#40A02B"> "complex"</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 复杂推理 → R1</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (simpleKeywords</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">some</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> lowerTask</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(kw))) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#40A02B"> "simple"</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 简单任务 → V3</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#40A02B"> "moderate"</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 中等任务 → V3</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> RoutedResponse</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  complexity</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> TaskComplexity</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  content</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  cost_estimate</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 美元</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> smartQuery</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">task</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">RoutedResponse</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> complexity </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> assessComplexity</span><span style="color:#4C4F69">(task)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 根据复杂度选择模型：只有明确的推理任务才用 R1（因为 R1 更贵且不支持工具）</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> model </span><span style="color:#179299">=</span><span style="color:#4C4F69"> complexity </span><span style="color:#179299">===</span><span style="color:#40A02B"> "complex"</span></span>
+<span class="line"><span style="color:#179299">    ?</span><span style="color:#40A02B"> "deepseek-reasoner"</span><span style="color:#9CA0B0;font-style:italic">  // R1</span></span>
+<span class="line"><span style="color:#179299">    :</span><span style="color:#40A02B"> "deepseek-chat"</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">     // V3</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`任务复杂度: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">complexity</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> → 使用模型: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">model</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> deepseekClient</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> task </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> usage </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> inputTokens </span><span style="color:#179299">=</span><span style="color:#4C4F69"> usage</span><span style="color:#179299">.</span><span style="color:#4C4F69">prompt_tokens</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> outputTokens </span><span style="color:#179299">=</span><span style="color:#4C4F69"> usage</span><span style="color:#179299">.</span><span style="color:#4C4F69">completion_tokens</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 实时成本计算</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> prices </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">    "deepseek-chat"</span><span style="color:#179299">:</span><span style="color:#7C7F93">     {</span><span style="color:#4C4F69"> input</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.27</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> output</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1.10</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#40A02B">    "deepseek-reasoner"</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> input</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.55</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> output</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2.19</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> price </span><span style="color:#179299">=</span><span style="color:#4C4F69"> prices[model </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> keyof</span><span style="color:#8839EF"> typeof</span><span style="color:#4C4F69"> prices]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> cost </span><span style="color:#179299">=</span><span style="color:#4C4F69"> (inputTokens </span><span style="color:#179299">*</span><span style="color:#4C4F69"> price</span><span style="color:#179299">.</span><span style="color:#4C4F69">input </span><span style="color:#179299">+</span><span style="color:#4C4F69"> outputTokens </span><span style="color:#179299">*</span><span style="color:#4C4F69"> price</span><span style="color:#179299">.</span><span style="color:#4C4F69">output) </span><span style="color:#179299">/</span><span style="color:#FE640B"> 1_000_000</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    complexity</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    cost_estimate</span><span style="color:#179299">:</span><span style="color:#4C4F69"> cost</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 测试路由决策</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> testRouting</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> tasks </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#40A02B">    "把这段话翻译成英文：今天天气很好"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  // simple → V3</span></span>
+<span class="line"><span style="color:#40A02B">    "解释 React hooks 的工作原理"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">          // moderate → V3</span></span>
+<span class="line"><span style="color:#40A02B">    "证明：如果 n 是完全平方数，那么 n+1 不是完全平方数（假设 n > 0）"</span><span style="color:#9CA0B0;font-style:italic"> // complex → R1</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> task </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> tasks) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">任务: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">task</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">substring</span><span style="color:#40A02B">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 50</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">...`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> smartQuery</span><span style="color:#4C4F69">(task)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`模型: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">model</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`成本估算: $</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">cost_estimate</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">6</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`回答: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">substring</span><span style="color:#40A02B">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 100</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">...`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">testRouting</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="6-v3-工具调用示例">6. V3 工具调用示例</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/v3-tools.ts</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// DeepSeek-V3 完全支持工具调用，格式与 OpenAI 相同</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 注意：R1 不支持工具调用，只有 V3 支持</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> deepseekClient</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> DEEPSEEK_V3 </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./deepseek-client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tools</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#DF8E1D;font-style:italic">[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "function"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    function</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "search_web"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "搜索互联网获取最新信息"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">          query</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "搜索关键词"</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#4C4F69">        required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"query"</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 模拟搜索工具（实际项目中接入真实搜索 API）</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> searchWeb</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">query</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    results</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> title</span><span style="color:#179299">:</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">query</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 相关结果1`</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> snippet</span><span style="color:#179299">:</span><span style="color:#40A02B"> "这是搜索结果摘要..."</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> title</span><span style="color:#179299">:</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">query</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 相关结果2`</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> snippet</span><span style="color:#179299">:</span><span style="color:#40A02B"> "另一个搜索结果..."</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> agentWithV3</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">question</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#DF8E1D;font-style:italic">[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> question </span><span style="color:#7C7F93">}</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // Agent 循环（与 OpenAI 版本完全相同的逻辑，因为格式兼容）</span></span>
+<span class="line"><span style="color:#8839EF">  while</span><span style="color:#4C4F69"> (</span><span style="color:#FE640B">true</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> deepseekClient</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> DEEPSEEK_V3</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  // 只有 V3 支持工具调用</span></span>
+<span class="line"><span style="color:#4C4F69">      tools</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      tool_choice</span><span style="color:#179299">:</span><span style="color:#40A02B"> "auto"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> choice </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(choice</span><span style="color:#179299">.</span><span style="color:#4C4F69">message)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (choice</span><span style="color:#179299">.</span><span style="color:#4C4F69">finish_reason </span><span style="color:#179299">===</span><span style="color:#40A02B"> "tool_calls"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> toolCall </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> choice</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool_calls</span><span style="color:#179299">!</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> args </span><span style="color:#179299">=</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(toolCall</span><span style="color:#179299">.</span><span style="color:#4C4F69">function</span><span style="color:#179299">.</span><span style="color:#4C4F69">arguments)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> searchWeb</span><span style="color:#4C4F69">(args</span><span style="color:#179299">.</span><span style="color:#4C4F69">query)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">          role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "tool"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          tool_call_id</span><span style="color:#179299">:</span><span style="color:#4C4F69"> toolCall</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> result</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#4C4F69"> choice</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">agentWithV3</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"DeepSeek-R1 最新进展是什么？"</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">then</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">log)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="7-成本对比计算器">7. 成本对比计算器</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/cost-calculator.ts</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> ModelPricing</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  input</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 美元 / 1M tokens</span></span>
+<span class="line"><span style="color:#4C4F69">  output</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> PRICING</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> ModelPricing</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">  "gpt-4o"</span><span style="color:#179299">:</span><span style="color:#7C7F93">             {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "GPT-4o"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69">             input</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2.50</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> output</span><span style="color:#179299">:</span><span style="color:#FE640B"> 10.00</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#40A02B">  "gpt-4o-mini"</span><span style="color:#179299">:</span><span style="color:#7C7F93">        {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "GPT-4o Mini"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69">         input</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.15</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> output</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.60</span><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#40A02B">  "claude-sonnet-4-6"</span><span style="color:#179299">:</span><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "Claude Sonnet 4.6"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69">   input</span><span style="color:#179299">:</span><span style="color:#FE640B"> 3.00</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> output</span><span style="color:#179299">:</span><span style="color:#FE640B"> 15.00</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#40A02B">  "deepseek-chat"</span><span style="color:#179299">:</span><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "DeepSeek-V3"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69">         input</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.27</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> output</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1.10</span><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#40A02B">  "deepseek-reasoner"</span><span style="color:#179299">:</span><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "DeepSeek-R1"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69">         input</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.55</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> output</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2.19</span><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#40A02B">  "gemini-2.0-flash"</span><span style="color:#179299">:</span><span style="color:#7C7F93">   {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "Gemini 2.0 Flash"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69">    input</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.10</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> output</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.40</span><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> calculateMonthlyCost</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  modelId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  dailyRequests</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  avgInputTokens</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  avgOutputTokens</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> model </span><span style="color:#179299">=</span><span style="color:#4C4F69"> PRICING[modelId]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">model) </span><span style="color:#8839EF">throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`未知模型: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">modelId</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> monthlyRequests </span><span style="color:#179299">=</span><span style="color:#4C4F69"> dailyRequests </span><span style="color:#179299">*</span><span style="color:#FE640B"> 30</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> totalInput </span><span style="color:#179299">=</span><span style="color:#4C4F69"> (monthlyRequests </span><span style="color:#179299">*</span><span style="color:#4C4F69"> avgInputTokens) </span><span style="color:#179299">/</span><span style="color:#FE640B"> 1_000_000</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> totalOutput </span><span style="color:#179299">=</span><span style="color:#4C4F69"> (monthlyRequests </span><span style="color:#179299">*</span><span style="color:#4C4F69"> avgOutputTokens) </span><span style="color:#179299">/</span><span style="color:#FE640B"> 1_000_000</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> inputCost </span><span style="color:#179299">=</span><span style="color:#4C4F69"> totalInput </span><span style="color:#179299">*</span><span style="color:#4C4F69"> model</span><span style="color:#179299">.</span><span style="color:#4C4F69">input</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> outputCost </span><span style="color:#179299">=</span><span style="color:#4C4F69"> totalOutput </span><span style="color:#179299">*</span><span style="color:#4C4F69"> model</span><span style="color:#179299">.</span><span style="color:#4C4F69">output</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> totalCost </span><span style="color:#179299">=</span><span style="color:#4C4F69"> inputCost </span><span style="color:#179299">+</span><span style="color:#4C4F69"> outputCost</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">model</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">:`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  月请求数: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">monthlyRequests</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toLocaleString</span><span style="color:#40A02B">()</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  输入成本: $</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">inputCost</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">2</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  输出成本: $</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputCost</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">2</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  月总成本: $</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">totalCost</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">2</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 场景：日均 1000 次请求，平均 2000 输入 + 500 输出 tokens</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"=== 月成本对比（1000次/天，2000输入+500输出tokens）===</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> modelId </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> Object</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">keys</span><span style="color:#4C4F69">(PRICING)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  calculateMonthlyCost</span><span style="color:#4C4F69">(modelId</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 1000</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 2000</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 500</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="注意事项">注意事项</h2>
+<table>
+<thead>
+<tr>
+<th>注意点</th>
+<th>说明</th>
+<th>示例 / 建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>R1 不支持 system message</strong></td>
+<td>向 R1 发送 <code>role: &quot;system&quot;</code> 的消息会被忽略，不会报错但不生效</td>
+<td>R1 任务直接用 <code>role: &quot;user&quot;</code> 传递指令，把规则写在用户消息中</td>
+</tr>
+<tr>
+<td><strong>R1 不支持 Function Calling</strong></td>
+<td>工具调用只在 V3 上可用；R1 专注于推理，不支持工具</td>
+<td>需要工具调用的任务必须用 V3；需要推理的任务用 R1</td>
+</tr>
+<tr>
+<td><strong>reasoning_content 只在非流式时直接可取</strong></td>
+<td>非流式响应中 <code>message.reasoning_content</code> 是完整字符串；流式时在 <code>delta.reasoning_content</code> 增量输出</td>
+<td>流式场景需要拼接所有 <code>delta.reasoning_content</code> 片段</td>
+</tr>
+<tr>
+<td><strong>TypeScript 类型缺失 reasoning_content</strong></td>
+<td>OpenAI SDK 的类型定义没有 <code>reasoning_content</code>，直接访问会报类型错误</td>
+<td>使用类型断言：<code>(message as any).reasoning_content</code> 或扩展类型接口</td>
+</tr>
+<tr>
+<td><strong>缓存价格与非缓存价格不同</strong></td>
+<td>DeepSeek 对命中缓存的 tokens 有折扣价格（约半价）</td>
+<td>重复前缀的请求（如固定 system prompt）可大幅节省成本</td>
+</tr>
+<tr>
+<td><strong>R1 响应较慢</strong></td>
+<td>推理过程本身需要生成大量 tokens，响应时间比 V3 长</td>
+<td>对延迟敏感的场景用 V3；批量异步任务可用 R1</td>
+</tr>
+<tr>
+<td><strong>并发限制</strong></td>
+<td>DeepSeek 免费层有并发和速率限制，付费层限制更宽松</td>
+<td>高并发场景需要申请付费 API 并实现限流重试逻辑</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="下一步">下一步</h2>
+<p>学会了 DeepSeek 的低成本推理模型，下一课我们转向 Google 的 Gemini：原生多模态旗舰，拥有 100 万 token 超长上下文，图文混合处理是其独特优势。</p>
+<p>→ <strong>第3课：Google Gemini — 原生多模态旗舰</strong></p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ml-01-openai.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第1课：OpenAI API</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ml-03-gemini.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第3课：Google Gemini</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#整体架构deepseek-模型家族">整体架构：DeepSeek 模型家族</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#v3-vs-r1-对比">V3 vs R1 对比</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a全用-gpt-4o">方案 A：全用 GPT-4o</a></li><li class="lvl-3"><a href="#方案-bdeepseek-v3-替换日常任务">方案 B：DeepSeek-V3 替换日常任务</a></li><li class="lvl-3"><a href="#方案-cr1-v3-分场景路由推荐">方案 C：R1 + V3 分场景路由（推荐）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#核心概念r1-的思维链输出">核心概念：R1 的思维链输出</a></li><li class="lvl-2"><a href="#任务路由决策树">任务路由决策树</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#1-安装与初始化">1. 安装与初始化</a></li><li class="lvl-3"><a href="#2-deepseek-v3-基础用法">2. DeepSeek-V3 基础用法</a></li><li class="lvl-3"><a href="#3-deepseek-r1-推理模型核心特性">3. DeepSeek-R1 推理模型（核心特性）</a></li><li class="lvl-3"><a href="#4-r1-流式输出展示实时思考">4. R1 流式输出（展示实时思考）</a></li><li class="lvl-3"><a href="#5-智能路由根据任务复杂度选择模型">5. 智能路由：根据任务复杂度选择模型</a></li><li class="lvl-3"><a href="#6-v3-工具调用示例">6. V3 工具调用示例</a></li><li class="lvl-3"><a href="#7-成本对比计算器">7. 成本对比计算器</a></li><li class="lvl-2"><a href="#注意事项">注意事项</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

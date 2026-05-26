@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第5课：工具调度与并发 — Claude Code 源码剖析</title>
+  <meta name="description" content="partitionToolCalls 相邻合批 / contextModifier 延后应用">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-rose">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-rose">
+      <div class="crumb">
+        <div class="crumb-icon">CA</div>
+        <div class="crumb-text">Claude Code 源码剖析</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/cca-01-overview.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">泄露事件与全景导览</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-02-startup.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">启动路径剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-03-query.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Query 执行内核</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-04-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool 抽象与工具池</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-05-orchestration.html" class="active">
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">工具调度与并发</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-06-permission.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">权限模型与 Sandbox</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-07-skills.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill 系统</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-09-memory.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Memory 分层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-10-compaction.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 自动压缩</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-11-prompt.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Prompt Runtime</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-12-multi-agent.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 三层模型</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-13-session.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Session 持久化与 Resume</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-14-hidden.html" >
+            <span class="num">14</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第14课（番外）：隐藏命令与 Feature Flag</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/cca-01-overview.html" class="current">Claude Code 源码剖析</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">05</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第5课：工具调度与并发</div>
+          <div class="desc">partitionToolCalls 相邻合批 / contextModifier 延后应用</div>
+          <div class="tags">
+            <span class="tag">analysis</span><span class="tag">tools</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">05_tool_orchestration.md</code></span>
+            <span>📏 323 行</span>
+            <span style="opacity:0.7;">claude-code-analysis/lessons/05_tool_orchestration.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第5课：工具调度 — partitionToolCalls 与流式执行器</h1>
+<h2 id="介绍">介绍</h2>
+<p>模型一次输出 5 个 tool_use 请求时，应该并发跑还是串行跑？</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>[ Read(a.ts), Read(b.ts), Write(c.ts), Read(d.ts), Bash(rm -rf x) ]</span></span></code></pre><p>朴素答案是&quot;全部并发&quot;——但这会出错：Write 和 Bash 之间可能存在状态依赖。Claude Code 的解法是 <code>partitionToolCalls()</code> + StreamingToolExecutor，把工具按&quot;并发安全性&quot;分批，相邻安全工具合一组，遇到不安全就单独成组。</p>
+<hr>
+<h2 id="源码定位">源码定位</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>src/services/tools/toolOrchestration.ts</code></td>
+<td>partitionToolCalls + runToolsConcurrently / runToolsSerially</td>
+</tr>
+<tr>
+<td><code>src/services/tools/StreamingToolExecutor.ts</code></td>
+<td>流式执行器，状态机</td>
+</tr>
+<tr>
+<td><code>src/services/tools/toolExecution.ts</code></td>
+<td>单个工具的 6 步流水线</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="partitiontoolcalls相邻合批不安全单飞">partitionToolCalls：相邻合批，不安全单飞</h2>
+<p>真实源码节选（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/services/tools/toolOrchestration.ts"><code>src/services/tools/toolOrchestration.ts</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> partitionToolCalls</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  toolUseMessages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolUseBlock[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  ctx</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolUseContext</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Batch[]</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> toolUseMessages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">reduce</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">acc</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Batch[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> toolUse</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> tool </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> findToolByName</span><span style="color:#4C4F69">(ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">options</span><span style="color:#179299">.</span><span style="color:#4C4F69">tools</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> toolUse</span><span style="color:#179299">.</span><span style="color:#4C4F69">name)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> isConcurrencySafe </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> Boolean</span><span style="color:#4C4F69">(tool</span><span style="color:#179299">?.</span><span style="color:#1E66F5;font-style:italic">isConcurrencySafe</span><span style="color:#4C4F69">(parsedInput</span><span style="color:#179299">.</span><span style="color:#4C4F69">data))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 若上一批次也是并发安全，合入同一批</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (isConcurrencySafe </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> acc[acc</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">-</span><span style="color:#FE640B"> 1</span><span style="color:#4C4F69">]</span><span style="color:#179299">?.</span><span style="color:#4C4F69">isConcurrencySafe) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      acc[acc</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">-</span><span style="color:#FE640B"> 1</span><span style="color:#4C4F69">]</span><span style="color:#179299">!.</span><span style="color:#4C4F69">blocks</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(toolUse)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 否则开新批</span></span>
+<span class="line"><span style="color:#4C4F69">      acc</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> isConcurrencySafe</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> blocks</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [toolUse] </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> acc</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>举例：模型返回 <code>[A(Read), B(Read), C(Write), D(Read), E(Read)]</code>：</p>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>isConcurrencySafe</th>
+<th>决策</th>
+<th>批次</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A(Read)</td>
+<td>true</td>
+<td>起新批</td>
+<td>Batch1: [A]</td>
+</tr>
+<tr>
+<td>B(Read)</td>
+<td>true</td>
+<td>上一批也是 safe，合入</td>
+<td>Batch1: [A, B]</td>
+</tr>
+<tr>
+<td>C(Write)</td>
+<td>false</td>
+<td>不安全，起新批</td>
+<td>Batch2: [C]</td>
+</tr>
+<tr>
+<td>D(Read)</td>
+<td>true</td>
+<td>上一批是 unsafe，起新批</td>
+<td>Batch3: [D]</td>
+</tr>
+<tr>
+<td>E(Read)</td>
+<td>true</td>
+<td>上一批是 safe，合入</td>
+<td>Batch3: [D, E]</td>
+</tr>
+</tbody></table>
+<p>最终：<code>[Batch1: A,B] → [Batch2: C] → [Batch3: D,E]</code>，三个批次依次执行，每批内部并发。</p>
+<hr>
+<h2 id="runtools批次执行入口">runTools：批次执行入口</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function*</span><span style="color:#1E66F5;font-style:italic"> runTools</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  toolUseMessages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolUseBlock[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  assistantMessages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AssistantMessage[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  canUseTool</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> CanUseToolFn</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  toolUseContext</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolUseContext</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AsyncGenerator</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">MessageUpdate</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> currentContext </span><span style="color:#179299">=</span><span style="color:#4C4F69"> toolUseContext</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> isConcurrencySafe</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> blocks </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> of</span><span style="color:#1E66F5;font-style:italic"> partitionToolCalls</span><span style="color:#4C4F69">(toolUseMessages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> currentContext)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (isConcurrencySafe) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 并发批次：先收集 contextModifier，批次完再按序应用</span></span>
+<span class="line"><span style="color:#8839EF">      for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> update </span><span style="color:#8839EF">of</span><span style="color:#1E66F5;font-style:italic"> runToolsConcurrently</span><span style="color:#4C4F69">(blocks</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        yield</span><span style="color:#4C4F69"> update</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 串行批次：每个工具必须等上一个完成</span></span>
+<span class="line"><span style="color:#8839EF">      for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> update </span><span style="color:#8839EF">of</span><span style="color:#1E66F5;font-style:italic"> runToolsSerially</span><span style="color:#4C4F69">(blocks</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        yield</span><span style="color:#4C4F69"> update</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>注意一个关键细节：<strong>并发批次的 <code>contextModifier</code> 是延后应用的</strong>。</p>
+<hr>
+<h2 id="contextmodifier-延后应用是什么意思">contextModifier 延后应用是什么意思？</h2>
+<p>工具执行后，可能会修改全局上下文（比如 BashTool 改了 cwd）。<strong>如果并发批次里的两个工具都修改 context，并发应用就会冲突</strong>。</p>
+<p>伪代码示意：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runToolsConcurrently</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">blocks</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> ctx</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 1. 并发执行，每个工具返回 result + 可能的 contextModifier</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> outcomes </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">all</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">    blocks</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">b</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> executeTool</span><span style="color:#4C4F69">(b</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> ctx))   </span><span style="color:#9CA0B0;font-style:italic">// ctx 在并发期间不变</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 2. 全部完成后，按声明顺序串行应用 modifier</span></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> outcome </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> outcomes) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (outcome</span><span style="color:#179299">.</span><span style="color:#4C4F69">contextModifier) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      ctx </span><span style="color:#179299">=</span><span style="color:#4C4F69"> outcome</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">contextModifier</span><span style="color:#4C4F69">(ctx)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> ctx</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>这样做保证：</p>
+<ul>
+<li>并发期间，所有工具看到的 ctx 是<strong>同一个快照</strong></li>
+<li>修改在批次结束时按顺序应用，不会出现 race</li>
+<li>即便两个工具都改 cwd，结果是确定的（按声明顺序）</li>
+</ul>
+<p>这是分布式系统里 **MVCC（多版本并发控制）**思路在 Agent 工具调度上的应用。</p>
+<hr>
+<h2 id="streamingtoolexecutor边收边跑">StreamingToolExecutor：边收边跑</h2>
+<p><code>runTools()</code> 默认是&quot;等模型完整 yield 完所有 tool_use 再开跑&quot;。但有时候模型会流式输出多个 tool_use——能不能<strong>边收边跑</strong>？</p>
+<p><code>StreamingToolExecutor</code> 就是为此而生：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 状态机：每个 tool 的状态</span></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> ExecState </span><span style="color:#179299">=</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">queued</span><span style="color:#40A02B">'</span><span style="color:#179299"> |</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">executing</span><span style="color:#40A02B">'</span><span style="color:#179299"> |</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">completed</span><span style="color:#40A02B">'</span><span style="color:#179299"> |</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">yielded</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">class</span><span style="color:#DF8E1D;font-style:italic"> StreamingToolExecutor</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> states </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Map</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> ExecState</span><span style="color:#04A5E5">></span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#8839EF"> *</span><span style="color:#1E66F5;font-style:italic">consume</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">stream</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AsyncGenerator</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">ToolUseBlock</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> toolUse </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // schema 解析通过的并发安全工具，立刻 launch</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (toolUse</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">isConcurrencySafe</span><span style="color:#4C4F69">(toolUse</span><span style="color:#179299">.</span><span style="color:#4C4F69">input)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#D20F39">        this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">launch</span><span style="color:#4C4F69">(toolUse)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 不等下一个就启动</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">        this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">queue</span><span style="color:#4C4F69">(toolUse)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">    // 不安全，等独占权</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // ...</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>具体规则：</p>
+<ol>
+<li><strong>并发安全的工具</strong>：schema 解析通过 → 立刻启动</li>
+<li><strong>不安全的工具</strong>：进入排队，等独占</li>
+<li><strong>任一工具抛错</strong>：可以 cancel 同批未完成的兄弟节点，提早回报模型</li>
+</ol>
+<p>这个机制对&quot;模型输出 10 个并行 Read&quot;这类场景特别有用——不必等第 10 个 toolUse 解析完才启动第 1 个。</p>
+<hr>
+<h2 id="toolexecutionts单个工具的-6-步流水线">toolExecution.ts：单个工具的 6 步流水线</h2>
+<p>每个工具的 <code>call()</code> 真正落地前要走 6 步：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>toolUse</span></span>
+<span class="line"><span>   │</span></span>
+<span class="line"><span>   ▼</span></span>
+<span class="line"><span>1. Zod schema 校验          ← inputSchema.safeParse</span></span>
+<span class="line"><span>   │ 失败：抛 schema 错给 LLM 让它重试</span></span>
+<span class="line"><span>   ▼</span></span>
+<span class="line"><span>2. 独立语义校验             ← validateInput()</span></span>
+<span class="line"><span>   │ 比如检查"old/new 字符串是否相等"、目录黑名单</span></span>
+<span class="line"><span>   ▼</span></span>
+<span class="line"><span>3. backfill 隐式依赖        ← backfillObservableInput()</span></span>
+<span class="line"><span>   │ 比如 expandPath() 注入到 input</span></span>
+<span class="line"><span>   ▼</span></span>
+<span class="line"><span>4. PreToolUse Hooks         ← 用户配置的 hook，可拦截</span></span>
+<span class="line"><span>   │</span></span>
+<span class="line"><span>   ▼</span></span>
+<span class="line"><span>5. 权限检查                  ← canUseTool()</span></span>
+<span class="line"><span>   │ 三态：allow / deny / ask</span></span>
+<span class="line"><span>   │</span></span>
+<span class="line"><span>   ▼</span></span>
+<span class="line"><span>6. tool.call()              ← 真正执行</span></span>
+<span class="line"><span>   │</span></span>
+<span class="line"><span>   ▼</span></span>
+<span class="line"><span>toolResult / progress</span></span></code></pre><p>每一步都是独立的可拦截点。比如<strong>第 4 步 PreToolUse Hooks</strong> 让用户可以注入 lint / format 等自定义逻辑，<strong>不必改 Tool 源码</strong>。</p>
+<hr>
+<h2 id="pattern-提炼">Pattern 提炼</h2>
+<h3 id="pattern-1相邻合批不安全开新批">Pattern 1：相邻合批，不安全开新批</h3>
+<p><code>partitionToolCalls</code> 的 reduce 模式简洁有力：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#4C4F69">arr</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">reduce</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">acc</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> item</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#1E66F5;font-style:italic">canMerge</span><span style="color:#4C4F69">(item</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> acc[acc</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">-</span><span style="color:#FE640B"> 1</span><span style="color:#4C4F69">])) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    acc[acc</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">-</span><span style="color:#FE640B"> 1</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(item)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    acc</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">([item])</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> acc</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">},</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">;</span></span></code></pre><p>很多&quot;按某种条件分组&quot;的场景都能套这个模板。</p>
+<h3 id="pattern-2并发期快照-批次结束串行应用">Pattern 2：并发期快照 + 批次结束串行应用</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> outcomes </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">all</span><span style="color:#4C4F69">(items</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">i</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> exec</span><span style="color:#4C4F69">(i</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> snapshot)))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> o </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> outcomes) snapshot </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> apply</span><span style="color:#4C4F69">(o</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> snapshot)</span><span style="color:#7C7F93">;</span></span></code></pre><p>避免 race 的优雅写法。</p>
+<h3 id="pattern-3管线代理pipeline">Pattern 3：管线代理（Pipeline）</h3>
+<p>工具执行不是直接 call，而是 6 步流水线（schema → validate → backfill → hooks → permission → call）。每一步都是切面，可以单独拦截、扩展、审计。</p>
+<h3 id="pattern-4状态机驱动的流式执行">Pattern 4：状态机驱动的流式执行</h3>
+<p><code>queued → executing → completed → yielded</code>。明确的状态转移让 cancel / abort / retry 都有据可循。</p>
+<hr>
+<h2 id="自己实现partitiontoolcalls-60-行">自己实现：partitionToolCalls 60 行</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// my-orchestration.ts</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> ToolUse </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> input</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> Tool </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#1E66F5;font-style:italic"> isConcurrencySafe</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span><span style="color:#1E66F5;font-style:italic"> run</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">any</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> Batch </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> isConcurrencySafe</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> uses</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolUse[] </span><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> partitionToolCalls</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">uses</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolUse[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> tools</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tool[]</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Batch[]</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> uses</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">reduce</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">acc</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Batch[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> use</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> tool </span><span style="color:#179299">=</span><span style="color:#4C4F69"> tools</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">find</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">t</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> t</span><span style="color:#179299">.</span><span style="color:#4C4F69">name </span><span style="color:#179299">===</span><span style="color:#4C4F69"> use</span><span style="color:#179299">.</span><span style="color:#4C4F69">name)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> safe </span><span style="color:#179299">=</span><span style="color:#4C4F69"> tool</span><span style="color:#179299">?.</span><span style="color:#1E66F5;font-style:italic">isConcurrencySafe</span><span style="color:#4C4F69">(use</span><span style="color:#179299">.</span><span style="color:#4C4F69">input) </span><span style="color:#179299">??</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> last </span><span style="color:#179299">=</span><span style="color:#4C4F69"> acc[acc</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">-</span><span style="color:#FE640B"> 1</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (safe </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> last</span><span style="color:#179299">?.</span><span style="color:#4C4F69">isConcurrencySafe) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      last</span><span style="color:#179299">.</span><span style="color:#4C4F69">uses</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(use)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      acc</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> isConcurrencySafe</span><span style="color:#179299">:</span><span style="color:#4C4F69"> safe</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> uses</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [use] </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> acc</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function*</span><span style="color:#1E66F5;font-style:italic"> runTools</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">uses</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolUse[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> tools</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tool[]</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> byName </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Map</span><span style="color:#4C4F69">(tools</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">t</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> [t</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> t]))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> batch </span><span style="color:#8839EF">of</span><span style="color:#1E66F5;font-style:italic"> partitionToolCalls</span><span style="color:#4C4F69">(uses</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> tools)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (batch</span><span style="color:#179299">.</span><span style="color:#4C4F69">isConcurrencySafe) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 并发：用 Promise.all</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> results </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">all</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">        batch</span><span style="color:#179299">.</span><span style="color:#4C4F69">uses</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#8839EF">async</span><span style="color:#E64553;font-style:italic"> u</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">          const</span><span style="color:#4C4F69"> tool </span><span style="color:#179299">=</span><span style="color:#4C4F69"> byName</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(u</span><span style="color:#179299">.</span><span style="color:#4C4F69">name)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">          if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">tool) </span><span style="color:#8839EF">return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> use</span><span style="color:#179299">:</span><span style="color:#4C4F69"> u</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> error</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'unknown tool'</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#8839EF">          try</span><span style="color:#7C7F93"> {</span><span style="color:#8839EF"> return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> use</span><span style="color:#179299">:</span><span style="color:#4C4F69"> u</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> output</span><span style="color:#179299">:</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> tool</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">run</span><span style="color:#4C4F69">(u</span><span style="color:#179299">.</span><span style="color:#4C4F69">input) </span><span style="color:#7C7F93">};</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#8839EF">          catch</span><span style="color:#4C4F69"> (e) </span><span style="color:#7C7F93">{</span><span style="color:#8839EF"> return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> use</span><span style="color:#179299">:</span><span style="color:#4C4F69"> u</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> error</span><span style="color:#179299">:</span><span style="color:#1E66F5;font-style:italic"> String</span><span style="color:#4C4F69">(e) </span><span style="color:#7C7F93">};</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#4C4F69">      )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> r </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> results) </span><span style="color:#8839EF">yield</span><span style="color:#4C4F69"> r</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 串行：for await</span></span>
+<span class="line"><span style="color:#8839EF">      for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> u </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> batch</span><span style="color:#179299">.</span><span style="color:#4C4F69">uses) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> tool </span><span style="color:#179299">=</span><span style="color:#4C4F69"> byName</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(u</span><span style="color:#179299">.</span><span style="color:#4C4F69">name)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">tool) </span><span style="color:#7C7F93">{</span><span style="color:#8839EF"> yield</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> use</span><span style="color:#179299">:</span><span style="color:#4C4F69"> u</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> error</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'unknown tool'</span><span style="color:#7C7F93"> };</span><span style="color:#8839EF"> continue</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#8839EF">        try</span><span style="color:#7C7F93"> {</span><span style="color:#8839EF"> yield</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> use</span><span style="color:#179299">:</span><span style="color:#4C4F69"> u</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> output</span><span style="color:#179299">:</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> tool</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">run</span><span style="color:#4C4F69">(u</span><span style="color:#179299">.</span><span style="color:#4C4F69">input) </span><span style="color:#7C7F93">};</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#8839EF">        catch</span><span style="color:#4C4F69"> (e) </span><span style="color:#7C7F93">{</span><span style="color:#8839EF"> yield</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> use</span><span style="color:#179299">:</span><span style="color:#4C4F69"> u</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> error</span><span style="color:#179299">:</span><span style="color:#1E66F5;font-style:italic"> String</span><span style="color:#4C4F69">(e) </span><span style="color:#7C7F93">};</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ===== 用法 =====</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tools</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tool[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'Read'</span><span style="color:#7C7F93">,</span><span style="color:#1E66F5;font-style:italic"> isConcurrencySafe</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#1E66F5;font-style:italic"> run</span><span style="color:#179299">:</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">i</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `&#x3C;</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">i</span><span style="color:#179299">.</span><span style="color:#4C4F69">path</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">>`</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'Write'</span><span style="color:#7C7F93">,</span><span style="color:#1E66F5;font-style:italic"> isConcurrencySafe</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">,</span><span style="color:#1E66F5;font-style:italic"> run</span><span style="color:#179299">:</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">i</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#40A02B"> 'OK'</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> uses</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolUse[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'Read'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> input</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> path</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'a.ts'</span><span style="color:#7C7F93"> }</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'Read'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> input</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> path</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'b.ts'</span><span style="color:#7C7F93"> }</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'Write'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> input</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> path</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'c.ts'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> '...'</span><span style="color:#7C7F93"> }</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'Read'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> input</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> path</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'd.ts'</span><span style="color:#7C7F93"> }</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> r </span><span style="color:#8839EF">of</span><span style="color:#1E66F5;font-style:italic"> runTools</span><span style="color:#4C4F69">(uses</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> tools)) console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(r)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 输出：[Read(a), Read(b)] 并发 → [Write(c)] 串行 → [Read(d)] 单批</span></span></code></pre><p>60 行就有了 Claude Code 工具调度的核心骨架。</p>
+<hr>
+<h2 id="本课小结">本课小结</h2>
+<ul>
+<li><code>partitionToolCalls</code>：相邻并发安全工具合一批，遇到不安全就开新批</li>
+<li>并发批次内 <code>contextModifier</code> <strong>延后串行应用</strong>，避免 race</li>
+<li><code>StreamingToolExecutor</code> 让&quot;边收边跑&quot;成为可能，不安全工具仍排队</li>
+<li>每个工具落地要走 6 步流水线（schema / validate / backfill / hooks / permission / call）</li>
+</ul>
+<hr>
+<h2 id="延伸阅读">延伸阅读</h2>
+<ul>
+<li><code>analysis/04b-tool-call-implementation.md</code> §4 - 完整的并发分批源码</li>
+<li><code>analysis/04b-tool-call-implementation.md</code> §6 - 6 步流水线每一步细节</li>
+<li>下一课：<code>06_permission_sandbox.md</code> - 权限决策与 Sandbox 隔离的四层结构</li>
+</ul>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/cca-04-tool.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第4课：Tool 抽象与工具池</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/cca-06-permission.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第6课：权限模型与 Sandbox</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#源码定位">源码定位</a></li><li class="lvl-2"><a href="#partitiontoolcalls相邻合批不安全单飞">partitionToolCalls：相邻合批，不安全单飞</a></li><li class="lvl-2"><a href="#runtools批次执行入口">runTools：批次执行入口</a></li><li class="lvl-2"><a href="#contextmodifier-延后应用是什么意思">contextModifier 延后应用是什么意思？</a></li><li class="lvl-2"><a href="#streamingtoolexecutor边收边跑">StreamingToolExecutor：边收边跑</a></li><li class="lvl-2"><a href="#toolexecutionts单个工具的-6-步流水线">toolExecution.ts：单个工具的 6 步流水线</a></li><li class="lvl-2"><a href="#pattern-提炼">Pattern 提炼</a></li><li class="lvl-3"><a href="#pattern-1相邻合批不安全开新批">Pattern 1：相邻合批，不安全开新批</a></li><li class="lvl-3"><a href="#pattern-2并发期快照-批次结束串行应用">Pattern 2：并发期快照 + 批次结束串行应用</a></li><li class="lvl-3"><a href="#pattern-3管线代理pipeline">Pattern 3：管线代理（Pipeline）</a></li><li class="lvl-3"><a href="#pattern-4状态机驱动的流式执行">Pattern 4：状态机驱动的流式执行</a></li><li class="lvl-2"><a href="#自己实现partitiontoolcalls-60-行">自己实现：partitionToolCalls 60 行</a></li><li class="lvl-2"><a href="#本课小结">本课小结</a></li><li class="lvl-2"><a href="#延伸阅读">延伸阅读</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

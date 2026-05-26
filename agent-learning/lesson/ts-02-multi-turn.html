@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第2课：多轮对话 — TypeScript Agent 开发</title>
+  <meta name="description" content="ChatSession 类与无状态 API">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-blue">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-blue">
+      <div class="crumb">
+        <div class="crumb-icon">TS</div>
+        <div class="crumb-text">TypeScript Agent 开发</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ts-01-hello.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Hello Claude</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-02-multi-turn.html" class="active">
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多轮对话</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-03-streaming.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">流式输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-04-first-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第一个工具</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-05-multi-tools.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多工具并行</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-06-agent-loop.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agentic Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-07-context.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">上下文管理</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-09-orchestrator.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Orchestrator + Worker</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-10-handoff.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Handoff</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-11-structured.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">结构化输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-12-memory.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">记忆 Agent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-13-skill.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill + Tool Runner</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ts-01-hello.html" class="current">TypeScript Agent 开发</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">02</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第2课：多轮对话</div>
+          <div class="desc">ChatSession 类与无状态 API</div>
+          <div class="tags">
+            <span class="tag">basics</span><span class="tag">conversation</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">02_multi_turn.md</code></span>
+            <span>📏 173 行</span>
+            <span style="opacity:0.7;">typescript/lessons/02_multi_turn.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第2课：多轮对话</h1>
+<h2 id="学习目标">学习目标</h2>
+<ol>
+<li>理解 LLM API 是<strong>无状态</strong>的 —— 每次必须发送完整历史</li>
+<li>用 <code>OpenAI.ChatCompletionMessageParam[]</code> 正确管理对话历史</li>
+<li>掌握 <code>system prompt</code> 的设计技巧</li>
+<li>封装可复用的 <code>ChatSession</code> 类</li>
+</ol>
+<hr>
+<h2 id="核心概念无状态-api">核心概念：无状态 API</h2>
+<p>这是理解所有 AI 框架的关键。LLM API <strong>不记得</strong>上一次请求：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>第1次请求：[user: "我叫 Alice"]</span></span>
+<span class="line"><span>第2次请求：[user: "我叫什么名字？"]  ← 模型不知道 Alice 是谁！</span></span></code></pre><p><strong>正确做法</strong>：每次请求都把完整对话历史一起发送：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>第2次请求：[</span></span>
+<span class="line"><span>  user: "我叫 Alice",</span></span>
+<span class="line"><span>  assistant: "你好，Alice！",</span></span>
+<span class="line"><span>  user: "我叫什么名字？"    ← 现在模型能回答了</span></span>
+<span class="line"><span>]</span></span></code></pre><blockquote>
+<p>LangChain、Vercel AI SDK 等框架帮你管理历史，但底层都是这个逻辑。</p>
+</blockquote>
+<hr>
+<h2 id="消息历史的规则">消息历史的规则</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ✅ 正确：system / user / assistant 交替</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionMessageParam[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69">    content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个 TypeScript 助手"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你好"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你好！有什么能帮你？"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "帮我写段代码"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ❌ 错误：连续两条 user（多数 provider 会报错或合并）</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> bad </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你好"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "在吗？"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="system-prompt">System Prompt</h2>
+<p><code>system</code> 角色是对话之外的&quot;元指令&quot;，用来设定模型的角色和行为。在 OpenAI 兼容协议下它是 <code>messages</code> 数组的第一条：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../shared/llmClient"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1024</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个专注于 TypeScript 的技术助手。回答要简洁，必要时提供代码示例。"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#179299">    ...</span><span style="color:#4C4F69">history</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p><strong>好的 system prompt 应该包含：</strong></p>
+<ul>
+<li>角色定位（你是谁）</li>
+<li>行为风格（如何回答）</li>
+<li>约束条件（不做什么）</li>
+</ul>
+<hr>
+<h2 id="封装-chatsession-类">封装 ChatSession 类</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../shared/llmClient"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> Msg </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionMessageParam</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">class</span><span style="color:#DF8E1D;font-style:italic"> ChatSession</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> history</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Msg[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span><span style="color:#8839EF">private</span><span style="color:#E64553;font-style:italic"> systemPrompt</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // system 消息只放一次，永远是第一条</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> systemPrompt </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> send</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userMessage</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 1. 把用户消息追加到历史</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userMessage </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 2. 发送完整历史（system + 所有轮次）</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1024</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  // ← 包含 system + 所有历史</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> assistantText </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 3. 把助手回复也追加到历史（下次请求必需！）</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> assistantText </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> assistantText</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  get</span><span style="color:#1E66F5;font-style:italic"> turnCount</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // history[0] 是 system，所以减 1 后再除 2</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> (</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">-</span><span style="color:#FE640B"> 1</span><span style="color:#4C4F69">) </span><span style="color:#179299">/</span><span style="color:#FE640B"> 2</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="使用示例">使用示例</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> session </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> ChatSession</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">  "你是一个 TypeScript 专家助手，回答简洁直接。"</span></span>
+<span class="line"><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> r1 </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> session</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">send</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"什么是类型守卫？"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"第1轮:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> r1)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> r2 </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> session</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">send</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"能给个具体例子吗？"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"第2轮:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> r2)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 模型记得上文讨论的是类型守卫</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`已对话 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">session</span><span style="color:#179299">.</span><span style="color:#4C4F69">turnCount</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 轮`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="token-消耗增长问题">Token 消耗增长问题</h2>
+<p>每轮对话，发送的 token 数都会增加：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>第1轮：发送 50 tokens</span></span>
+<span class="line"><span>第2轮：发送 150 tokens（含第1轮历史）</span></span>
+<span class="line"><span>第3轮：发送 300 tokens（含前两轮历史）</span></span>
+<span class="line"><span>...</span></span>
+<span class="line"><span>第N轮：发送 N * 平均长度 tokens</span></span></code></pre><p><strong>解决方案</strong>（第7课会详细讲）：</p>
+<ul>
+<li><strong>滑动窗口</strong>：只保留最近 N 条</li>
+<li><strong>摘要压缩</strong>：把旧历史压缩成摘要</li>
+<li><strong>Prompt Caching</strong>：DeepSeek / Kimi 自动缓存重复 prefix；Anthropic 用 <code>cache_control</code> 显式控制</li>
+<li><strong>Compaction</strong>：超长对话自动摘要</li>
+</ul>
+<hr>
+<h2 id="小结">小结</h2>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>要点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>无状态 API</td>
+<td>每次请求必须携带完整历史</td>
+</tr>
+<tr>
+<td>消息顺序</td>
+<td><code>user</code> / <code>assistant</code> 严格交替，<code>system</code> 放在最前</td>
+</tr>
+<tr>
+<td><code>system</code> 角色</td>
+<td>设定角色和行为，整个对话只放一次</td>
+</tr>
+<tr>
+<td>token 增长</td>
+<td>随对话轮数线性增加，需要管理策略</td>
+</tr>
+</tbody></table>
+<p>下一课：让模型的回复<strong>实时流式输出</strong>，像打字机一样 →</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ts-01-hello.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第1课：Hello Claude</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ts-03-streaming.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第3课：流式输出</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#学习目标">学习目标</a></li><li class="lvl-2"><a href="#核心概念无状态-api">核心概念：无状态 API</a></li><li class="lvl-2"><a href="#消息历史的规则">消息历史的规则</a></li><li class="lvl-2"><a href="#system-prompt">System Prompt</a></li><li class="lvl-2"><a href="#封装-chatsession-类">封装 ChatSession 类</a></li><li class="lvl-2"><a href="#使用示例">使用示例</a></li><li class="lvl-2"><a href="#token-消耗增长问题">Token 消耗增长问题</a></li><li class="lvl-2"><a href="#小结">小结</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

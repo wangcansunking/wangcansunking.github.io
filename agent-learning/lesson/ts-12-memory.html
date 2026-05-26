@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第12课：记忆 Agent — TypeScript Agent 开发</title>
+  <meta name="description" content="短期/长期记忆系统与 Memory Tool">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-blue">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-blue">
+      <div class="crumb">
+        <div class="crumb-icon">TS</div>
+        <div class="crumb-text">TypeScript Agent 开发</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ts-01-hello.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Hello Claude</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-02-multi-turn.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多轮对话</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-03-streaming.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">流式输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-04-first-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第一个工具</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-05-multi-tools.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多工具并行</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-06-agent-loop.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agentic Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-07-context.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">上下文管理</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-09-orchestrator.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Orchestrator + Worker</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-10-handoff.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Handoff</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-11-structured.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">结构化输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-12-memory.html" class="active">
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">记忆 Agent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-13-skill.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill + Tool Runner</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ts-01-hello.html" class="current">TypeScript Agent 开发</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">12</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第12课：记忆 Agent</div>
+          <div class="desc">短期/长期记忆系统与 Memory Tool</div>
+          <div class="tags">
+            <span class="tag">advanced</span><span class="tag">memory</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">12_memory_agent.md</code></span>
+            <span>📏 247 行</span>
+            <span style="opacity:0.7;">typescript/lessons/12_memory_agent.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第12课：记忆 Agent</h1>
+<h2 id="学习目标">学习目标</h2>
+<ol>
+<li>理解短期记忆 vs 长期记忆的区别</li>
+<li>实现基于文件的长期记忆系统</li>
+<li>用 Claude 自动从对话中提取重要信息存储</li>
+<li>了解官方 Memory Tool 的用法</li>
+</ol>
+<hr>
+<h2 id="两种记忆类型">两种记忆类型</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>短期记忆（对话历史）       长期记忆（持久化存储）</span></span>
+<span class="line"><span>─────────────────────     ─────────────────────</span></span>
+<span class="line"><span>存在：messages 数组       存在：文件/数据库</span></span>
+<span class="line"><span>生命周期：本次对话        生命周期：永久</span></span>
+<span class="line"><span>访问方式：自动携带        访问方式：显式加载</span></span>
+<span class="line"><span>容量限制：Context Window  容量限制：存储大小</span></span></code></pre><p><strong>场景</strong>：</p>
+<ul>
+<li>短期：当前对话的问答内容</li>
+<li>长期：用户名字、偏好、过往决策、项目背景</li>
+</ul>
+<hr>
+<h2 id="文件记忆系统">文件记忆系统</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> readFileSync</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> writeFileSync</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> existsSync </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../shared/llmClient"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> Msg </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionMessageParam</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 记忆文件路径</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> MEMORY_FILE </span><span style="color:#179299">=</span><span style="color:#40A02B"> "./agent_memory.json"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> Memory</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  facts</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">          // 用户事实（姓名、职业等）</span></span>
+<span class="line"><span style="color:#4C4F69">  preferences</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">    // 用户偏好</span></span>
+<span class="line"><span style="color:#4C4F69">  decisions</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">      // 重要决策记录</span></span>
+<span class="line"><span style="color:#4C4F69">  lastUpdated</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 加载记忆</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> loadMemory</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Memory</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#1E66F5;font-style:italic">existsSync</span><span style="color:#4C4F69">(MEMORY_FILE)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> facts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> preferences</span><span style="color:#179299">:</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> decisions</span><span style="color:#179299">:</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> lastUpdated</span><span style="color:#179299">:</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">readFileSync</span><span style="color:#4C4F69">(MEMORY_FILE</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "utf-8"</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 保存记忆</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> saveMemory</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">memory</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Memory</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  memory</span><span style="color:#179299">.</span><span style="color:#4C4F69">lastUpdated </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Date</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toISOString</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  writeFileSync</span><span style="color:#4C4F69">(MEMORY_FILE</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(memory</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 2</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "utf-8"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 格式化记忆为文本（注入 system prompt）</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> formatMemoryForPrompt</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">memory</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Memory</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> parts</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (memory</span><span style="color:#179299">.</span><span style="color:#4C4F69">facts</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#4C4F69">    parts</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`用户信息：</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">memory</span><span style="color:#179299">.</span><span style="color:#4C4F69">facts</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#40A02B">(</span><span style="color:#E64553;font-style:italic">f</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `- </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">f</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#40A02B">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (memory</span><span style="color:#179299">.</span><span style="color:#4C4F69">preferences</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#4C4F69">    parts</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`用户偏好：</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">memory</span><span style="color:#179299">.</span><span style="color:#4C4F69">preferences</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#40A02B">(</span><span style="color:#E64553;font-style:italic">p</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `- </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">p</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#40A02B">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (memory</span><span style="color:#179299">.</span><span style="color:#4C4F69">decisions</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#4C4F69">    parts</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`历史决策：</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">memory</span><span style="color:#179299">.</span><span style="color:#4C4F69">decisions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#40A02B">(</span><span style="color:#E64553;font-style:italic">d</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `- </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">d</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#40A02B">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> parts</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="自动提取记忆">自动提取记忆</h2>
+<p>对话结束后，让模型分析并提取值得记住的信息：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> extractAndUpdateMemory</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  conversation</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Msg[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  currentMemory</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Memory</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Memory</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> extractionResponse </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">                              // 简单提取任务用便宜模型</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1024</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    response_format</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "json_object"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `你是记忆提取助手。分析对话，提取值得长期记住的信息。</span></span>
+<span class="line"><span style="color:#40A02B">只提取明确提到的、有用的信息，不要推测。</span></span>
+<span class="line"><span style="color:#40A02B">返回 JSON：</span></span>
+<span class="line"><span style="color:#40A02B">{</span></span>
+<span class="line"><span style="color:#40A02B">  "new_facts": ["..."],        // 新的用户事实</span></span>
+<span class="line"><span style="color:#40A02B">  "new_preferences": ["..."],  // 新的偏好</span></span>
+<span class="line"><span style="color:#40A02B">  "new_decisions": ["..."]     // 重要决策</span></span>
+<span class="line"><span style="color:#40A02B">}</span></span>
+<span class="line"><span style="color:#40A02B">如果没有新信息，返回空数组。`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `当前记忆：</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#FE640B">JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">currentMemory</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">对话内容：</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span></span>
+<span class="line"><span style="color:#4C4F69">          conversation</span></span>
+<span class="line"><span style="color:#179299">            .</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#40A02B">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">m</span><span style="color:#179299">.</span><span style="color:#4C4F69">role</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">: </span><span style="color:#7C7F93">${</span><span style="color:#8839EF">typeof</span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299"> ===</span><span style="color:#40A02B"> "string"</span><span style="color:#179299"> ?</span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299"> :</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">m</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#40A02B">)</span></span>
+<span class="line"><span style="color:#179299">            .</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#40A02B">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#40A02B">)</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">请提取新的值得记忆的信息：`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> extractedText </span><span style="color:#179299">=</span><span style="color:#4C4F69"> extractionResponse</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> "{}"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> extracted </span><span style="color:#179299">=</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(extractedText) </span><span style="color:#8839EF">as</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    new_facts</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    new_preferences</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    new_decisions</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 合并新旧记忆（去重）</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> updated</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Memory </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#179299">    ...</span><span style="color:#4C4F69">currentMemory</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    facts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#8839EF;font-weight:bold">new</span><span style="color:#1E66F5;font-style:italic"> Set</span><span style="color:#4C4F69">([</span><span style="color:#179299">...</span><span style="color:#4C4F69">currentMemory</span><span style="color:#179299">.</span><span style="color:#4C4F69">facts</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">(extracted</span><span style="color:#179299">.</span><span style="color:#4C4F69">new_facts </span><span style="color:#179299">??</span><span style="color:#4C4F69"> [])])]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    preferences</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#8839EF;font-weight:bold">new</span><span style="color:#1E66F5;font-style:italic"> Set</span><span style="color:#4C4F69">([</span><span style="color:#179299">...</span><span style="color:#4C4F69">currentMemory</span><span style="color:#179299">.</span><span style="color:#4C4F69">preferences</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">(extracted</span><span style="color:#179299">.</span><span style="color:#4C4F69">new_preferences </span><span style="color:#179299">??</span><span style="color:#4C4F69"> [])])]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    decisions</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#8839EF;font-weight:bold">new</span><span style="color:#1E66F5;font-style:italic"> Set</span><span style="color:#4C4F69">([</span><span style="color:#179299">...</span><span style="color:#4C4F69">currentMemory</span><span style="color:#179299">.</span><span style="color:#4C4F69">decisions</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">(extracted</span><span style="color:#179299">.</span><span style="color:#4C4F69">new_decisions </span><span style="color:#179299">??</span><span style="color:#4C4F69"> [])])]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> updated</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="带记忆的对话-agent">带记忆的对话 Agent</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">class</span><span style="color:#DF8E1D;font-style:italic"> MemoryAgent</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> memory </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> loadMemory</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> history</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Msg[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> chat</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userMessage</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userMessage </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 把长期记忆注入 system prompt</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> memoryText </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> formatMemoryForPrompt</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memory)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> systemPrompt </span><span style="color:#179299">=</span><span style="color:#4C4F69"> memoryText</span></span>
+<span class="line"><span style="color:#179299">      ?</span><span style="color:#40A02B"> `你是有记忆能力的助手。以下是关于用户的已知信息，请在对话中自然地运用它：</span><span style="color:#EA76CB">\n\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">memoryText</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span></span>
+<span class="line"><span style="color:#179299">      :</span><span style="color:#40A02B"> "你是有记忆能力的助手。"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> systemPrompt </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#179299">        ...</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> assistantText </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> assistantText </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 每 5 轮自动更新记忆</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">%</span><span style="color:#FE640B"> 10</span><span style="color:#179299"> ===</span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memory </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> extractAndUpdateMemory</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#7C7F93">,</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memory)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">      saveMemory</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memory)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"💾 记忆已更新"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> assistantText</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 手动触发记忆更新</span></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> saveCurrentMemory</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memory </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> extractAndUpdateMemory</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">history</span><span style="color:#7C7F93">,</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memory)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    saveMemory</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memory)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="anthropic-原生-memory-tool仅-anthropic">Anthropic 原生 Memory Tool（仅 Anthropic）</h2>
+<p>Anthropic 原生 SDK 内置 Memory Tool，无需自己实现文件读写：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Anthropic </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "@anthropic-ai/sdk"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> ant </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Anthropic</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ant</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "claude-opus-4-7"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 4096</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "记住我喜欢简洁的代码风格，不喜欢过度注释"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  tools</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#4C4F69">      type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "memory_20250818"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  // Anthropic 内置工具类型</span></span>
+<span class="line"><span style="color:#4C4F69">      name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "memory"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// Claude 会自动调用 memory 工具存储这个偏好</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 在后续对话中，Claude 会读取并应用这个记忆</span></span></code></pre><p>DeepSeek / Kimi 没有等价的内置 memory tool——但本课的&quot;自建文件记忆系统&quot;完全够用，且更可控。</p>
+<blockquote>
+<p><strong>Memory Tool vs 自建记忆</strong>：Anthropic 工具操作更简单，但需要你实现文件存储 handler。自建记忆系统更灵活、跨 provider，控制存储格式和检索策略。</p>
+</blockquote>
+<hr>
+<h2 id="使用示例">使用示例</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> agent </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> MemoryAgent</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 第1次对话（全新开始）</span></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#4C4F69"> agent</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">chat</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"你好，我叫小明，是一名 TypeScript 开发者"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// Agent 介绍自己，开始记录</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#4C4F69"> agent</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">chat</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"我在做一个 AI Agent 项目，主要用 Claude API"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 记住：项目信息</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 退出程序后，下次启动...</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> agent2 </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> MemoryAgent</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 加载已保存的记忆</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#4C4F69"> agent2</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">chat</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"继续帮我完善之前的项目"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// Agent："好的，小明，继续你的 Claude API AI Agent 项目..."</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 它记得！</span></span></code></pre><hr>
+<h2 id="小结">小结</h2>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>优点</th>
+<th>缺点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>文件记忆系统</td>
+<td>完全可控，灵活</td>
+<td>需自行实现</td>
+</tr>
+<tr>
+<td>官方 Memory Tool</td>
+<td>简单，Claude 自己管理</td>
+<td>需实现存储 handler</td>
+</tr>
+<tr>
+<td>数据库存储</td>
+<td>结构化，可搜索</td>
+<td>需要向量搜索（RAG）</td>
+</tr>
+</tbody></table>
+<p>下一课：用 <strong>betaZodTool</strong> 和 <strong>Tool Runner</strong> 创建可复用的 Skill →</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ts-11-structured.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第11课：结构化输出</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ts-13-skill.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第13课：Skill + Tool Runner</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#学习目标">学习目标</a></li><li class="lvl-2"><a href="#两种记忆类型">两种记忆类型</a></li><li class="lvl-2"><a href="#文件记忆系统">文件记忆系统</a></li><li class="lvl-2"><a href="#自动提取记忆">自动提取记忆</a></li><li class="lvl-2"><a href="#带记忆的对话-agent">带记忆的对话 Agent</a></li><li class="lvl-2"><a href="#anthropic-原生-memory-tool仅-anthropic">Anthropic 原生 Memory Tool（仅 Anthropic）</a></li><li class="lvl-2"><a href="#使用示例">使用示例</a></li><li class="lvl-2"><a href="#小结">小结</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

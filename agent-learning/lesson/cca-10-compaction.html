@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第10课：Context 自动压缩 — Claude Code 源码剖析</title>
+  <meta name="description" content="State Re-injection / 熔断器 / Session Memory 直挂">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-rose">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-rose">
+      <div class="crumb">
+        <div class="crumb-icon">CA</div>
+        <div class="crumb-text">Claude Code 源码剖析</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/cca-01-overview.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">泄露事件与全景导览</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-02-startup.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">启动路径剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-03-query.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Query 执行内核</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-04-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool 抽象与工具池</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-05-orchestration.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">工具调度与并发</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-06-permission.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">权限模型与 Sandbox</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-07-skills.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill 系统</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-09-memory.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Memory 分层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-10-compaction.html" class="active">
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 自动压缩</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-11-prompt.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Prompt Runtime</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-12-multi-agent.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 三层模型</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-13-session.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Session 持久化与 Resume</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-14-hidden.html" >
+            <span class="num">14</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第14课（番外）：隐藏命令与 Feature Flag</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/cca-01-overview.html" class="current">Claude Code 源码剖析</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">10</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第10课：Context 自动压缩</div>
+          <div class="desc">State Re-injection / 熔断器 / Session Memory 直挂</div>
+          <div class="tags">
+            <span class="tag">analysis</span><span class="tag">context</span><span class="tag">memory</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">10_context_compaction.md</code></span>
+            <span>📏 380 行</span>
+            <span style="opacity:0.7;">claude-code-analysis/lessons/10_context_compaction.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第10课：Context 自动压缩与 State Re-injection</h1>
+<h2 id="介绍">介绍</h2>
+<p>模型的 context window 是稀缺资源。长会话怎么不&quot;撞墙&quot;？</p>
+<p>很多项目用最简单的&quot;超过截断点就丢前面&quot;。Claude Code 的方案是<strong>两阶段压缩 + 状态重启点补偿</strong>：自动判断阈值 → 后台 forked agent 总结 → 把&quot;被丢掉的工具能力 / 正在读的文件 / 进行中的 Plan&quot;重新声明回去。本课拆这个机制。</p>
+<hr>
+<h2 id="源码定位">源码定位</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>src/services/compact/autoCompact.ts</code></td>
+<td>触发判定 + 熔断器</td>
+</tr>
+<tr>
+<td><code>src/services/compact/compact.ts</code></td>
+<td>压缩主逻辑 + State Re-injection</td>
+</tr>
+<tr>
+<td><code>src/services/compact/sessionMemoryCompact.ts</code></td>
+<td>用 Session Memory 替代 LLM 总结</td>
+</tr>
+<tr>
+<td><code>src/utils/context.ts</code></td>
+<td>窗口尺寸常量</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="effective-context-window留出-summary-预算">Effective Context Window：留出 Summary 预算</h2>
+<p>真实源码（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/services/compact/autoCompact.ts"><code>src/services/compact/autoCompact.ts:33</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> MODEL_CONTEXT_WINDOW_DEFAULT </span><span style="color:#179299">=</span><span style="color:#FE640B"> 200_000</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> MAX_OUTPUT_TOKENS_FOR_SUMMARY </span><span style="color:#179299">=</span><span style="color:#FE640B"> 20_000</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> getEffectiveContextWindowSize</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">model</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> reservedTokensForSummary </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">min</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    getMaxOutputTokensForModel</span><span style="color:#4C4F69">(model)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    MAX_OUTPUT_TOKENS_FOR_SUMMARY</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> contextWindow </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> getContextWindowForModel</span><span style="color:#4C4F69">(model)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> contextWindow </span><span style="color:#179299">-</span><span style="color:#4C4F69"> reservedTokensForSummary</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>200K 窗口里<strong>永远预留 20K 给 summary 输出</strong>。否则触发压缩时 summary 自己就会撞墙（PTL: Prompt Too Long）。</p>
+<p>这是个简单但容易忘的细节——你以为窗口有 200K 可用，<strong>其实最多用到 180K</strong>。</p>
+<hr>
+<h2 id="capped_default_max_tokens基于真实数据的优化">CAPPED_DEFAULT_MAX_TOKENS：基于真实数据的优化</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/utils/context.ts:18</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// Capped default for slot-reservation optimization. BQ p99 output = 4,911</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// tokens, so 32k/64k defaults over-reserve 8-16× slot capacity. With the cap</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// enabled, &#x3C;1% of requests hit the limit; those get one clean retry at 64k</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> CAPPED_DEFAULT_MAX_TOKENS </span><span style="color:#179299">=</span><span style="color:#FE640B"> 8_000</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> ESCALATED_MAX_TOKENS </span><span style="color:#179299">=</span><span style="color:#FE640B"> 64_000</span><span style="color:#7C7F93">;</span></span></code></pre><p>这是<strong>真实数据驱动的优化</strong>：</p>
+<ul>
+<li>业务真实 p99 输出长度是 4911 tokens</li>
+<li>默认 32K / 64K 过度预留 8-16 倍 slot</li>
+<li>卡到 8K 后，&lt;1% 请求会撞限制 → 那些自动 retry 到 64K</li>
+</ul>
+<p>效果：API 排队效率显著提升、token 浪费显著减少。</p>
+<p><strong>这就是工程价值</strong>：默认值不是拍脑袋的&quot;安全大数&quot;，而是测量出来的 p99。</p>
+<hr>
+<h2 id="auto-compact-触发与熔断器">Auto-Compact 触发与熔断器</h2>
+<p>真实源码（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/services/compact/autoCompact.ts"><code>src/services/compact/autoCompact.ts:241</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> autoCompactIfNeeded</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  toolUseContext</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolUseContext</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  cacheSafeParams</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> CacheSafeParams</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  querySource</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> QuerySource</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  tracking</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> AutoCompactTrackingState</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  snipTokensFreed</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69;font-style:italic"> wasCompacted</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> compactionResult</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> CompactionResult </span><span style="color:#7C7F93">}</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ⚠️ 熔断器：连续失败 ≥3 次 → 完全停止该会话的 autocompact</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 防止"用户单张超大图片就超限"导致无限重试</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (tracking</span><span style="color:#179299">?.</span><span style="color:#4C4F69">consecutiveFailures </span><span style="color:#179299">!==</span><span style="color:#8839EF"> undefined</span><span style="color:#179299"> &#x26;&#x26;</span></span>
+<span class="line"><span style="color:#4C4F69">      tracking</span><span style="color:#179299">.</span><span style="color:#4C4F69">consecutiveFailures </span><span style="color:#179299">>=</span><span style="color:#4C4F69"> MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> wasCompacted</span><span style="color:#179299">:</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> shouldCompact </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> shouldAutoCompact</span><span style="color:#4C4F69">(messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> querySource</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> snipTokensFreed)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">shouldCompact) </span><span style="color:#8839EF">return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> wasCompacted</span><span style="color:#179299">:</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> compactionResult </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> compactConversation</span><span style="color:#4C4F69">(messages</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> wasCompacted</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> compactionResult</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> consecutiveFailures</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> catch</span><span style="color:#4C4F69"> (error) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> nextFailures </span><span style="color:#179299">=</span><span style="color:#4C4F69"> (tracking</span><span style="color:#179299">?.</span><span style="color:#4C4F69">consecutiveFailures </span><span style="color:#179299">??</span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#179299">+</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> wasCompacted</span><span style="color:#179299">:</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> consecutiveFailures</span><span style="color:#179299">:</span><span style="color:#4C4F69"> nextFailures </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>两个保护：</p>
+<ol>
+<li><strong>缓冲界限</strong> <code>AUTOCOMPACT_BUFFER_TOKENS = 13_000</code>：剩余 13K 时就开始压缩，不等真撞墙</li>
+<li><strong>熔断器</strong> <code>MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES = 3</code>：连续 3 次失败就停掉该会话的 autocompact</li>
+</ol>
+<p>注释里写了：<strong>这一行 if 每天给大盘省了约 250K 次死锁 API 调用</strong>。看似简单的 3 行代码，节省巨大。</p>
+<hr>
+<h2 id="压缩前预处理剔除非关键素材">压缩前预处理：剔除非关键素材</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/services/compact/compact.ts:145</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> stripImagesFromMessages</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 剔除用户面版图片、tool 传回的文件</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 把所有 { type: 'image' } / { type: 'document' } 替换成 [image] 文本</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> stripReinjectedAttachments</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 剔除 skill_discovery 之类 attachment（反正会在 post-compact 重新注入）</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>为什么先剥这些？因为 summary 请求自己也有 token 上限，把图片传过去给&quot;总结上下文&quot;的子 agent 既贵又没用。</p>
+<hr>
+<h2 id="session-memory-直挂不再调-api-总结">Session Memory 直挂：不再调 API 总结</h2>
+<p>这是 Claude Code 压缩中<strong>最巧妙的设计之一</strong>。</p>
+<p>如果系统已开启 Session Memory 并已积累足够内容，<strong>不再调用模型 API 总结</strong>：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 调 trySessionMemoryCompaction 直接读后台 sub-agent 写好的 session memory 文件</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 充当 SummaryMessage</span></span></code></pre><p>为什么这么省？因为 Session Memory 提取本来就在后台跑（参考第 9 课的 <code>shouldExtractMemory</code>）。当主线程需要 compact 时，&quot;上一次摘要&quot;已经在磁盘上，<strong>直接读</strong>就行。</p>
+<p>省下来的：</p>
+<ul>
+<li>一次完整的 summary API 调用</li>
+<li>几万 token 的 summary prompt</li>
+<li>几秒钟的延迟</li>
+</ul>
+<p>这是&quot;后台积累 + 前台复用&quot;思路在 Agent 工程上的典型应用。</p>
+<hr>
+<h2 id="精确裁切保护-tool_use-tool_result-链">精确裁切：保护 tool_use / tool_result 链</h2>
+<p><code>calculateMessagesToKeepIndex()</code> 决定&quot;从哪里切&quot;：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>1. 必须从后向前留足配置的下限 token（默认约 10K-40K）</span></span>
+<span class="line"><span>2. 截断不能落在 tool_use / tool_result 链中间</span></span>
+<span class="line"><span>3. 截断不能截断与 assistant 共享 message.id 的 thinking 流</span></span></code></pre><p><code>adjustIndexToPreserveAPIInvariants()</code> 强制把 index 向头部平移，把这些孤立片段一并保留——<strong>绝不让 API 收到孤立的 tool_result</strong>（API 会直接报错）。</p>
+<p>这是个非常细的工程细节。它体现了&quot;前向兼容 API 严格契约&quot;的工程纪律。</p>
+<hr>
+<h2 id="state-re-injection本课重头戏">State Re-injection：本课重头戏</h2>
+<p>总结完成后，原本的长 messages 被压缩成一条短 SummaryMessage。但 agent 不能&quot;失忆&quot;——它正在读的文件 / 正在做的 Plan / 已激活的 Tools 必须保留。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/services/compact/compact.ts:517</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 1. 重新加入刚才通过 FileReadTool 看过的文件（带截断上限）</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> fileAttachments </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> createPostCompactFileAttachments</span><span style="color:#4C4F69">(preCompactReadFileState</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 2. 重新加入仍在进行中的 Plan / Skill</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> planAttachment </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> createPlanAttachmentIfNeeded</span><span style="color:#4C4F69">(context</span><span style="color:#179299">.</span><span style="color:#4C4F69">agentId)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> skillAttachment </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> createSkillAttachmentIfNeeded</span><span style="color:#4C4F69">(context</span><span style="color:#179299">.</span><span style="color:#4C4F69">agentId)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 3. 把丢掉的 Deferred Delta 工具协议重新发给模型</span></span>
+<span class="line"><span style="color:#8839EF">for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> att </span><span style="color:#8839EF">of</span><span style="color:#1E66F5;font-style:italic"> getDeferredToolsDeltaAttachment</span><span style="color:#4C4F69">(</span><span style="color:#179299">...</span><span style="color:#4C4F69">)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  postCompactFileAttachments</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">createAttachmentMessage</span><span style="color:#4C4F69">(att))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>最终模型醒来后看到的是：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>[System 边界宣告]</span></span>
+<span class="line"><span>  +</span></span>
+<span class="line"><span>[精简文本摘要]</span></span>
+<span class="line"><span>  +</span></span>
+<span class="line"><span>[正在查看的文件内文截取]</span></span>
+<span class="line"><span>  +</span></span>
+<span class="line"><span>[正在做的 Plan]</span></span>
+<span class="line"><span>  +</span></span>
+<span class="line"><span>[仍然激活的 MCP / Tools 完整声明]</span></span></code></pre><blockquote>
+<p>模型既释放了冗余历史，依然如同长时程 Agent 那样&quot;身处工作台旁边、手持刚刚用到的工具&quot;。</p>
+</blockquote>
+<p>这种&quot;压缩后状态重建&quot;的思路非常通用，可以套用到任何&quot;长时记忆受限&quot;的系统上。</p>
+<hr>
+<h2 id="ptl-fallback救命稻草">PTL Fallback：救命稻草</h2>
+<p>万一 summary 请求自己也撞 PTL（Prompt Too Long）怎么办？</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/services/compact/compact.ts:462</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// CC-1180: 一次剥掉 20% 旧分组重试。最后的"救命稻草"，有损但能解锁</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> truncated </span><span style="color:#179299">=</span><span style="color:#4C4F69"> ptlAttempts </span><span style="color:#179299">&#x3C;=</span><span style="color:#4C4F69"> MAX_PTL_RETRIES</span></span>
+<span class="line"><span style="color:#179299">  ?</span><span style="color:#1E66F5;font-style:italic"> truncateHeadForPTLRetry</span><span style="color:#4C4F69">(messagesToSummarize</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> summaryResponse)</span></span>
+<span class="line"><span style="color:#179299">  :</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">;</span></span></code></pre><p>剥洋葱：每次切掉 20% 头部，最多 N 次。即使丢失早期细节，也保住会话不死锁。</p>
+<hr>
+<h2 id="pattern-提炼">Pattern 提炼</h2>
+<h3 id="pattern-1可用窗口-总窗口-summary-预算">Pattern 1：可用窗口 = 总窗口 - summary 预算</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> effective </span><span style="color:#179299">=</span><span style="color:#4C4F69"> total </span><span style="color:#179299">-</span><span style="color:#4C4F69"> reservedForSummary</span><span style="color:#7C7F93">;</span></span></code></pre><p>不要&quot;等到撞墙才压缩&quot;。</p>
+<h3 id="pattern-2默认值基于真实-p99">Pattern 2：默认值基于真实 p99</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// p99 = 4,911 tokens，所以 cap = 8,000</span></span></code></pre><p>数据驱动的默认值，比拍脑袋大数省下大量资源。</p>
+<h3 id="pattern-3熔断器-3-行代码省-25-万-api-调用天">Pattern 3：熔断器 = 3 行代码省 25 万 API 调用/天</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> (consecutiveFailures </span><span style="color:#179299">>=</span><span style="color:#4C4F69"> MAX_FAILURES) </span><span style="color:#8839EF">return</span><span style="color:#7C7F93">;</span></span></code></pre><p>任何重试逻辑都该有上限。</p>
+<h3 id="pattern-4后台积累-前台复用">Pattern 4：后台积累 + 前台复用</h3>
+<p>Session Memory 后台写好后，前台需要 compact 时直接读，省掉一次 API。</p>
+<h3 id="pattern-5state-re-injection-三件套">Pattern 5：State Re-injection 三件套</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>file 状态 + plan 状态 + 工具协议</span></span></code></pre><p>任何&quot;压缩 / 截断 / 重启&quot;的场景都该考虑这三类状态怎么不丢。</p>
+<h3 id="pattern-6api-不变量是硬约束">Pattern 6：API 不变量是硬约束</h3>
+<p>切割消息时<strong>绝对不能</strong>留下孤立的 tool_result。</p>
+<hr>
+<h2 id="自己实现80-行的最小压缩管线">自己实现：80 行的最小压缩管线</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// my-compaction.ts</span></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> Message </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">user</span><span style="color:#40A02B">'</span><span style="color:#179299"> |</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">assistant</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> content</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> uuid</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> SUMMARY_RESERVE </span><span style="color:#179299">=</span><span style="color:#FE640B"> 20_000</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> COMPACT_BUFFER  </span><span style="color:#179299">=</span><span style="color:#FE640B"> 13_000</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> MAX_FAILURES    </span><span style="color:#179299">=</span><span style="color:#FE640B"> 3</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> autoCompactIfNeeded</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  modelWindow</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  state</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> failures</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  llmSummarize</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">msgs</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Message[] </span><span style="color:#179299">|</span><span style="color:#8839EF;font-style:italic"> null</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 熔断</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (state</span><span style="color:#179299">.</span><span style="color:#4C4F69">failures </span><span style="color:#179299">>=</span><span style="color:#4C4F69"> MAX_FAILURES) </span><span style="color:#8839EF">return</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> effective </span><span style="color:#179299">=</span><span style="color:#4C4F69"> modelWindow </span><span style="color:#179299">-</span><span style="color:#4C4F69"> SUMMARY_RESERVE</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> used </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> estimateTokens</span><span style="color:#4C4F69">(messages)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (used </span><span style="color:#179299">&#x3C;</span><span style="color:#4C4F69"> effective </span><span style="color:#179299">-</span><span style="color:#4C4F69"> COMPACT_BUFFER) </span><span style="color:#8839EF">return</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 还没到压缩点</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> compact</span><span style="color:#4C4F69">(messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> llmSummarize)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> catch</span><span style="color:#4C4F69"> (e) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    state</span><span style="color:#179299">.</span><span style="color:#4C4F69">failures </span><span style="color:#179299">+=</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> compact</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  llmSummarize</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">msgs</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Message[]</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 1. 剔除图片等非关键素材（节省 summary 输入）</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> cleaned </span><span style="color:#179299">=</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> stripImages</span><span style="color:#4C4F69">(m))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 2. 决定保留多少最近消息</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> keepFrom </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> calculateKeepIndex</span><span style="color:#4C4F69">(cleaned</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 10_000</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 至少留 10K token 的最近消息</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 3. 调 LLM 总结被丢掉的部分</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> toSummarize </span><span style="color:#179299">=</span><span style="color:#4C4F69"> cleaned</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> keepFrom)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> summary </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> llmSummarize</span><span style="color:#4C4F69">(toSummarize)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 4. 拼回：[summary 边界] + [最近消息] + [激活的 tools/files/plan 重新声明]</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> summaryMessage</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    role</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'assistant'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `[Compacted] </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">summary</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    uuid</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'summary-'</span><span style="color:#179299"> +</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> stateRebuild</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    role</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'user'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    content</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'Active files: a.ts, b.ts</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">Active plan: ...</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">Active tools: Read, Bash'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    uuid</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'rebuild-'</span><span style="color:#179299"> +</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> [summaryMessage</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> stateRebuild</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">cleaned</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(keepFrom)]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> stripImages</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (Array</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">isArray</span><span style="color:#4C4F69">(m</span><span style="color:#179299">.</span><span style="color:#4C4F69">content)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#179299">      ...</span><span style="color:#4C4F69">m</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">b</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span></span>
+<span class="line"><span style="color:#4C4F69">        b</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'image'</span><span style="color:#179299"> ?</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'text'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#40A02B"> '[image]'</span><span style="color:#7C7F93"> }</span><span style="color:#179299"> :</span><span style="color:#4C4F69"> b</span></span>
+<span class="line"><span style="color:#4C4F69">      )</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    };</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> m</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> calculateKeepIndex</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> minRecentTokens</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> total </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">let</span><span style="color:#4C4F69"> i </span><span style="color:#179299">=</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">-</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i </span><span style="color:#179299">>=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i</span><span style="color:#179299">--</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    total </span><span style="color:#179299">+=</span><span style="color:#1E66F5;font-style:italic"> estimateTokens</span><span style="color:#4C4F69">([messages[i]</span><span style="color:#179299">!</span><span style="color:#4C4F69">])</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (total </span><span style="color:#179299">>=</span><span style="color:#4C4F69"> minRecentTokens) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 不能切在 tool_use / tool_result 中间</span></span>
+<span class="line"><span style="color:#8839EF">      while</span><span style="color:#4C4F69"> (i </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#179299"> &#x26;&#x26;</span><span style="color:#1E66F5;font-style:italic"> isInToolChain</span><span style="color:#4C4F69">(messages[i]</span><span style="color:#179299">!</span><span style="color:#4C4F69">)) i</span><span style="color:#179299">--</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#4C4F69"> i</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> estimateTokens</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> {</span><span style="color:#8839EF"> return</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(m)</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">/</span><span style="color:#FE640B"> 4</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> isInToolChain</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> Array</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">isArray</span><span style="color:#4C4F69">(m</span><span style="color:#179299">.</span><span style="color:#4C4F69">content) </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">some</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">b</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> b</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'tool_use'</span><span style="color:#179299"> ||</span><span style="color:#4C4F69"> b</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'tool_result'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>80 行就抓住了 Claude Code 压缩的核心：<strong>预算 + 熔断 + 自然断点保护 + State Re-injection</strong>。</p>
+<hr>
+<h2 id="本课小结">本课小结</h2>
+<ul>
+<li>总窗口 200K，<strong>永远预留 20K</strong> 给 summary 输出</li>
+<li><code>CAPPED_DEFAULT_MAX_TOKENS = 8000</code> 是基于业务 p99=4,911 的数据决策</li>
+<li><strong>熔断器</strong> 3 行代码每天省 25 万次 API 调用</li>
+<li><strong>Session Memory 直挂</strong>：后台已写好就别再花 token 总结</li>
+<li>切割时<strong>绝不留下孤立 tool_result</strong>（API 会拒）</li>
+<li><strong>State Re-injection</strong>：file / plan / 工具协议三件套，让模型醒来后还能继续工作</li>
+</ul>
+<hr>
+<h2 id="延伸阅读">延伸阅读</h2>
+<ul>
+<li><code>analysis/04f-context-management.md</code> 全文 - 4 节完整解读</li>
+<li><code>analysis/04-agent-memory.md</code> §11 - Memory Compaction 与本课的协同</li>
+<li>下一课：<code>11_prompt_runtime.md</code> - Prompt 6 层装配 + cache boundary</li>
+</ul>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/cca-09-memory.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第9课：Agent Memory 分层</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/cca-11-prompt.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第11课：Prompt Runtime</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#源码定位">源码定位</a></li><li class="lvl-2"><a href="#effective-context-window留出-summary-预算">Effective Context Window：留出 Summary 预算</a></li><li class="lvl-2"><a href="#capped_default_max_tokens基于真实数据的优化">CAPPED_DEFAULT_MAX_TOKENS：基于真实数据的优化</a></li><li class="lvl-2"><a href="#auto-compact-触发与熔断器">Auto-Compact 触发与熔断器</a></li><li class="lvl-2"><a href="#压缩前预处理剔除非关键素材">压缩前预处理：剔除非关键素材</a></li><li class="lvl-2"><a href="#session-memory-直挂不再调-api-总结">Session Memory 直挂：不再调 API 总结</a></li><li class="lvl-2"><a href="#精确裁切保护-tool_use-tool_result-链">精确裁切：保护 tool_use / tool_result 链</a></li><li class="lvl-2"><a href="#state-re-injection本课重头戏">State Re-injection：本课重头戏</a></li><li class="lvl-2"><a href="#ptl-fallback救命稻草">PTL Fallback：救命稻草</a></li><li class="lvl-2"><a href="#pattern-提炼">Pattern 提炼</a></li><li class="lvl-3"><a href="#pattern-1可用窗口-总窗口-summary-预算">Pattern 1：可用窗口 = 总窗口 - summary 预算</a></li><li class="lvl-3"><a href="#pattern-2默认值基于真实-p99">Pattern 2：默认值基于真实 p99</a></li><li class="lvl-3"><a href="#pattern-3熔断器-3-行代码省-25-万-api-调用天">Pattern 3：熔断器 = 3 行代码省 25 万 API 调用/天</a></li><li class="lvl-3"><a href="#pattern-4后台积累-前台复用">Pattern 4：后台积累 + 前台复用</a></li><li class="lvl-3"><a href="#pattern-5state-re-injection-三件套">Pattern 5：State Re-injection 三件套</a></li><li class="lvl-3"><a href="#pattern-6api-不变量是硬约束">Pattern 6：API 不变量是硬约束</a></li><li class="lvl-2"><a href="#自己实现80-行的最小压缩管线">自己实现：80 行的最小压缩管线</a></li><li class="lvl-2"><a href="#本课小结">本课小结</a></li><li class="lvl-2"><a href="#延伸阅读">延伸阅读</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

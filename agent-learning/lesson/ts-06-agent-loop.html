@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第6课：Agentic Loop — TypeScript Agent 开发</title>
+  <meta name="description" content="自主循环 Agent 核心实现">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-blue">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-blue">
+      <div class="crumb">
+        <div class="crumb-icon">TS</div>
+        <div class="crumb-text">TypeScript Agent 开发</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ts-01-hello.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Hello Claude</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-02-multi-turn.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多轮对话</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-03-streaming.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">流式输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-04-first-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第一个工具</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-05-multi-tools.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多工具并行</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-06-agent-loop.html" class="active">
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agentic Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-07-context.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">上下文管理</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-09-orchestrator.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Orchestrator + Worker</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-10-handoff.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Handoff</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-11-structured.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">结构化输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-12-memory.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">记忆 Agent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-13-skill.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill + Tool Runner</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ts-01-hello.html" class="current">TypeScript Agent 开发</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">06</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第6课：Agentic Loop</div>
+          <div class="desc">自主循环 Agent 核心实现</div>
+          <div class="tags">
+            <span class="tag">agent</span><span class="tag">loop</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">06_agent_loop.md</code></span>
+            <span>📏 262 行</span>
+            <span style="opacity:0.7;">typescript/lessons/06_agent_loop.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第6课：Agentic Loop（自主循环 Agent）</h1>
+<h2 id="学习目标">学习目标</h2>
+<ol>
+<li>理解 Agentic Loop 的核心逻辑</li>
+<li>实现能自主多步执行任务的 Agent</li>
+<li>提供文件系统工具：读文件、列目录、写文件、搜索</li>
+<li>控制最大迭代次数，防止无限循环</li>
+</ol>
+<hr>
+<h2 id="什么是-agentic-loop">什么是 Agentic Loop？</h2>
+<p>前面的工具调用是&quot;一问一答&quot;，而 Agentic Loop 是&quot;<strong>持续循环直到任务完成</strong>&quot;：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>用户任务</span></span>
+<span class="line"><span>  ↓</span></span>
+<span class="line"><span>┌─────────────────────────────────┐</span></span>
+<span class="line"><span>│  模型思考 → 调用工具            │</span></span>
+<span class="line"><span>│      ↓                          │  循环</span></span>
+<span class="line"><span>│  执行工具 → 结果回传            │  直到</span></span>
+<span class="line"><span>│      ↓                          │  finish_reason !== 'tool_calls'</span></span>
+<span class="line"><span>│  模型思考 → 调用工具/直接回答   │</span></span>
+<span class="line"><span>└─────────────────────────────────┘</span></span>
+<span class="line"><span>  ↓</span></span>
+<span class="line"><span>最终答案</span></span></code></pre><p>这就是 AI Agent 能完成复杂任务的核心机制。</p>
+<hr>
+<h2 id="核心循环结构">核心循环结构</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../shared/llmClient"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> Msg </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionMessageParam</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runAgent</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userTask</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Msg[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> AGENT_SYSTEM_PROMPT </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69">   content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userTask </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> MAX_ITERATIONS </span><span style="color:#179299">=</span><span style="color:#FE640B"> 10</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 防止无限循环</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">let</span><span style="color:#4C4F69"> i </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i </span><span style="color:#179299">&#x3C;</span><span style="color:#4C4F69"> MAX_ITERATIONS</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i</span><span style="color:#179299">++</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">                              // 默认 deepseek-chat</span></span>
+<span class="line"><span style="color:#4C4F69">      max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 4096</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      tools</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> msg </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(msg)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">                   // 把模型响应（含 tool_calls）原样追加历史</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 任务完成 → 退出循环</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">finish_reason </span><span style="color:#179299">!==</span><span style="color:#40A02B"> "tool_calls"</span><span style="color:#179299"> ||</span><span style="color:#179299"> !</span><span style="color:#4C4F69">msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool_calls</span><span style="color:#179299">?.</span><span style="color:#4C4F69">length) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#4C4F69"> msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 需要调用工具 → 执行并回传</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> call </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool_calls) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> executeTool</span><span style="color:#4C4F69">(call</span><span style="color:#179299">.</span><span style="color:#4C4F69">function</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(call</span><span style="color:#179299">.</span><span style="color:#4C4F69">function</span><span style="color:#179299">.</span><span style="color:#4C4F69">arguments))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "tool"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        tool_call_id</span><span style="color:#179299">:</span><span style="color:#4C4F69"> call</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> result</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 继续下一轮循环</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#40A02B"> "达到最大迭代次数，任务未完成"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="文件系统工具定义">文件系统工具定义</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tools </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "function"</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    function</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "read_file"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "读取文件内容"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> path</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "文件路径"</span><span style="color:#7C7F93"> }</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">        required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"path"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "function"</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    function</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "list_directory"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "列出目录内容"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> path</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "目录路径，默认为当前目录"</span><span style="color:#7C7F93"> }</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">        required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "function"</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    function</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "write_file"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "写入内容到文件"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">          path</span><span style="color:#179299">:</span><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "文件路径"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">          content</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "要写入的内容"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#4C4F69">        required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"path"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "content"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "function"</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    function</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "search_in_files"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "在目录中搜索包含指定文本的文件"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">          directory</span><span style="color:#179299">:</span><span style="color:#7C7F93">   {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "搜索目录"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">          search_text</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "要搜索的文本"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#4C4F69">        required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"directory"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "search_text"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="工具执行函数">工具执行函数</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> readFileSync</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> writeFileSync</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> readdirSync</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> statSync </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> join </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "path"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> executeTool</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> input</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> unknown</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    switch</span><span style="color:#4C4F69"> (name) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      case</span><span style="color:#40A02B"> "read_file"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> content </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> readFileSync</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "utf-8"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#4C4F69"> content</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 3000</span></span>
+<span class="line"><span style="color:#179299">          ?</span><span style="color:#4C4F69"> content</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 3000</span><span style="color:#4C4F69">) </span><span style="color:#179299">+</span><span style="color:#40A02B"> "</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">...(内容过长，已截断)"</span></span>
+<span class="line"><span style="color:#179299">          :</span><span style="color:#4C4F69"> content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      case</span><span style="color:#40A02B"> "list_directory"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> dir </span><span style="color:#179299">=</span><span style="color:#4C4F69"> (input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> string</span><span style="color:#4C4F69">) </span><span style="color:#179299">??</span><span style="color:#40A02B"> "."</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> entries </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> readdirSync</span><span style="color:#4C4F69">(dir)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#4C4F69"> entries</span></span>
+<span class="line"><span style="color:#179299">          .</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">e</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">            const</span><span style="color:#4C4F69"> stat </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> statSync</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(dir</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> e))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">            return</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">stat</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">isDirectory</span><span style="color:#40A02B">() </span><span style="color:#179299">?</span><span style="color:#40A02B"> "📁"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "📄"</span><span style="color:#7C7F93">}</span><span style="color:#7C7F93"> ${</span><span style="color:#4C4F69">e</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">          }</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">          .</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      case</span><span style="color:#40A02B"> "write_file"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">        writeFileSync</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> input</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "utf-8"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B"> `✅ 文件已写入：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      case</span><span style="color:#40A02B"> "search_in_files"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> results</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        function</span><span style="color:#1E66F5;font-style:italic"> search</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">dir</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">          for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> entry </span><span style="color:#8839EF">of</span><span style="color:#1E66F5;font-style:italic"> readdirSync</span><span style="color:#4C4F69">(dir)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">            const</span><span style="color:#4C4F69"> fullPath </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> join</span><span style="color:#4C4F69">(dir</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> entry)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">            const</span><span style="color:#4C4F69"> stat </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> statSync</span><span style="color:#4C4F69">(fullPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">            if</span><span style="color:#4C4F69"> (stat</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">isDirectory</span><span style="color:#4C4F69">()) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">              search</span><span style="color:#4C4F69">(fullPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">            }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (stat</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">isFile</span><span style="color:#4C4F69">()) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">              const</span><span style="color:#4C4F69"> content </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> readFileSync</span><span style="color:#4C4F69">(fullPath</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "utf-8"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">              if</span><span style="color:#4C4F69"> (content</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">search_text </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> string</span><span style="color:#4C4F69">)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">                results</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(fullPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">              }</span></span>
+<span class="line"><span style="color:#7C7F93">            }</span></span>
+<span class="line"><span style="color:#7C7F93">          }</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">        search</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">directory </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> string</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#4C4F69"> results</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span></span>
+<span class="line"><span style="color:#179299">          ?</span><span style="color:#40A02B"> `找到 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">results</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 个文件：</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">results</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#40A02B">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span></span>
+<span class="line"><span style="color:#179299">          :</span><span style="color:#40A02B"> "未找到匹配文件"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      default</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B"> `未知工具：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">e</span><span style="color:#179299">:</span><span style="color:#8839EF"> unknown</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#40A02B"> `工具执行错误：</span><span style="color:#7C7F93">${</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">e</span><span style="color:#8839EF"> as</span><span style="color:#DF8E1D;font-style:italic"> Error</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="实际效果">实际效果</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>任务: "帮我列出当前目录的文件，然后读取 README.md 并总结其内容"</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>第1轮：模型调用 list_directory(".")</span></span>
+<span class="line"><span>  → 返回文件列表</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>第2轮：模型调用 read_file("README.md")</span></span>
+<span class="line"><span>  → 返回文件内容</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>第3轮：模型综合信息，给出总结</span></span>
+<span class="line"><span>  → finish_reason: "stop"</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>Agent 完成！总共 3 轮迭代。</span></span></code></pre><p>跑起来：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#4C4F69"> DEEPSEEK_API_KEY</span><span style="color:#179299">=</span><span style="color:#4C4F69">sk-xxxxxxxxxxxx</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">npx</span><span style="color:#40A02B"> tsx</span><span style="color:#40A02B"> 06_agent_loop.ts</span></span></code></pre><blockquote>
+<p>想看到模型的&quot;思考过程&quot;用 <code>LLM_MODEL=deepseek-reasoner npx tsx ...</code>，
+R1 模型会在 <code>message.reasoning_content</code> 字段里暴露完整推理链路，调试 Agent 决策非常有用。</p>
+</blockquote>
+<hr>
+<h2 id="关键设计原则">关键设计原则</h2>
+<ol>
+<li><strong>迭代上限</strong>：始终设置 <code>MAX_ITERATIONS</code>，防止无限循环和费用失控</li>
+<li><strong>完整历史</strong>：每轮 <code>assistant</code> 消息（包含 <code>tool_calls</code>）原样追加到 <code>messages</code>，保证上下文连贯</li>
+<li><strong>错误处理</strong>：工具执行失败时返回错误信息（而非抛出异常），让模型自己决策</li>
+<li><strong>工具粒度</strong>：工具越原子化，模型越能灵活组合</li>
+</ol>
+<hr>
+<h2 id="关于-anthropic-原生协议">关于 Anthropic 原生协议</h2>
+<p>如果你切到 Anthropic 原生 <code>messages.create</code>，循环条件和字段名要相应调整：</p>
+<table>
+<thead>
+<tr>
+<th>OpenAI 兼容（本课）</th>
+<th>Anthropic 原生</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>finish_reason === &#39;tool_calls&#39;</code></td>
+<td><code>stop_reason === &#39;tool_use&#39;</code></td>
+</tr>
+<tr>
+<td><code>msg.tool_calls[]</code></td>
+<td><code>content[].type === &#39;tool_use&#39;</code></td>
+</tr>
+<tr>
+<td><code>{ role: &#39;tool&#39;, tool_call_id, content }</code></td>
+<td><code>{ type: &#39;tool_result&#39;, tool_use_id, content }</code></td>
+</tr>
+<tr>
+<td><code>messages: [{ role: &#39;system&#39;, content }, ...]</code></td>
+<td>API 顶层 <code>system</code> 参数</td>
+</tr>
+</tbody></table>
+<p>下一课：对话越来越长时如何管理 <strong>Context Window</strong> →</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ts-05-multi-tools.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第5课：多工具并行</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ts-07-context.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第7课：上下文管理</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#学习目标">学习目标</a></li><li class="lvl-2"><a href="#什么是-agentic-loop">什么是 Agentic Loop？</a></li><li class="lvl-2"><a href="#核心循环结构">核心循环结构</a></li><li class="lvl-2"><a href="#文件系统工具定义">文件系统工具定义</a></li><li class="lvl-2"><a href="#工具执行函数">工具执行函数</a></li><li class="lvl-2"><a href="#实际效果">实际效果</a></li><li class="lvl-2"><a href="#关键设计原则">关键设计原则</a></li><li class="lvl-2"><a href="#关于-anthropic-原生协议">关于 Anthropic 原生协议</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

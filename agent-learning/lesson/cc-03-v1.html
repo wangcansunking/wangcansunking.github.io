@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第3课：MVP v1 — Mini Claude Code 系列</title>
+  <meta name="description" content="60 行实现最小可用 Agent，只有 Bash 工具">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-violet">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-violet">
+      <div class="crumb">
+        <div class="crumb-icon">CC</div>
+        <div class="crumb-text">Mini Claude Code 系列</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/cc-01-philosophy.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">设计哲学</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cc-02-architecture.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">整体架构</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cc-03-v1.html" class="active">
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MVP v1</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cc-04-v2.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MVP v2 完整工具</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cc-05-v3.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MVP v3 SubAgent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cc-06-v4.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MVP v4 Skill 系统</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/cc-01-philosophy.html" class="current">Mini Claude Code 系列</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">03</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第3课：MVP v1</div>
+          <div class="desc">60 行实现最小可用 Agent，只有 Bash 工具</div>
+          <div class="tags">
+            <span class="tag">mvp</span><span class="tag">bash</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">03_mvp_v1.md</code></span>
+            <span>📏 230 行</span>
+            <span style="opacity:0.7;">claude-code-series/lessons/03_mvp_v1.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第3课：MVP v1 — 60行实现最小可用 Agent</h1>
+<h2 id="介绍">介绍</h2>
+<p>理论讲完了，动手写。</p>
+<p>本课目标：<strong>用最少的代码，实现一个真正能用的 AI 编程助手</strong>——能执行 Bash 命令，能自己决策，能完成多步任务。</p>
+<p>代码量：约 60 行。功能：真实可用。</p>
+<hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>我们想让 AI 能执行这样的对话：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>用户：帮我查看当前目录有哪些文件，然后统计一下 .ts 文件的数量</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>AI：好的，先看一下目录...</span></span>
+<span class="line"><span>[调用 bash: ls -la]</span></span>
+<span class="line"><span>[调用 bash: find . -name "*.ts" | wc -l]</span></span>
+<span class="line"><span>当前目录共有 12 个 .ts 文件。</span></span></code></pre><p>实现这个，需要解决三个问题：</p>
+<ol>
+<li><strong>如何让 AI 调用工具？</strong> → Claude API 的 Tool Use 机制</li>
+<li><strong>如何循环直到完成？</strong> → Agentic Loop</li>
+<li><strong>如何让 AI 保持上下文？</strong> → Messages 历史数组</li>
+</ol>
+<hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a每次调用都传完整历史">方案 A：每次调用都传完整历史</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#4C4F69">messages </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [user</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> assistant</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> tool_result</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> assistant</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> tool_result</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 每轮都把完整历史传给 API</span></span></code></pre><p>✅ 实现最简单
+❌ token 消耗线性增长（长任务会很贵）</p>
+<h3 id="方案-b摘要压缩">方案 B：摘要压缩</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 超过阈值后，把早期历史压缩成摘要</span></span>
+<span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> (messages</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#4C4F69"> MAX) </span><span style="color:#1E66F5;font-style:italic">compress</span><span style="color:#4C4F69">(messages)</span></span></code></pre><p>✅ 控制 token 消耗
+❌ 实现复杂</p>
+<h3 id="方案-c只保留最近-n-轮">方案 C：只保留最近 N 轮</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#4C4F69">messages </span><span style="color:#179299">=</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#179299">-</span><span style="color:#4C4F69">N)</span></span></code></pre><p>✅ 简单粗暴
+❌ 会丢失重要历史</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p><strong>MVP 阶段用方案 A</strong>（最简单），等 v2/v3 再加上下文管理优化。</p>
+<p>原则：<strong>先让它跑起来，再让它跑得好。</strong></p>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="完整代码">完整代码</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Anthropic </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "@anthropic-ai/sdk"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> exec </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "child_process"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> promisify </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "util"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> execAsync </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> promisify</span><span style="color:#4C4F69">(exec)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> client </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Anthropic</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ── 工具定义 ──────────────────────────────────────────</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tools</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Anthropic</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">Tool[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "bash"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "执行 Bash 命令。用于读文件、运行测试、Git 操作等一切需要终端的任务。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    input_schema</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        command</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "要执行的 Bash 命令"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">      required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"command"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ── 工具执行 ──────────────────────────────────────────</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> executeTool</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> input</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (name </span><span style="color:#179299">===</span><span style="color:#40A02B"> "bash"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> stdout</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> stderr </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> execAsync</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">command</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        cwd</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">cwd</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        timeout</span><span style="color:#179299">:</span><span style="color:#FE640B"> 30_000</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">      // 30秒超时</span></span>
+<span class="line"><span style="color:#4C4F69">        maxBuffer</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1024</span><span style="color:#179299"> *</span><span style="color:#FE640B"> 512</span><span style="color:#9CA0B0;font-style:italic"> // 512KB 输出上限</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#4C4F69"> stdout </span><span style="color:#179299">||</span><span style="color:#4C4F69"> stderr </span><span style="color:#179299">||</span><span style="color:#40A02B"> "(命令执行完毕，无输出)"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">err</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#40A02B"> `错误: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">err</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#40A02B"> `未知工具: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ── Agent Loop ────────────────────────────────────────</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runAgent</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userMessage</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Anthropic</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">MessageParam[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userMessage </span><span style="color:#7C7F93">}</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">👤 用户: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">userMessage</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  while</span><span style="color:#4C4F69"> (</span><span style="color:#FE640B">true</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "claude-opus-4-6"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 4096</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      tools</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      system</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个 AI 编程助手。通过 Bash 工具完成用户的任务。每次执行前简短说明你在做什么。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 把 AI 回复加入历史</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 打印文本输出</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> block </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">content) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (block</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "text"</span><span style="color:#179299"> &#x26;&#x26;</span><span style="color:#4C4F69"> block</span><span style="color:#179299">.</span><span style="color:#4C4F69">text) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`🤖 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">block</span><span style="color:#179299">.</span><span style="color:#4C4F69">text</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 任务完成，退出循环</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (response</span><span style="color:#179299">.</span><span style="color:#4C4F69">stop_reason </span><span style="color:#179299">===</span><span style="color:#40A02B"> "end_turn"</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">break</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 执行所有工具调用</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> toolResults</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Anthropic</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ToolResultBlockParam[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> block </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">content) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (block</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "tool_use"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">🔧 执行: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">block</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">(</span><span style="color:#7C7F93">${</span><span style="color:#FE640B">JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">block</span><span style="color:#179299">.</span><span style="color:#4C4F69">input</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">)`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> executeTool</span><span style="color:#4C4F69">(block</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> block</span><span style="color:#179299">.</span><span style="color:#4C4F69">input </span><span style="color:#8839EF">as</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> string</span><span style="color:#04A5E5">></span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`📤 结果: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#40A02B">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 200</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#40A02B">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 200</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> "..."</span><span style="color:#179299"> :</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">        toolResults</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">          type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "tool_result"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          tool_use_id</span><span style="color:#179299">:</span><span style="color:#4C4F69"> block</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> result</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 把工具结果加入历史，继续循环</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> toolResults </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ── 入口 ──────────────────────────────────────────────</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> task </span><span style="color:#179299">=</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">argv[</span><span style="color:#FE640B">2</span><span style="color:#4C4F69">] </span><span style="color:#179299">??</span><span style="color:#40A02B"> "查看当前目录结构，告诉我有哪些文件类型"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">runAgent</span><span style="color:#4C4F69">(task)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><h3 id="代码解析">代码解析</h3>
+<table>
+<thead>
+<tr>
+<th>部分</th>
+<th>行数</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>工具定义</td>
+<td>~12行</td>
+<td>告诉 AI 有什么工具可用</td>
+</tr>
+<tr>
+<td>工具执行</td>
+<td>~12行</td>
+<td>真正执行 Bash 命令</td>
+</tr>
+<tr>
+<td>Agent Loop</td>
+<td>~35行</td>
+<td>核心循环逻辑</td>
+</tr>
+</tbody></table>
+<p><strong>关键循环逻辑：</strong></p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>1. 调用 API → 得到 response</span></span>
+<span class="line"><span>2. 如果 stop_reason = end_turn → 完成，break</span></span>
+<span class="line"><span>3. 如果 stop_reason = tool_use → 执行工具，结果加入 messages，继续循环</span></span></code></pre><h3 id="运行方式">运行方式</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># 安装依赖</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">npm</span><span style="color:#40A02B"> install</span><span style="color:#40A02B"> @anthropic-ai/sdk</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 运行（需要设置 ANTHROPIC_API_KEY）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#4C4F69"> ANTHROPIC_API_KEY</span><span style="color:#179299">=</span><span style="color:#40A02B">"your-key"</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">npx</span><span style="color:#40A02B"> ts-node</span><span style="color:#40A02B"> mini_claude_code_v1.ts</span><span style="color:#40A02B"> "帮我统计当前目录的 TypeScript 文件数量"</span></span></code></pre><h3 id="实际效果">实际效果</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>👤 用户: 统计当前目录的 TypeScript 文件数量</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>🤖 我来帮你统计一下 TypeScript 文件的数量。</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>🔧 执行: bash({"command":"find . -name '*.ts' -not -path '*/node_modules/*' | wc -l"})</span></span>
+<span class="line"><span>📤 结果: 23</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>🤖 当前目录（排除 node_modules）共有 **23 个 TypeScript 文件**。</span></span></code></pre><hr>
+<h2 id="下一步">下一步</h2>
+<p>v1 能用，但有明显的局限：</p>
+<ul>
+<li><strong>只有 Bash</strong>：读/写文件通过 Bash 做，效率低、容易出错</li>
+<li><strong>无权限检查</strong>：危险命令会直接执行</li>
+<li><strong>无 CLAUDE.md</strong>：没有项目上下文</li>
+<li><strong>无 token 管理</strong>：长任务会超出上下文</li>
+</ul>
+<p>下一课我们解决这些问题，加入 Read/Write/Edit/Glob 工具，加入权限系统，加入 CLAUDE.md 支持。</p>
+<p>→ <strong>第4课：MVP v2 — 完整工具 + 权限 + CLAUDE.md</strong></p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/cc-02-architecture.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第2课：整体架构</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/cc-04-v2.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第4课：MVP v2 完整工具</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a每次调用都传完整历史">方案 A：每次调用都传完整历史</a></li><li class="lvl-3"><a href="#方案-b摘要压缩">方案 B：摘要压缩</a></li><li class="lvl-3"><a href="#方案-c只保留最近-n-轮">方案 C：只保留最近 N 轮</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#完整代码">完整代码</a></li><li class="lvl-3"><a href="#代码解析">代码解析</a></li><li class="lvl-3"><a href="#运行方式">运行方式</a></li><li class="lvl-3"><a href="#实际效果">实际效果</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

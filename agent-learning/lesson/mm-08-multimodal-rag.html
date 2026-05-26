@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第8课：多模态 RAG — 多模态 AI 开发</title>
+  <meta name="description" content="图文混合知识库检索增强">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-green">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-green">
+      <div class="crumb">
+        <div class="crumb-icon">MM</div>
+        <div class="crumb-text">多模态 AI 开发</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/mm-01-vision.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">图像理解</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-02-image-gen.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">图像生成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-03-video.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">视频生成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-04-documents.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">文档解析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-05-ppt.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">PPT 自动生成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-06-audio.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">语音处理</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-07-multimodal-agent.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多模态 Agent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-08-multimodal-rag.html" class="active">
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多模态 RAG</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/mm-01-vision.html" class="current">多模态 AI 开发</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">08</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第8课：多模态 RAG</div>
+          <div class="desc">图文混合知识库检索增强</div>
+          <div class="tags">
+            <span class="tag">rag</span><span class="tag">multimodal</span><span class="tag">advanced</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">08_multimodal_rag.md</code></span>
+            <span>📏 395 行</span>
+            <span style="opacity:0.7;">multimodal/lessons/08_multimodal_rag.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第8课：多模态 RAG — 图文混合知识库</h1>
+<h2 id="介绍">介绍</h2>
+<p>传统 RAG 只处理文本。多模态 RAG 可以检索图像、表格、图表，让知识库真正理解非文本内容。本课构建图文混合知识库：图像先用 Vision API 生成文字描述再 embedding，检索时同时搜索文本和图像描述，检索结果注入 context 供 LLM 回答。</p>
+<hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>图像无法直接向量化检索，需要先&quot;描述&quot;再存储；检索时需要同时搜索文本和图像：</p>
+<ol>
+<li><strong>图像无法直接 embedding</strong>：文本 embedding 模型（如 text-embedding-3-small）无法处理图像</li>
+<li><strong>图像描述的信息损耗</strong>：Vision API 生成的描述可能遗漏关键细节，需要精心设计 prompt</li>
+<li><strong>混合检索</strong>：文本块和图像描述的 embedding 在同一向量空间，但检索时需要标记来源类型</li>
+<li><strong>Context 注入</strong>：检索到图像时，需要把原始图像（而非描述文字）注入 Vision 模型</li>
+</ol>
+<hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a图像文字描述embedding推荐">方案 A：图像→文字描述→Embedding（推荐）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>图像 → Vision API → 文字描述 → Embedding → 存向量库（含图像路径）</span></span>
+<span class="line"><span>检索时：返回描述 + 原始图像路径 → 注入 Vision 模型</span></span></code></pre><p>✅ 实现简单，不需要多模态 embedding 模型
+✅ 文字描述可以编辑和增强（加标签、关键词）
+❌ 描述可能遗漏视觉细节</p>
+<h3 id="方案-b多模态-embedding-模型如-clip">方案 B：多模态 Embedding 模型（如 CLIP）</h3>
+<p>直接把图像转为向量，与文本向量共享同一向量空间。</p>
+<p>✅ 保留完整图像信息，跨模态检索准确度更高
+❌ 需要部署 CLIP 或调用专用 API，成本和复杂度高</p>
+<h3 id="方案-c独立图像索引并行检索">方案 C：独立图像索引，并行检索</h3>
+<p>图像和文本分别建索引，检索时并行查询再合并排序。</p>
+<p>✅ 不同模态可以用各自最优的检索方式
+❌ 需要维护多个索引，RRF 融合逻辑复杂</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p>选择<strong>方案 A</strong>（图像→描述→Embedding）。工程实现最简单，与现有文本 RAG 无缝融合，成本可控。Vision API 生成的详细描述质量已经很高，足以支撑大多数检索场景。</p>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="多模态-rag-pipeline">多模态 RAG Pipeline</h3>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    subgraph 知识库构建阶段
+        A1[图像文件] --&gt; B1[GPT-4o Vision\n生成详细描述]
+        A2[文档/文本] --&gt; B2[分块处理]
+        B1 --&gt; C1[描述文本 + 图像路径]
+        B2 --&gt; C2[文本块]
+        C1 --&gt; D[text-embedding-3-small]
+        C2 --&gt; D
+        D --&gt; E[向量数据库\nrecord: embedding + type + content]
+    end
+
+    subgraph 检索问答阶段
+        F[用户问题] --&gt; G[问题 Embedding]
+        G --&gt; H[Top-K 余弦相似度检索]
+        E --&gt; H
+        H --&gt; I{结果包含图像记录?}
+        I --&gt;|是| J[加载原始图像文件\n构建 Vision 请求]
+        I --&gt;|否| K[纯文本 Context]
+        J --&gt; L[GPT-4o Vision 回答]
+        K --&gt; M[GPT-4o-mini 回答]
+    end</pre></div><h3 id="图像-embeddingvision-生成描述">图像 Embedding（Vision 生成描述）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/multimodal_rag/image_indexer.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> path </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "path"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> openai </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> ImageRecord</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  id</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">image</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  filePath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  embedding</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  metadata</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    fileName</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    fileSize</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    createdAt</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    tags</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> describeImage</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">imagePath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> buffer </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFileSync</span><span style="color:#4C4F69">(imagePath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> base64 </span><span style="color:#179299">=</span><span style="color:#4C4F69"> buffer</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toString</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"base64"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> ext </span><span style="color:#179299">=</span><span style="color:#4C4F69"> path</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">extname</span><span style="color:#4C4F69">(imagePath)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toLowerCase</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> mimeType </span><span style="color:#179299">=</span><span style="color:#4C4F69"> ext </span><span style="color:#179299">===</span><span style="color:#40A02B"> ".png"</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> "image/png"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "image/jpeg"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "image_url"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> image_url</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> url</span><span style="color:#179299">:</span><span style="color:#40A02B"> `data:</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">mimeType</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">;base64,</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">base64</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> detail</span><span style="color:#179299">:</span><span style="color:#40A02B"> "high"</span><span style="color:#7C7F93"> }</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span></span>
+<span class="line"><span style="color:#4C4F69">          type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "text"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          text</span><span style="color:#179299">:</span><span style="color:#40A02B"> `请为这张图片生成详细的索引描述（用于知识库检索），包含：</span></span>
+<span class="line"><span style="color:#40A02B">1. 图片主要内容和主题</span></span>
+<span class="line"><span style="color:#40A02B">2. 如果是图表：所有数据点、数值、趋势、标题、图例</span></span>
+<span class="line"><span style="color:#40A02B">3. 如果是文档截图：所有可见文字</span></span>
+<span class="line"><span style="color:#40A02B">4. 如果是产品/实物：品牌、型号、特征、颜色</span></span>
+<span class="line"><span style="color:#40A02B">5. 关键词列表（5-10个）</span></span>
+<span class="line"><span style="color:#40A02B">用中文描述，约 200-300 字。`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#4C4F69">      ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 500</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">||</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> getEmbedding</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">number</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">embeddings</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "text-embedding-3-small"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    input</span><span style="color:#179299">:</span><span style="color:#4C4F69"> text</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">data[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">embedding</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> indexImage</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">imagePath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> tags</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">ImageRecord</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`索引: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">path</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">basename</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">imagePath</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> description </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> describeImage</span><span style="color:#4C4F69">(imagePath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> embedding </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> getEmbedding</span><span style="color:#4C4F69">(description)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    id</span><span style="color:#179299">:</span><span style="color:#40A02B"> `img_</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#40A02B">()</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">_</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">random</span><span style="color:#40A02B">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toString</span><span style="color:#40A02B">(</span><span style="color:#FE640B">36</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#40A02B">(</span><span style="color:#FE640B">2</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 8</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "image"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    filePath</span><span style="color:#179299">:</span><span style="color:#4C4F69"> imagePath</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    description</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    embedding</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    metadata</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      fileName</span><span style="color:#179299">:</span><span style="color:#4C4F69"> path</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">basename</span><span style="color:#4C4F69">(imagePath)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      fileSize</span><span style="color:#179299">:</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">statSync</span><span style="color:#4C4F69">(imagePath)</span><span style="color:#179299">.</span><span style="color:#4C4F69">size</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      createdAt</span><span style="color:#179299">:</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Date</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toISOString</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      tags</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> indexImageDirectory</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">dirPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">ImageRecord[]</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> exts </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">".jpg"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> ".jpeg"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> ".png"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> ".webp"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> files </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readdirSync</span><span style="color:#4C4F69">(dirPath)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">f</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span></span>
+<span class="line"><span style="color:#4C4F69">    exts</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(path</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">extname</span><span style="color:#4C4F69">(f)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toLowerCase</span><span style="color:#4C4F69">())</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`发现 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">files</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 张图像`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> records</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ImageRecord[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">let</span><span style="color:#4C4F69"> i </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i </span><span style="color:#179299">&#x3C;</span><span style="color:#4C4F69"> files</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i</span><span style="color:#179299">++</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> record </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> indexImage</span><span style="color:#4C4F69">(path</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(dirPath</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> files[i]))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    records</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(record)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (i </span><span style="color:#179299">&#x3C;</span><span style="color:#4C4F69"> files</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">-</span><span style="color:#FE640B"> 1</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">await</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> setTimeout</span><span style="color:#4C4F69">(r</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 500</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> records</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="多模态向量库图文混存">多模态向量库（图文混存）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/multimodal_rag/vector_store.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#8839EF"> type</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> ImageRecord </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./image_indexer"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> TextRecord</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  id</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">text</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  embedding</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  metadata</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> source</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> page</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> type</span><span style="color:#DF8E1D;font-style:italic"> VectorRecord </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> ImageRecord </span><span style="color:#179299">|</span><span style="color:#DF8E1D;font-style:italic"> TextRecord</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> MultimodalVectorStore</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> records</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> VectorRecord[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#8839EF"> readonly</span><span style="color:#4C4F69"> storePath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">storePath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "./multimodal_store.json"</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">storePath </span><span style="color:#179299">=</span><span style="color:#4C4F69"> storePath</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">existsSync</span><span style="color:#4C4F69">(storePath)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">records </span><span style="color:#179299">=</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFileSync</span><span style="color:#4C4F69">(storePath</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "utf-8"</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`加载 </span><span style="color:#7C7F93">${</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">records</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 条向量记录`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  add</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">record</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> VectorRecord</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">records</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(record)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  search</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    queryEmbedding</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    topK</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 5</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    typeFilter</span><span style="color:#179299">?:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">text</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">image</span><span style="color:#40A02B">"</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> record</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> VectorRecord</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> score</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> }</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> candidates </span><span style="color:#179299">=</span><span style="color:#4C4F69"> typeFilter</span></span>
+<span class="line"><span style="color:#179299">      ?</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">records</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#4C4F69"> typeFilter)</span></span>
+<span class="line"><span style="color:#179299">      :</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">records</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> candidates</span></span>
+<span class="line"><span style="color:#179299">      .</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">record</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> (</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> record</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> score</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">cosineSimilarity</span><span style="color:#4C4F69">(queryEmbedding</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> record</span><span style="color:#179299">.</span><span style="color:#4C4F69">embedding) </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">))</span></span>
+<span class="line"><span style="color:#179299">      .</span><span style="color:#1E66F5;font-style:italic">sort</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">a</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> b</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> b</span><span style="color:#179299">.</span><span style="color:#4C4F69">score </span><span style="color:#179299">-</span><span style="color:#4C4F69"> a</span><span style="color:#179299">.</span><span style="color:#4C4F69">score)</span></span>
+<span class="line"><span style="color:#179299">      .</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> topK)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#1E66F5;font-style:italic"> cosineSimilarity</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">a</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> b</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> dot </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> magA </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> magB </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">let</span><span style="color:#4C4F69"> i </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i </span><span style="color:#179299">&#x3C;</span><span style="color:#4C4F69"> a</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i</span><span style="color:#179299">++</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      dot </span><span style="color:#179299">+=</span><span style="color:#4C4F69"> a[i] </span><span style="color:#179299">*</span><span style="color:#4C4F69"> b[i]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      magA </span><span style="color:#179299">+=</span><span style="color:#4C4F69"> a[i] </span><span style="color:#179299">*</span><span style="color:#4C4F69"> a[i]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      magB </span><span style="color:#179299">+=</span><span style="color:#4C4F69"> b[i] </span><span style="color:#179299">*</span><span style="color:#4C4F69"> b[i]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> dot </span><span style="color:#179299">/</span><span style="color:#4C4F69"> (Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">sqrt</span><span style="color:#4C4F69">(magA) </span><span style="color:#179299">*</span><span style="color:#4C4F69"> Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">sqrt</span><span style="color:#4C4F69">(magB))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  save</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">writeFileSync</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">storePath</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">records</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 2</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`向量库保存: </span><span style="color:#7C7F93">${</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">records</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 条`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  getStats</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> images </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">records</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "image"</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> total</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">records</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> images</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> texts</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">records</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">-</span><span style="color:#4C4F69"> images </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="混合检索与-context-注入">混合检索与 Context 注入</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/multimodal_rag/retriever.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> getEmbedding </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./image_indexer"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#8839EF"> type</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> MultimodalVectorStore </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./vector_store"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#8839EF"> type</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> ImageRecord</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> TextRecord </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./image_indexer"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> openai </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> multimodalRAGQuery</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  question</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  store</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> MultimodalVectorStore</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  topK</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 5</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 1. 问题 Embedding</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> questionEmbedding </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> getEmbedding</span><span style="color:#4C4F69">(question)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 2. 混合检索</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> results </span><span style="color:#179299">=</span><span style="color:#4C4F69"> store</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">search</span><span style="color:#4C4F69">(questionEmbedding</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> topK)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> imageResults </span><span style="color:#179299">=</span><span style="color:#4C4F69"> results</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">record</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "image"</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">as</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> record</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ImageRecord</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> score</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> }</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> textResults </span><span style="color:#179299">=</span><span style="color:#4C4F69"> results</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">record</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "text"</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">as</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> record</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> TextRecord</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> score</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> }</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[RAG] 检索结果: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">imageResults</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 张图像, </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">textResults</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 段文本`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (imageResults</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 3a. 有图像：用 Vision 模型，传入原始图像</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> userContent</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionContentPart[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> record </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> of</span><span style="color:#4C4F69"> imageResults) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> buffer </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFileSync</span><span style="color:#4C4F69">(record</span><span style="color:#179299">.</span><span style="color:#4C4F69">filePath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> mimeType </span><span style="color:#179299">=</span><span style="color:#4C4F69"> record</span><span style="color:#179299">.</span><span style="color:#4C4F69">filePath</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">endsWith</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">".png"</span><span style="color:#4C4F69">) </span><span style="color:#179299">?</span><span style="color:#40A02B"> "image/png"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "image/jpeg"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        userContent</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">          type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "image_url"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          image_url</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> url</span><span style="color:#179299">:</span><span style="color:#40A02B"> `data:</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">mimeType</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">;base64,</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">buffer</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toString</span><span style="color:#40A02B">(</span><span style="color:#40A02B">"base64"</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        // 原始文件不存在，退回描述文字</span></span>
+<span class="line"><span style="color:#4C4F69">        userContent</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "text"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#40A02B"> `[图像: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">record</span><span style="color:#179299">.</span><span style="color:#4C4F69">metadata</span><span style="color:#179299">.</span><span style="color:#4C4F69">fileName</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">]</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">record</span><span style="color:#179299">.</span><span style="color:#4C4F69">description</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (textResults</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> textContext </span><span style="color:#179299">=</span><span style="color:#4C4F69"> textResults</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">record</span><span style="color:#179299">.</span><span style="color:#4C4F69">text)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">---</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      userContent</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "text"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#40A02B"> `参考文档：</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">textContext</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">    userContent</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "text"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#40A02B"> `问题：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">question</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "基于提供的图像和文档内容回答问题，引用具体来源。"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userContent </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#4C4F69">      ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1500</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">||</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 3b. 纯文本检索</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> context </span><span style="color:#179299">=</span><span style="color:#4C4F69"> textResults</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">record</span><span style="color:#179299">.</span><span style="color:#4C4F69">text)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">---</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o-mini"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "基于提供的上下文回答问题。"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `上下文：</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">context</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">问题：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">question</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">      ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">||</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="完整演示">完整演示</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/multimodal_rag/demo.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> indexImageDirectory</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> getEmbedding </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./image_indexer"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> MultimodalVectorStore </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./vector_store"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> multimodalRAGQuery </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./retriever"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> buildKnowledgeBase</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> store </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> MultimodalVectorStore</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"./kb.json"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 索引图像目录</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> imageRecords </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> indexImageDirectory</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"./kb_images"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> record </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> imageRecords) store</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">add</span><span style="color:#4C4F69">(record)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 添加文本记录</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> textChunks </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#40A02B">    "产品A的Q3销售额增长35%，主要驱动来自华南市场扩张和新品发布。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "2025年全球AI市场规模预计达到5000亿美元，年复合增长率38%。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> textChunks) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> embedding </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> getEmbedding</span><span style="color:#4C4F69">(chunk)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    store</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">add</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      id</span><span style="color:#179299">:</span><span style="color:#40A02B"> `text_</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#40A02B">()</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "text"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      text</span><span style="color:#179299">:</span><span style="color:#4C4F69"> chunk</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      embedding</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      metadata</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> source</span><span style="color:#179299">:</span><span style="color:#40A02B"> "manual"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  store</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">save</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"知识库统计:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> store</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">getStats</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> store</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runDemo</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> store </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> buildKnowledgeBase</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> questions </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#40A02B">    "销售增长最快的区域是哪里？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "图表中显示了什么数据趋势？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "AI市场的规模预测是多少？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> q </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> questions) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">问题: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">q</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> answer </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> multimodalRAGQuery</span><span style="color:#4C4F69">(q</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> store)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`回答: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">answer</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">runDemo</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="下一步">下一步</h2>
+<p>multimodal 模块到此完结。接下来进入 <strong>agent-engineering（Agent 工程）模块</strong>，系统学习 Agent 开发的核心技术。第1课：Context 管理 — 永不丢失重要信息，解决 Agent 长期运行中最棘手的上下文管理问题。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/mm-07-multimodal-agent.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第7课：多模态 Agent</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/lcc-01-loop.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第1课：Agent Loop</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a图像文字描述embedding推荐">方案 A：图像→文字描述→Embedding（推荐）</a></li><li class="lvl-3"><a href="#方案-b多模态-embedding-模型如-clip">方案 B：多模态 Embedding 模型（如 CLIP）</a></li><li class="lvl-3"><a href="#方案-c独立图像索引并行检索">方案 C：独立图像索引，并行检索</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#多模态-rag-pipeline">多模态 RAG Pipeline</a></li><li class="lvl-3"><a href="#图像-embeddingvision-生成描述">图像 Embedding（Vision 生成描述）</a></li><li class="lvl-3"><a href="#多模态向量库图文混存">多模态向量库（图文混存）</a></li><li class="lvl-3"><a href="#混合检索与-context-注入">混合检索与 Context 注入</a></li><li class="lvl-3"><a href="#完整演示">完整演示</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

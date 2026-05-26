@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第1课：Agent Loop — Agent Harness 工程</title>
+  <meta name="description" content="60 行实现最小 Agent，while tool_use 核心范式">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-indigo">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-indigo">
+      <div class="crumb">
+        <div class="crumb-icon">HC</div>
+        <div class="crumb-text">Agent Harness 工程</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/lcc-01-loop.html" class="active">
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-02-tools.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool Dispatch Map</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-03-planning.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">TodoWrite 规划</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-04-subagents.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Subagents</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-05-skills.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill Loading</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-06-compression.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context Compression</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-07-tasks.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Task System</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-08-background.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Background Tasks</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-09-teams.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Teams</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-10-protocols.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Team Protocols</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-11-autonomous.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Autonomous Agents</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-12-worktree.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Worktree Isolation</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/lcc-01-loop.html" class="current">Agent Harness 工程</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">01</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第1课：Agent Loop</div>
+          <div class="desc">60 行实现最小 Agent，while tool_use 核心范式</div>
+          <div class="tags">
+            <span class="tag">agent</span><span class="tag">loop</span><span class="tag">basics</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">01_agent_loop.md</code></span>
+            <span>📏 196 行</span>
+            <span style="opacity:0.7;">learn-claude-code/lessons/01_agent_loop.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第1课：Agent Loop — Bash is All You Need</h1>
+<h2 id="介绍">介绍</h2>
+<p>一个 AI Agent 的本质，是一个带工具调用的循环。本课用 60 行 Python 实现完整的 Agent Loop：模型决策 → 执行工具 → 反馈结果 → 继续推理，无限循环直到任务完成。这是 Claude Code、Cursor、Devin 背后共同的核心模式。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>源码参考：github.com/shareAI-lab/learn-claude-code — agents/s01_agent_loop.py</span></span></code></pre><hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>LLM 天生是无状态的&quot;问答机&quot;：一次输入，一次输出。但真实任务需要多步操作（读文件、执行命令、修改代码）。如何让模型持续感知环境、采取行动？</p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart LR
+    A[用户输入] --&gt; B[LLM 推理]
+    B --&gt; C{stop_reason?}
+    C --&gt;|tool_use| D[执行工具]
+    D --&gt; E[追加结果到 messages]
+    E --&gt; B
+    C --&gt;|end_turn| F[返回最终结果]</pre></div><hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a每次对话独立调用">方案 A：每次对话独立调用</h3>
+<p>每轮单独发送一个问题，不携带历史记录。</p>
+<p>✅ 最简单
+❌ 模型无法感知多步状态，无法执行需要上下文的任务</p>
+<h3 id="方案-b完整对话历史-手动工具分发">方案 B：完整对话历史 + 手动工具分发</h3>
+<p>维护 <code>messages[]</code> 数组，检测 <code>stop_reason == &quot;tool_use&quot;</code> 后手动执行工具。</p>
+<p>✅ 模型可以跨轮次推理
+✅ 工具结果反馈回模型
+❌ 需要手写循环逻辑</p>
+<h3 id="方案-cagent-loop推荐">方案 C：Agent Loop（推荐）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">while</span><span style="color:#4C4F69"> response</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">stop_reason </span><span style="color:#179299">==</span><span style="color:#40A02B"> "tool_use"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">    执行所有工具调用</span></span>
+<span class="line"><span style="color:#4C4F69">    把 tool_result 追加到 messages</span></span>
+<span class="line"><span style="color:#4C4F69">    再次调用 LLM</span></span></code></pre><p>✅ 自动运行直到任务完成
+✅ 模型自主决定何时停止
+✅ 60 行实现完整闭环</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p><strong>方案 C</strong>。Agent Loop 是一切 Agent 的基础骨架。无论多复杂的 Agent（多 Agent 团队、并行任务、记忆系统），最底层都是这个循环。先理解它，再叠加其他机制。</p>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="完整实现">完整实现</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># agents/s01_agent_loop.py</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> os</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> subprocess</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> anthropic </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Anthropic</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> dotenv </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> load_dotenv</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5">load_dotenv</span><span style="color:#7C7F93">()</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">client </span><span style="color:#179299">=</span><span style="color:#1E66F5"> Anthropic</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#4C4F69">MODEL </span><span style="color:#179299">=</span><span style="color:#4C4F69"> os</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">environ</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">MODEL_ID</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">]</span><span style="color:#9CA0B0;font-style:italic">   # e.g. "claude-opus-4-5-20251101"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">SYSTEM </span><span style="color:#179299">=</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"You are a coding agent at </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">os</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">getcwd</span><span style="color:#7C7F93">()</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">. Use bash to solve tasks. Act, don't explain."</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># ── 工具定义：告诉模型它能做什么 ──</span></span>
+<span class="line"><span style="color:#4C4F69">TOOLS </span><span style="color:#179299">=</span><span style="color:#7C7F93"> [{</span></span>
+<span class="line"><span style="color:#40A02B">    "name"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "bash"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "description"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "Run a shell command."</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "input_schema"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">        "type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">        "properties"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"command"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">}},</span></span>
+<span class="line"><span style="color:#40A02B">        "required"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> [</span><span style="color:#40A02B">"command"</span><span style="color:#7C7F93">],</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">}]</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">def</span><span style="color:#1E66F5;font-style:italic"> run_bash</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">command</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    # 安全检查：拦截危险命令</span></span>
+<span class="line"><span style="color:#4C4F69">    dangerous </span><span style="color:#179299">=</span><span style="color:#7C7F93"> [</span><span style="color:#40A02B">"rm -rf /"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "sudo"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "shutdown"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "reboot"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "> /dev/"</span><span style="color:#7C7F93">]</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#FE640B;font-style:italic"> any</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">d </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> command </span><span style="color:#8839EF">for</span><span style="color:#4C4F69"> d </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> dangerous</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B"> "Error: Dangerous command blocked"</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">        r </span><span style="color:#179299">=</span><span style="color:#4C4F69"> subprocess</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">run</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#4C4F69">            command</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> shell</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> cwd</span><span style="color:#179299">=</span><span style="color:#4C4F69">os</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">getcwd</span><span style="color:#7C7F93">(),</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            capture_output</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> text</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> timeout</span><span style="color:#179299">=</span><span style="color:#FE640B">120</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"><span style="color:#4C4F69">        out </span><span style="color:#179299">=</span><span style="color:#7C7F93"> (</span><span style="color:#4C4F69">r</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">stdout </span><span style="color:#179299">+</span><span style="color:#4C4F69"> r</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">stderr</span><span style="color:#7C7F93">).</span><span style="color:#1E66F5">strip</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#E64553;font-style:italic"> out</span><span style="color:#7C7F93">[:</span><span style="color:#FE640B;font-style:italic">50000</span><span style="color:#7C7F93">]</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> out </span><span style="color:#8839EF">else</span><span style="color:#40A02B"> "(no output)"</span></span>
+<span class="line"><span style="color:#8839EF">    except</span><span style="color:#4C4F69"> subprocess</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">TimeoutExpired</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B"> "Error: Timeout (120s)"</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># ── 核心循环：Agent 的心脏 ──</span></span>
+<span class="line"><span style="color:#8839EF">def</span><span style="color:#1E66F5;font-style:italic"> agent_loop</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> list</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#8839EF">    while</span><span style="color:#8839EF"> True</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">        response </span><span style="color:#179299">=</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">messages</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">create</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            model</span><span style="color:#179299">=</span><span style="color:#4C4F69">MODEL</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            system</span><span style="color:#179299">=</span><span style="color:#4C4F69">SYSTEM</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            messages</span><span style="color:#179299">=</span><span style="color:#4C4F69">messages</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            tools</span><span style="color:#179299">=</span><span style="color:#4C4F69">TOOLS</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            max_tokens</span><span style="color:#179299">=</span><span style="color:#FE640B">8000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        # 把模型回复追加到对话历史</span></span>
+<span class="line"><span style="color:#4C4F69">        messages</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">append</span><span style="color:#7C7F93">({</span><span style="color:#40A02B">"role"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "content"</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> response</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">})</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        # 如果模型不再需要工具 → 任务完成</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#4C4F69"> response</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">stop_reason </span><span style="color:#179299">!=</span><span style="color:#40A02B"> "tool_use"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">            return</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        # 执行所有工具调用，收集结果</span></span>
+<span class="line"><span style="color:#4C4F69">        results </span><span style="color:#179299">=</span><span style="color:#7C7F93"> []</span></span>
+<span class="line"><span style="color:#8839EF">        for</span><span style="color:#4C4F69"> block </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> response</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">            if</span><span style="color:#4C4F69"> block</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">==</span><span style="color:#40A02B"> "tool_use"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">                print</span><span style="color:#7C7F93">(</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\033</span><span style="color:#40A02B">[33m$ </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">block</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">'</span><span style="color:#40A02B;font-style:italic">command</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">]</span><span style="color:#EA76CB">}\033</span><span style="color:#40A02B">[0m"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">                output </span><span style="color:#179299">=</span><span style="color:#1E66F5"> run_bash</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">block</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">command</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">])</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">                print</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">output</span><span style="color:#7C7F93">[:</span><span style="color:#FE640B;font-style:italic">200</span><span style="color:#7C7F93">])</span></span>
+<span class="line"><span style="color:#4C4F69">                results</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">append</span><span style="color:#7C7F93">({</span></span>
+<span class="line"><span style="color:#40A02B">                    "type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "tool_result"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">                    "tool_use_id"</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> block</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">                    "content"</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> output</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">                })</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        # 把工具结果作为 user 消息追加 → 触发下一轮推理</span></span>
+<span class="line"><span style="color:#4C4F69">        messages</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">append</span><span style="color:#7C7F93">({</span><span style="color:#40A02B">"role"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "content"</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> results</span><span style="color:#7C7F93">})</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># ── 交互入口 ──</span></span>
+<span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> __name__ </span><span style="color:#179299">==</span><span style="color:#40A02B"> "__main__"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">    history </span><span style="color:#179299">=</span><span style="color:#7C7F93"> []</span></span>
+<span class="line"><span style="color:#8839EF">    while</span><span style="color:#8839EF"> True</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">        try</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">            query </span><span style="color:#179299">=</span><span style="color:#FE640B;font-style:italic"> input</span><span style="color:#7C7F93">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\033</span><span style="color:#40A02B">[36ms01 >> </span><span style="color:#EA76CB">\033</span><span style="color:#40A02B">[0m"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#8839EF">        except</span><span style="color:#7C7F93"> (</span><span style="color:#FE640B;font-style:italic">EOFError</span><span style="color:#7C7F93">,</span><span style="color:#FE640B;font-style:italic"> KeyboardInterrupt</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#8839EF">            break</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#4C4F69"> query</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">strip</span><span style="color:#7C7F93">().</span><span style="color:#1E66F5">lower</span><span style="color:#7C7F93">()</span><span style="color:#8839EF"> in</span><span style="color:#7C7F93"> (</span><span style="color:#40A02B">"q"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "exit"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#8839EF">            break</span></span>
+<span class="line"><span style="color:#4C4F69">        history</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">append</span><span style="color:#7C7F93">({</span><span style="color:#40A02B">"role"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "content"</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> query</span><span style="color:#7C7F93">})</span></span>
+<span class="line"><span style="color:#1E66F5">        agent_loop</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">history</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        # 打印最终文本回复</span></span>
+<span class="line"><span style="color:#8839EF">        for</span><span style="color:#4C4F69"> block </span><span style="color:#8839EF">in</span><span style="color:#E64553;font-style:italic"> history</span><span style="color:#7C7F93">[</span><span style="color:#179299">-</span><span style="color:#FE640B;font-style:italic">1</span><span style="color:#7C7F93">][</span><span style="color:#40A02B">"content"</span><span style="color:#7C7F93">]:</span></span>
+<span class="line"><span style="color:#8839EF">            if</span><span style="color:#FE640B;font-style:italic"> hasattr</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">block</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "text"</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">                print</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">block</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">text</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">        print</span><span style="color:#7C7F93">()</span></span></code></pre><h3 id="关键设计决策">关键设计决策</h3>
+<table>
+<thead>
+<tr>
+<th>决策</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>messages</code> 作为参数传入</td>
+<td>调用方控制历史，Agent Loop 无状态</td>
+</tr>
+<tr>
+<td><code>stop_reason != &quot;tool_use&quot;</code> 退出</td>
+<td>让模型决定何时完成，不硬编码步骤数</td>
+</tr>
+<tr>
+<td>工具结果作为 <code>user</code> 消息</td>
+<td>Anthropic API 要求的对话格式</td>
+</tr>
+<tr>
+<td>一次返回所有工具结果</td>
+<td>支持并行工具调用（模型可以同时调用多个工具）</td>
+</tr>
+</tbody></table>
+<h3 id="运行测试">运行测试</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># 安装依赖</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">pip</span><span style="color:#40A02B"> install</span><span style="color:#40A02B"> anthropic</span><span style="color:#40A02B"> python-dotenv</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 配置</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">echo</span><span style="color:#40A02B"> "MODEL_ID=claude-opus-4-5-20251101"</span><span style="color:#179299"> ></span><span style="color:#40A02B"> .env</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">echo</span><span style="color:#40A02B"> "ANTHROPIC_API_KEY=sk-ant-..."</span><span style="color:#179299"> >></span><span style="color:#40A02B"> .env</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 运行</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">python</span><span style="color:#40A02B"> agents/s01_agent_loop.py</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">s01</span><span style="color:#179299"> >></span><span style="color:#40A02B"> list</span><span style="color:#40A02B"> all</span><span style="color:#40A02B"> python</span><span style="color:#40A02B"> files</span><span style="color:#40A02B"> in</span><span style="color:#40A02B"> this</span><span style="color:#40A02B"> directory</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">s01</span><span style="color:#179299"> >></span><span style="color:#40A02B"> create</span><span style="color:#40A02B"> a</span><span style="color:#40A02B"> hello.py</span><span style="color:#40A02B"> that</span><span style="color:#40A02B"> prints</span><span style="color:#40A02B"> fibonacci</span><span style="color:#40A02B"> numbers</span></span></code></pre><hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课学习<strong>第2课：Tool Use — 工具分发架构</strong>。s01 只有 bash 工具。真实 Agent 需要 Read/Write/Edit 等专用工具，避免用 bash 做文件操作（解析复杂、错误处理差）。下一课拆解工具分发 Map 设计，添加 4 个文件系统工具，核心循环代码<strong>一行不改</strong>。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/mm-08-multimodal-rag.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第8课：多模态 RAG</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/lcc-02-tools.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第2课：Tool Dispatch Map</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a每次对话独立调用">方案 A：每次对话独立调用</a></li><li class="lvl-3"><a href="#方案-b完整对话历史-手动工具分发">方案 B：完整对话历史 + 手动工具分发</a></li><li class="lvl-3"><a href="#方案-cagent-loop推荐">方案 C：Agent Loop（推荐）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#完整实现">完整实现</a></li><li class="lvl-3"><a href="#关键设计决策">关键设计决策</a></li><li class="lvl-3"><a href="#运行测试">运行测试</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

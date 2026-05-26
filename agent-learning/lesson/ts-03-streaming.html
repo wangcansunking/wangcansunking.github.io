@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第3课：流式输出 — TypeScript Agent 开发</title>
+  <meta name="description" content="实时打字机效果与思考过程">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-blue">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-blue">
+      <div class="crumb">
+        <div class="crumb-icon">TS</div>
+        <div class="crumb-text">TypeScript Agent 开发</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ts-01-hello.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Hello Claude</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-02-multi-turn.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多轮对话</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-03-streaming.html" class="active">
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">流式输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-04-first-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第一个工具</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-05-multi-tools.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多工具并行</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-06-agent-loop.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agentic Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-07-context.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">上下文管理</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-09-orchestrator.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Orchestrator + Worker</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-10-handoff.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Handoff</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-11-structured.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">结构化输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-12-memory.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">记忆 Agent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-13-skill.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill + Tool Runner</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ts-01-hello.html" class="current">TypeScript Agent 开发</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">03</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第3课：流式输出</div>
+          <div class="desc">实时打字机效果与思考过程</div>
+          <div class="tags">
+            <span class="tag">basics</span><span class="tag">streaming</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">03_streaming.md</code></span>
+            <span>📏 207 行</span>
+            <span style="opacity:0.7;">typescript/lessons/03_streaming.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第3课：流式输出</h1>
+<h2 id="学习目标">学习目标</h2>
+<ol>
+<li>理解为什么需要流式输出</li>
+<li>用 <code>client.chat.completions.create({ stream: true })</code> 实现打字机效果</li>
+<li>处理 <code>content</code> 文本流和 <code>reasoning_content</code> 思考流（DeepSeek-R1）</li>
+<li>用累加器获取完整响应</li>
+</ol>
+<hr>
+<h2 id="为什么需要流式">为什么需要流式？</h2>
+<p><strong>非流式请求</strong>：模型生成完所有内容后，一次性返回。等待时间可能长达数秒，用户体验差。</p>
+<p><strong>流式请求</strong>：模型生成一个 token 就立刻发送一个，用户看到文字像&quot;打字&quot;一样逐字出现。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>非流式：[等待 3 秒...] → "TypeScript 是一种...完整回答"</span></span>
+<span class="line"><span>流  式：T → y → p → e → S → c → r → i → p → t → ...（实时出现）</span></span></code></pre><blockquote>
+<p><strong>额外好处</strong>：流式请求不受 HTTP 超时限制。对于 <code>max_tokens</code> 很大的请求，务必用流式。</p>
+</blockquote>
+<hr>
+<h2 id="基础流式输出">基础流式输出</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../shared/llmClient"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 加 stream: true，返回一个异步可迭代的 chunk 流</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> stream </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">                              // 默认 deepseek-chat</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 4096</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  stream</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "解释一下什么是 TypeScript 泛型？"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">let</span><span style="color:#4C4F69"> fullText </span><span style="color:#179299">=</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// for await 遍历每个 chunk</span></span>
+<span class="line"><span style="color:#8839EF">for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> delta </span><span style="color:#179299">=</span><span style="color:#4C4F69"> chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">?.</span><span style="color:#4C4F69">delta</span><span style="color:#179299">?.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (delta) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(delta)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">     // 不换行，形成打字机效果</span></span>
+<span class="line"><span style="color:#4C4F69">    fullText </span><span style="color:#179299">+=</span><span style="color:#4C4F69"> delta</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">总计 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">fullText</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 字符`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="chunk-结构">Chunk 结构</h2>
+<p>每个 chunk 形如：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  id</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "chatcmpl-xxx"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  choices</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#4C4F69">      index</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      delta</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">          // 仅第一个 chunk 含</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "TypeScript"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">      // 本次新增的文本片段</span></span>
+<span class="line"><span style="color:#4C4F69">        reasoning_content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "..."</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">   // R1 模型才有：思考过程</span></span>
+<span class="line"><span style="color:#4C4F69">        tool_calls</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">          // tool 流也走 delta</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">      finish_reason</span><span style="color:#179299">:</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">           // 流结束才会变成 "stop" / "tool_calls"</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>最后一个 chunk 通常含 <code>usage</code> 字段（提供商各异，DeepSeek/Kimi 会在最后一个 chunk 给出 <code>prompt_tokens</code> / <code>completion_tokens</code>）。</p>
+<hr>
+<h2 id="处理-thinking推理模型-r1">处理 Thinking（推理模型 R1）</h2>
+<p>DeepSeek-R1 在回答前先推理，思考过程通过 <code>reasoning_content</code> 字段流式传输：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> stream </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "deepseek-reasoner"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">       // R1 模型</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 16000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  stream</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "请分析这段代码的复杂度..."</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">let</span><span style="color:#4C4F69"> inThinking </span><span style="color:#179299">=</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">let</span><span style="color:#4C4F69"> inAnswer </span><span style="color:#179299">=</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> delta </span><span style="color:#179299">=</span><span style="color:#4C4F69"> chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">?.</span><span style="color:#4C4F69">delta </span><span style="color:#8839EF">as</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> content</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> reasoning_content</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (delta</span><span style="color:#179299">?.</span><span style="color:#4C4F69">reasoning_content) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">inThinking) </span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">[💭 思考中...]</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> inThinking </span><span style="color:#179299">=</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#4C4F69">    process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(delta</span><span style="color:#179299">.</span><span style="color:#4C4F69">reasoning_content)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 思考过程</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (delta</span><span style="color:#179299">?.</span><span style="color:#4C4F69">content) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">inAnswer) </span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">[回答]</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> inAnswer </span><span style="color:#179299">=</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#4C4F69">    process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(delta</span><span style="color:#179299">.</span><span style="color:#4C4F69">content)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">             // 最终回答</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><blockquote>
+<p><strong>何时用 R1？</strong> 适合复杂推理任务：数学题、代码分析、逻辑推断。简单问答不需要开启，会增加 token 消耗。
+Anthropic Claude 也有思考能力，但走的是 <code>thinking</code> block + 流事件 <code>thinking_delta</code>，详见末尾差异表。</p>
+</blockquote>
+<hr>
+<h2 id="流式-vs-非流式对比">流式 vs 非流式对比</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// ─── 非流式 ───────────────────────────────────</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1024</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "Hello"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> text </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ─── 流式（推荐用于 max_tokens > 4096 的场景）────</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> stream </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 16000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  stream</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "Hello"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">let</span><span style="color:#4C4F69"> fullText </span><span style="color:#179299">=</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> delta </span><span style="color:#179299">=</span><span style="color:#4C4F69"> chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">?.</span><span style="color:#4C4F69">delta</span><span style="color:#179299">?.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (delta) </span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(delta)</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> fullText </span><span style="color:#179299">+=</span><span style="color:#4C4F69"> delta</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="完整示例带进度的流式对话">完整示例：带进度的流式对话</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../shared/llmClient"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> streamChat</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userMessage</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`用户: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">userMessage</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"助手: "</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> stream </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 4096</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    stream</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userMessage </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> charCount </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> outputTokens </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> delta </span><span style="color:#179299">=</span><span style="color:#4C4F69"> chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">?.</span><span style="color:#4C4F69">delta</span><span style="color:#179299">?.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (delta) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      process</span><span style="color:#179299">.</span><span style="color:#4C4F69">stdout</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(delta)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      charCount </span><span style="color:#179299">+=</span><span style="color:#4C4F69"> delta</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // DeepSeek/Kimi 在最后一个 chunk 提供 usage</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage) outputTokens </span><span style="color:#179299">=</span><span style="color:#4C4F69"> chunk</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">.</span><span style="color:#4C4F69">completion_tokens </span><span style="color:#179299">??</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">📊 统计：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">charCount</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 字符 | </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputTokens</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> tokens`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#1E66F5;font-style:italic"> streamChat</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"用 100 字解释什么是闭包？"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="小结">小结</h2>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>chat.completions.create({ stream: false })</code></td>
+<td>简单请求，等待完整响应（默认）</td>
+</tr>
+<tr>
+<td><code>chat.completions.create({ stream: true })</code></td>
+<td>实时显示、长文本、大 <code>max_tokens</code></td>
+</tr>
+<tr>
+<td><code>chunk.choices[0].delta.content</code></td>
+<td>最简单的逐 token 处理</td>
+</tr>
+<tr>
+<td><code>chunk.choices[0].delta.reasoning_content</code></td>
+<td>DeepSeek-R1 思考链</td>
+</tr>
+<tr>
+<td>累加 <code>delta.content</code></td>
+<td>自己拼装最终完整文本</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="关于-anthropic-原生协议">关于 Anthropic 原生协议</h2>
+<p>如果你切到 Anthropic 原生 SDK，流式 API 是 <code>client.messages.stream()</code>：</p>
+<table>
+<thead>
+<tr>
+<th>OpenAI 兼容（本课）</th>
+<th>Anthropic 原生</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>client.chat.completions.create({ stream: true })</code></td>
+<td><code>client.messages.stream({ ... })</code></td>
+</tr>
+<tr>
+<td><code>for await (const chunk of stream)</code></td>
+<td><code>stream.on(&quot;text&quot;, delta =&gt; ...)</code> 或 <code>for await (const event of stream)</code></td>
+</tr>
+<tr>
+<td><code>chunk.choices[0].delta.content</code></td>
+<td><code>delta.text</code> 事件</td>
+</tr>
+<tr>
+<td><code>chunk.choices[0].delta.reasoning_content</code></td>
+<td><code>thinking</code> content block + <code>thinking_delta</code> 事件</td>
+</tr>
+<tr>
+<td>累加文本</td>
+<td><code>await stream.finalMessage()</code> 直接拿完整对象</td>
+</tr>
+</tbody></table>
+<p>下一课：让模型具备<strong>调用外部工具</strong>的能力 →</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ts-02-multi-turn.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第2课：多轮对话</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ts-04-first-tool.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第4课：第一个工具</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#学习目标">学习目标</a></li><li class="lvl-2"><a href="#为什么需要流式">为什么需要流式？</a></li><li class="lvl-2"><a href="#基础流式输出">基础流式输出</a></li><li class="lvl-2"><a href="#chunk-结构">Chunk 结构</a></li><li class="lvl-2"><a href="#处理-thinking推理模型-r1">处理 Thinking（推理模型 R1）</a></li><li class="lvl-2"><a href="#流式-vs-非流式对比">流式 vs 非流式对比</a></li><li class="lvl-2"><a href="#完整示例带进度的流式对话">完整示例：带进度的流式对话</a></li><li class="lvl-2"><a href="#小结">小结</a></li><li class="lvl-2"><a href="#关于-anthropic-原生协议">关于 Anthropic 原生协议</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

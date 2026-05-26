@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第5课：MiniMax — 多 LLM 接入实战</title>
+  <meta name="description" content="文本 + TTS + 视频生成一站式平台">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-cyan">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-cyan">
+      <div class="crumb">
+        <div class="crumb-icon">LM</div>
+        <div class="crumb-text">多 LLM 接入实战</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ml-01-openai.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">OpenAI API</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-02-deepseek.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">DeepSeek</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-03-gemini.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Google Gemini</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-04-kimi.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Kimi (Moonshot)</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-05-minimax.html" class="active">
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MiniMax</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-06-unified.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">统一接口层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-07-selection.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">模型选型指南</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-08-fallback.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Fallback 与多模型协作</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ml-01-openai.html" class="current">多 LLM 接入实战</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">05</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第5课：MiniMax</div>
+          <div class="desc">文本 + TTS + 视频生成一站式平台</div>
+          <div class="tags">
+            <span class="tag">minimax</span><span class="tag">llm</span><span class="tag">multimodal</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">05_minimax.md</code></span>
+            <span>📏 657 行</span>
+            <span style="opacity:0.7;">multi-llm/lessons/05_minimax.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第5课：MiniMax — 语音+文本多模态模型</h1>
+<h2 id="介绍">介绍</h2>
+<p>MiniMax 提供文本、语音、视频生成能力，2025 年主力模型为：<code>MiniMax-M1</code>（推理增强旗舰，支持复杂任务）和 <code>MiniMax-Text-01</code>（100 万 token 超长上下文）。API 兼容 OpenAI 格式，同时提供独特的 TTS（文字转语音）和角色扮演能力。本课覆盖基础文本对话、TTS 语音生成、超长上下文使用，以及角色扮演系统 prompt 技巧，帮助构建能&quot;说话&quot;的 AI Agent。</p>
+<p>MiniMax 最大的差异化优势是：<strong>其他平台基本没有的 TTS 能力</strong>，可以直接从文字生成高质量语音，无需第三方 TTS 服务。</p>
+<hr>
+<h2 id="整体架构minimax-能力全景">整体架构：MiniMax 能力全景</h2>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    MiniMax[&quot;MiniMax API&lt;br/&gt;api.minimax.chat&quot;] --&gt; TEXT[&quot;文本对话&lt;br/&gt;（OpenAI 兼容格式）&quot;]
+    MiniMax --&gt; TTS[&quot;TTS 语音生成&lt;br/&gt;（专属 API）&quot;]
+
+    TEXT --&gt; M1[&quot;MiniMax-M1&lt;br/&gt;复杂推理 / 旗舰任务&quot;]
+    TEXT --&gt; T01[&quot;MiniMax-Text-01&lt;br/&gt;超长文档 100万 token&quot;]
+    TEXT --&gt; ABAB65S[&quot;abab6.5s-chat&lt;br/&gt;快速轻量 日常对话&quot;]
+    TEXT --&gt; ABAB65G[&quot;abab6.5g-chat&lt;br/&gt;高质量输出&quot;]
+
+    TTS --&gt; SYNC[&quot;非流式批量&lt;br/&gt;一次性返回完整音频&quot;]
+    TTS --&gt; STREAM[&quot;流式实时&lt;br/&gt;逐块返回 边生成边播放&quot;]
+
+    M1 --&gt; PIPELINE[&quot;全链路语音对话&quot;]
+    ABAB65S --&gt; PIPELINE
+    SYNC --&gt; PIPELINE
+    STREAM --&gt; PIPELINE
+
+    PIPELINE --&gt; OUTPUT[&quot;🎵 文本输入 → LLM生成 → TTS转语音 → 音频输出&quot;]</pre></div><p>这个架构的核心：<strong>两套端点配合使用</strong>。文本走 OpenAI 兼容端点，语音走专属 <code>/v1/t2a_v2</code> 端点，通过一个 <code>MinimaxClient</code> 封装类统一管理。</p>
+<hr>
+<h2 id="minimax-模型对比">MiniMax 模型对比</h2>
+<table>
+<thead>
+<tr>
+<th>模型 ID</th>
+<th>类型</th>
+<th>核心特点</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>MiniMax-M1</code></td>
+<td>推理增强旗舰</td>
+<td>深度推理，支持复杂多步任务，2025 年最新</td>
+<td>代码生成、数学推理、复杂分析</td>
+</tr>
+<tr>
+<td><code>MiniMax-Text-01</code></td>
+<td>超长上下文</td>
+<td>100 万 token 上下文窗口，全球最长之一</td>
+<td>长文档理解、大型代码库分析</td>
+</tr>
+<tr>
+<td><code>abab6.5s-chat</code></td>
+<td>快速轻量</td>
+<td>响应速度快，成本低</td>
+<td>日常对话、快速 Q&amp;A、实时交互</td>
+</tr>
+<tr>
+<td><code>abab6.5g-chat</code></td>
+<td>高质量版</td>
+<td>输出质量更高，适合精细任务</td>
+<td>内容创作、高质量摘要</td>
+</tr>
+</tbody></table>
+<p><strong>选型建议：</strong></p>
+<ul>
+<li>日常对话、TTS 搭配 → <code>abab6.5s-chat</code>（速度快成本低）</li>
+<li>复杂推理、代码任务 → <code>MiniMax-M1</code></li>
+<li>超长文档（&gt;100K token）→ <code>MiniMax-Text-01</code></li>
+<li>高质量内容创作 → <code>abab6.5g-chat</code></li>
+</ul>
+<hr>
+<h2 id="双端点体系设计">双端点体系设计</h2>
+<p>MiniMax 有两个独立端点，这是与其他平台最大的架构差异：</p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart LR
+    APP[&quot;应用代码&quot;] --&gt; DECISION{请求类型?}
+
+    DECISION --&gt;|文本对话| TEXT_EP[&quot;POST /v1/chat/completions&lt;br/&gt;OpenAI 兼容格式&quot;]
+    DECISION --&gt;|语音生成| TTS_EP[&quot;POST /v1/t2a_v2&lt;br/&gt;MiniMax 专属格式&quot;]
+
+    TEXT_EP --&gt; OPENAI_SDK[&quot;可用 OpenAI SDK&lt;br/&gt;openai npm 包&quot;]
+    TTS_EP --&gt; FETCH[&quot;只能用 fetch&lt;br/&gt;没有对应 SDK&quot;]
+
+    OPENAI_SDK --&gt; RESP1[&quot;{ choices[0].message.content }&quot;]
+    FETCH --&gt; RESP2[&quot;{ data: { audio: &#39;hex_string&#39; } }&quot;]</pre></div><table>
+<thead>
+<tr>
+<th>功能</th>
+<th>端点</th>
+<th>SDK 支持</th>
+<th>响应格式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>文本对话、流式输出</td>
+<td><code>/v1/chat/completions</code></td>
+<td>OpenAI SDK 直接用</td>
+<td><code>choices[0].message.content</code></td>
+</tr>
+<tr>
+<td>Function Calling</td>
+<td><code>/v1/chat/completions</code></td>
+<td>OpenAI SDK 直接用</td>
+<td><code>choices[0].message.tool_calls</code></td>
+</tr>
+<tr>
+<td>TTS 非流式</td>
+<td><code>/v1/t2a_v2</code></td>
+<td>只能用 fetch</td>
+<td><code>data.audio</code>（hex 编码）</td>
+</tr>
+<tr>
+<td>TTS 流式</td>
+<td><code>/v1/t2a_v2?stream=true</code></td>
+<td>只能用 fetch</td>
+<td>逐行 JSON，每行含 <code>data.audio</code></td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>MiniMax 拥有独特的 TTS 和角色扮演能力，但 API 使用方式需要特别注意：</p>
+<ol>
+<li><strong>双端点体系</strong>：文本用兼容 OpenAI 的端点，TTS 用专属端点 <code>/v1/t2a_v2</code>，两者不互通，需要封装两套客户端</li>
+<li><strong>音色选择</strong>：TTS 有预设音色 ID，需要查文档选择合适的，不同音色有明显风格差异</li>
+<li><strong>角色扮演格式</strong>：MiniMax 有专属的 <code>bot_setting</code> 字段用于角色定义（非标准 OpenAI 格式），用 system prompt 也能达到类似效果</li>
+<li><strong>流式音频</strong>：TTS 流式输出时每个 chunk 是独立的 JSON 行，包含 hex 编码音频，需要逐行解析后拼接</li>
+</ol>
+<hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-aopenai-sdk-minimax-baseurl基础文本">方案 A：OpenAI SDK + MiniMax baseURL（基础文本）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> minimax </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">MINIMAX_API_KEY</span><span style="color:#179299">!</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  baseURL</span><span style="color:#179299">:</span><span style="color:#40A02B"> "https://api.minimax.chat/v1"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>优点：无需额外依赖，快速接入文本功能，流式输出、Function Calling 全支持。
+缺点：无法访问 TTS、视频生成等专属 API，TTS 必须另外用 fetch。</p>
+<h3 id="方案-bminimax-官方-api完整功能">方案 B：MiniMax 官方 API（完整功能）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 直接调用 MiniMax REST API</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> fetch</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"https://api.minimax.chat/v1/t2a_v2"</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  method</span><span style="color:#179299">:</span><span style="color:#40A02B"> "POST"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  headers</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    Authorization</span><span style="color:#179299">:</span><span style="color:#40A02B"> `Bearer </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">MINIMAX_API_KEY</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "Content-Type"</span><span style="color:#179299">:</span><span style="color:#40A02B"> "application/json"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#4C4F69">  body</span><span style="color:#179299">:</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你好，世界"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> voice_id</span><span style="color:#179299">:</span><span style="color:#40A02B"> "female-shaonv"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>优点：支持 TTS、视频生成等全部独有功能。
+缺点：需要手写 HTTP 客户端，没有 SDK 便利性，类型提示较弱。</p>
+<h3 id="推荐两者组合使用">推荐：两者组合使用</h3>
+<p>文本对话用<strong>方案 A</strong>（OpenAI SDK），TTS 语音生成用<strong>方案 B</strong>（原生 fetch）。封装成统一的 <code>MinimaxClient</code> 类，对外提供一致的调用接口。</p>
+<hr>
+<h2 id="核心设计文字转语音流程">核心设计：文字转语音流程</h2>
+<p>TTS 的数据流有一个容易踩坑的地方：<strong>音频以 hex 字符串形式返回</strong>，需要手动解码。</p>
+<div class="mermaid-wrapper"><pre class="mermaid">sequenceDiagram
+    participant App as 应用代码
+    participant API as MiniMax API
+    participant FS as 文件系统
+
+    App-&gt;&gt;API: POST /v1/t2a_v2&lt;br/&gt;{ text, voice_id, speed, format }
+    API--&gt;&gt;App: { data: { audio: &quot;hex_string&quot; } }
+
+    Note over App: Buffer.from(hex, &#39;hex&#39;)
+
+    App-&gt;&gt;FS: fs.writeFileSync(&#39;output.mp3&#39;, buffer)
+    Note over FS: 可播放的 MP3 文件</pre></div><p>流式模式下的数据流略有不同：</p>
+<div class="mermaid-wrapper"><pre class="mermaid">sequenceDiagram
+    participant App as 应用代码
+    participant API as MiniMax API
+
+    App-&gt;&gt;API: POST /v1/t2a_v2&lt;br/&gt;{ stream: true, ... }
+
+    loop 每个音频块
+        API--&gt;&gt;App: JSON行: {&quot;data&quot;:{&quot;audio&quot;:&quot;hex_chunk&quot;}}
+        Note over App: 解析 JSON → Buffer.from(hex, &#39;hex&#39;)&lt;br/&gt;→ 写入文件流
+    end
+
+    API--&gt;&gt;App: 流结束
+    Note over App: 关闭文件流，MP3 完整</pre></div><hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="安装与配置">安装与配置</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#1E66F5;font-style:italic">npm</span><span style="color:#40A02B"> install</span><span style="color:#40A02B"> openai</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># TTS 输出是 MP3 音频，可选安装播放库</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">npm</span><span style="color:#40A02B"> install</span><span style="color:#40A02B"> play-sound</span><span style="color:#9CA0B0;font-style:italic">  # 可选，用于本地播放音频</span></span></code></pre><pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/minimax/client.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> minimax </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">MINIMAX_API_KEY</span><span style="color:#179299">!</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  baseURL</span><span style="color:#179299">:</span><span style="color:#40A02B"> "https://api.minimax.chat/v1"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> MINIMAX_BASE_URL </span><span style="color:#179299">=</span><span style="color:#40A02B"> "https://api.minimax.chat/v1"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> API_KEY </span><span style="color:#179299">=</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">MINIMAX_API_KEY</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 可用模型（2025）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> MODELS </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  M1</span><span style="color:#179299">:</span><span style="color:#40A02B"> "MiniMax-M1"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">              // 推理增强旗舰（2025 新），复杂任务首选</span></span>
+<span class="line"><span style="color:#4C4F69">  TEXT_01</span><span style="color:#179299">:</span><span style="color:#40A02B"> "MiniMax-Text-01"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">    // 100万 token 超长上下文</span></span>
+<span class="line"><span style="color:#4C4F69">  ABAB65S</span><span style="color:#179299">:</span><span style="color:#40A02B"> "abab6.5s-chat"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">      // 快速轻量版</span></span>
+<span class="line"><span style="color:#4C4F69">  ABAB65G</span><span style="color:#179299">:</span><span style="color:#40A02B"> "abab6.5g-chat"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">      // 高质量版</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 常用 TTS 音色</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> VOICES </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  FEMALE_YOUNG</span><span style="color:#179299">:</span><span style="color:#40A02B"> "female-shaonv"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">    // 少女音</span></span>
+<span class="line"><span style="color:#4C4F69">  FEMALE_MATURE</span><span style="color:#179299">:</span><span style="color:#40A02B"> "female-chengshu"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic"> // 成熟女声</span></span>
+<span class="line"><span style="color:#4C4F69">  MALE_YOUNG</span><span style="color:#179299">:</span><span style="color:#40A02B"> "male-qingnian"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">      // 青年男声</span></span>
+<span class="line"><span style="color:#4C4F69">  MALE_MATURE</span><span style="color:#179299">:</span><span style="color:#40A02B"> "male-chengshu"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">     // 成熟男声</span></span>
+<span class="line"><span style="color:#4C4F69">  MALE_DEEP</span><span style="color:#179299">:</span><span style="color:#40A02B"> "male-chunhou"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">        // 醇厚男声</span></span>
+<span class="line"><span style="color:#4C4F69">  NARRATOR</span><span style="color:#179299">:</span><span style="color:#40A02B"> "audiobook_male_2"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">     // 播音男声（适合朗读）</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">;</span></span></code></pre><h3 id="基础文本对话">基础文本对话</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/minimax/basic.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> minimax</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> MODELS </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> basicChat</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> minimax</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">ABAB65S</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个友善的 AI 助手。"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "简单介绍一下你自己"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.7</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 500</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"回复:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 超长上下文：MiniMax-Text-01 支持 100 万 token</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> longContextChat</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">documentContent</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> question</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> minimax</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">TEXT_01</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `请仔细阅读以下内容，然后回答问题：</span><span style="color:#EA76CB">\n\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">documentContent</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">问题：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">question</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.3</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">basicChat</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h3 id="tts-音色参考表">TTS 音色参考表</h3>
+<p>选择合适的音色对用户体验影响很大。以下是常用音色及推荐场景：</p>
+<table>
+<thead>
+<tr>
+<th>音色 ID</th>
+<th>名称</th>
+<th>特点</th>
+<th>推荐场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>female-shaonv</code></td>
+<td>少女音</td>
+<td>年轻活泼，清脆甜美</td>
+<td>聊天机器人、游戏 NPC</td>
+</tr>
+<tr>
+<td><code>female-chengshu</code></td>
+<td>成熟女声</td>
+<td>专业稳重，清晰流畅</td>
+<td>客服助手、企业应用</td>
+</tr>
+<tr>
+<td><code>male-qingnian</code></td>
+<td>青年男声</td>
+<td>年轻有活力，自然流畅</td>
+<td>游戏、娱乐内容</td>
+</tr>
+<tr>
+<td><code>male-chengshu</code></td>
+<td>成熟男声</td>
+<td>沉稳有力，值得信赖</td>
+<td>企业培训、演示</td>
+</tr>
+<tr>
+<td><code>male-chunhou</code></td>
+<td>醇厚男声</td>
+<td>低沉磁性，富有感染力</td>
+<td>播音朗读、纪录片</td>
+</tr>
+<tr>
+<td><code>audiobook_male_2</code></td>
+<td>播音男声</td>
+<td>标准播音腔，字正腔圆</td>
+<td>有声书、新闻播报</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="tts-语音生成post-v1t2a_v2">TTS 语音生成（POST /v1/t2a_v2）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/minimax/tts.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> MINIMAX_BASE_URL</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> API_KEY</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> VOICES </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> TTSOptions</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  voiceId</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  speed</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 0.5 - 2.0，默认 1.0</span></span>
+<span class="line"><span style="color:#4C4F69">  volume</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 0 - 10，默认 1</span></span>
+<span class="line"><span style="color:#4C4F69">  pitch</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // -12 - 12，默认 0</span></span>
+<span class="line"><span style="color:#4C4F69">  outputFile</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> textToSpeech</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">options</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> TTSOptions</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Buffer</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    text</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    voiceId </span><span style="color:#179299">=</span><span style="color:#FE640B"> VOICES</span><span style="color:#179299">.</span><span style="color:#FE640B">FEMALE_YOUNG</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    speed </span><span style="color:#179299">=</span><span style="color:#FE640B"> 1.0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    volume </span><span style="color:#179299">=</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    pitch </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    outputFile</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#179299"> =</span><span style="color:#4C4F69"> options</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> fetch</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">MINIMAX_BASE_URL</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">/t2a_v2`</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    method</span><span style="color:#179299">:</span><span style="color:#40A02B"> "POST"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    headers</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      Authorization</span><span style="color:#179299">:</span><span style="color:#40A02B"> `Bearer </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">API_KEY</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">      "Content-Type"</span><span style="color:#179299">:</span><span style="color:#40A02B"> "application/json"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#4C4F69">    body</span><span style="color:#179299">:</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "speech-01-turbo"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      text</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      stream</span><span style="color:#179299">:</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      voice_setting</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        voice_id</span><span style="color:#179299">:</span><span style="color:#4C4F69"> voiceId</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        speed</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        vol</span><span style="color:#179299">:</span><span style="color:#4C4F69"> volume</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        pitch</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">      audio_setting</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        sample_rate</span><span style="color:#179299">:</span><span style="color:#FE640B"> 32000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        bitrate</span><span style="color:#179299">:</span><span style="color:#FE640B"> 128000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        format</span><span style="color:#179299">:</span><span style="color:#40A02B"> "mp3"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        channel</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">ok) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> error </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">json</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`TTS 失败: </span><span style="color:#7C7F93">${</span><span style="color:#FE640B">JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">error</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> data </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">json</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 关键：音频是 hex 编码，必须用 Buffer.from(hex, 'hex') 解码</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> audioBuffer </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Buffer</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">from</span><span style="color:#4C4F69">(data</span><span style="color:#179299">.</span><span style="color:#4C4F69">data</span><span style="color:#179299">.</span><span style="color:#4C4F69">audio</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "hex"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (outputFile) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">writeFileSync</span><span style="color:#4C4F69">(outputFile</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> audioBuffer)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`音频已保存: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputFile</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> audioBuffer</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 流式 TTS（边生成边播放）</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> streamingTTS</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  voiceId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#179299"> =</span><span style="color:#FE640B"> VOICES</span><span style="color:#179299">.</span><span style="color:#FE640B">MALE_MATURE</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  outputFile</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "output_stream.mp3"</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> fetch</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">MINIMAX_BASE_URL</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">/t2a_v2`</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    method</span><span style="color:#179299">:</span><span style="color:#40A02B"> "POST"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    headers</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      Authorization</span><span style="color:#179299">:</span><span style="color:#40A02B"> `Bearer </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">API_KEY</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">      "Content-Type"</span><span style="color:#179299">:</span><span style="color:#40A02B"> "application/json"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#4C4F69">    body</span><span style="color:#179299">:</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "speech-01-turbo"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      text</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      stream</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      voice_setting</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        voice_id</span><span style="color:#179299">:</span><span style="color:#4C4F69"> voiceId</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        speed</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1.0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        vol</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        pitch</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">      audio_setting</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        format</span><span style="color:#179299">:</span><span style="color:#40A02B"> "mp3"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        sample_rate</span><span style="color:#179299">:</span><span style="color:#FE640B"> 32000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">ok </span><span style="color:#179299">||</span><span style="color:#179299"> !</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">body) </span><span style="color:#8839EF">throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"流式 TTS 失败"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> writeStream </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">createWriteStream</span><span style="color:#4C4F69">(outputFile)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> reader </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">body</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">getReader</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"流式音频生成中..."</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  while</span><span style="color:#4C4F69"> (</span><span style="color:#FE640B">true</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> done</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> value </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> reader</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">read</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (done) </span><span style="color:#8839EF">break</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // MiniMax 流式返回：每行是一个 JSON，包含 hex 编码的音频片段</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> lines </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> TextDecoder</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">decode</span><span style="color:#4C4F69">(value)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">split</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(Boolean)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> line </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> lines) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> json </span><span style="color:#179299">=</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(line)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#4C4F69"> (json</span><span style="color:#179299">.</span><span style="color:#4C4F69">data</span><span style="color:#179299">?.</span><span style="color:#4C4F69">audio) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">          const</span><span style="color:#4C4F69"> audioChunk </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Buffer</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">from</span><span style="color:#4C4F69">(json</span><span style="color:#179299">.</span><span style="color:#4C4F69">data</span><span style="color:#179299">.</span><span style="color:#4C4F69">audio</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "hex"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">          writeStream</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">write</span><span style="color:#4C4F69">(audioChunk)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        // 跳过非 JSON 行</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  writeStream</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">end</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`流式音频已保存: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputFile</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 批量文本转语音</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> batchTTS</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  texts</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  outputDir</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "./audio_output"</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">existsSync</span><span style="color:#4C4F69">(outputDir)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">mkdirSync</span><span style="color:#4C4F69">(outputDir</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> recursive</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> outputFiles</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">let</span><span style="color:#4C4F69"> i </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i </span><span style="color:#179299">&#x3C;</span><span style="color:#4C4F69"> texts</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i</span><span style="color:#179299">++</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> outputFile </span><span style="color:#179299">=</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputDir</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">/audio_</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">i</span><span style="color:#179299"> +</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">.mp3`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#1E66F5;font-style:italic"> textToSpeech</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      text</span><span style="color:#179299">:</span><span style="color:#4C4F69"> texts[i]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      voiceId</span><span style="color:#179299">:</span><span style="color:#FE640B"> VOICES</span><span style="color:#179299">.</span><span style="color:#FE640B">NARRATOR</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      outputFile</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    outputFiles</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(outputFile)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">i</span><span style="color:#179299"> +</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">/</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">texts</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">] 完成`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 避免触发速率限制</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (i </span><span style="color:#179299">&#x3C;</span><span style="color:#4C4F69"> texts</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">-</span><span style="color:#FE640B"> 1</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      await</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> setTimeout</span><span style="color:#4C4F69">(r</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 200</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> outputFiles</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> textToSpeech</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> streamingTTS</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> batchTTS </span><span style="color:#7C7F93">};</span></span></code></pre><hr>
+<h3 id="tts-参数说明">TTS 参数说明</h3>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>类型</th>
+<th>取值范围</th>
+<th>默认值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>text</code></td>
+<td>string</td>
+<td>—</td>
+<td>必填</td>
+<td>要合成的文字内容</td>
+</tr>
+<tr>
+<td><code>voice_id</code></td>
+<td>string</td>
+<td>见音色表</td>
+<td><code>female-shaonv</code></td>
+<td>使用的音色 ID</td>
+</tr>
+<tr>
+<td><code>speed</code></td>
+<td>number</td>
+<td>0.5 ~ 2.0</td>
+<td>1.0</td>
+<td>语速，1.0 为正常速度</td>
+</tr>
+<tr>
+<td><code>vol</code></td>
+<td>number</td>
+<td>0 ~ 10</td>
+<td>1</td>
+<td>音量大小</td>
+</tr>
+<tr>
+<td><code>pitch</code></td>
+<td>number</td>
+<td>-12 ~ 12</td>
+<td>0</td>
+<td>音调，正值升调，负值降调</td>
+</tr>
+<tr>
+<td><code>format</code></td>
+<td>string</td>
+<td><code>mp3</code> / <code>wav</code> / <code>pcm</code></td>
+<td><code>mp3</code></td>
+<td>输出音频格式</td>
+</tr>
+<tr>
+<td><code>sample_rate</code></td>
+<td>number</td>
+<td>8000 ~ 48000</td>
+<td>32000</td>
+<td>采样率（Hz）</td>
+</tr>
+<tr>
+<td><code>bitrate</code></td>
+<td>number</td>
+<td>32000 ~ 320000</td>
+<td>128000</td>
+<td>比特率（bps）</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>注意：<code>text</code> 建议单次不超过 500 字。超长文本请拆分成多段后调用 <code>batchTTS</code>。</p>
+</blockquote>
+<hr>
+<h3 id="角色扮演系统-prompt-技巧">角色扮演系统 Prompt 技巧</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/minimax/roleplay.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> minimax</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> MODELS </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> textToSpeech </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./tts"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> VOICES </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./client"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> Character</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  personality</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  background</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  speakingStyle</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  voiceId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 预设角色库</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> CHARACTERS</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> Character</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  assistant</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "小助"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    personality</span><span style="color:#179299">:</span><span style="color:#40A02B"> "专业、严谨、友善，总是用清晰的结构回答问题"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    background</span><span style="color:#179299">:</span><span style="color:#40A02B"> "一个拥有广博知识的 AI 助手"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    speakingStyle</span><span style="color:#179299">:</span><span style="color:#40A02B"> "简洁明了，多用要点列表，适时举例"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    voiceId</span><span style="color:#179299">:</span><span style="color:#FE640B"> VOICES</span><span style="color:#179299">.</span><span style="color:#FE640B">FEMALE_MATURE</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#4C4F69">  teacher</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "文老师"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    personality</span><span style="color:#179299">:</span><span style="color:#40A02B"> "耐心、博学、善于用生活化例子解释复杂概念"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    background</span><span style="color:#179299">:</span><span style="color:#40A02B"> "有 20 年经验的中学物理老师"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    speakingStyle</span><span style="color:#179299">:</span><span style="color:#40A02B"> "循循善诱，先问学生已知什么，再逐步引导"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    voiceId</span><span style="color:#179299">:</span><span style="color:#FE640B"> VOICES</span><span style="color:#179299">.</span><span style="color:#FE640B">MALE_MATURE</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#4C4F69">  narrator</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "旁白"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    personality</span><span style="color:#179299">:</span><span style="color:#40A02B"> "沉稳、有磁性，擅长讲故事"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    background</span><span style="color:#179299">:</span><span style="color:#40A02B"> "专业播音员"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    speakingStyle</span><span style="color:#179299">:</span><span style="color:#40A02B"> "语速适中，停顿恰当，富有感情"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    voiceId</span><span style="color:#179299">:</span><span style="color:#FE640B"> VOICES</span><span style="color:#179299">.</span><span style="color:#FE640B">NARRATOR</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 构建角色扮演的 System Prompt</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> buildRoleplayPrompt</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">character</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Character</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#40A02B"> `你现在扮演"</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">character</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">"这个角色。</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">【角色背景】</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">character</span><span style="color:#179299">.</span><span style="color:#4C4F69">background</span><span style="color:#7C7F93">}</span></span>
+<span class="line"><span style="color:#40A02B">【性格特征】</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">character</span><span style="color:#179299">.</span><span style="color:#4C4F69">personality</span><span style="color:#7C7F93">}</span></span>
+<span class="line"><span style="color:#40A02B">【说话风格】</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">character</span><span style="color:#179299">.</span><span style="color:#4C4F69">speakingStyle</span><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">重要规则：</span></span>
+<span class="line"><span style="color:#40A02B">- 始终保持角色一致性，不要打破角色</span></span>
+<span class="line"><span style="color:#40A02B">- 使用符合角色身份的语气和词汇</span></span>
+<span class="line"><span style="color:#40A02B">- 回复长度控制在 150 字以内，除非用户要求详细解释`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 角色扮演对话 + 语音输出</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> roleplayWithVoice</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  characterKey</span><span style="color:#179299">:</span><span style="color:#8839EF"> keyof</span><span style="color:#8839EF"> typeof</span><span style="color:#4C4F69;font-style:italic"> CHARACTERS</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  userMessage</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  outputAudio</span><span style="color:#179299"> =</span><span style="color:#FE640B"> false</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> character </span><span style="color:#179299">=</span><span style="color:#4C4F69"> CHARACTERS[characterKey]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> minimax</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">ABAB65S</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#1E66F5;font-style:italic"> buildRoleplayPrompt</span><span style="color:#4C4F69">(character) </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userMessage </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.8</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic"> // 角色扮演用稍高温度，更有创意</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 300</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> text </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">character</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">]: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">text</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (outputAudio) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#1E66F5;font-style:italic"> textToSpeech</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      text</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      voiceId</span><span style="color:#179299">:</span><span style="color:#4C4F69"> character</span><span style="color:#179299">.</span><span style="color:#4C4F69">voiceId</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      outputFile</span><span style="color:#179299">:</span><span style="color:#40A02B"> `./roleplay_</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#40A02B">()</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">.mp3`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> text</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> roleplayWithVoice</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> CHARACTERS</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> buildRoleplayPrompt </span><span style="color:#7C7F93">};</span></span></code></pre><hr>
+<h3 id="完整语音对话-pipeline">完整语音对话 Pipeline</h3>
+<p>文本输入进来，经过 LLM 生成回复，再通过 TTS 转为音频输出——这就是语音对话 Pipeline 的完整链路：</p>
+<div class="mermaid-wrapper"><pre class="mermaid">sequenceDiagram
+    participant U as 用户
+    participant LLM as MiniMax LLM
+    participant TTS as MiniMax TTS
+    participant AUDIO as 音频文件
+
+    U-&gt;&gt;LLM: 发送文字输入
+    Note over LLM: model: abab6.5s-chat&lt;br/&gt;system: 语音助手，回复 50 字内
+    LLM--&gt;&gt;U: 返回回复文字
+    U-&gt;&gt;TTS: 发送回复文字 + voice_id
+    Note over TTS: POST /v1/t2a_v2&lt;br/&gt;返回 hex 编码音频
+    TTS--&gt;&gt;U: { data: { audio: &quot;hex...&quot; } }
+    Note over U: Buffer.from(hex, &#39;hex&#39;)
+    U-&gt;&gt;AUDIO: 写入 reply.mp3
+    Note over AUDIO: 可播放的语音回复</pre></div><pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 完整语音对话 Pipeline：文本输入 → LLM → TTS → 音频输出</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> voiceChatPipeline</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userInput</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`用户: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">userInput</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 1. LLM 生成回复</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> minimax</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#FE640B"> MODELS</span><span style="color:#179299">.</span><span style="color:#FE640B">ABAB65S</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个简洁的语音助手，回复控制在 50 字以内"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userInput </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.7</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> replyText </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`AI 文本: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">replyText</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 2. TTS 转语音</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> audioBuffer </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> textToSpeech</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    text</span><span style="color:#179299">:</span><span style="color:#4C4F69"> replyText</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    voiceId</span><span style="color:#179299">:</span><span style="color:#FE640B"> VOICES</span><span style="color:#179299">.</span><span style="color:#FE640B">FEMALE_YOUNG</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    speed</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1.1</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    outputFile</span><span style="color:#179299">:</span><span style="color:#40A02B"> "./reply.mp3"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`音频大小: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">audioBuffer</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> bytes`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#4C4F69"> replyText</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> audio</span><span style="color:#179299">:</span><span style="color:#4C4F69"> audioBuffer </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> voiceChatPipeline </span><span style="color:#7C7F93">};</span></span></code></pre><hr>
+<h3 id="完整使用示例">完整使用示例</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/minimax/demo.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> textToSpeech</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> batchTTS </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./tts"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> roleplayWithVoice</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> voiceChatPipeline </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./roleplay"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> longContextChat </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./basic"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runDemo</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 演示1：基础 TTS</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"=== 演示1：文字转语音 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> textToSpeech</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    text</span><span style="color:#179299">:</span><span style="color:#40A02B"> "大家好，我是 MiniMax 语音助手。今天天气不错，适合学习 AI 开发。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    voiceId</span><span style="color:#179299">:</span><span style="color:#40A02B"> "female-shaonv"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    speed</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1.0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    outputFile</span><span style="color:#179299">:</span><span style="color:#40A02B"> "./demo_basic.mp3"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 演示2：角色扮演</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 演示2：角色扮演 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> roleplayWithVoice</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">    "teacher"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "老师，量子力学中的叠加态是什么意思？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#FE640B">    true</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 演示3：语音对话 Pipeline</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 演示3：语音对话 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> voiceChatPipeline</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"今天北京的天气怎么样？"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 演示4：批量 TTS（适合生成播客、有声书）</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 演示4：批量语音生成 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> paragraphs </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#40A02B">    "第一章：人工智能的起源。人工智能的概念最早由图灵在1950年提出。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "图灵提出了著名的图灵测试：如果一台机器能让人类无法分辨它是机器还是人，那它就具备智能。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "此后，AI 经历了多次寒冬与繁荣，直到深度学习的崛起才真正改变了这个领域。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> batchTTS</span><span style="color:#4C4F69">(paragraphs</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "./audiobook"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">runDemo</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="注意事项">注意事项</h2>
+<table>
+<thead>
+<tr>
+<th>注意点</th>
+<th>说明</th>
+<th>解决方法</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>TTS 音频是 hex 编码</td>
+<td>API 返回的是十六进制字符串，不是 base64</td>
+<td>用 <code>Buffer.from(hex, &#39;hex&#39;)</code> 解码，不是 <code>Buffer.from(b64, &#39;base64&#39;)</code></td>
+</tr>
+<tr>
+<td>流式 TTS 逐行解析</td>
+<td>每个 chunk 是独立 JSON 行，不是连续数据流</td>
+<td>按换行符 split，逐行 <code>JSON.parse</code>，提取 <code>data.audio</code></td>
+</tr>
+<tr>
+<td>MiniMax-M1 是推理模型</td>
+<td>响应时间比普通模型长，不适合实时对话</td>
+<td>复杂任务用 M1，实时对话用 abab6.5s-chat</td>
+</tr>
+<tr>
+<td>Text-01 的 1M context</td>
+<td>超长文档专用，日常任务用它反而浪费</td>
+<td>文档 &gt; 100K token 才需要用 Text-01</td>
+</tr>
+<tr>
+<td>TTS 单次文字长度</td>
+<td>太长的文字会导致请求超时或质量下降</td>
+<td>建议单次 &lt; 500 字，超长文本用 batchTTS 拆分</td>
+</tr>
+<tr>
+<td>音色 ID 拼写</td>
+<td>音色 ID 是固定字符串，拼错会报错</td>
+<td>用 <code>VOICES</code> 常量对象，避免手写字符串</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课学习<strong>第6课：统一 LLM 接口 — 一套代码接入所有模型</strong>。经过前5课，我们掌握了 OpenAI、DeepSeek、Gemini、Kimi、MiniMax 各自的 SDK 和 API 格式。是时候设计一个统一的适配层，让业务代码只依赖一个标准接口，切换任意模型只需修改一行配置。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ml-04-kimi.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第4课：Kimi (Moonshot)</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ml-06-unified.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第6课：统一接口层</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#整体架构minimax-能力全景">整体架构：MiniMax 能力全景</a></li><li class="lvl-2"><a href="#minimax-模型对比">MiniMax 模型对比</a></li><li class="lvl-2"><a href="#双端点体系设计">双端点体系设计</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-aopenai-sdk-minimax-baseurl基础文本">方案 A：OpenAI SDK + MiniMax baseURL（基础文本）</a></li><li class="lvl-3"><a href="#方案-bminimax-官方-api完整功能">方案 B：MiniMax 官方 API（完整功能）</a></li><li class="lvl-3"><a href="#推荐两者组合使用">推荐：两者组合使用</a></li><li class="lvl-2"><a href="#核心设计文字转语音流程">核心设计：文字转语音流程</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#安装与配置">安装与配置</a></li><li class="lvl-3"><a href="#基础文本对话">基础文本对话</a></li><li class="lvl-3"><a href="#tts-音色参考表">TTS 音色参考表</a></li><li class="lvl-3"><a href="#tts-语音生成post-v1t2a_v2">TTS 语音生成（POST /v1/t2a_v2）</a></li><li class="lvl-3"><a href="#tts-参数说明">TTS 参数说明</a></li><li class="lvl-3"><a href="#角色扮演系统-prompt-技巧">角色扮演系统 Prompt 技巧</a></li><li class="lvl-3"><a href="#完整语音对话-pipeline">完整语音对话 Pipeline</a></li><li class="lvl-3"><a href="#完整使用示例">完整使用示例</a></li><li class="lvl-2"><a href="#注意事项">注意事项</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

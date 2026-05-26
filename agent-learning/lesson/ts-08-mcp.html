@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第8课：MCP 集成 — TypeScript Agent 开发</title>
+  <meta name="description" content="Model Context Protocol 三种接入方式">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-blue">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-blue">
+      <div class="crumb">
+        <div class="crumb-icon">TS</div>
+        <div class="crumb-text">TypeScript Agent 开发</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ts-01-hello.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Hello Claude</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-02-multi-turn.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多轮对话</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-03-streaming.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">流式输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-04-first-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第一个工具</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-05-multi-tools.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多工具并行</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-06-agent-loop.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agentic Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-07-context.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">上下文管理</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-08-mcp.html" class="active">
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-09-orchestrator.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Orchestrator + Worker</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-10-handoff.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Handoff</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-11-structured.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">结构化输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-12-memory.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">记忆 Agent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-13-skill.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill + Tool Runner</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ts-01-hello.html" class="current">TypeScript Agent 开发</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">08</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第8课：MCP 集成</div>
+          <div class="desc">Model Context Protocol 三种接入方式</div>
+          <div class="tags">
+            <span class="tag">mcp</span><span class="tag">tools</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">08_mcp_integration.md</code></span>
+            <span>📏 274 行</span>
+            <span style="opacity:0.7;">typescript/lessons/08_mcp_integration.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第8课：MCP 集成</h1>
+<h2 id="学习目标">学习目标</h2>
+<ol>
+<li>理解 MCP（Model Context Protocol）是什么</li>
+<li>掌握三种接入方式：API 直连、Agent SDK、自建 Server</li>
+<li>了解 MCP 的核心优势</li>
+</ol>
+<hr>
+<h2 id="什么是-mcp">什么是 MCP？</h2>
+<p>MCP（Model Context Protocol）是 Anthropic 推出的<strong>开放协议</strong>，让 AI 模型能够以标准化方式访问外部工具和资源。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>没有 MCP：每个应用自己实现工具  → 重复开发，无法复用</span></span>
+<span class="line"><span>有了 MCP：工具按标准发布        → 任何 AI 应用都能复用</span></span></code></pre><p><strong>MCP 生态</strong>：GitHub、Slack、数据库、浏览器自动化……数千个现成的 MCP Server 可直接使用。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>你的 Agent</span></span>
+<span class="line"><span>    ↓ MCP 协议</span></span>
+<span class="line"><span>MCP Server（工具库）</span></span>
+<span class="line"><span>    ↓</span></span>
+<span class="line"><span>外部服务（GitHub API / 数据库 / 浏览器...）</span></span></code></pre><blockquote>
+<p><strong>国内用户须知</strong>：MCP 协议本身与 LLM provider 无关——MCP Server 暴露的是 JSON-RPC 接口。本课的&quot;方式一&quot;（Anthropic API 内置 <code>mcp_server</code> tool 类型）是 Anthropic 专属。但<strong>方式二（Agent SDK）和方式三（自建）都能让 DeepSeek / Kimi 用上 MCP</strong>——你只需要在自己的代码里：</p>
+<ol>
+<li>启动 MCP Server（<code>npx @playwright/mcp@latest</code>）</li>
+<li>用 MCP client SDK 拿到 server 暴露的工具列表</li>
+<li>把工具列表转成第 4-6 课的 OpenAI 兼容 function calling 格式</li>
+<li>收到 <code>tool_calls</code> 后转发给 MCP Server 执行</li>
+</ol>
+<p>末尾有&quot;DeepSeek/Kimi 桥接 MCP&quot; 完整代码。</p>
+</blockquote>
+<hr>
+<h2 id="方式一anthropic-api-直连-mcp-serveranthropic-专属">方式一：Anthropic API 直连 MCP Server（Anthropic 专属）</h2>
+<p>适合生产环境，Claude API 直接连接 MCP 服务器。<strong>仅 Anthropic 原生 SDK 支持</strong>，DeepSeek/Kimi 走方式二或方式三：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Anthropic </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "@anthropic-ai/sdk"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> client </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Anthropic</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// claude-opus-4-7 支持直接连接 MCP Server</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (client</span><span style="color:#179299">.</span><span style="color:#4C4F69">beta</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#179299">.</span><span style="color:#4C4F69">create </span><span style="color:#8839EF">as</span><span style="color:#DF8E1D;font-style:italic"> Function</span><span style="color:#4C4F69">)(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "claude-opus-4-7"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 4096</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  tools</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 声明 MCP Server（远程 SSE 方式）</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#4C4F69">      type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "mcp_server"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      server_url</span><span style="color:#179299">:</span><span style="color:#40A02B"> "https://mcp.example.com/sse"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      server_name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "filesystem"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      allowed_tools</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"read_file"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "write_file"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "list_directory"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "读取 ./src 目录下的所有 TypeScript 文件"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  betas</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"mcp-client-2025-11-20"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="方式二agent-sdk最简单">方式二：Agent SDK（最简单）</h2>
+<p>Claude Code Agent SDK 内置 MCP 支持，配置即用：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> query </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "@anthropic-ai/claude-agent-sdk"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 使用 Playwright MCP 进行浏览器自动化</span></span>
+<span class="line"><span style="color:#8839EF">for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> message </span><span style="color:#8839EF">of</span><span style="color:#1E66F5;font-style:italic"> query</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  prompt</span><span style="color:#179299">:</span><span style="color:#40A02B"> "打开 https://example.com，截图并总结页面内容"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  options</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    mcpServers</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      playwright</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        command</span><span style="color:#179299">:</span><span style="color:#40A02B"> "npx"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        args</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"@playwright/mcp@latest"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#40A02B">"result"</span><span style="color:#8839EF"> in</span><span style="color:#4C4F69"> message) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(message</span><span style="color:#179299">.</span><span style="color:#4C4F69">result)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p><strong>常用 MCP Server 列表：</strong></p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 浏览器自动化</span></span>
+<span class="line"><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> command</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "npx"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> args</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"@playwright/mcp@latest"</span><span style="color:#4C4F69">] </span><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 文件系统</span></span>
+<span class="line"><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> command</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "npx"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> args</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"-y"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "@modelcontextprotocol/server-filesystem"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "/path"</span><span style="color:#4C4F69">] </span><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// PostgreSQL 数据库</span></span>
+<span class="line"><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> command</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "npx"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> args</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"-y"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "@modelcontextprotocol/server-postgres"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  env</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> DATABASE_URL</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "postgresql://..."</span><span style="color:#7C7F93"> }</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// GitHub</span></span>
+<span class="line"><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> command</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "npx"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> args</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"-y"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "@modelcontextprotocol/server-github"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  env</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> GITHUB_TOKEN</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "ghp_..."</span><span style="color:#7C7F93"> }</span><span style="color:#7C7F93"> }</span></span></code></pre><hr>
+<h2 id="方式三自建-mcp-server">方式三：自建 MCP Server</h2>
+<p>当你有私有 API 或内部服务时，自己实现 MCP Server：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> Server </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "@modelcontextprotocol/sdk/server/index.js"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> StdioServerTransport </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "@modelcontextprotocol/sdk/server/stdio.js"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  CallToolRequestSchema</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  ListToolsRequestSchema</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "@modelcontextprotocol/sdk/types.js"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 创建 MCP Server</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> server </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Server</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "my-tools"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> version</span><span style="color:#179299">:</span><span style="color:#40A02B"> "1.0.0"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> capabilities</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> tools</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {}</span><span style="color:#7C7F93"> }</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 声明可用工具</span></span>
+<span class="line"><span style="color:#4C4F69">server</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">setRequestHandler</span><span style="color:#4C4F69">(ListToolsRequestSchema</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> (</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  tools</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#4C4F69">      name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "query_database"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "查询公司内部数据库"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      inputSchema</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">          sql</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "SQL 查询语句"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#4C4F69">        required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"sql"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 实现工具逻辑</span></span>
+<span class="line"><span style="color:#4C4F69">server</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">setRequestHandler</span><span style="color:#4C4F69">(CallToolRequestSchema</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">request</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> arguments</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> args </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#4C4F69"> request</span><span style="color:#179299">.</span><span style="color:#4C4F69">params</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (name </span><span style="color:#179299">===</span><span style="color:#40A02B"> "query_database"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 实际连接数据库执行查询</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> executeSQL</span><span style="color:#4C4F69">(args</span><span style="color:#179299">.</span><span style="color:#4C4F69">sql </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> string</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "text"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(result) </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    };</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "text"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#40A02B"> "未知工具"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> isError</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 启动 Server（通过标准输入输出通信）</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> transport </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> StdioServerTransport</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#4C4F69"> server</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">connect</span><span style="color:#4C4F69">(transport)</span><span style="color:#7C7F93">;</span></span></code></pre><p>使用自建 Server：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 在 Agent SDK 中引用自建 Server</span></span>
+<span class="line"><span style="color:#8839EF">for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> message </span><span style="color:#8839EF">of</span><span style="color:#1E66F5;font-style:italic"> query</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  prompt</span><span style="color:#179299">:</span><span style="color:#40A02B"> "查询最近一周的销售数据"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  options</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    mcpServers</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      myDB</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        command</span><span style="color:#179299">:</span><span style="color:#40A02B"> "node"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        args</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"./my-mcp-server.js"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)) </span><span style="color:#7C7F93">{</span><span style="color:#179299"> ...</span><span style="color:#7C7F93"> }</span></span></code></pre><hr>
+<h2 id="mcp-vs-手动工具定义">MCP vs 手动工具定义</h2>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>手动 Tool Use</th>
+<th>MCP</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>工具定义</td>
+<td>每个应用自己写</td>
+<td>一次定义，到处复用</td>
+</tr>
+<tr>
+<td>工具生态</td>
+<td>自己实现</td>
+<td>数千个现成 Server</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>内部私有工具</td>
+<td>通用工具（文件/数据库/浏览器）</td>
+</tr>
+<tr>
+<td>协议标准</td>
+<td>无</td>
+<td>开放标准</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="小结">小结</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>简单场景   → Agent SDK + 现成 MCP Server（npx 一行命令）</span></span>
+<span class="line"><span>生产环境   → API 直连远程 MCP Server</span></span>
+<span class="line"><span>内部工具   → 自建 MCP Server</span></span></code></pre><hr>
+<h2 id="deepseek-kimi-桥接-mcp兼容方案">DeepSeek / Kimi 桥接 MCP（兼容方案）</h2>
+<p>把 MCP Server 暴露的工具列表转成 OpenAI 兼容 function calling 即可：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../shared/llmClient"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> Client </span><span style="color:#8839EF">as</span><span style="color:#4C4F69"> MCPClient </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "@modelcontextprotocol/sdk/client/index.js"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> StdioClientTransport </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "@modelcontextprotocol/sdk/client/stdio.js"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 1. 连接 MCP Server（这里以 Playwright 为例）</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> transport </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> StdioClientTransport</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  command</span><span style="color:#179299">:</span><span style="color:#40A02B"> "npx"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  args</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"@playwright/mcp@latest"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> mcp </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> MCPClient</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "bridge"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> version</span><span style="color:#179299">:</span><span style="color:#40A02B"> "1.0.0"</span><span style="color:#7C7F93"> },</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> capabilities</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {}</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#4C4F69"> mcp</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">connect</span><span style="color:#4C4F69">(transport)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 2. 拿 MCP Server 的工具列表，转成 OpenAI function calling 格式</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> tools</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> mcpTools </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> mcp</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">listTools</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tools </span><span style="color:#179299">=</span><span style="color:#4C4F69"> mcpTools</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">t</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> (</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "function"</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  function</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    name</span><span style="color:#179299">:</span><span style="color:#4C4F69"> t</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    description</span><span style="color:#179299">:</span><span style="color:#4C4F69"> t</span><span style="color:#179299">.</span><span style="color:#4C4F69">description </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    parameters</span><span style="color:#179299">:</span><span style="color:#4C4F69"> t</span><span style="color:#179299">.</span><span style="color:#4C4F69">inputSchema</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 3. 跑 Agent Loop，遇到 tool_calls 就转发给 MCP Server</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#DF8E1D;font-style:italic">[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "打开 example.com 并截图"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">let</span><span style="color:#4C4F69"> i </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i </span><span style="color:#179299">&#x3C;</span><span style="color:#FE640B"> 10</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i</span><span style="color:#179299">++</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> resp </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> model</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 4096</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> tools </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> msg </span><span style="color:#179299">=</span><span style="color:#4C4F69"> resp</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(msg)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (resp</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">finish_reason </span><span style="color:#179299">!==</span><span style="color:#40A02B"> "tool_calls"</span><span style="color:#179299"> ||</span><span style="color:#179299"> !</span><span style="color:#4C4F69">msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool_calls</span><span style="color:#179299">?.</span><span style="color:#4C4F69">length) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">content)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    break</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 调用 MCP Server 执行工具</span></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> call </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool_calls) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> args </span><span style="color:#179299">=</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(call</span><span style="color:#179299">.</span><span style="color:#4C4F69">function</span><span style="color:#179299">.</span><span style="color:#4C4F69">arguments)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> mcp</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">callTool</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#4C4F69"> call</span><span style="color:#179299">.</span><span style="color:#4C4F69">function</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> arguments</span><span style="color:#179299">:</span><span style="color:#4C4F69"> args </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "tool"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      tool_call_id</span><span style="color:#179299">:</span><span style="color:#4C4F69"> call</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(result</span><span style="color:#179299">.</span><span style="color:#4C4F69">content)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#4C4F69"> mcp</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">close</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span></code></pre><p>这段代码就是一个<strong>通用 MCP-to-OpenAI-API 桥接器</strong>，让任何兼容 OpenAI 协议的 provider 都能接入 MCP 生态。</p>
+<hr>
+<p>下一课：多个 Agent 协作——<strong>Orchestrator + Worker 模式</strong> →</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ts-07-context.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第7课：上下文管理</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ts-09-orchestrator.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第9课：Orchestrator + Worker</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#学习目标">学习目标</a></li><li class="lvl-2"><a href="#什么是-mcp">什么是 MCP？</a></li><li class="lvl-2"><a href="#方式一anthropic-api-直连-mcp-serveranthropic-专属">方式一：Anthropic API 直连 MCP Server（Anthropic 专属）</a></li><li class="lvl-2"><a href="#方式二agent-sdk最简单">方式二：Agent SDK（最简单）</a></li><li class="lvl-2"><a href="#方式三自建-mcp-server">方式三：自建 MCP Server</a></li><li class="lvl-2"><a href="#mcp-vs-手动工具定义">MCP vs 手动工具定义</a></li><li class="lvl-2"><a href="#小结">小结</a></li><li class="lvl-2"><a href="#deepseek-kimi-桥接-mcp兼容方案">DeepSeek / Kimi 桥接 MCP（兼容方案）</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

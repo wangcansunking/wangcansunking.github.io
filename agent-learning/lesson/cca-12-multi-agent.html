@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第12课：多 Agent 三层模型 — Claude Code 源码剖析</title>
+  <meta name="description" content="subagent / Coordinator Mode / Swarm Teammates">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-rose">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-rose">
+      <div class="crumb">
+        <div class="crumb-icon">CA</div>
+        <div class="crumb-text">Claude Code 源码剖析</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/cca-01-overview.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">泄露事件与全景导览</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-02-startup.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">启动路径剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-03-query.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Query 执行内核</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-04-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool 抽象与工具池</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-05-orchestration.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">工具调度与并发</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-06-permission.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">权限模型与 Sandbox</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-07-skills.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill 系统</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-09-memory.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Memory 分层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-10-compaction.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 自动压缩</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-11-prompt.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Prompt Runtime</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-12-multi-agent.html" class="active">
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 三层模型</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-13-session.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Session 持久化与 Resume</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-14-hidden.html" >
+            <span class="num">14</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第14课（番外）：隐藏命令与 Feature Flag</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/cca-01-overview.html" class="current">Claude Code 源码剖析</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">12</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第12课：多 Agent 三层模型</div>
+          <div class="desc">subagent / Coordinator Mode / Swarm Teammates</div>
+          <div class="tags">
+            <span class="tag">analysis</span><span class="tag">multi-agent</span><span class="tag">subagent</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">12_multi_agent.md</code></span>
+            <span>📏 391 行</span>
+            <span style="opacity:0.7;">claude-code-analysis/lessons/12_multi_agent.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第12课：多 Agent 三层模型</h1>
+<h2 id="介绍">介绍</h2>
+<p>很多人看到 <code>AgentTool</code> 会下结论：&quot;Claude Code 支持开 subagent&quot;。</p>
+<p>这个理解只摸到了 1/3。源码里实际上有<strong>三层并存</strong>的多 Agent 运行模型：</p>
+<ol>
+<li><strong>普通 subagent</strong>——主线侧链</li>
+<li><strong>Coordinator Mode</strong>——主线变调度器</li>
+<li><strong>Swarm Teammates</strong>——显式 team / mailbox / 共享 task list</li>
+</ol>
+<p>本课逐层拆开。</p>
+<hr>
+<h2 id="源码定位">源码定位</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>src/tools/AgentTool/AgentTool.tsx</code></td>
+<td>三种多 Agent 的统一入口</td>
+</tr>
+<tr>
+<td><code>src/tools/AgentTool/runAgent.ts</code></td>
+<td>真正的 agent 执行器</td>
+</tr>
+<tr>
+<td><code>src/tools/AgentTool/forkSubagent.ts</code></td>
+<td>fork 模式（继承 prompt 字节）</td>
+</tr>
+<tr>
+<td><code>src/coordinator/coordinatorMode.ts</code></td>
+<td>Coordinator Mode</td>
+</tr>
+<tr>
+<td><code>src/utils/swarm/spawnInProcess.ts</code></td>
+<td>Swarm 后端</td>
+</tr>
+<tr>
+<td><code>src/utils/teammateMailbox.ts</code></td>
+<td>团队消息系统</td>
+</tr>
+<tr>
+<td><code>src/utils/swarm/leaderPermissionBridge.ts</code></td>
+<td>leader / worker 权限桥</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="三层模型一览">三层模型一览</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>一、普通 AgentTool 子代理</span></span>
+<span class="line"><span>   - 单个主 agent 派一个 subagent</span></span>
+<span class="line"><span>   - 同步 / 后台 / fork 三种模式</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>二、Coordinator Mode</span></span>
+<span class="line"><span>   - 主线程变成 coordinator</span></span>
+<span class="line"><span>   - 通过 AgentTool 持续派多 worker</span></span>
+<span class="line"><span>   - worker 结果用 task-notification 回流</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>三、Swarm / Teammates</span></span>
+<span class="line"><span>   - 创建 team</span></span>
+<span class="line"><span>   - 产生 lead + teammates</span></span>
+<span class="line"><span>   - 支持 in-process / tmux / iTerm2 后端</span></span>
+<span class="line"><span>   - 支持 mailbox、共享 task list、权限回流</span></span></code></pre><p>更准确地说，Claude Code 不是&quot;加了个 AgentTool&quot;，而是做了一个小型 agent runtime：</p>
+<ul>
+<li>有 agent 身份模型</li>
+<li>有 agent 生成与调度</li>
+<li>有 agent 间通信</li>
+<li>有 leader / worker 权限桥</li>
+<li>有共享任务平面</li>
+<li>有 UI 层 task / teammate 可视化</li>
+</ul>
+<hr>
+<h2 id="agenttool-是统一入口">AgentTool 是统一入口</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> baseInputSchema </span><span style="color:#179299">=</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#4C4F69">      z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  prompt</span><span style="color:#179299">:</span><span style="color:#4C4F69">           z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  subagent_type</span><span style="color:#179299">:</span><span style="color:#4C4F69">    z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">optional</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#4C4F69">            z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">enum</span><span style="color:#4C4F69">([</span><span style="color:#40A02B">'sonnet'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'opus'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'haiku'</span><span style="color:#4C4F69">])</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">optional</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  run_in_background</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">boolean</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">optional</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> multiAgentInputSchema </span><span style="color:#179299">=</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#4C4F69">      z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">optional</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  team_name</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">optional</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  mode</span><span style="color:#179299">:</span><span style="color:#1E66F5;font-style:italic">      permissionModeSchema</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">optional</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>字段含义：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>决定</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>subagent_type</code></td>
+<td>agent 类型（用哪个角色 prompt）</td>
+</tr>
+<tr>
+<td><code>run_in_background</code></td>
+<td>同步 vs 异步</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>让 agent 可被后续寻址</td>
+</tr>
+<tr>
+<td><code>team_name</code></td>
+<td>进入 swarm / teammate 路径</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td>spawned teammate 继承的 plan 等模式</td>
+</tr>
+</tbody></table>
+<p><code>call()</code> 里的核心分支：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> (teamName </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> name) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> spawnTeammate</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#179299"> ...</span><span style="color:#7C7F93"> },</span><span style="color:#4C4F69"> toolUseContext)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> runAgent</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> subagent_type</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> prompt</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p><strong>同时带 <code>teamName + name</code> → swarm 路径；只有 <code>subagent_type</code> → 普通子代理</strong>。</p>
+<hr>
+<h2 id="拓扑约束防止-agent-graph-失控">拓扑约束：防止 agent graph 失控</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> (</span><span style="color:#1E66F5;font-style:italic">isTeammate</span><span style="color:#4C4F69">() </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> teamName </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> name) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">  throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'Teammates cannot spawn other teammates ...'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> (</span><span style="color:#1E66F5;font-style:italic">isInProcessTeammate</span><span style="color:#4C4F69">() </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> teamName </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> run_in_background </span><span style="color:#179299">===</span><span style="color:#FE640B"> true</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">  throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'In-process teammates cannot spawn background agents ...'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>作者不是简单堆功能，而是在<strong>约束多 agent 拓扑</strong>：</p>
+<ul>
+<li>teammate 不能无限嵌套 teammate（防爆炸）</li>
+<li>in-process teammate 不能再起自己的 background agent（防资源失控）</li>
+</ul>
+<p>如果不加这种约束，三层就会迅速膨胀成百层，资源、debug、UI 都会失控。</p>
+<hr>
+<h2 id="第一层普通-subagent-主会话的侧链">第一层：普通 subagent —— 主会话的侧链</h2>
+<p><code>runAgent()</code> 是真正的执行器：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>runAgent</span></span>
+<span class="line"><span>  ├─ 初始化 agent-specific MCP servers</span></span>
+<span class="line"><span>  ├─ 构造子 agent 的 ToolUseContext</span></span>
+<span class="line"><span>  ├─ executeSubagentStartHooks()</span></span>
+<span class="line"><span>  ├─ recordSidechainTranscript(initialMessages, agentId)  ← 单独 sidechain 文件</span></span>
+<span class="line"><span>  ├─ writeAgentMetadata(agentId, { ... })</span></span>
+<span class="line"><span>  └─ for await (msg of query({ ... }))                    ← 复用主 query()</span></span></code></pre><p>注意最后一行：subagent 不是&quot;主线程里跑个函数&quot;，<strong>它复用了同一个 <code>query()</code> 主循环</strong>。</p>
+<hr>
+<h2 id="fork-subagent复用父-prompt-字节">fork subagent：复用父 prompt 字节</h2>
+<p><code>forkSubagent.ts</code> 的核心注释：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#4C4F69">When enabled</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#179299">-</span><span style="color:#4C4F69"> Omitting </span><span style="color:#40A02B">`subagent_type`</span><span style="color:#4C4F69"> triggers an implicit fork</span></span>
+<span class="line"><span style="color:#179299">-</span><span style="color:#4C4F69"> the child inherits the parent</span><span style="color:#40A02B">'s full conversation context and system prompt</span></span>
+<span class="line"><span style="color:#179299">-</span><span style="color:#4C4F69"> All agent spawns run </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> the background</span></span></code></pre><p>更关键的细节在于&quot;为什么 fork 要复用父 prompt 的<strong>原始字节</strong>&quot;：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#4C4F69">The getSystemPrompt here is unused</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> the fork path passes</span></span>
+<span class="line"><span style="color:#40A02B">`override.systemPrompt`</span><span style="color:#8839EF"> with</span><span style="color:#4C4F69"> the parent</span><span style="color:#40A02B">'s already-rendered system prompt bytes ...</span></span>
+<span class="line"><span style="color:#4C4F69">Reconstructing by re</span><span style="color:#179299">-</span><span style="color:#4C4F69">calling </span><span style="color:#1E66F5;font-style:italic">getSystemPrompt</span><span style="color:#4C4F69">() can diverge </span><span style="color:#179299">...</span><span style="color:#4C4F69"> and bust the prompt cache</span></span></code></pre><p>也就是说：<strong>不是重新生成，而是直接拿父会话已经渲染好的 prompt 字节</strong>。</p>
+<p>为什么？为了 <strong>prompt cache 命中稳定性</strong>。重新调 <code>getSystemPrompt()</code> 哪怕只多一个空格、字段顺序不同，都会让 cache miss——多花钱、多延迟。</p>
+<p>这表明 multi-agent 实现和 prompt/caching 基础设施是<strong>深度耦合</strong>的。设计 multi-agent 时不能只想&quot;逻辑对就行&quot;，还要想&quot;会不会破坏 cache&quot;。</p>
+<hr>
+<h2 id="第二层coordinator-mode-主线变调度器">第二层：Coordinator Mode —— 主线变调度器</h2>
+<p><code>getCoordinatorSystemPrompt()</code> 把主线程身份直接改写：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#4C4F69">You are Claude Code</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> an AI assistant that orchestrates software engineering tasks across multiple workers</span><span style="color:#179299">.</span></span></code></pre><p>主线程不再主要写代码，而是：</p>
+<ul>
+<li>调度多个 worker</li>
+<li>worker 负责 research / implementation / verification</li>
+<li>主线程综合结果、继续派工、对用户汇报</li>
+</ul>
+<p>这是真正的 <strong>orchestrator 模式</strong>。它不是工具，<strong>是模式切换</strong>——通过环境变量 / feature flag 在启动时决定。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> isCoordinatorMode</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#1E66F5;font-style:italic">feature</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'COORDINATOR_MODE'</span><span style="color:#4C4F69">)) </span><span style="color:#8839EF">return</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">CLAUDE_COORDINATOR</span><span style="color:#179299"> ===</span><span style="color:#40A02B"> '1'</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">return</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>进入这个模式后，主 prompt 就变了，AgentTool 行为也变了——更像&quot;派单中心&quot;而不是&quot;通用 Agent&quot;。</p>
+<hr>
+<h2 id="第三层swarm-teammates-轻量-agent-组织">第三层：Swarm Teammates —— 轻量 agent 组织</h2>
+<p>swarm 进一步：不是&quot;临时起几个 worker&quot;，而是<strong>显式创建一个 team</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>元素</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>team_name</code></td>
+<td>团队标识</td>
+</tr>
+<tr>
+<td><code>lead agent</code></td>
+<td>团队的负责 agent</td>
+</tr>
+<tr>
+<td><code>teammate roster</code></td>
+<td>团队成员清单</td>
+</tr>
+<tr>
+<td><code>inbox / mailbox</code></td>
+<td>成员间发消息</td>
+</tr>
+<tr>
+<td>共享 <code>task list</code></td>
+<td>TaskCreate / TaskStop 同步</td>
+</tr>
+<tr>
+<td><code>leaderPermissionBridge</code></td>
+<td>teammate 工具权限回流到 leader</td>
+</tr>
+</tbody></table>
+<p>这一层已经接近一个<strong>轻量 agent 组织系统</strong>。</p>
+<h3 id="swarm-后端可扩展">Swarm 后端可扩展</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> BACKEND_REGISTRY</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> TeammateBackend</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">  'in-process'</span><span style="color:#179299">:</span><span style="color:#4C4F69"> InProcessBackend</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">  'tmux'</span><span style="color:#179299">:</span><span style="color:#4C4F69">       TmuxBackend</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">  'iterm2'</span><span style="color:#179299">:</span><span style="color:#4C4F69">     ITerm2PaneBackend</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> spawnTeammate</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">config</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> TeammateConfig</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> TeammateHandle</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> Backend </span><span style="color:#179299">=</span><span style="color:#4C4F69"> BACKEND_REGISTRY[config</span><span style="color:#179299">.</span><span style="color:#4C4F69">backendType]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Backend</span><span style="color:#4C4F69">(config)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">spawn</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>支持三种后端：</p>
+<ul>
+<li><strong>in-process</strong>：同进程，最轻量</li>
+<li><strong>tmux</strong>：每个 teammate 一个 tmux 窗格</li>
+<li><strong>iterm2</strong>：iTerm2 标签页</li>
+</ul>
+<p>这种&quot;backend registry&quot;模式让&quot;在哪里运行 agent&quot;和&quot;怎么协调 agent&quot;完全解耦。</p>
+<h3 id="mailbox-通信">Mailbox 通信</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// SendMessageTool 给某个 teammate 发消息</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// useInboxPoller 让 teammate 轮询自己的 inbox</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// teammateMailbox 是底层存储</span></span></code></pre><p>每个 teammate 有自己的 inbox 文件，发消息 = 往对方 inbox append；轮询 = 读自己 inbox。简单、可靠、可观察。</p>
+<h3 id="leader-permission-bridge">Leader Permission Bridge</h3>
+<p>teammate 想跑高权限工具时，权限决策<strong>回流到 leader</strong>：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>teammate 调 BashTool('rm -rf x')</span></span>
+<span class="line"><span>  -> teammate 没权限</span></span>
+<span class="line"><span>  -> bridge 把请求发给 leader</span></span>
+<span class="line"><span>  -> leader UI 弹窗问 lead 操作员</span></span>
+<span class="line"><span>  -> leader 决定 allow/deny/ask</span></span>
+<span class="line"><span>  -> bridge 把决策推回 teammate</span></span>
+<span class="line"><span>  -> teammate 继续/拒绝</span></span></code></pre><p>这让 swarm 既能并行干活，又能集中管控关键决策——团队治理结构的工程映射。</p>
+<hr>
+<h2 id="pattern-提炼">Pattern 提炼</h2>
+<h3 id="pattern-1拓扑约束写在入口">Pattern 1：拓扑约束写在入口</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> (</span><span style="color:#1E66F5;font-style:italic">isTeammate</span><span style="color:#4C4F69">() </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> teamName) </span><span style="color:#8839EF">throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'Teammates cannot spawn other teammates'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>不要等运行时崩溃才发现层级失控。</p>
+<h3 id="pattern-2fork-复用-prompt-字节">Pattern 2：fork 复用 prompt 字节</h3>
+<p>不是&quot;逻辑等价&quot;就行，要保<strong>字节等价</strong>——cache 命中靠的是字节比对。</p>
+<h3 id="pattern-3mode-是配置不是工具">Pattern 3：Mode 是配置，不是工具</h3>
+<p>Coordinator Mode 不是某个 toolUse，而是启动时切换的<strong>整个 prompt + AgentTool 行为</strong>。</p>
+<h3 id="pattern-4backend-registry">Pattern 4：Backend Registry</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> BACKENDS </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B"> 'in-process'</span><span style="color:#179299">:</span><span style="color:#4C4F69"> X</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'tmux'</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Y </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">spawn</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">name</span><span style="color:#179299"> =></span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#4C4F69"> BACKENDS[name]())</span><span style="color:#7C7F93">;</span></span></code></pre><p>让&quot;运行环境&quot;成为可替换的策略对象。</p>
+<h3 id="pattern-5权限回流permission-bridge">Pattern 5：权限回流（Permission Bridge）</h3>
+<p>teammate → leader 决策回流。集中管控 + 分布式执行。</p>
+<hr>
+<h2 id="自己实现60-行的最小-swarm">自己实现：60 行的最小 swarm</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// my-swarm.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> 'fs/promises'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> path </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> 'path'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> Teammate </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  inboxPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // mailbox 文件</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> TEAMS </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Map</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> lead</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> members</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Teammate[] </span><span style="color:#7C7F93">}</span><span style="color:#04A5E5">></span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> createTeam</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">teamName</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> leadName</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> dir </span><span style="color:#179299">=</span><span style="color:#40A02B"> `/tmp/swarm/</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">teamName</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">mkdir</span><span style="color:#4C4F69">(dir</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> recursive</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> mode</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0o700</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#FE640B">  TEAMS</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">set</span><span style="color:#4C4F69">(teamName</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> lead</span><span style="color:#179299">:</span><span style="color:#4C4F69"> leadName</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> members</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [] </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> spawnTeammate</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">teamName</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Teammate</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> team </span><span style="color:#179299">=</span><span style="color:#FE640B"> TEAMS</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(teamName)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">team) </span><span style="color:#8839EF">throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`Unknown team: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">teamName</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 拓扑约束：teammate 不能再 spawn teammate</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">IS_TEAMMATE</span><span style="color:#179299"> ===</span><span style="color:#40A02B"> '1'</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'Teammates cannot spawn other teammates'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> inboxPath </span><span style="color:#179299">=</span><span style="color:#4C4F69"> path</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`/tmp/swarm/</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">teamName</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">.inbox.jsonl`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">writeFile</span><span style="color:#4C4F69">(inboxPath</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> ''</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> mode</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0o600</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> flag</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'wx'</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">()</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> t</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Teammate </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> inboxPath </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#4C4F69">  team</span><span style="color:#179299">.</span><span style="color:#4C4F69">members</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(t)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> t</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> sendMessage</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">to</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Teammate</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> from</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> entry </span><span style="color:#179299">=</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> from</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> text</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> ts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">() </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">) </span><span style="color:#179299">+</span><span style="color:#40A02B"> '</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">appendFile</span><span style="color:#4C4F69">(to</span><span style="color:#179299">.</span><span style="color:#4C4F69">inboxPath</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> entry)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function*</span><span style="color:#1E66F5;font-style:italic"> pollInbox</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">t</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Teammate</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> lastSize </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  while</span><span style="color:#4C4F69"> (</span><span style="color:#FE640B">true</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> stat </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stat</span><span style="color:#4C4F69">(t</span><span style="color:#179299">.</span><span style="color:#4C4F69">inboxPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (stat</span><span style="color:#179299">.</span><span style="color:#4C4F69">size </span><span style="color:#179299">></span><span style="color:#4C4F69"> lastSize) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> fd </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">open</span><span style="color:#4C4F69">(t</span><span style="color:#179299">.</span><span style="color:#4C4F69">inboxPath</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'r'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> buf </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Buffer</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">alloc</span><span style="color:#4C4F69">(stat</span><span style="color:#179299">.</span><span style="color:#4C4F69">size </span><span style="color:#179299">-</span><span style="color:#4C4F69"> lastSize)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        await</span><span style="color:#4C4F69"> fd</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">read</span><span style="color:#4C4F69">(buf</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> buf</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> lastSize)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        await</span><span style="color:#4C4F69"> fd</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">close</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        lastSize </span><span style="color:#179299">=</span><span style="color:#4C4F69"> stat</span><span style="color:#179299">.</span><span style="color:#4C4F69">size</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> line </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> buf</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toString</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'utf-8'</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">split</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">'</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(Boolean)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">          yield</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(line)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> {}</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> setTimeout</span><span style="color:#4C4F69">(r</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 500</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ===== 用法 =====</span></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#1E66F5;font-style:italic"> createTeam</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'alpha'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'lead-1'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tm1 </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> spawnTeammate</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'alpha'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'tm-A'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tm2 </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> spawnTeammate</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'alpha'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'tm-B'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#1E66F5;font-style:italic"> sendMessage</span><span style="color:#4C4F69">(tm1</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'lead-1'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> '请研究 X'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#1E66F5;font-style:italic"> sendMessage</span><span style="color:#4C4F69">(tm2</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'lead-1'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> '请实现 Y'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// teammate-A 的 loop</span></span>
+<span class="line"><span style="color:#4C4F69">(</span><span style="color:#8839EF">async</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> msg </span><span style="color:#8839EF">of</span><span style="color:#1E66F5;font-style:italic"> pollInbox</span><span style="color:#4C4F69">(tm1)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'[tm-A] 收到:'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> msg)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)()</span><span style="color:#7C7F93">;</span></span></code></pre><p>60 行就有了 swarm 的核心：<strong>team 注册 + mailbox + 拓扑约束 + 轮询通信</strong>。</p>
+<hr>
+<h2 id="本课小结">本课小结</h2>
+<ul>
+<li>三层多 Agent：subagent / coordinator / swarm，<strong>AgentTool 是统一入口</strong></li>
+<li>拓扑约束写在入口：teammate 不能嵌套 teammate</li>
+<li>fork 复用父 prompt <strong>字节</strong>——cache 命中靠字节，不是语义</li>
+<li>Coordinator Mode 是<strong>模式切换</strong>，改变主线身份</li>
+<li>Swarm 用 <strong>mailbox + 共享 task list + 权限桥</strong> 做轻量 agent 组织</li>
+<li>Backend Registry（in-process / tmux / iterm2）让运行环境可替换</li>
+</ul>
+<hr>
+<h2 id="延伸阅读">延伸阅读</h2>
+<ul>
+<li><code>analysis/04h-multi-agent.md</code> 全文 - 922 行，最详细的多 agent 解读</li>
+<li><code>analysis/components/03-platform-components.md</code> - swarm UI 组件</li>
+<li>下一课：<code>13_session_resume.md</code> - Session 持久化与 Resume 流水线</li>
+</ul>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/cca-11-prompt.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第11课：Prompt Runtime</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/cca-13-session.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第13课：Session 持久化与 Resume</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#源码定位">源码定位</a></li><li class="lvl-2"><a href="#三层模型一览">三层模型一览</a></li><li class="lvl-2"><a href="#agenttool-是统一入口">AgentTool 是统一入口</a></li><li class="lvl-2"><a href="#拓扑约束防止-agent-graph-失控">拓扑约束：防止 agent graph 失控</a></li><li class="lvl-2"><a href="#第一层普通-subagent-主会话的侧链">第一层：普通 subagent —— 主会话的侧链</a></li><li class="lvl-2"><a href="#fork-subagent复用父-prompt-字节">fork subagent：复用父 prompt 字节</a></li><li class="lvl-2"><a href="#第二层coordinator-mode-主线变调度器">第二层：Coordinator Mode —— 主线变调度器</a></li><li class="lvl-2"><a href="#第三层swarm-teammates-轻量-agent-组织">第三层：Swarm Teammates —— 轻量 agent 组织</a></li><li class="lvl-3"><a href="#swarm-后端可扩展">Swarm 后端可扩展</a></li><li class="lvl-3"><a href="#mailbox-通信">Mailbox 通信</a></li><li class="lvl-3"><a href="#leader-permission-bridge">Leader Permission Bridge</a></li><li class="lvl-2"><a href="#pattern-提炼">Pattern 提炼</a></li><li class="lvl-3"><a href="#pattern-1拓扑约束写在入口">Pattern 1：拓扑约束写在入口</a></li><li class="lvl-3"><a href="#pattern-2fork-复用-prompt-字节">Pattern 2：fork 复用 prompt 字节</a></li><li class="lvl-3"><a href="#pattern-3mode-是配置不是工具">Pattern 3：Mode 是配置，不是工具</a></li><li class="lvl-3"><a href="#pattern-4backend-registry">Pattern 4：Backend Registry</a></li><li class="lvl-3"><a href="#pattern-5权限回流permission-bridge">Pattern 5：权限回流（Permission Bridge）</a></li><li class="lvl-2"><a href="#自己实现60-行的最小-swarm">自己实现：60 行的最小 swarm</a></li><li class="lvl-2"><a href="#本课小结">本课小结</a></li><li class="lvl-2"><a href="#延伸阅读">延伸阅读</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

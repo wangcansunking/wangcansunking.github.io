@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第10课：Team Protocols — Agent Harness 工程</title>
+  <meta name="description" content="消息类型规范 + 超时防死锁">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-indigo">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-indigo">
+      <div class="crumb">
+        <div class="crumb-icon">HC</div>
+        <div class="crumb-text">Agent Harness 工程</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/lcc-01-loop.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-02-tools.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool Dispatch Map</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-03-planning.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">TodoWrite 规划</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-04-subagents.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Subagents</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-05-skills.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill Loading</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-06-compression.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context Compression</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-07-tasks.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Task System</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-08-background.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Background Tasks</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-09-teams.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Teams</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-10-protocols.html" class="active">
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Team Protocols</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-11-autonomous.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Autonomous Agents</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-12-worktree.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Worktree Isolation</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/lcc-01-loop.html" class="current">Agent Harness 工程</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">10</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第10课：Team Protocols</div>
+          <div class="desc">消息类型规范 + 超时防死锁</div>
+          <div class="tags">
+            <span class="tag">multi-agent</span><span class="tag">advanced</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">10_team_protocols.md</code></span>
+            <span>📏 254 行</span>
+            <span style="opacity:0.7;">learn-claude-code/lessons/10_team_protocols.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第10课：Team Protocols — Agent 间通信标准</h1>
+<h2 id="介绍">介绍</h2>
+<p>多 Agent 团队需要通信协议保证可靠性。本课定义消息类型规范、确认机制、超时重试策略，以及职责边界——防止 Agent 互相等待形成死锁，确保任务总能完成。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>源码参考：github.com/shareAI-lab/learn-claude-code — agents/s10_team_protocols.py</span></span></code></pre><hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>无协议的 Agent 通信容易出现：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>问题 1：死锁</span></span>
+<span class="line"><span>  DevAgent   → SecurityAgent: "请审查代码"</span></span>
+<span class="line"><span>  SecurityAgent → DevAgent:   "请先修复 lint 错误"</span></span>
+<span class="line"><span>  DevAgent   等待 SecurityAgent，SecurityAgent 等待 DevAgent → 永久阻塞</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>问题 2：消息丢失</span></span>
+<span class="line"><span>  发送消息后没有确认机制，无法知道对方是否收到</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>问题 3：职责越界</span></span>
+<span class="line"><span>  两个 Agent 同时修改同一文件 → 冲突</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>问题 4：无超时保护</span></span>
+<span class="line"><span>  等待慢速 Agent 响应，整个团队卡住</span></span></code></pre><hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a无协议自由通信">方案 A：无协议（自由通信）</h3>
+<p>✅ 实现简单
+❌ 所有上述问题都会出现</p>
+<h3 id="方案-b严格同步-rpc">方案 B：严格同步 RPC</h3>
+<p>每次调用等待响应，超时则失败。</p>
+<p>✅ 简单明确
+❌ 降低并行性，高延迟</p>
+<h3 id="方案-c异步消息-协议规范推荐">方案 C：异步消息 + 协议规范（推荐）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>消息类型：TASK | RESULT | QUESTION | ANSWER | ACK | ERROR</span></span>
+<span class="line"><span>超时重试：发送后 N 秒未收到 ACK 则重试</span></span>
+<span class="line"><span>职责边界：每类操作指定负责 Agent</span></span></code></pre><p>✅ 高并行，明确边界，可靠通信</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p><strong>方案 C</strong>。生产级多 Agent 系统必须有协议规范。本课实现轻量级协议层，不引入外部依赖。</p>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="消息类型枚举">消息类型枚举</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># agents/s10_team_protocols.py</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> enum </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Enum</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">class</span><span style="color:#DF8E1D;font-style:italic"> MsgType</span><span style="color:#7C7F93">(</span><span style="color:#FE640B;font-style:italic">str</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> Enum</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#4C4F69">    TASK      </span><span style="color:#179299">=</span><span style="color:#40A02B"> "task"</span><span style="color:#9CA0B0;font-style:italic">       # 分配任务</span></span>
+<span class="line"><span style="color:#4C4F69">    RESULT    </span><span style="color:#179299">=</span><span style="color:#40A02B"> "result"</span><span style="color:#9CA0B0;font-style:italic">     # 任务完成结果</span></span>
+<span class="line"><span style="color:#4C4F69">    QUESTION  </span><span style="color:#179299">=</span><span style="color:#40A02B"> "question"</span><span style="color:#9CA0B0;font-style:italic">   # 询问（需要 ANSWER）</span></span>
+<span class="line"><span style="color:#4C4F69">    ANSWER    </span><span style="color:#179299">=</span><span style="color:#40A02B"> "answer"</span><span style="color:#9CA0B0;font-style:italic">     # 回复询问</span></span>
+<span class="line"><span style="color:#4C4F69">    ACK       </span><span style="color:#179299">=</span><span style="color:#40A02B"> "ack"</span><span style="color:#9CA0B0;font-style:italic">        # 确认收到</span></span>
+<span class="line"><span style="color:#4C4F69">    ERROR     </span><span style="color:#179299">=</span><span style="color:#40A02B"> "error"</span><span style="color:#9CA0B0;font-style:italic">      # 错误通知</span></span>
+<span class="line"><span style="color:#4C4F69">    HEARTBEAT </span><span style="color:#179299">=</span><span style="color:#40A02B"> "heartbeat"</span><span style="color:#9CA0B0;font-style:italic">  # 存活检查</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">class</span><span style="color:#DF8E1D;font-style:italic"> Priority</span><span style="color:#7C7F93">(</span><span style="color:#FE640B;font-style:italic">int</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> Enum</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#4C4F69">    LOW    </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span></span>
+<span class="line"><span style="color:#4C4F69">    MEDIUM </span><span style="color:#179299">=</span><span style="color:#FE640B"> 1</span></span>
+<span class="line"><span style="color:#4C4F69">    HIGH   </span><span style="color:#179299">=</span><span style="color:#FE640B"> 2</span></span>
+<span class="line"><span style="color:#4C4F69">    URGENT </span><span style="color:#179299">=</span><span style="color:#FE640B"> 3</span></span></code></pre><h3 id="协议消息格式">协议消息格式</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#FE640B;font-style:italic">@dataclass</span></span>
+<span class="line"><span style="color:#8839EF">class</span><span style="color:#DF8E1D;font-style:italic"> ProtocolMessage</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">    id</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#9CA0B0;font-style:italic">                     # 唯一消息 ID</span></span>
+<span class="line"><span style="color:#4C4F69">    sender</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span></span>
+<span class="line"><span style="color:#4C4F69">    recipient</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">    type</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> MsgType</span></span>
+<span class="line"><span style="color:#4C4F69">    content</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span></span>
+<span class="line"><span style="color:#4C4F69">    priority</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> Priority </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Priority</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">MEDIUM</span></span>
+<span class="line"><span style="color:#4C4F69">    reply_to</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#179299"> |</span><span style="color:#8839EF"> None</span><span style="color:#179299"> =</span><span style="color:#8839EF"> None</span><span style="color:#9CA0B0;font-style:italic">  # 回复哪条消息</span></span>
+<span class="line"><span style="color:#4C4F69">    requires_ack</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> bool</span><span style="color:#179299"> =</span><span style="color:#8839EF"> False</span><span style="color:#9CA0B0;font-style:italic">   # 是否需要确认</span></span>
+<span class="line"><span style="color:#4C4F69">    timeout</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> float</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 30.0</span><span style="color:#9CA0B0;font-style:italic">        # 等待响应超时（秒）</span></span>
+<span class="line"><span style="color:#4C4F69">    timestamp</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> float</span><span style="color:#179299"> =</span><span style="color:#1E66F5"> field</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">default_factory</span><span style="color:#179299">=</span><span style="color:#4C4F69">time</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">time</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">    attempts</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> int</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 0</span><span style="color:#9CA0B0;font-style:italic">            # 重试次数</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> ack</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#40A02B"> "ProtocolMessage"</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#40A02B">        """生成确认消息"""</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#1E66F5"> ProtocolMessage</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            id</span><span style="color:#179299">=</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"ack_</span><span style="color:#EA76CB">{</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">id</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            sender</span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">recipient</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            recipient</span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">sender</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            type</span><span style="color:#179299">=</span><span style="color:#4C4F69">MsgType</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">ACK</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            content</span><span style="color:#179299">=</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"received:</span><span style="color:#EA76CB">{</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">id</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            reply_to</span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span></code></pre><h3 id="协议层实现">协议层实现</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">class</span><span style="color:#DF8E1D;font-style:italic"> ProtocolBus</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">    MAX_RETRIES </span><span style="color:#179299">=</span><span style="color:#FE640B"> 3</span></span>
+<span class="line"><span style="color:#4C4F69">    RETRY_DELAY </span><span style="color:#179299">=</span><span style="color:#FE640B"> 5.0</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#04A5E5;font-style:italic"> __init__</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">_queues</span><span style="color:#7C7F93">:</span><span style="color:#E64553;font-style:italic"> dict</span><span style="color:#7C7F93">[</span><span style="color:#FE640B;font-style:italic">str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> queue</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">PriorityQueue</span><span style="color:#7C7F93">]</span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {}</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">_pending_acks</span><span style="color:#7C7F93">:</span><span style="color:#E64553;font-style:italic"> dict</span><span style="color:#7C7F93">[</span><span style="color:#FE640B;font-style:italic">str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> ProtocolMessage</span><span style="color:#7C7F93">]</span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {}</span><span style="color:#9CA0B0;font-style:italic">  # 等待确认的消息</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">_lock </span><span style="color:#179299">=</span><span style="color:#4C4F69"> threading</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">Lock</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">_start_retry_daemon</span><span style="color:#7C7F93">()</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> send</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> msg</span><span style="color:#7C7F93">:</span><span style="color:#E64553"> ProtocolMessage</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#40A02B">        """发送消息，优先级队列排序"""</span></span>
+<span class="line"><span style="color:#8839EF">        with</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">_lock</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">            q </span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">_queues</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">get</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">msg</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">recipient</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#8839EF">            if</span><span style="color:#4C4F69"> q</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">                # 优先级越高越先处理（PriorityQueue 升序，取反实现降序）</span></span>
+<span class="line"><span style="color:#4C4F69">                q</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">put</span><span style="color:#7C7F93">((</span><span style="color:#179299">-</span><span style="color:#4C4F69">msg</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">priority</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> msg</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">timestamp</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> msg</span><span style="color:#7C7F93">))</span></span>
+<span class="line"><span style="color:#8839EF">            if</span><span style="color:#4C4F69"> msg</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">requires_ack</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">                self</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">_pending_acks</span><span style="color:#7C7F93">[</span><span style="color:#E64553;font-style:italic">msg</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">id</span><span style="color:#7C7F93">]</span><span style="color:#179299"> =</span><span style="color:#4C4F69"> msg</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> receive</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> agent</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> timeout</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> float</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 5.0</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#4C4F69"> ProtocolMessage </span><span style="color:#179299">|</span><span style="color:#8839EF"> None</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">        q </span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">_queues</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">get</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">agent</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#8839EF"> not</span><span style="color:#4C4F69"> q</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">            return</span><span style="color:#8839EF"> None</span></span>
+<span class="line"><span style="color:#8839EF">        try</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">            _</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> _</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> msg </span><span style="color:#179299">=</span><span style="color:#4C4F69"> q</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">get</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">timeout</span><span style="color:#179299">=</span><span style="color:#4C4F69">timeout</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">            # 自动发送 ACK</span></span>
+<span class="line"><span style="color:#8839EF">            if</span><span style="color:#4C4F69"> msg</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">requires_ack</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">                self</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">send</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">msg</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">ack</span><span style="color:#7C7F93">())</span></span>
+<span class="line"><span style="color:#8839EF">            return</span><span style="color:#4C4F69"> msg</span></span>
+<span class="line"><span style="color:#8839EF">        except</span><span style="color:#4C4F69"> queue</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">Empty</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">            return</span><span style="color:#8839EF"> None</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> _start_retry_daemon</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#40A02B">        """后台线程：重试未确认的消息"""</span></span>
+<span class="line"><span style="color:#8839EF">        def</span><span style="color:#1E66F5;font-style:italic"> retry_loop</span><span style="color:#7C7F93">():</span></span>
+<span class="line"><span style="color:#8839EF">            while</span><span style="color:#8839EF"> True</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">                time</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">sleep</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">RETRY_DELAY</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">                now </span><span style="color:#179299">=</span><span style="color:#4C4F69"> time</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">time</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#8839EF">                with</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">_lock</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">                    to_retry </span><span style="color:#179299">=</span><span style="color:#7C7F93"> [</span></span>
+<span class="line"><span style="color:#4C4F69">                        m </span><span style="color:#8839EF">for</span><span style="color:#4C4F69"> m </span><span style="color:#8839EF">in</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">_pending_acks</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">values</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#8839EF">                        if</span><span style="color:#4C4F69"> now </span><span style="color:#179299">-</span><span style="color:#4C4F69"> m</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">timestamp </span><span style="color:#179299">></span><span style="color:#4C4F69"> m</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">timeout</span></span>
+<span class="line"><span style="color:#8839EF">                        and</span><span style="color:#4C4F69"> m</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">attempts </span><span style="color:#179299">&#x3C;</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">MAX_RETRIES</span></span>
+<span class="line"><span style="color:#7C7F93">                    ]</span></span>
+<span class="line"><span style="color:#8839EF">                for</span><span style="color:#4C4F69"> msg </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> to_retry</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">                    msg</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">attempts </span><span style="color:#179299">+=</span><span style="color:#FE640B"> 1</span></span>
+<span class="line"><span style="color:#4C4F69">                    msg</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">timestamp </span><span style="color:#179299">=</span><span style="color:#4C4F69"> time</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">time</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">                    self</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">send</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">msg</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">        threading</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">Thread</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">target</span><span style="color:#179299">=</span><span style="color:#4C4F69">retry_loop</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> daemon</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">).</span><span style="color:#1E66F5">start</span><span style="color:#7C7F93">()</span></span></code></pre><h3 id="职责边界定义">职责边界定义</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># 明确每类操作由哪个 Agent 负责</span></span>
+<span class="line"><span style="color:#4C4F69">RESPONSIBILITY_MAP </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">    "write_code"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B">      "dev"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">        # 只有 dev 能写代码</span></span>
+<span class="line"><span style="color:#40A02B">    "security_review"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "security"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">   # 只有 security 能做安全审查</span></span>
+<span class="line"><span style="color:#40A02B">    "run_profiler"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B">    "perf"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">       # 只有 perf 能运行性能分析</span></span>
+<span class="line"><span style="color:#40A02B">    "write_docs"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B">      "docs"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">       # 只有 docs 能写文档</span></span>
+<span class="line"><span style="color:#40A02B">    "deploy"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B">          "ops"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">        # 只有 ops 能部署</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">def</span><span style="color:#1E66F5;font-style:italic"> check_responsibility</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">action</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> agent</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> bool</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#40A02B">    """检查 Agent 是否有权执行该操作"""</span></span>
+<span class="line"><span style="color:#4C4F69">    owner </span><span style="color:#179299">=</span><span style="color:#4C4F69"> RESPONSIBILITY_MAP</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">get</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">action</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> owner </span><span style="color:#8839EF">and</span><span style="color:#4C4F69"> owner </span><span style="color:#179299">!=</span><span style="color:#4C4F69"> agent</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">        raise</span><span style="color:#FE640B;font-style:italic"> PermissionError</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#40A02B;font-style:italic">            f</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">agent</span><span style="color:#EA76CB">}</span><span style="color:#40A02B"> cannot </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">action</span><span style="color:#EA76CB">}</span><span style="color:#40A02B"> — that's </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">owner</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">'s responsibility"</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#8839EF"> True</span></span></code></pre><h3 id="防死锁超时-取消机制">防死锁：超时 + 取消机制</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">class</span><span style="color:#DF8E1D;font-style:italic"> AgentWithProtocol</span><span style="color:#7C7F93">(</span><span style="color:#DF8E1D;font-style:italic">TeamAgent</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> ask_teammate</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> recipient</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> question</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">                     timeout</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> float</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 30.0</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#40A02B">        """</span></span>
+<span class="line"><span style="color:#40A02B">        发送 QUESTION，等待 ANSWER，超时则返回默认值（不阻塞）。</span></span>
+<span class="line"><span style="color:#40A02B">        这是防死锁的关键：永远不无限等待。</span></span>
+<span class="line"><span style="color:#40A02B">        """</span></span>
+<span class="line"><span style="color:#4C4F69">        msg </span><span style="color:#179299">=</span><span style="color:#1E66F5"> ProtocolMessage</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            id</span><span style="color:#179299">=</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"q_</span><span style="color:#EA76CB">{</span><span style="color:#FE640B;font-style:italic">int</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">time</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">time</span><span style="color:#7C7F93">()</span><span style="color:#179299">*</span><span style="color:#FE640B">1000</span><span style="color:#7C7F93">)</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            sender</span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            recipient</span><span style="color:#179299">=</span><span style="color:#4C4F69">recipient</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            type</span><span style="color:#179299">=</span><span style="color:#4C4F69">MsgType</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">QUESTION</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            content</span><span style="color:#179299">=</span><span style="color:#4C4F69">question</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            requires_ack</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            timeout</span><span style="color:#179299">=</span><span style="color:#4C4F69">timeout</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">bus</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">send</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">msg</span><span style="color:#7C7F93">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        # 等待 ANSWER（限时）</span></span>
+<span class="line"><span style="color:#4C4F69">        deadline </span><span style="color:#179299">=</span><span style="color:#4C4F69"> time</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">time</span><span style="color:#7C7F93">()</span><span style="color:#179299"> +</span><span style="color:#4C4F69"> timeout</span></span>
+<span class="line"><span style="color:#8839EF">        while</span><span style="color:#4C4F69"> time</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">time</span><span style="color:#7C7F93">()</span><span style="color:#179299"> &#x3C;</span><span style="color:#4C4F69"> deadline</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">            incoming </span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">bus</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">receive</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> timeout</span><span style="color:#179299">=</span><span style="color:#FE640B">1.0</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#8839EF">            if</span><span style="color:#4C4F69"> incoming </span><span style="color:#8839EF">and</span><span style="color:#4C4F69"> incoming</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">==</span><span style="color:#4C4F69"> MsgType</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">ANSWER </span><span style="color:#7C7F93">\</span></span>
+<span class="line"><span style="color:#8839EF">               and</span><span style="color:#4C4F69"> incoming</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">reply_to </span><span style="color:#179299">==</span><span style="color:#4C4F69"> msg</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">                return</span><span style="color:#4C4F69"> incoming</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">content</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        # 超时：返回默认，继续工作（不阻塞）</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"[timeout: </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">recipient</span><span style="color:#EA76CB">}</span><span style="color:#40A02B"> did not respond in </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">timeout</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">s, proceeding without answer]"</span></span></code></pre><h3 id="协议使用示例">协议使用示例</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#1E66F5;font-style:italic">s10</span><span style="color:#179299"> >></span><span style="color:#40A02B"> review</span><span style="color:#40A02B"> and</span><span style="color:#40A02B"> harden</span><span style="color:#40A02B"> the</span><span style="color:#40A02B"> authentication</span><span style="color:#40A02B"> module</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 协议通信日志：</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># [TASK  P:HIGH] orchestrator → dev: "review auth module"</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># [ACK        ] dev → orchestrator: "received:task_001"</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># [QUESTION   ] dev → security: "is bcrypt rounds=10 sufficient?"</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># [ACK        ] security → dev: "received:q_002"</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># [ANSWER     ] security → dev: "yes, but add rate limiting"</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># [RESULT P:HIGH] dev → orchestrator: "done. applied security feedback"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 如果 security 超时未响应：</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># dev 继续工作，记录 "[timeout: security did not respond in 30s]"</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 不会死锁</span></span></code></pre><hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课学习<strong>第11课：Autonomous Agents — 自主任务认领</strong>。到目前为止，Agent 都是被动等待指令。Autonomous Agent 主动轮询任务队列、自主认领、自主完成，实现真正的 24/7 无人值守运行。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/lcc-09-teams.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第9课：Agent Teams</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/lcc-11-autonomous.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第11课：Autonomous Agents</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a无协议自由通信">方案 A：无协议（自由通信）</a></li><li class="lvl-3"><a href="#方案-b严格同步-rpc">方案 B：严格同步 RPC</a></li><li class="lvl-3"><a href="#方案-c异步消息-协议规范推荐">方案 C：异步消息 + 协议规范（推荐）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#消息类型枚举">消息类型枚举</a></li><li class="lvl-3"><a href="#协议消息格式">协议消息格式</a></li><li class="lvl-3"><a href="#协议层实现">协议层实现</a></li><li class="lvl-3"><a href="#职责边界定义">职责边界定义</a></li><li class="lvl-3"><a href="#防死锁超时-取消机制">防死锁：超时 + 取消机制</a></li><li class="lvl-3"><a href="#协议使用示例">协议使用示例</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

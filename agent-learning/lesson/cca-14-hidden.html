@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第14课（番外）：隐藏命令与 Feature Flag — Claude Code 源码剖析</title>
+  <meta name="description" content="INTERNAL_ONLY_COMMANDS / 89 个开关 / 负面词埋点">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-rose">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-rose">
+      <div class="crumb">
+        <div class="crumb-icon">CA</div>
+        <div class="crumb-text">Claude Code 源码剖析</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/cca-01-overview.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">泄露事件与全景导览</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-02-startup.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">启动路径剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-03-query.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Query 执行内核</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-04-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool 抽象与工具池</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-05-orchestration.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">工具调度与并发</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-06-permission.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">权限模型与 Sandbox</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-07-skills.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill 系统</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-09-memory.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Memory 分层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-10-compaction.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 自动压缩</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-11-prompt.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Prompt Runtime</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-12-multi-agent.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 三层模型</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-13-session.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Session 持久化与 Resume</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-14-hidden.html" class="active">
+            <span class="num">14</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第14课（番外）：隐藏命令与 Feature Flag</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/cca-01-overview.html" class="current">Claude Code 源码剖析</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">14</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第14课（番外）：隐藏命令与 Feature Flag</div>
+          <div class="desc">INTERNAL_ONLY_COMMANDS / 89 个开关 / 负面词埋点</div>
+          <div class="tags">
+            <span class="tag">analysis</span><span class="tag">advanced</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">14_hidden_features.md</code></span>
+            <span>📏 350 行</span>
+            <span style="opacity:0.7;">claude-code-analysis/lessons/14_hidden_features.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第14课（番外）：隐藏命令、Feature Flag 与彩蛋</h1>
+<h2 id="介绍">介绍</h2>
+<p>读过前 13 课，你已经摸清了 Claude Code 的&quot;主干&quot;。本课转向&quot;隐藏角落&quot;——那些<strong>不显眼但能看出工程文化</strong>的细节：</p>
+<ol>
+<li>INTERNAL_ONLY_COMMANDS：内部版与外部版的编译分流</li>
+<li>89 个 <code>feature(...)</code> 编译期开关</li>
+<li>四类隐藏命令（内部专属 / 隐藏真命令 / stub / 品牌彩蛋）</li>
+<li>负面情绪关键词检测的真实用途</li>
+</ol>
+<hr>
+<h2 id="源码定位">源码定位</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>src/commands.ts</code></td>
+<td>命令注册 + INTERNAL_ONLY_COMMANDS</td>
+</tr>
+<tr>
+<td><code>src/types/command.ts</code></td>
+<td>isHidden 语义定义</td>
+</tr>
+<tr>
+<td><code>src/utils/undercover.ts</code></td>
+<td>内部身份判断</td>
+</tr>
+<tr>
+<td><code>src/utils/userPromptKeywords.ts</code></td>
+<td>负面词正则</td>
+</tr>
+<tr>
+<td><code>src/utils/processUserInput/processTextPrompt.ts</code></td>
+<td>把负面词标签写入埋点</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="隐藏能力的三层机制">&quot;隐藏能力&quot;的三层机制</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>源码中的能力</span></span>
+<span class="line"><span>    |</span></span>
+<span class="line"><span>    +-- 编译期分流</span></span>
+<span class="line"><span>    |      |</span></span>
+<span class="line"><span>    |      +-- USER_TYPE === ant</span></span>
+<span class="line"><span>    |      |      → 注入 internal only commands</span></span>
+<span class="line"><span>    |      |</span></span>
+<span class="line"><span>    |      +-- feature('...')</span></span>
+<span class="line"><span>    |             → 决定是否把命令/模块编进产物</span></span>
+<span class="line"><span>    |</span></span>
+<span class="line"><span>    +-- 运行期分流</span></span>
+<span class="line"><span>           |</span></span>
+<span class="line"><span>           +-- isEnabled()</span></span>
+<span class="line"><span>           |      → 依赖账号类型、平台、实验 gate、环境变量</span></span>
+<span class="line"><span>           |</span></span>
+<span class="line"><span>           +-- isHidden</span></span>
+<span class="line"><span>                  → 即使存在，也不出现在 help / typeahead</span></span></code></pre><hr>
+<h2 id="internal_only_commands内部版独享">INTERNAL_ONLY_COMMANDS：内部版独享</h2>
+<p><code>commands.ts</code> 的注释直接写：&quot;Commands that get eliminated from the external build&quot;：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> INTERNAL_ONLY_COMMANDS </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#40A02B">  'backfillSessions'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'breakCache'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'bughunter'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">  'commit'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'commitPushPr'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'ctx_viz'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">  'goodClaude'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'issue'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'initVerifiers'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">  'mockLimits'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'bridgeKick'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'version'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">  'resetLimits'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'onboarding'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'share'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">  'summary'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'teleport'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'antTrace'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">  'perfIssue'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'env'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'oauthRefresh'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">  'debugToolCall'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'agentsPlatform'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'autofixPr'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span></code></pre><p>这些命令<strong>外部构建会被裁掉</strong>——但代码就在仓库里，作为一等公民被维护。</p>
+<p>意义：</p>
+<ul>
+<li>内部团队有自己的 commit / issue / debug 流程</li>
+<li>但外部用户拿不到（构建剪除）</li>
+<li>不是&quot;残留代码&quot;，是<strong>显式分流</strong></li>
+</ul>
+<hr>
+<h2 id="89-个-feature-flag">89 个 feature flag</h2>
+<p>仓库里有 <strong>89 个 <code>feature(...)</code> 调用</strong>——典型用法：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tools </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#4C4F69">  BashTool</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#179299">  ...</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">feature</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'LSP_TOOL'</span><span style="color:#4C4F69">) </span><span style="color:#179299">?</span><span style="color:#4C4F69"> [LSPTool] </span><span style="color:#179299">:</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#179299">  ...</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">feature</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'VOICE_MODE'</span><span style="color:#4C4F69">) </span><span style="color:#179299">?</span><span style="color:#4C4F69"> [VoiceTool] </span><span style="color:#179299">:</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#179299">  ...</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">feature</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'BUDDY'</span><span style="color:#4C4F69">) </span><span style="color:#179299">?</span><span style="color:#4C4F69"> [BuddyTool] </span><span style="color:#179299">:</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span></code></pre><p><code>feature()</code> 是<strong>编译期判定</strong>——通过 <code>bun:bundle</code> 把不启用的代码 tree-shake 掉。意味着：</p>
+<ul>
+<li>内部测试版可以同时存在多个未发布特性</li>
+<li>外部产物只包含开关启用的代码</li>
+<li>单一代码库，多种 build profile</li>
+</ul>
+<p>这是处理&quot;实验性能力 / AB 测试 / 多版本发布&quot;的标准答案。</p>
+<hr>
+<h2 id="隐藏命令的四种类型">隐藏命令的四种类型</h2>
+<h3 id="类型-1内部专属命令">类型 1：内部专属命令</h3>
+<p>如上 <code>INTERNAL_ONLY_COMMANDS</code>——外部构建直接剪除。</p>
+<h3 id="类型-2隐藏但仍是真命令">类型 2：隐藏但仍是真命令</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/commands/heapdump/index.ts</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> default</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'heapdump'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'Dump the JS heap to ~/Desktop'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  isHidden</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">    // 不在 help/typeahead 出现，但能用</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span></code></pre><p>典型例子：</p>
+<table>
+<thead>
+<tr>
+<th>命令</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>heapdump</code></td>
+<td>调试用：dump JS heap</td>
+</tr>
+<tr>
+<td><code>rate-limit-options</code></td>
+<td>内部限流配置</td>
+</tr>
+<tr>
+<td><code>output-style</code></td>
+<td>已废弃但保留兼容入口</td>
+</tr>
+<tr>
+<td><code>thinkback-play</code></td>
+<td>由 thinkback skill 自动调用</td>
+</tr>
+</tbody></table>
+<p>不出现在 help 列表，但<strong>功能完整、能调用</strong>。这是&quot;调试入口&quot;或&quot;过渡兼容&quot;。</p>
+<h3 id="类型-3纯-stub-占位">类型 3：纯 stub 占位</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/commands/good-claude/index.js</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> default</span><span style="color:#7C7F93"> {</span><span style="color:#1E66F5;font-style:italic"> isEnabled</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> isHidden</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'stub'</span><span style="color:#7C7F93"> };</span></span></code></pre><p>很多目录只有这一行：</p>
+<ul>
+<li><code>good-claude/</code></li>
+<li><code>share/</code></li>
+<li><code>summary/</code></li>
+<li><code>onboarding/</code></li>
+<li><code>bughunter/</code></li>
+<li><code>oauth-refresh/</code></li>
+<li>...</li>
+</ul>
+<p>含义：<strong>外部源码快照里不提供真实实现</strong>。要么在内部仓库、要么被构建流程替换、要么已下线但接口位还在。</p>
+<h3 id="类型-4品牌人格化彩蛋">类型 4：品牌人格化彩蛋</h3>
+<p>像 <code>buddy</code>、<code>Clawd</code>、<code>stickers</code>、<code>passes</code> 等——产品化得很完整的&quot;性格层&quot;功能，部分是隐藏入口。</p>
+<hr>
+<h2 id="ishidden-vs-isenabled-vs-feature-的语义区分">isHidden vs isEnabled vs feature() 的语义区分</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> Command </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  isHidden</span><span style="color:#179299">?:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">          // 是否在 help/typeahead 中隐藏</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isEnabled</span><span style="color:#179299">?:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 当前是否可用（运行期）</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// feature() = 编译期开关</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> cmd </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> feature</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'NEW_THING'</span><span style="color:#4C4F69">) </span><span style="color:#179299">?</span><span style="color:#4C4F69"> newCommand </span><span style="color:#179299">:</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">;</span></span></code></pre><p>三层语义清晰：</p>
+<table>
+<thead>
+<tr>
+<th>层</th>
+<th>控制时机</th>
+<th>失败结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>feature()</code></td>
+<td>编译期</td>
+<td>代码根本不进产物</td>
+</tr>
+<tr>
+<td><code>isEnabled()</code></td>
+<td>运行期</td>
+<td>命令存在但不能调用</td>
+</tr>
+<tr>
+<td><code>isHidden</code></td>
+<td>渲染期</td>
+<td>命令可调用但 UI 不展示</td>
+</tr>
+</tbody></table>
+<p>这种分层设计的好处：可以做&quot;对部分用户隐藏但保留能力&quot;、&quot;在某些环境下完全禁用&quot;、&quot;在新版本里完全去掉&quot;——三种粒度独立。</p>
+<hr>
+<h2 id="负面词埋点不是审查器是产品信号">负面词埋点：不是审查器，是产品信号</h2>
+<p><code>src/utils/userPromptKeywords.ts</code>：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> matchesNegativeKeyword</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> lowerInput </span><span style="color:#179299">=</span><span style="color:#4C4F69"> input</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toLowerCase</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> negativePattern </span><span style="color:#179299">=</span><span style="color:#EA76CB"> /</span><span style="color:#8839EF">\b</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">wtf</span><span style="color:#179299">|</span><span style="color:#4C4F69">wth</span><span style="color:#179299">|</span><span style="color:#4C4F69">ffs</span><span style="color:#179299">|</span><span style="color:#4C4F69">omfg</span><span style="color:#179299">|</span><span style="color:#4C4F69">shit</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">ty</span><span style="color:#179299">|</span><span style="color:#4C4F69">tiest</span><span style="color:#40A02B">)</span><span style="color:#179299">?|</span><span style="color:#4C4F69">dumbass</span><span style="color:#179299">|</span><span style="color:#4C4F69">horrible</span><span style="color:#179299">|</span><span style="color:#4C4F69">awful</span><span style="color:#179299">|</span><span style="color:#4C4F69">piss</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">ed</span><span style="color:#179299">|</span><span style="color:#4C4F69">ing</span><span style="color:#40A02B">)</span><span style="color:#179299">?</span><span style="color:#4C4F69"> off</span><span style="color:#179299">|</span><span style="color:#4C4F69">piece of </span><span style="color:#40A02B">(</span><span style="color:#4C4F69">shit</span><span style="color:#179299">|</span><span style="color:#4C4F69">crap</span><span style="color:#179299">|</span><span style="color:#4C4F69">junk</span><span style="color:#40A02B">)</span><span style="color:#179299">|</span><span style="color:#4C4F69">what the </span><span style="color:#40A02B">(</span><span style="color:#4C4F69">fuck</span><span style="color:#179299">|</span><span style="color:#4C4F69">hell</span><span style="color:#40A02B">)</span><span style="color:#179299">|</span><span style="color:#4C4F69">fucking</span><span style="color:#179299">?</span><span style="color:#40A02B"> (</span><span style="color:#4C4F69">broken</span><span style="color:#179299">|</span><span style="color:#4C4F69">useless</span><span style="color:#179299">|</span><span style="color:#4C4F69">terrible</span><span style="color:#179299">|</span><span style="color:#4C4F69">awful</span><span style="color:#179299">|</span><span style="color:#4C4F69">horrible</span><span style="color:#40A02B">)</span><span style="color:#179299">|</span><span style="color:#4C4F69">fuck you</span><span style="color:#179299">|</span><span style="color:#4C4F69">screw </span><span style="color:#40A02B">(</span><span style="color:#4C4F69">this</span><span style="color:#179299">|</span><span style="color:#4C4F69">you</span><span style="color:#40A02B">)</span><span style="color:#179299">|</span><span style="color:#4C4F69">so frustrating</span><span style="color:#179299">|</span><span style="color:#4C4F69">this sucks</span><span style="color:#179299">|</span><span style="color:#4C4F69">damn it</span><span style="color:#40A02B">)</span><span style="color:#8839EF">\b</span><span style="color:#EA76CB">/</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> negativePattern</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">test</span><span style="color:#4C4F69">(lowerInput)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>第一眼看像内容审查器。实际不是。</p>
+<p>调用点：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/utils/processUserInput/processTextPrompt.ts</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> isNegative </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> matchesNegativeKeyword</span><span style="color:#4C4F69">(userPromptText)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> isKeepGoing </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> matchesKeepGoingKeyword</span><span style="color:#4C4F69">(userPromptText)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">logEvent</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'tengu_input_prompt'</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  is_negative</span><span style="color:#179299">:</span><span style="color:#4C4F69"> isNegative</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  is_keep_going</span><span style="color:#179299">:</span><span style="color:#4C4F69"> isKeepGoing</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>它的<strong>唯一用途</strong>是：在用户输入进入系统时，给输入打&quot;负面情绪标签&quot;，写进 analytics 事件 <code>tengu_input_prompt</code>。</p>
+<p>它<strong>不会</strong>：</p>
+<ul>
+<li>改写 prompt</li>
+<li>阻止 prompt 发送</li>
+<li>降权模型回答</li>
+<li>触发权限拒绝</li>
+<li>弹用户界面</li>
+</ul>
+<p>它只是个布尔判定器。配合 <code>matchesKeepGoingKeyword</code>（&quot;continue&quot;、&quot;keep going&quot;），形成一对&quot;用户情绪信号&quot;。</p>
+<p>下游用途：</p>
+<ul>
+<li>产品分析&quot;用户什么情况下烦躁&quot;</li>
+<li>在某种情况下触发&quot;反馈问卷&quot;</li>
+<li>决定是否提示用户&quot;分享 transcript 给我们排查&quot;</li>
+</ul>
+<p>这是<strong>产品 telemetry + frustration sensing</strong> 的一部分，不是文本处理技巧。</p>
+<hr>
+<h2 id="pattern-提炼">Pattern 提炼</h2>
+<h3 id="pattern-1编译期-运行期-渲染期三层开关">Pattern 1：编译期 / 运行期 / 渲染期三层开关</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>feature()    ← 编译时不进产物</span></span>
+<span class="line"><span>isEnabled()  ← 运行时不能调</span></span>
+<span class="line"><span>isHidden     ← UI 上不展示</span></span></code></pre><p>不要把三件事用一个 if 解决。</p>
+<h3 id="pattern-2同一个仓库支持多个产品形态">Pattern 2：同一个仓库支持多个产品形态</h3>
+<p>通过 INTERNAL_ONLY_COMMANDS + feature() + USER_TYPE，同一份代码可以构建出&quot;内部版&quot;、&quot;外部版&quot;、&quot;实验版&quot;等多种产物。这比&quot;维护多个分支&quot;省力得多。</p>
+<h3 id="pattern-3stub-是治理手段不是-dead-code">Pattern 3：stub 是治理手段，不是 dead code</h3>
+<p>保留命令名 + 接线位，让&quot;外部缺少能力&quot;对齐&quot;内部存在能力&quot;——升级 / 替换时不用改命令命名空间。</p>
+<h3 id="pattern-4埋点不只采成功事件">Pattern 4：埋点不只采&quot;成功事件&quot;</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#1E66F5;font-style:italic">logEvent</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'tengu_input_prompt'</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> is_negative</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> is_keep_going </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>挫败感、情绪信号也是产品数据。</p>
+<h3 id="pattern-5正则比-llm-调用便宜得多">Pattern 5：正则比 LLM 调用便宜得多</h3>
+<p>判断&quot;用户是不是在抱怨&quot;用一行正则——不用每条 prompt 都调一次模型分类。把决策从模型搬到代码上，省钱、低延迟、可审计。</p>
+<hr>
+<h2 id="自己实现30-行的三层开关">自己实现：30 行的三层开关</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// my-feature-flags.ts</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 1. 编译期：通过 process.env 在 bundle 时替换</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> FEATURES </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  LSP_TOOL</span><span style="color:#179299">:</span><span style="color:#4C4F69">    process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">NEXT_FEATURE_LSP_TOOL</span><span style="color:#179299"> ===</span><span style="color:#40A02B"> '1'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  VOICE_MODE</span><span style="color:#179299">:</span><span style="color:#4C4F69">  process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">NEXT_FEATURE_VOICE_MODE</span><span style="color:#179299"> ===</span><span style="color:#40A02B"> '1'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 2. 运行期：基于环境的 isEnabled</span></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> Command </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isEnabled</span><span style="color:#179299">?:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  isHidden</span><span style="color:#179299">?:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> HeapDumpCommand</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Command </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'heapdump'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isEnabled</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">DEBUG</span><span style="color:#179299"> ===</span><span style="color:#40A02B"> '1'</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  // 只在 DEBUG 环境可用</span></span>
+<span class="line"><span style="color:#4C4F69">  isHidden</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">                              // 永不在 help 出现</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 3. 装配</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> COMMANDS_BUILDTIME</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Command[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#4C4F69">  HeapDumpCommand</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#179299">  ...</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">FEATURES</span><span style="color:#179299">.</span><span style="color:#FE640B">LSP_TOOL</span><span style="color:#179299">  ?</span><span style="color:#4C4F69"> [LSPCommand] </span><span style="color:#179299">:</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#179299">  ...</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">FEATURES</span><span style="color:#179299">.</span><span style="color:#FE640B">VOICE_MODE</span><span style="color:#179299"> ?</span><span style="color:#4C4F69"> [VoiceCommand] </span><span style="color:#179299">:</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> getAvailableCommands</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Command[]</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#FE640B"> COMMANDS_BUILDTIME</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">c</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> c</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">isEnabled</span><span style="color:#179299">?.</span><span style="color:#4C4F69">() </span><span style="color:#179299">??</span><span style="color:#FE640B"> true</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> getVisibleCommands</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Command[]</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#1E66F5;font-style:italic"> getAvailableCommands</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">c</span><span style="color:#179299"> =></span><span style="color:#179299"> !</span><span style="color:#4C4F69">c</span><span style="color:#179299">.</span><span style="color:#4C4F69">isHidden)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 给 help 用</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>30 行就抓住了三层开关的核心 pattern。</p>
+<hr>
+<h2 id="番外课小结">番外课小结</h2>
+<ul>
+<li>INTERNAL_ONLY_COMMANDS + 89 个 feature flag 让单一代码库支持多产物</li>
+<li>隐藏命令分四类：内部独享 / 隐藏真命令 / stub / 彩蛋</li>
+<li>三层开关：<strong>feature()</strong> 编译时 / <strong>isEnabled()</strong> 运行时 / <strong>isHidden</strong> 渲染时</li>
+<li>负面词正则不是审查器，是 <strong>产品 telemetry</strong>——情绪信号也是数据</li>
+<li>决策能用代码就不用 LLM，省钱低延迟可审计</li>
+</ul>
+<hr>
+<h2 id="延伸阅读">延伸阅读</h2>
+<ul>
+<li><code>analysis/11-hidden-features-and-easter-eggs.md</code> 全文 - 491 行</li>
+<li><code>analysis/06b-negative-keyword-analysis.md</code> 全文 - 负面词机制 474 行解读</li>
+<li><code>analysis/06-extra-findings.md</code> - 边界案例与额外发现</li>
+</ul>
+<hr>
+<h2 id="整门课程小结">整门课程小结</h2>
+<p>读完 14 课，你应该对 Claude Code 的工程实践有了完整认识：</p>
+<table>
+<thead>
+<tr>
+<th>主题</th>
+<th>一句话 pattern</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>启动</td>
+<td>双阶段启动 + 快路径分流（动态 import）</td>
+</tr>
+<tr>
+<td>内核</td>
+<td><code>query()</code> AsyncGenerator，多形态共用</td>
+</tr>
+<tr>
+<td>工具</td>
+<td>Fail-Closed 默认值 + 6 步流水线</td>
+</tr>
+<tr>
+<td>调度</td>
+<td>相邻合批 + contextModifier 延后应用</td>
+</tr>
+<tr>
+<td>权限</td>
+<td>四层结构 + 子任务专属闭包</td>
+</tr>
+<tr>
+<td>Skill</td>
+<td>Markdown + YAML + 内嵌 Shell + 信任分层</td>
+</tr>
+<tr>
+<td>MCP</td>
+<td>Auth Cache 防雪崩 + 白名单 + 踩坑注释</td>
+</tr>
+<tr>
+<td>Memory</td>
+<td>文件化 + 索引 + 硬截断 + 轻量召回</td>
+</tr>
+<tr>
+<td>Compaction</td>
+<td>State Re-injection + 熔断器 + 自然断点</td>
+</tr>
+<tr>
+<td>Prompt</td>
+<td>是 runtime 不是字符串，分静态/动态/cache 边界</td>
+</tr>
+<tr>
+<td>Multi-Agent</td>
+<td>三层模型 + 拓扑约束 + fork 复用字节</td>
+</tr>
+<tr>
+<td>Session</td>
+<td>append-only JSONL + 写简单读复杂</td>
+</tr>
+<tr>
+<td>Hidden</td>
+<td>三层开关 + 埋点信号 + stub 治理</td>
+</tr>
+</tbody></table>
+<p>更重要的是，你现在能在自己的 Agent 项目里<strong>主动套用</strong>这些 pattern 了。比如：</p>
+<ul>
+<li>给你的 Tool 接口加 Fail-Closed 默认</li>
+<li>给远端调用加 Auth Cache</li>
+<li>给长会话加 State Re-injection</li>
+<li>给 prompt 加 cache boundary</li>
+</ul>
+<p>把 Claude Code 不当&quot;产品&quot;看，当<strong>工程范本</strong>看，它的价值能放大 10 倍。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/cca-13-session.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第13课：Session 持久化与 Resume</div>
+            </div>
+          </a>
+        
+        
+          <div class="filler">
+            <div style="font-size:1.1rem; margin-bottom:0.3rem;">🎉</div>
+            <div style="font-size:0.85rem;">课程全部完成</div>
+            <a href="/agent-learning/courses.html" style="color:#4e9368; font-size:0.78rem; margin-top:0.4rem;">浏览其他课程</a>
+          </div>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#源码定位">源码定位</a></li><li class="lvl-2"><a href="#隐藏能力的三层机制">&quot;隐藏能力&quot;的三层机制</a></li><li class="lvl-2"><a href="#internal_only_commands内部版独享">INTERNAL_ONLY_COMMANDS：内部版独享</a></li><li class="lvl-2"><a href="#89-个-feature-flag">89 个 feature flag</a></li><li class="lvl-2"><a href="#隐藏命令的四种类型">隐藏命令的四种类型</a></li><li class="lvl-3"><a href="#类型-1内部专属命令">类型 1：内部专属命令</a></li><li class="lvl-3"><a href="#类型-2隐藏但仍是真命令">类型 2：隐藏但仍是真命令</a></li><li class="lvl-3"><a href="#类型-3纯-stub-占位">类型 3：纯 stub 占位</a></li><li class="lvl-3"><a href="#类型-4品牌人格化彩蛋">类型 4：品牌人格化彩蛋</a></li><li class="lvl-2"><a href="#ishidden-vs-isenabled-vs-feature-的语义区分">isHidden vs isEnabled vs feature() 的语义区分</a></li><li class="lvl-2"><a href="#负面词埋点不是审查器是产品信号">负面词埋点：不是审查器，是产品信号</a></li><li class="lvl-2"><a href="#pattern-提炼">Pattern 提炼</a></li><li class="lvl-3"><a href="#pattern-1编译期-运行期-渲染期三层开关">Pattern 1：编译期 / 运行期 / 渲染期三层开关</a></li><li class="lvl-3"><a href="#pattern-2同一个仓库支持多个产品形态">Pattern 2：同一个仓库支持多个产品形态</a></li><li class="lvl-3"><a href="#pattern-3stub-是治理手段不是-dead-code">Pattern 3：stub 是治理手段，不是 dead code</a></li><li class="lvl-3"><a href="#pattern-4埋点不只采成功事件">Pattern 4：埋点不只采&quot;成功事件&quot;</a></li><li class="lvl-3"><a href="#pattern-5正则比-llm-调用便宜得多">Pattern 5：正则比 LLM 调用便宜得多</a></li><li class="lvl-2"><a href="#自己实现30-行的三层开关">自己实现：30 行的三层开关</a></li><li class="lvl-2"><a href="#番外课小结">番外课小结</a></li><li class="lvl-2"><a href="#延伸阅读">延伸阅读</a></li><li class="lvl-2"><a href="#整门课程小结">整门课程小结</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第3课：Query 执行内核 — Claude Code 源码剖析</title>
+  <meta name="description" content="AsyncGenerator 主循环：tool_use → tool_result 闭环">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-rose">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-rose">
+      <div class="crumb">
+        <div class="crumb-icon">CA</div>
+        <div class="crumb-text">Claude Code 源码剖析</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/cca-01-overview.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">泄露事件与全景导览</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-02-startup.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">启动路径剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-03-query.html" class="active">
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Query 执行内核</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-04-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool 抽象与工具池</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-05-orchestration.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">工具调度与并发</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-06-permission.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">权限模型与 Sandbox</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-07-skills.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill 系统</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-09-memory.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Memory 分层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-10-compaction.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 自动压缩</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-11-prompt.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Prompt Runtime</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-12-multi-agent.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 三层模型</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-13-session.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Session 持久化与 Resume</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-14-hidden.html" >
+            <span class="num">14</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第14课（番外）：隐藏命令与 Feature Flag</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/cca-01-overview.html" class="current">Claude Code 源码剖析</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">03</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第3课：Query 执行内核</div>
+          <div class="desc">AsyncGenerator 主循环：tool_use → tool_result 闭环</div>
+          <div class="tags">
+            <span class="tag">analysis</span><span class="tag">agent</span><span class="tag">loop</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">03_query_kernel.md</code></span>
+            <span>📏 319 行</span>
+            <span style="opacity:0.7;">claude-code-analysis/lessons/03_query_kernel.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第3课：Query 执行内核</h1>
+<h2 id="介绍">介绍</h2>
+<p>如果只允许读 Claude Code 一个文件，应该读 <code>src/query.ts</code>。</p>
+<p>它是整个 Agent 平台的<strong>心脏</strong>——所有运行形态（REPL / headless SDK / subagent / bridge）最后都会汇聚到这一个 <code>query()</code> 函数。本课拆解它为什么写成 <code>AsyncGenerator</code>，以及它怎么把 <code>tool_use</code> 闭环回流到下一轮模型调用。</p>
+<hr>
+<h2 id="源码定位">源码定位</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>src/query.ts</code></td>
+<td>单次 query 主循环</td>
+</tr>
+<tr>
+<td><code>src/QueryEngine.ts</code></td>
+<td>跨多轮会话的状态包装</td>
+</tr>
+<tr>
+<td><code>src/services/api/claude.ts</code></td>
+<td>实际的 API 调用</td>
+</tr>
+<tr>
+<td><code>src/services/tools/toolOrchestration.ts</code></td>
+<td>工具调度入口</td>
+</tr>
+<tr>
+<td><code>src/utils/messages.ts</code></td>
+<td>normalize / parentUuid 修复</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="主循环骨架">主循环骨架</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/query.ts —— 主循环骨架（伪代码）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function*</span><span style="color:#1E66F5;font-style:italic"> query</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  userMessages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  systemPrompt</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> SystemPrompt</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  toolUseContext</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolUseContext</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  deps</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> QueryDeps</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AsyncGenerator</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">StreamEvent</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> messages </span><span style="color:#179299">=</span><span style="color:#4C4F69"> userMessages</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  while</span><span style="color:#4C4F69"> (</span><span style="color:#FE640B">true</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 1. 装配上下文（memory 注入也发生在这里）</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> apiMessages </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> normalizeMessagesForAPI</span><span style="color:#4C4F69">(messages)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 2. 调用 Claude API，流式接收</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> event </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> deps</span><span style="color:#179299">.</span><span style="color:#4C4F69">claudeApi</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stream</span><span style="color:#4C4F69">(apiMessages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> systemPrompt)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      yield</span><span style="color:#4C4F69"> event</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 3. 提取模型输出的 tool_use 列表</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> toolUseBlocks </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> extractToolUseBlocks</span><span style="color:#4C4F69">(messages)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (toolUseBlocks</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">===</span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">break</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">     // 无工具调用 → 结束</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 4. 执行工具（并发 / 串行由 partitionToolCalls 决定）</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> toolResults </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> update </span><span style="color:#8839EF">of</span><span style="color:#1E66F5;font-style:italic"> runTools</span><span style="color:#4C4F69">(toolUseBlocks</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      yield</span><span style="color:#4C4F69"> update</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">                            // 实时 yield 给 UI</span></span>
+<span class="line"><span style="color:#4C4F69">      toolResults</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(update</span><span style="color:#179299">.</span><span style="color:#4C4F69">message)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 5. 把工具结果追加到 messages → 进入下一轮</span></span>
+<span class="line"><span style="color:#4C4F69">    messages </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#4C4F69">messages</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">toolResults]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 6. compact 检查、hook 执行</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#1E66F5;font-style:italic"> executePostSamplingHooks</span><span style="color:#4C4F69">(messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> toolUseContext)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#1E66F5;font-style:italic">shouldCompact</span><span style="color:#4C4F69">(messages)) </span><span style="color:#8839EF">await</span><span style="color:#1E66F5;font-style:italic"> compact</span><span style="color:#4C4F69">(messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> toolUseContext)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>每一行都有讲究。下面逐个剖析。</p>
+<hr>
+<h2 id="设计-1返回-asyncgenerator-的真正价值">设计 1：返回 <code>AsyncGenerator&lt;StreamEvent&gt;</code> 的真正价值</h2>
+<p>如果你之前写过 Agent，你的循环函数大概率是 <code>async function run(): Promise&lt;Result&gt;</code>。Claude Code 不是这样：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function*</span><span style="color:#1E66F5;font-style:italic"> query</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">...</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AsyncGenerator</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">StreamEvent</span><span style="color:#04A5E5">></span></span></code></pre><p>返回<strong>异步生成器</strong>意味着：</p>
+<ol>
+<li><strong>流式产出</strong>：每个 token、每个工具进度、每个 hook 都即时 <code>yield</code>，UI 不用等整轮跑完</li>
+<li><strong>同一份代码喂多种消费者</strong>：<ul>
+<li>REPL：消费 yield 渲染 Ink 组件</li>
+<li>SDK：消费 yield 转交给调用方代码</li>
+<li>bridge：消费 yield 通过 WebSocket 推到远端</li>
+</ul>
+</li>
+<li><strong>天然支持中断</strong>：消费者只要 <code>break</code> 出 <code>for await</code>，生成器就被 GC，副作用清晰</li>
+</ol>
+<p>这是 Claude Code &quot;统一执行内核&quot; 这个工程亮点的技术基础——不是因为它很巧妙地抽象了什么接口，而是因为它选了 <code>AsyncGenerator</code> 这种数据结构。</p>
+<hr>
+<h2 id="设计-2whiletrue-break-而不是递归">设计 2：<code>while(true)</code> + <code>break</code> 而不是递归</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">while</span><span style="color:#4C4F69"> (</span><span style="color:#FE640B">true</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#179299">  ...</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (toolUseBlocks</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">===</span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">break</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#179299">  ...</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>你可能想过递归实现：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> step</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">messages</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> callApi</span><span style="color:#4C4F69">(messages)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#1E66F5;font-style:italic">hasToolUse</span><span style="color:#4C4F69">(result)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#1E66F5;font-style:italic"> step</span><span style="color:#4C4F69">([</span><span style="color:#179299">...</span><span style="color:#4C4F69">messages</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#8839EF">await</span><span style="color:#1E66F5;font-style:italic"> runTools</span><span style="color:#4C4F69">(result)])</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> result</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>Claude Code <strong>没有</strong>这么做，原因：</p>
+<ol>
+<li><strong>栈深度</strong>：长任务可能跑 50+ 轮，递归会占栈</li>
+<li><strong>可观察性</strong>：循环写法可以在每轮开始 / 结束插日志、metric、hook</li>
+<li><strong>可中断</strong>：从外面控制 <code>abortController</code> 时，循环更容易在轮次边界优雅退出</li>
+</ol>
+<p>工程上<strong>循环优于递归</strong>是 Agent 主控代码的常见选择。</p>
+<hr>
+<h2 id="设计-3extracttooluseblocks-appendtoolresults-的解耦">设计 3：<code>extractToolUseBlocks</code> + <code>appendToolResults</code> 的解耦</h2>
+<p>注意主循环里没有&quot;工具执行&quot;和&quot;消息处理&quot;的耦合：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> toolUseBlocks </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> extractToolUseBlocks</span><span style="color:#4C4F69">(messages)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 数据提取</span></span>
+<span class="line"><span style="color:#8839EF">for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> update </span><span style="color:#8839EF">of</span><span style="color:#1E66F5;font-style:italic"> runTools</span><span style="color:#4C4F69">(toolUseBlocks</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)) </span><span style="color:#7C7F93">{</span><span style="color:#179299"> ...</span><span style="color:#7C7F93"> }</span><span style="color:#9CA0B0;font-style:italic">  // 工具执行</span></span>
+<span class="line"><span style="color:#4C4F69">messages </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#4C4F69">messages</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">toolResults]</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">               // 数据追加</span></span></code></pre><p><code>extract</code> / <code>run</code> / <code>append</code> 三件事<strong>严格分开</strong>。这意味着你可以：</p>
+<ul>
+<li><strong>测试 <code>extractToolUseBlocks</code></strong>：给一个 messages 数组，断言提取出对的 tool_use</li>
+<li><strong>替换 <code>runTools</code></strong>：测试时用 mock 工具调度</li>
+<li><strong>审计 <code>appendToolResults</code></strong>：分析消息累积模式</li>
+</ul>
+<p>很多 Agent 项目把这三件事写在一个大函数里，就丢失了这种可测性。</p>
+<hr>
+<h2 id="设计-4normalizemessagesforapi-的清理职责">设计 4：<code>normalizeMessagesForAPI</code> 的清理职责</h2>
+<p>API 接受的消息格式有严格约束：</p>
+<ul>
+<li><code>tool_result</code> 必须紧跟 <code>tool_use</code></li>
+<li>图片不能超过 5MB</li>
+<li>不能有空字符串内容</li>
+<li><code>parentUuid</code> 链不能断</li>
+</ul>
+<p>但 Claude Code 内部的 messages 数组里夹了大量 UI 元素：progress 标记、本地附件元数据、富文本片段……这些 API 都不认。</p>
+<p><code>normalizeMessagesForAPI()</code> 就是这层清理器。它的真正价值不只是&quot;剔除多余字段&quot;，更重要的是：</p>
+<blockquote>
+<p><strong>transcript 可以保留 UI 需要的所有元数据，但发送给 API 时只保留 API 认的字段。</strong></p>
+</blockquote>
+<p>这是一个常见 pattern：<strong>两种数据视图</strong>——一种给 UI / 持久化、一种给 API。中间用 normalize 函数做投影。</p>
+<hr>
+<h2 id="设计-5每一轮都跑-executepostsamplinghooks-shouldcompact">设计 5：每一轮都跑 <code>executePostSamplingHooks</code> + <code>shouldCompact</code></h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">await</span><span style="color:#1E66F5;font-style:italic"> executePostSamplingHooks</span><span style="color:#4C4F69">(messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> toolUseContext)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">if</span><span style="color:#4C4F69"> (</span><span style="color:#1E66F5;font-style:italic">shouldCompact</span><span style="color:#4C4F69">(messages)) </span><span style="color:#8839EF">await</span><span style="color:#1E66F5;font-style:italic"> compact</span><span style="color:#4C4F69">(messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> toolUseContext)</span><span style="color:#7C7F93">;</span></span></code></pre><p>这两件事<strong>在每一轮工具执行之后都跑</strong>：</p>
+<ul>
+<li><code>executePostSamplingHooks</code>：用户配置的 hook（比如&quot;每次工具调用后跑一下 lint&quot;）</li>
+<li><code>shouldCompact</code>：检查 token 是否快满了，要不要压缩</li>
+</ul>
+<p>注意它们都在循环里，而不是只在循环开始时检查一次。原因是：长任务可能在循环中间消耗大量 token（比如一次 Read 超大文件），必须在每轮都检查，否则下一轮 API 调用就会撞墙。</p>
+<hr>
+<h2 id="queryengine跨多轮的薄壳">QueryEngine：跨多轮的薄壳</h2>
+<p><code>QueryEngine.ts</code> 是 <code>query()</code> 的对象包装，给 SDK 用：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/QueryEngine.ts 结构伪代码</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> QueryEngine</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> state</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Message[]</span><span style="color:#7C7F93">;</span><span style="color:#179299"> ...</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#8839EF"> *</span><span style="color:#1E66F5;font-style:italic">query</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userInput</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AsyncGenerator</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">StreamEvent</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">state</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'user'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userInput </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> ev </span><span style="color:#8839EF">of</span><span style="color:#1E66F5;font-style:italic"> query</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">state</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#7C7F93">,</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">systemPrompt</span><span style="color:#7C7F93">,</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">ctx</span><span style="color:#7C7F93">,</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">deps)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      yield</span><span style="color:#4C4F69"> ev</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">state</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> mergeFromEvent</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">state</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> ev)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>它做的事很简单：<strong>维护跨轮次的 messages 状态</strong>。<code>query()</code> 本身是无状态的（每次都要传完整 messages），<code>QueryEngine</code> 是给那些不想自己管状态的调用方用的。</p>
+<hr>
+<h2 id="pattern-提炼">Pattern 提炼</h2>
+<h3 id="pattern-1主循环-asyncgenerator">Pattern 1：主循环 = <code>AsyncGenerator</code></h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function*</span><span style="color:#1E66F5;font-style:italic"> run</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AsyncGenerator</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Event</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span><span style="color:#179299"> ...</span><span style="color:#7C7F93"> }</span></span></code></pre><p>只要你的 Agent 主循环返回 AsyncGenerator，CLI / Web / 测试就都能复用同一份代码。</p>
+<h3 id="pattern-2whiletrue-每轮检查-hook-compact">Pattern 2：<code>while(true)</code> + 每轮检查 hook / compact</h3>
+<p>不要在循环开始时一次性做所有检查；每个回合 boundary 都是一个完整的检查点。</p>
+<h3 id="pattern-3api-视图与-ui-视图分离">Pattern 3：API 视图与 UI 视图分离</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> apiMessages </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> normalizeMessagesForAPI</span><span style="color:#4C4F69">(internalMessages)</span><span style="color:#7C7F93">;</span></span></code></pre><p>让你的 transcript 可以包含一切 UI / 调试需要的元数据，发 API 时再投影成纯净版。</p>
+<h3 id="pattern-4装配-执行分离">Pattern 4：装配-执行分离</h3>
+<p><code>extract</code> / <code>runTools</code> / <code>append</code> 三件事独立。每件事都可以单独测、单独换。</p>
+<hr>
+<h2 id="自己实现80-行的-query-主循环">自己实现：80 行的 query 主循环</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// my-query.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Anthropic </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> '@anthropic-ai/sdk'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> type</span><span style="color:#DF8E1D;font-style:italic"> StreamEvent </span><span style="color:#179299">=</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">text</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> text</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">tool_use</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> input</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">tool_result</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> toolUseId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> output</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">done</span><span style="color:#40A02B">'</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function*</span><span style="color:#1E66F5;font-style:italic"> query</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">opts</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Anthropic</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">MessageParam[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  system</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  tools</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#1E66F5;font-style:italic"> run</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> }</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">})</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AsyncGenerator</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">StreamEvent</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> client </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Anthropic</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> messages </span><span style="color:#179299">=</span><span style="color:#4C4F69"> opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  while</span><span style="color:#4C4F69"> (</span><span style="color:#FE640B">true</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 1. API 调用</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> stream </span><span style="color:#179299">=</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stream</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'claude-opus-4-7'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 4096</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      system</span><span style="color:#179299">:</span><span style="color:#4C4F69"> opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">system</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#1E66F5;font-style:italic"> normalizeMessagesForAPI</span><span style="color:#4C4F69">(messages)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      tools</span><span style="color:#179299">:</span><span style="color:#4C4F69"> opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">tools</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">t</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> (</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#4C4F69"> t</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> ''</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> input_schema</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'object'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {}</span><span style="color:#7C7F93"> }</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> finalMessage</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Anthropic</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">Message </span><span style="color:#179299">|</span><span style="color:#8839EF;font-style:italic"> null</span><span style="color:#179299"> =</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> ev </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (ev</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'content_block_delta'</span><span style="color:#179299"> &#x26;&#x26;</span><span style="color:#4C4F69"> ev</span><span style="color:#179299">.</span><span style="color:#4C4F69">delta</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'text_delta'</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        yield</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'text'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> text</span><span style="color:#179299">:</span><span style="color:#4C4F69"> ev</span><span style="color:#179299">.</span><span style="color:#4C4F69">delta</span><span style="color:#179299">.</span><span style="color:#4C4F69">text </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#4C4F69">    finalMessage </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> stream</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">finalMessage</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    messages </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#4C4F69">messages</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'assistant'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> finalMessage</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 2. 提取 tool_use</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> toolUses </span><span style="color:#179299">=</span><span style="color:#4C4F69"> finalMessage</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">b</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#E64553;font-style:italic"> b</span><span style="color:#8839EF"> is</span><span style="color:#DF8E1D;font-style:italic"> Anthropic</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ToolUseBlock</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> b</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'tool_use'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (toolUses</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">===</span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      yield</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'done'</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#8839EF">      break</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 3. 执行工具</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> results</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Anthropic</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ToolResultBlockParam[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tu </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> toolUses) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      yield</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'tool_use'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#4C4F69"> tu</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> input</span><span style="color:#179299">:</span><span style="color:#4C4F69"> tu</span><span style="color:#179299">.</span><span style="color:#4C4F69">input </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> tool </span><span style="color:#179299">=</span><span style="color:#4C4F69"> opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">tools</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">find</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">t</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> t</span><span style="color:#179299">.</span><span style="color:#4C4F69">name </span><span style="color:#179299">===</span><span style="color:#4C4F69"> tu</span><span style="color:#179299">.</span><span style="color:#4C4F69">name)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> output </span><span style="color:#179299">=</span><span style="color:#4C4F69"> tool </span><span style="color:#179299">?</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> tool</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">run</span><span style="color:#4C4F69">(tu</span><span style="color:#179299">.</span><span style="color:#4C4F69">input) </span><span style="color:#179299">:</span><span style="color:#40A02B"> `Unknown tool: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">tu</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      yield</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'tool_result'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> toolUseId</span><span style="color:#179299">:</span><span style="color:#4C4F69"> tu</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> output </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#4C4F69">      results</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'tool_result'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> tool_use_id</span><span style="color:#179299">:</span><span style="color:#4C4F69"> tu</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> output </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 4. 追加结果，进入下一轮</span></span>
+<span class="line"><span style="color:#4C4F69">    messages </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#4C4F69">messages</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'user'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> results </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 5. 简化的 hook / compact 占位</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#1E66F5;font-style:italic">estimateTokens</span><span style="color:#4C4F69">(messages) </span><span style="color:#179299">></span><span style="color:#FE640B"> 100_000</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      messages </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> compactMessages</span><span style="color:#4C4F69">(messages)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> normalizeMessagesForAPI</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Anthropic</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">MessageParam[]</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Anthropic</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">MessageParam[]</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">msg</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">!=</span><span style="color:#8839EF"> null</span><span style="color:#179299"> &#x26;&#x26;</span><span style="color:#4C4F69"> msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">!==</span><span style="color:#40A02B"> ''</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> estimateTokens</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> {</span><span style="color:#8839EF"> return</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(m)</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">/</span><span style="color:#FE640B"> 4</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> compactMessages</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">any</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span><span style="color:#8839EF"> return</span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#179299">-</span><span style="color:#FE640B">10</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span></span></code></pre><p>这就是 Claude Code <code>query.ts</code> 的最小可运行版本。后续课程要做的，是把这里被缩成一行的 <code>runTools</code> / <code>compactMessages</code> 等等一一打开。</p>
+<hr>
+<h2 id="本课小结">本课小结</h2>
+<ul>
+<li><code>query()</code> 是所有运行形态共用的主循环</li>
+<li>选 <code>AsyncGenerator&lt;StreamEvent&gt;</code> 而不是 <code>Promise&lt;Result&gt;</code>，是为了让 UI / SDK / bridge 共用代码</li>
+<li><code>while(true)</code> + 每轮 hook / compact 检查，比递归更可观察、更可中断</li>
+<li>API 视图与内部视图分离，靠 <code>normalizeMessagesForAPI</code> 投影</li>
+</ul>
+<hr>
+<h2 id="延伸阅读">延伸阅读</h2>
+<ul>
+<li><code>analysis/04b-tool-call-implementation.md</code> §1 - tool_use 完整链路图</li>
+<li><code>analysis/05-differentiators-and-comparison.md</code> §2 - 为什么&quot;统一执行内核&quot;是核心差异点</li>
+<li>下一课：<code>04_tool_abstraction.md</code> - 拆开 <code>runTools()</code> 看工具系统</li>
+</ul>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/cca-02-startup.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第2课：启动路径剖析</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/cca-04-tool.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第4课：Tool 抽象与工具池</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#源码定位">源码定位</a></li><li class="lvl-2"><a href="#主循环骨架">主循环骨架</a></li><li class="lvl-2"><a href="#设计-1返回-asyncgenerator-的真正价值">设计 1：返回 AsyncGenerator&lt;StreamEvent&gt; 的真正价值</a></li><li class="lvl-2"><a href="#设计-2whiletrue-break-而不是递归">设计 2：while(true) + break 而不是递归</a></li><li class="lvl-2"><a href="#设计-3extracttooluseblocks-appendtoolresults-的解耦">设计 3：extractToolUseBlocks + appendToolResults 的解耦</a></li><li class="lvl-2"><a href="#设计-4normalizemessagesforapi-的清理职责">设计 4：normalizeMessagesForAPI 的清理职责</a></li><li class="lvl-2"><a href="#设计-5每一轮都跑-executepostsamplinghooks-shouldcompact">设计 5：每一轮都跑 executePostSamplingHooks + shouldCompact</a></li><li class="lvl-2"><a href="#queryengine跨多轮的薄壳">QueryEngine：跨多轮的薄壳</a></li><li class="lvl-2"><a href="#pattern-提炼">Pattern 提炼</a></li><li class="lvl-3"><a href="#pattern-1主循环-asyncgenerator">Pattern 1：主循环 = AsyncGenerator</a></li><li class="lvl-3"><a href="#pattern-2whiletrue-每轮检查-hook-compact">Pattern 2：while(true) + 每轮检查 hook / compact</a></li><li class="lvl-3"><a href="#pattern-3api-视图与-ui-视图分离">Pattern 3：API 视图与 UI 视图分离</a></li><li class="lvl-3"><a href="#pattern-4装配-执行分离">Pattern 4：装配-执行分离</a></li><li class="lvl-2"><a href="#自己实现80-行的-query-主循环">自己实现：80 行的 query 主循环</a></li><li class="lvl-2"><a href="#本课小结">本课小结</a></li><li class="lvl-2"><a href="#延伸阅读">延伸阅读</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

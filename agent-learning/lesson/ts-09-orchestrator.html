@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第9课：Orchestrator + Worker — TypeScript Agent 开发</title>
+  <meta name="description" content="多 Agent 协作架构">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-blue">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-blue">
+      <div class="crumb">
+        <div class="crumb-icon">TS</div>
+        <div class="crumb-text">TypeScript Agent 开发</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ts-01-hello.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Hello Claude</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-02-multi-turn.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多轮对话</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-03-streaming.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">流式输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-04-first-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第一个工具</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-05-multi-tools.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多工具并行</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-06-agent-loop.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agentic Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-07-context.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">上下文管理</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-09-orchestrator.html" class="active">
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Orchestrator + Worker</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-10-handoff.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Handoff</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-11-structured.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">结构化输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-12-memory.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">记忆 Agent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-13-skill.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill + Tool Runner</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ts-01-hello.html" class="current">TypeScript Agent 开发</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">09</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第9课：Orchestrator + Worker</div>
+          <div class="desc">多 Agent 协作架构</div>
+          <div class="tags">
+            <span class="tag">multi-agent</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">09_orchestrator_worker.md</code></span>
+            <span>📏 195 行</span>
+            <span style="opacity:0.7;">typescript/lessons/09_orchestrator_worker.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第9课：Orchestrator + Worker 模式</h1>
+<h2 id="学习目标">学习目标</h2>
+<ol>
+<li>理解多 Agent 协作的核心价值</li>
+<li>实现 Orchestrator 角色：任务分解与协调</li>
+<li>实现 Worker 角色：专注执行单一任务</li>
+<li>掌握 Worker 并行执行的技巧</li>
+</ol>
+<hr>
+<h2 id="为什么需要多-agent">为什么需要多 Agent？</h2>
+<p>单个 Agent 面临的瓶颈：</p>
+<ul>
+<li><strong>Context 限制</strong>：复杂任务信息量超出单次上下文</li>
+<li><strong>专注度</strong>：让一个模型既做研究又写代码又做审核，质量下降</li>
+<li><strong>速度</strong>：串行执行多个子任务很慢</li>
+</ul>
+<p>多 Agent 解决方案：<strong>分工 + 并行</strong></p>
+<hr>
+<h2 id="架构设计">架构设计</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>用户任务</span></span>
+<span class="line"><span>    ↓</span></span>
+<span class="line"><span>Orchestrator（统筹者）</span></span>
+<span class="line"><span>    ├── 任务分解</span></span>
+<span class="line"><span>    ├── 分配给 Workers</span></span>
+<span class="line"><span>    └── 汇总结果</span></span>
+<span class="line"><span>         ↓</span></span>
+<span class="line"><span>┌────────┬────────┬────────┐</span></span>
+<span class="line"><span>Worker1  Worker2  Worker3  Worker4</span></span>
+<span class="line"><span>(研究)   (写作)   (审核)   (润色)</span></span>
+<span class="line"><span>    └────────┴────────┴────────┘</span></span>
+<span class="line"><span>                ↓</span></span>
+<span class="line"><span>           最终结果</span></span></code></pre><hr>
+<h2 id="worker-实现">Worker 实现</h2>
+<p>Worker 是<strong>专注于单一职责</strong>的轻量 Agent：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../shared/llmClient"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> WorkerResult</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  workerId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  task</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  result</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  tokensUsed</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runWorker</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  workerId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  role</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">        // Worker 的专业角色</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  task</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">        // 分配的具体任务</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  context</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#179299"> =</span><span style="color:#40A02B"> ""</span><span style="color:#9CA0B0;font-style:italic"> // Orchestrator 提供的上下文</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">WorkerResult</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">                        // 默认 deepseek-chat（Worker 用便宜模型节省费用）</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `你是一个</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">role</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">。请专注完成分配给你的任务，输出结构化的结果。`</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> context</span></span>
+<span class="line"><span style="color:#179299">          ?</span><span style="color:#40A02B"> `背景信息：</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">context</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">你的任务：</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">task</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span></span>
+<span class="line"><span style="color:#179299">          :</span><span style="color:#40A02B"> `你的任务：</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">task</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  ✅ Worker[</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">workerId</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">] 完成`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    workerId</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    task</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    result</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    tokensUsed</span><span style="color:#179299">:</span><span style="color:#4C4F69"> (response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">?.</span><span style="color:#4C4F69">prompt_tokens </span><span style="color:#179299">??</span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#179299">+</span><span style="color:#4C4F69"> (response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">?.</span><span style="color:#4C4F69">completion_tokens </span><span style="color:#179299">??</span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="orchestrator-实现">Orchestrator 实现</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runOrchestrator</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userGoal</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">🎯 目标: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">userGoal</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ── 第一步：Orchestrator 分解任务 ────────────────────────────</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 规划环节可以用更强的模型；想用 R1 的话 LLM_MODEL=deepseek-reasoner</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> planResponse </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    response_format</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "json_object"</span><span style="color:#7C7F93"> },</span><span style="color:#9CA0B0;font-style:italic">        // 让模型直接输出 JSON</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `你是任务编排专家。将用户目标分解为 3-5 个可并行执行的子任务，</span></span>
+<span class="line"><span style="color:#40A02B">每个子任务需要一个专业 Worker。</span></span>
+<span class="line"><span style="color:#40A02B">输出 JSON 格式：</span></span>
+<span class="line"><span style="color:#40A02B">{</span></span>
+<span class="line"><span style="color:#40A02B">  "tasks": [</span></span>
+<span class="line"><span style="color:#40A02B">    { "id": "1", "role": "角色名称", "task": "具体任务描述" },</span></span>
+<span class="line"><span style="color:#40A02B">    ...</span></span>
+<span class="line"><span style="color:#40A02B">  ]</span></span>
+<span class="line"><span style="color:#40A02B">}`</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `目标：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">userGoal</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 解析任务计划</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> planText </span><span style="color:#179299">=</span><span style="color:#4C4F69"> planResponse</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> "{}"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> plan </span><span style="color:#179299">=</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(planText) </span><span style="color:#8839EF">as</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    tasks</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Array</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69;font-style:italic"> id</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> role</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> task</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> }</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">📋 任务分解（</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">plan</span><span style="color:#179299">.</span><span style="color:#4C4F69">tasks</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 个子任务）：`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  plan</span><span style="color:#179299">.</span><span style="color:#4C4F69">tasks</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">forEach</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">t</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  [</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">t</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">] </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">t</span><span style="color:#179299">.</span><span style="color:#4C4F69">role</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">t</span><span style="color:#179299">.</span><span style="color:#4C4F69">task</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ── 第二步：并行执行所有 Workers ─────────────────────────────</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">⚡ 并行执行 Workers..."</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> workerResults </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">all</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">    plan</span><span style="color:#179299">.</span><span style="color:#4C4F69">tasks</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">t</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> runWorker</span><span style="color:#4C4F69">(t</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> t</span><span style="color:#179299">.</span><span style="color:#4C4F69">role</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> t</span><span style="color:#179299">.</span><span style="color:#4C4F69">task))</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ── 第三步：Orchestrator 汇总结果 ────────────────────────────</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> workerSummary </span><span style="color:#179299">=</span><span style="color:#4C4F69"> workerResults</span></span>
+<span class="line"><span style="color:#179299">    .</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `【</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">r</span><span style="color:#179299">.</span><span style="color:#4C4F69">workerId</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 的结果】</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">r</span><span style="color:#179299">.</span><span style="color:#4C4F69">result</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">    .</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">---</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> totalTokens </span><span style="color:#179299">=</span><span style="color:#4C4F69"> workerResults</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">reduce</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">sum</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> sum </span><span style="color:#179299">+</span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">tokensUsed</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">📊 Workers 总计消耗 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">totalTokens</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> tokens`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> synthesisResponse </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 4096</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是任务汇总专家。将多个 Worker 的结果整合为完整、连贯的最终输出。"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `原始目标：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">userGoal</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">Workers 结果：</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">workerSummary</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">请汇总为最终答案。`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> synthesisResponse</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="使用示例">使用示例</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> runOrchestrator</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">  "撰写一篇关于 AI Agent 发展趋势的技术博文，要求包含技术分析、应用案例和未来展望"</span></span>
+<span class="line"><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">最终结果："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> result)</span><span style="color:#7C7F93">;</span></span></code></pre><p><strong>执行流程：</strong></p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>Orchestrator 规划 → 分解为4个任务：</span></span>
+<span class="line"><span>  [1] 研究员：调研 AI Agent 最新技术趋势</span></span>
+<span class="line"><span>  [2] 案例分析师：收集典型应用案例</span></span>
+<span class="line"><span>  [3] 未来预测师：分析未来发展方向</span></span>
+<span class="line"><span>  [4] 技术编辑：确保技术准确性</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>并行执行（4个 Worker 同时工作）</span></span>
+<span class="line"><span>  ↓</span></span>
+<span class="line"><span>Orchestrator 汇总 → 完整博文</span></span></code></pre><hr>
+<h2 id="关键设计决策">关键设计决策</h2>
+<table>
+<thead>
+<tr>
+<th>决策</th>
+<th>建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Orchestrator 用什么模型</td>
+<td>DeepSeek-Reasoner（R1）或 Claude-Opus（规划需要强推理）</td>
+</tr>
+<tr>
+<td>Worker 用什么模型</td>
+<td>DeepSeek-Chat 或 Kimi-v1-8k（节省费用）</td>
+</tr>
+<tr>
+<td>串行还是并行</td>
+<td>无依赖的任务用 <code>Promise.all</code> 并行</td>
+</tr>
+<tr>
+<td>Worker 之间需要通信吗</td>
+<td>通过 Orchestrator 传递上下文，避免直接通信</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>混搭模型小技巧</strong>：让 Orchestrator 和 Workers 用<strong>不同的模型</strong>。可以创建两个 client 实例，或者直接 inline <code>new OpenAI({...})</code> 指向不同 baseURL。本课为了简单都用同一个 <code>model</code>。</p>
+</blockquote>
+<p>下一课：不同 Agent 之间的<strong>智能路由与 Handoff</strong> →</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ts-08-mcp.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第8课：MCP 集成</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ts-10-handoff.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第10课：Agent Handoff</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#学习目标">学习目标</a></li><li class="lvl-2"><a href="#为什么需要多-agent">为什么需要多 Agent？</a></li><li class="lvl-2"><a href="#架构设计">架构设计</a></li><li class="lvl-2"><a href="#worker-实现">Worker 实现</a></li><li class="lvl-2"><a href="#orchestrator-实现">Orchestrator 实现</a></li><li class="lvl-2"><a href="#使用示例">使用示例</a></li><li class="lvl-2"><a href="#关键设计决策">关键设计决策</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

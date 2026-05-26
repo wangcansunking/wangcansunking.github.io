@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第8课：LangGraph — Agent 工程进阶</title>
+  <meta name="description" content="状态图驱动的复杂 Agent 工作流">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-amber">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-amber">
+      <div class="crumb">
+        <div class="crumb-icon">AE</div>
+        <div class="crumb-text">Agent 工程进阶</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ae-01-context.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 管理深度剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-02-rag.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">RAG 基础</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-03-rag-advanced.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">RAG 进阶</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-04-react.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">ReAct 范式</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-05-plan-execute.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Plan-and-Execute</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-06-reflexion.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Reflexion</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-07-frameworks.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 框架</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-08-langgraph.html" class="active">
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">LangGraph</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-09-evaluation.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent 评估与可观测性</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-10-production.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">生产级 Agent</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ae-01-context.html" class="current">Agent 工程进阶</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">08</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第8课：LangGraph</div>
+          <div class="desc">状态图驱动的复杂 Agent 工作流</div>
+          <div class="tags">
+            <span class="tag">agent</span><span class="tag">pattern</span><span class="tag">advanced</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">08_langgraph.md</code></span>
+            <span>📏 465 行</span>
+            <span style="opacity:0.7;">agent-engineering/lessons/08_langgraph.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第8课：LangGraph — 状态机驱动的 Agent 工作流</h1>
+<h2 id="介绍">介绍</h2>
+<p>LangGraph 用有向图（节点 = 动作，边 = 路由条件）来建模 Agent 工作流，解决了 ReAct 循环无法处理复杂分支和状态持久化的问题。本课用纯 TypeScript 实现 LangGraph 的核心概念：StateGraph、节点、条件边、Checkpointer，不依赖 LangGraph 库本身，理解其设计原理。</p>
+<hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>ReAct 是线性循环，无法处理条件分支、并行执行、人工介入、状态恢复：</p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    subgraph ReAct[&quot;ReAct 循环（线性）&quot;]
+        A1[思考] --&gt; B1[行动] --&gt; C1[观察] --&gt; A1
+    end
+
+    subgraph LangGraph[&quot;LangGraph（有向图）&quot;]
+        A2[节点A] --&gt;|条件1| B2[节点B]
+        A2 --&gt;|条件2| C2[节点C]
+        B2 --&gt; D2[聚合节点]
+        C2 --&gt; D2
+        D2 --&gt;|需要审批| E2[人工介入]
+        D2 --&gt;|自动通过| F2[结束]
+        E2 --&gt; F2
+    end</pre></div><hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a手动状态机ifelse-条件跳转">方案 A：手动状态机（if/else 条件跳转）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">let</span><span style="color:#4C4F69"> state </span><span style="color:#179299">=</span><span style="color:#40A02B"> "start"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">while</span><span style="color:#4C4F69"> (state </span><span style="color:#179299">!==</span><span style="color:#40A02B"> "end"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (state </span><span style="color:#179299">===</span><span style="color:#40A02B"> "start"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> state </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> step1</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#8839EF">  else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (state </span><span style="color:#179299">===</span><span style="color:#40A02B"> "review"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> state </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> step2</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#8839EF">  else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (state </span><span style="color:#179299">===</span><span style="color:#40A02B"> "approve"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> state </span><span style="color:#179299">=</span><span style="color:#40A02B"> "end"</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>✅ 简单直接
+❌ 复杂流程代码变成意大利面，难以维护</p>
+<h3 id="方案-blanggraph-范式图声明式定义">方案 B：LangGraph 范式（图声明式定义）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> graph </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> StateGraph</span><span style="color:#4C4F69">(schema)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">graph</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">addNode</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"step1"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> step1Fn)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">graph</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">addNode</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"step2"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> step2Fn)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">graph</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">addConditionalEdges</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"step1"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> router</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B"> "review"</span><span style="color:#179299">:</span><span style="color:#40A02B"> "step2"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "end"</span><span style="color:#179299">:</span><span style="color:#4C4F69"> END </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> app </span><span style="color:#179299">=</span><span style="color:#4C4F69"> graph</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">compile</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span></code></pre><p>✅ 流程可视化，声明式定义
+✅ 状态自动持久化，支持断点续传
+✅ 节点可复用，边逻辑集中管理</p>
+<h3 id="方案-clanggraph-checkpointer推荐">方案 C：LangGraph + Checkpointer（推荐）</h3>
+<p>在方案 B 基础上加入 Checkpointer，每次状态转换都持久化，支持多用户隔离和断点恢复。</p>
+<p>✅ 生产级可靠性
+✅ 支持人工介入（暂停等待外部输入）</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p>选择<strong>方案 C</strong>，用 TypeScript 实现 LangGraph 核心概念：StateGraph + Checkpointer + 条件边。理解设计原理后，可以直接使用 LangGraph.js 库（API 一致）。</p>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="stategraph-核心实现">StateGraph 核心实现</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/langgraph/state_graph.ts</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> type</span><span style="color:#DF8E1D;font-style:italic"> NodeFunction</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">state</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> S</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Partial</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">>></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> type</span><span style="color:#DF8E1D;font-style:italic"> ConditionFunction</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">state</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> S</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> END </span><span style="color:#179299">=</span><span style="color:#40A02B"> "__end__"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> GraphConfig</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  threadId</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 用于多用户隔离</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> StateGraph</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S </span><span style="color:#8839EF">extends</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> any</span><span style="color:#04A5E5">>></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> nodes</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Map</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> NodeFunction</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">>></span><span style="color:#179299"> =</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Map</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> edges</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Map</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> string</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Map</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> conditionalEdges</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Map</span><span style="color:#04A5E5">&#x3C;</span></span>
+<span class="line"><span style="color:#8839EF">    string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69;font-style:italic"> condition</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ConditionFunction</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> routes</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#04A5E5">  ></span><span style="color:#179299"> =</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Map</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> entryPoint</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#179299"> =</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> schema</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> S</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">defaultState</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> S</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">schema </span><span style="color:#179299">=</span><span style="color:#4C4F69"> defaultState</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  addNode</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> fn</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> NodeFunction</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF;font-style:italic"> this</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">nodes</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">set</span><span style="color:#4C4F69">(name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> fn)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#D20F39"> this</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  addEdge</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">from</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> to</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF;font-style:italic"> this</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">edges</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">set</span><span style="color:#4C4F69">(from</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> to)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#D20F39"> this</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  addConditionalEdges</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    from</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    condition</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ConditionFunction</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    routes</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> string</span><span style="color:#04A5E5">></span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#8839EF;font-style:italic"> this</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">conditionalEdges</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">set</span><span style="color:#4C4F69">(from</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> condition</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> routes </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#D20F39"> this</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  setEntryPoint</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF;font-style:italic"> this</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">entryPoint </span><span style="color:#179299">=</span><span style="color:#4C4F69"> name</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#D20F39"> this</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  compile</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">checkpointer</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> Checkpointer</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> CompiledGraph</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> CompiledGraph</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">nodes</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">edges</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">conditionalEdges</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">entryPoint</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#179299"> ...</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">schema </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#4C4F69">      checkpointer</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> CompiledGraph</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S </span><span style="color:#8839EF">extends</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> any</span><span style="color:#04A5E5">>></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#8839EF">    private</span><span style="color:#E64553;font-style:italic"> nodes</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Map</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> NodeFunction</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">>></span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#8839EF">    private</span><span style="color:#E64553;font-style:italic"> edges</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Map</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#8839EF">    private</span><span style="color:#E64553;font-style:italic"> conditionalEdges</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Map</span><span style="color:#04A5E5">&#x3C;</span></span>
+<span class="line"><span style="color:#8839EF">      string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69;font-style:italic"> condition</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ConditionFunction</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> routes</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#04A5E5">    ></span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#8839EF">    private</span><span style="color:#E64553;font-style:italic"> entryPoint</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#8839EF">    private</span><span style="color:#E64553;font-style:italic"> defaultState</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> S</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#8839EF">    private</span><span style="color:#E64553;font-style:italic"> checkpointer</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> Checkpointer</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">></span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#7C7F93"> {}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> invoke</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    initialState</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Partial</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    config</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> GraphConfig</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> threadId </span><span style="color:#179299">=</span><span style="color:#4C4F69"> config</span><span style="color:#179299">?.</span><span style="color:#4C4F69">threadId </span><span style="color:#179299">||</span><span style="color:#40A02B"> "default"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 恢复已有状态（断点续传）</span></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> state</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> S </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">checkpointer</span><span style="color:#179299">?.</span><span style="color:#1E66F5;font-style:italic">load</span><span style="color:#4C4F69">(threadId) </span><span style="color:#179299">||</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#179299">      ...</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">defaultState</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#179299">      ...</span><span style="color:#4C4F69">initialState</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> current </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">entryPoint</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> steps </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> maxSteps </span><span style="color:#179299">=</span><span style="color:#FE640B"> 50</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    while</span><span style="color:#4C4F69"> (current </span><span style="color:#179299">!==</span><span style="color:#4C4F69"> END </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> steps </span><span style="color:#179299">&#x3C;</span><span style="color:#4C4F69"> maxSteps) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      steps</span><span style="color:#179299">++</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[Graph] 执行节点: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">current</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> nodeFn </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">nodes</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(current)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">nodeFn) </span><span style="color:#8839EF">throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`节点 "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">current</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">" 不存在`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 执行节点，合并状态更新</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> update </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> nodeFn</span><span style="color:#4C4F69">(state)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      state </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">state</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">update </span><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 持久化状态</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">checkpointer</span><span style="color:#179299">?.</span><span style="color:#1E66F5;font-style:italic">save</span><span style="color:#4C4F69">(threadId</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> state)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 确定下一个节点</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">conditionalEdges</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">has</span><span style="color:#4C4F69">(current)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> condition</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> routes </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">conditionalEdges</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(current)</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> routeKey </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> condition</span><span style="color:#4C4F69">(state)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        current </span><span style="color:#179299">=</span><span style="color:#4C4F69"> routes[routeKey] </span><span style="color:#179299">||</span><span style="color:#4C4F69"> END</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[Graph] 条件路由: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">routeKey</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> → </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">current</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">edges</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">has</span><span style="color:#4C4F69">(current)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        current </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">edges</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(current)</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        current </span><span style="color:#179299">=</span><span style="color:#4C4F69"> END</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (steps </span><span style="color:#179299">>=</span><span style="color:#4C4F69"> maxSteps) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">warn</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"[Graph] 达到最大步骤数，强制终止"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> state</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 流式执行，每个节点完成后 yield 当前状态</span></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#8839EF"> *</span><span style="color:#1E66F5;font-style:italic">stream</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    initialState</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Partial</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    config</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> GraphConfig</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AsyncGenerator</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69;font-style:italic"> node</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> state</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> S </span><span style="color:#7C7F93">}</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> threadId </span><span style="color:#179299">=</span><span style="color:#4C4F69"> config</span><span style="color:#179299">?.</span><span style="color:#4C4F69">threadId </span><span style="color:#179299">||</span><span style="color:#40A02B"> "default"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> state</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> S </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#179299"> ...</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">defaultState</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">initialState </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> current </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">entryPoint</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> steps </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    while</span><span style="color:#4C4F69"> (current </span><span style="color:#179299">!==</span><span style="color:#4C4F69"> END </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> steps </span><span style="color:#179299">&#x3C;</span><span style="color:#FE640B"> 50</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      steps</span><span style="color:#179299">++</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> nodeFn </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">nodes</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(current)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">nodeFn) </span><span style="color:#8839EF">break</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> update </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> nodeFn</span><span style="color:#4C4F69">(state)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      state </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">state</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">update </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">checkpointer</span><span style="color:#179299">?.</span><span style="color:#1E66F5;font-style:italic">save</span><span style="color:#4C4F69">(threadId</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> state)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      yield</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> node</span><span style="color:#179299">:</span><span style="color:#4C4F69"> current</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> state</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">state </span><span style="color:#7C7F93">}</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">conditionalEdges</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">has</span><span style="color:#4C4F69">(current)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> condition</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> routes </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">conditionalEdges</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(current)</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        current </span><span style="color:#179299">=</span><span style="color:#4C4F69"> routes[</span><span style="color:#1E66F5;font-style:italic">condition</span><span style="color:#4C4F69">(state)] </span><span style="color:#179299">||</span><span style="color:#4C4F69"> END</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        current </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">edges</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(current) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> END</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="checkpointer状态持久化">Checkpointer（状态持久化）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/langgraph/checkpointer.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> Checkpointer</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">S</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> memory</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Map</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> S</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Map</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#8839EF"> readonly</span><span style="color:#4C4F69"> persistPath</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">persistPath</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">persistPath </span><span style="color:#179299">=</span><span style="color:#4C4F69"> persistPath</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (persistPath </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">existsSync</span><span style="color:#4C4F69">(persistPath)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> data </span><span style="color:#179299">=</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFileSync</span><span style="color:#4C4F69">(persistPath</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "utf-8"</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memory </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Map</span><span style="color:#4C4F69">(Object</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">entries</span><span style="color:#4C4F69">(data))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  save</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">threadId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> state</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> S</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memory</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">set</span><span style="color:#4C4F69">(threadId</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> state)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">persistPath) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">writeFileSync</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#D20F39">        this</span><span style="color:#179299">.</span><span style="color:#4C4F69">persistPath</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#FE640B">        JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(Object</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">fromEntries</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memory)</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 2</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#4C4F69">      )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  load</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">threadId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> S</span><span style="color:#179299"> |</span><span style="color:#8839EF;font-style:italic"> undefined</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memory</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(threadId)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  delete</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">threadId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memory</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">delete</span><span style="color:#4C4F69">(threadId)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  listThreads</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> Array</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">from</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">memory</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">keys</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="完整示例代码审查工作流">完整示例：代码审查工作流</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/langgraph/demo.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> StateGraph</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> END </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./state_graph"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> Checkpointer </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./checkpointer"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> openai </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 定义工作流状态（对应 LangGraph 的 TypedDict）</span></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> ReviewState</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  code</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  issues</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  severity</span><span style="color:#179299">:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">low</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">medium</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">high</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">critical</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  fixedCode</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  approved</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  attempts</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> defaultState</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ReviewState </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  code</span><span style="color:#179299">:</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  issues</span><span style="color:#179299">:</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  severity</span><span style="color:#179299">:</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  fixedCode</span><span style="color:#179299">:</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  approved</span><span style="color:#179299">:</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  attempts</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 节点1：分析代码</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> analyzeCode</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">state</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ReviewState</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Partial</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">ReviewState</span><span style="color:#04A5E5">>></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `分析代码问题。以 JSON 格式输出：</span></span>
+<span class="line"><span style="color:#40A02B">{"issues": ["问题1", "问题2"], "severity": "low/medium/high/critical"}`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `审查代码：</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">state</span><span style="color:#179299">.</span><span style="color:#4C4F69">code</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    response_format</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "json_object"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">    temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.1</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">!</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  发现 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">issues</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 个问题，严重程度：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">severity</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    issues</span><span style="color:#179299">:</span><span style="color:#4C4F69"> result</span><span style="color:#179299">.</span><span style="color:#4C4F69">issues</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    severity</span><span style="color:#179299">:</span><span style="color:#4C4F69"> result</span><span style="color:#179299">.</span><span style="color:#4C4F69">severity</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    attempts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> state</span><span style="color:#179299">.</span><span style="color:#4C4F69">attempts </span><span style="color:#179299">+</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 节点2：修复代码</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> fixCode</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">state</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ReviewState</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Partial</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">ReviewState</span><span style="color:#04A5E5">>></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> issuesList </span><span style="color:#179299">=</span><span style="color:#4C4F69"> state</span><span style="color:#179299">.</span><span style="color:#4C4F69">issues</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">i</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> idx</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">idx</span><span style="color:#179299"> +</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">. </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">i</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是代码修复专家，修复所有已知问题，不引入新问题。"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `修复以下代码中的问题：</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">原始代码：</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">state</span><span style="color:#179299">.</span><span style="color:#4C4F69">code</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">需要修复的问题：</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">issuesList</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">只输出修复后的代码，不要解释。`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.1</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> fixedCode </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">||</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  修复完成，代码长度：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">fixedCode</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 字符`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> fixedCode </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 节点3：人工审批（模拟）</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> humanReview</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">state</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ReviewState</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Partial</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">ReviewState</span><span style="color:#04A5E5">>></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 实际场景中，这里会暂停等待真实的人工输入</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 配合 Checkpointer，可以持久化状态，稍后恢复</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  [人工审批] 严重问题需要人工确认...`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  问题列表：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">state</span><span style="color:#179299">.</span><span style="color:#4C4F69">issues</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#40A02B">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 2</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#40A02B">(</span><span style="color:#40A02B">"; "</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 模拟：严重程度为 critical 时需要人工拒绝或批准</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> autoApprove </span><span style="color:#179299">=</span><span style="color:#4C4F69"> state</span><span style="color:#179299">.</span><span style="color:#4C4F69">severity </span><span style="color:#179299">!==</span><span style="color:#40A02B"> "critical"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  决定：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">autoApprove</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> "批准"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "拒绝"</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> approved</span><span style="color:#179299">:</span><span style="color:#4C4F69"> autoApprove </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 条件路由：根据严重程度决定流程</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> routeAfterAnalysis</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">state</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ReviewState</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (state</span><span style="color:#179299">.</span><span style="color:#4C4F69">issues</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">===</span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">return</span><span style="color:#40A02B"> "approve"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (state</span><span style="color:#179299">.</span><span style="color:#4C4F69">severity </span><span style="color:#179299">===</span><span style="color:#40A02B"> "critical"</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">return</span><span style="color:#40A02B"> "human_review"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#40A02B"> "fix"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> routeAfterFix</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">state</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ReviewState</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 修复后重新分析（最多 3 次）</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (state</span><span style="color:#179299">.</span><span style="color:#4C4F69">attempts </span><span style="color:#179299">&#x3C;</span><span style="color:#FE640B"> 3</span><span style="color:#179299"> &#x26;&#x26;</span><span style="color:#4C4F69"> state</span><span style="color:#179299">.</span><span style="color:#4C4F69">issues</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">return</span><span style="color:#40A02B"> "analyze"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#40A02B"> "approve"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> routeAfterHumanReview</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">state</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ReviewState</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> state</span><span style="color:#179299">.</span><span style="color:#4C4F69">approved </span><span style="color:#179299">?</span><span style="color:#40A02B"> "fix"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "reject"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 终态节点</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> approve</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">state</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ReviewState</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Partial</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">ReviewState</span><span style="color:#04A5E5">>></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"  [批准] 代码通过审查"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> approved</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> reject</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">state</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ReviewState</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Partial</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">ReviewState</span><span style="color:#04A5E5">>></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"  [拒绝] 代码被人工拒绝，需要重写"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> approved</span><span style="color:#179299">:</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 构建图（对应 LangGraph 的 StateGraph）</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> checkpointer </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Checkpointer</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">ReviewState</span><span style="color:#04A5E5">></span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"./review_checkpoints.json"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> workflow </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> StateGraph</span><span style="color:#4C4F69">(defaultState)</span></span>
+<span class="line"><span style="color:#179299">  .</span><span style="color:#1E66F5;font-style:italic">addNode</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"analyze"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> analyzeCode)</span></span>
+<span class="line"><span style="color:#179299">  .</span><span style="color:#1E66F5;font-style:italic">addNode</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"fix"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> fixCode)</span></span>
+<span class="line"><span style="color:#179299">  .</span><span style="color:#1E66F5;font-style:italic">addNode</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"human_review"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> humanReview)</span></span>
+<span class="line"><span style="color:#179299">  .</span><span style="color:#1E66F5;font-style:italic">addNode</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"approve"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> approve)</span></span>
+<span class="line"><span style="color:#179299">  .</span><span style="color:#1E66F5;font-style:italic">addNode</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"reject"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> reject)</span></span>
+<span class="line"><span style="color:#179299">  .</span><span style="color:#1E66F5;font-style:italic">setEntryPoint</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"analyze"</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">  .</span><span style="color:#1E66F5;font-style:italic">addConditionalEdges</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"analyze"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> routeAfterAnalysis</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    approve</span><span style="color:#179299">:</span><span style="color:#40A02B"> "approve"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    fix</span><span style="color:#179299">:</span><span style="color:#40A02B"> "fix"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    human_review</span><span style="color:#179299">:</span><span style="color:#40A02B"> "human_review"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">  .</span><span style="color:#1E66F5;font-style:italic">addConditionalEdges</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"fix"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> routeAfterFix</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    analyze</span><span style="color:#179299">:</span><span style="color:#40A02B"> "analyze"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    approve</span><span style="color:#179299">:</span><span style="color:#40A02B"> "approve"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">  .</span><span style="color:#1E66F5;font-style:italic">addConditionalEdges</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"human_review"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> routeAfterHumanReview</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    fix</span><span style="color:#179299">:</span><span style="color:#40A02B"> "fix"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    reject</span><span style="color:#179299">:</span><span style="color:#40A02B"> "reject"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">  .</span><span style="color:#1E66F5;font-style:italic">addEdge</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"approve"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> END)</span></span>
+<span class="line"><span style="color:#179299">  .</span><span style="color:#1E66F5;font-style:italic">addEdge</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"reject"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> END)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> app </span><span style="color:#179299">=</span><span style="color:#4C4F69"> workflow</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">compile</span><span style="color:#4C4F69">(checkpointer)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runDemo</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> codeToReview </span><span style="color:#179299">=</span><span style="color:#40A02B"> `</span></span>
+<span class="line"><span style="color:#40A02B">function login(username, password) {</span></span>
+<span class="line"><span style="color:#40A02B">  const query = "SELECT * FROM users WHERE username='" + username + "'";</span></span>
+<span class="line"><span style="color:#40A02B">  const result = db.query(query);</span></span>
+<span class="line"><span style="color:#40A02B">  if (result.length > 0 &#x26;&#x26; result[0].password === password) {</span></span>
+<span class="line"><span style="color:#40A02B">    return { token: btoa(username + ":" + password) };</span></span>
+<span class="line"><span style="color:#40A02B">  }</span></span>
+<span class="line"><span style="color:#40A02B">  return null;</span></span>
+<span class="line"><span style="color:#40A02B">}</span></span>
+<span class="line"><span style="color:#40A02B">  `</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">trim</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"[LangGraph 演示] 开始代码审查工作流</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 使用流式执行，实时观察每个节点的输出</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> stream </span><span style="color:#179299">=</span><span style="color:#4C4F69"> app</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stream</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> code</span><span style="color:#179299">:</span><span style="color:#4C4F69"> codeToReview </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> threadId</span><span style="color:#179299">:</span><span style="color:#40A02B"> "review-001"</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> node</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> state </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> of</span><span style="color:#4C4F69"> stream) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">节点 "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">node</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">" 完成`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (node </span><span style="color:#179299">===</span><span style="color:#40A02B"> "analyze"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  严重程度: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">state</span><span style="color:#179299">.</span><span style="color:#4C4F69">severity</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">, 问题数: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">state</span><span style="color:#179299">.</span><span style="color:#4C4F69">issues</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 工作流完成 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> checkpoint </span><span style="color:#179299">=</span><span style="color:#4C4F69"> checkpointer</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">load</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"review-001"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`最终状态: 批准=</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">checkpoint</span><span style="color:#179299">?.</span><span style="color:#4C4F69">approved</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">, 修复代码长度=</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">checkpoint</span><span style="color:#179299">?.</span><span style="color:#4C4F69">fixedCode</span><span style="color:#179299">?.</span><span style="color:#40A02B">length </span><span style="color:#179299">||</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">runDemo</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课学习<strong>第9课：Agent 评估 — 如何量化 Agent 质量</strong>。LangGraph 解决了 Agent 流程控制问题，但如何知道 Agent 的输出质量好不好？需要系统的评估框架：用 LLM-as-Judge 评分、设计测试数据集、追踪关键指标，持续改进 Agent 质量。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ae-07-frameworks.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第7课：多 Agent 框架</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ae-09-evaluation.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第9课：Agent 评估与可观测性</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a手动状态机ifelse-条件跳转">方案 A：手动状态机（if/else 条件跳转）</a></li><li class="lvl-3"><a href="#方案-blanggraph-范式图声明式定义">方案 B：LangGraph 范式（图声明式定义）</a></li><li class="lvl-3"><a href="#方案-clanggraph-checkpointer推荐">方案 C：LangGraph + Checkpointer（推荐）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#stategraph-核心实现">StateGraph 核心实现</a></li><li class="lvl-3"><a href="#checkpointer状态持久化">Checkpointer（状态持久化）</a></li><li class="lvl-3"><a href="#完整示例代码审查工作流">完整示例：代码审查工作流</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

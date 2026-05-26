@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第13课：Skill + Tool Runner — TypeScript Agent 开发</title>
+  <meta name="description" content="可复用 Skill 机制与 betaZodTool">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-blue">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-blue">
+      <div class="crumb">
+        <div class="crumb-icon">TS</div>
+        <div class="crumb-text">TypeScript Agent 开发</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ts-01-hello.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Hello Claude</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-02-multi-turn.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多轮对话</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-03-streaming.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">流式输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-04-first-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第一个工具</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-05-multi-tools.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多工具并行</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-06-agent-loop.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agentic Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-07-context.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">上下文管理</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-09-orchestrator.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Orchestrator + Worker</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-10-handoff.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Handoff</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-11-structured.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">结构化输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-12-memory.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">记忆 Agent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-13-skill.html" class="active">
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill + Tool Runner</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ts-01-hello.html" class="current">TypeScript Agent 开发</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">13</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第13课：Skill + Tool Runner</div>
+          <div class="desc">可复用 Skill 机制与 betaZodTool</div>
+          <div class="tags">
+            <span class="tag">advanced</span><span class="tag">skill</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">13_tool_runner.md</code></span>
+            <span>📏 326 行</span>
+            <span style="opacity:0.7;">typescript/lessons/13_tool_runner.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第13课：Skill + Tool Runner</h1>
+<h2 id="学习目标">学习目标</h2>
+<ol>
+<li>理解 <strong>Skill</strong> 的概念——可复用的工具单元</li>
+<li>用 <strong>Zod</strong> 定义类型安全的工具</li>
+<li>实现一个通用 <strong>Tool Runner</strong>，自动处理工具调用循环</li>
+<li>组合多个 Skill 构建强大的 Agent</li>
+</ol>
+<hr>
+<h2 id="什么是-skill">什么是 Skill？</h2>
+<p>Skill 是<strong>封装了具体能力的可复用工具单元</strong>，与普通 Tool 的区别：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>普通 Tool：</span></span>
+<span class="line"><span>  - 每次用完就丢弃</span></span>
+<span class="line"><span>  - 紧耦合在某个 Agent 里</span></span>
+<span class="line"><span>  - 无法跨项目复用</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>Skill：</span></span>
+<span class="line"><span>  - 独立封装，可导入任意 Agent</span></span>
+<span class="line"><span>  - 有明确的输入/输出类型定义</span></span>
+<span class="line"><span>  - 像乐高积木一样组合使用</span></span></code></pre><hr>
+<h2 id="用-zod-定义类型安全的-skill">用 Zod 定义类型安全的 Skill</h2>
+<p>我们自己写一个 30 行的 <code>defineSkill()</code> helper，用 Zod 做类型校验，自动转 JSON Schema：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// shared/skill.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> z </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "zod"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> zodToJsonSchema </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "zod-to-json-schema"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> type</span><span style="color:#DF8E1D;font-style:italic"> Skill</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">I </span><span style="color:#8839EF">extends</span><span style="color:#DF8E1D;font-style:italic"> z</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ZodObject</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">any</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> O</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  description</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  inputSchema</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> I</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  run</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> z</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">infer</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">I</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">O</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> defineSkill</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">I </span><span style="color:#8839EF">extends</span><span style="color:#DF8E1D;font-style:italic"> z</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ZodObject</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">any</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> O</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">s</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Skill</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">I</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> O</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Skill</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">I</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> O</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> s</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">/** 把多个 Skill 转成 OpenAI tools 格式 */</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> skillsToTools</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">skills</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Skill</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">any</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> any</span><span style="color:#04A5E5">></span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> skills</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">s</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> (</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "function"</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    function</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      name</span><span style="color:#179299">:</span><span style="color:#4C4F69"> s</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      description</span><span style="color:#179299">:</span><span style="color:#4C4F69"> s</span><span style="color:#179299">.</span><span style="color:#4C4F69">description</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      parameters</span><span style="color:#179299">:</span><span style="color:#1E66F5;font-style:italic"> zodToJsonSchema</span><span style="color:#4C4F69">(s</span><span style="color:#179299">.</span><span style="color:#4C4F69">inputSchema</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> target</span><span style="color:#179299">:</span><span style="color:#40A02B"> "openApi3"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">as</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="定义-skills">定义 Skills</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> defineSkill </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../shared/skill"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> z </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "zod"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ── Skill 1：天气查询 ──────────────────────────────────────────</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> weatherSkill </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> defineSkill</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "get_weather"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "获取指定城市的实时天气信息"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  inputSchema</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    city</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"城市名称，如 '北京'、'上海'"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    unit</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">enum</span><span style="color:#4C4F69">([</span><span style="color:#40A02B">"celsius"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "fahrenheit"</span><span style="color:#4C4F69">])</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">default</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"celsius"</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"温度单位"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  run</span><span style="color:#179299">:</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 实际项目中调用天气 API</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> temps</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> number</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> 北京</span><span style="color:#179299">:</span><span style="color:#FE640B"> 22</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> 上海</span><span style="color:#179299">:</span><span style="color:#FE640B"> 28</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> 广州</span><span style="color:#179299">:</span><span style="color:#FE640B"> 32</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> temp </span><span style="color:#179299">=</span><span style="color:#4C4F69"> temps[input</span><span style="color:#179299">.</span><span style="color:#4C4F69">city] </span><span style="color:#179299">??</span><span style="color:#FE640B"> 25</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> display </span><span style="color:#179299">=</span><span style="color:#4C4F69"> input</span><span style="color:#179299">.</span><span style="color:#4C4F69">unit </span><span style="color:#179299">===</span><span style="color:#40A02B"> "fahrenheit"</span></span>
+<span class="line"><span style="color:#179299">      ?</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">temp</span><span style="color:#179299"> *</span><span style="color:#FE640B"> 9</span><span style="color:#179299"> /</span><span style="color:#FE640B"> 5</span><span style="color:#179299"> +</span><span style="color:#FE640B"> 32</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">1</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">°F`</span></span>
+<span class="line"><span style="color:#179299">      :</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">temp</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">°C`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#4C4F69">city</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">：晴天，</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">display</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">，湿度 65%，微风`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ── Skill 2：网页搜索 ──────────────────────────────────────────</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> searchSkill </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> defineSkill</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "web_search"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "搜索互联网获取最新信息"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  inputSchema</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    query</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"搜索关键词"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    maxResults</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">number</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">default</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">5</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"返回结果数量"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  run</span><span style="color:#179299">:</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#40A02B"> `搜索"</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#4C4F69">query</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">"的结果：</span></span>
+<span class="line"><span style="color:#40A02B">1. [示例结果1] - 相关描述...</span></span>
+<span class="line"><span style="color:#40A02B">2. [示例结果2] - 相关描述...</span></span>
+<span class="line"><span style="color:#40A02B">（共返回 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxResults</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 条）`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ── Skill 3：数据计算 ──────────────────────────────────────────</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> calculatorSkill </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> defineSkill</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "calculate"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "执行数学计算"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  inputSchema</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    expression</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"数学表达式，如 '(15 + 27) * 2'"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  run</span><span style="color:#179299">:</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> Function</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`"use strict"; return (</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#4C4F69">expression</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">)`</span><span style="color:#4C4F69">)()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#4C4F69">expression</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> = </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#40A02B"> `计算错误：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#4C4F69">expression</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 不是有效表达式`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ── Skill 4：批量数据收集 ─────────────────────────────────────</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> dataCollectorSkill </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> defineSkill</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "collect_city_data"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "并行收集多个城市的天气信息"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  inputSchema</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    cities</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">array</span><span style="color:#4C4F69">(z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">())</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"城市列表"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  run</span><span style="color:#179299">:</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> results </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">all</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">      input</span><span style="color:#179299">.</span><span style="color:#4C4F69">cities</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#8839EF">async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">city</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">city</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">floor</span><span style="color:#40A02B">(</span><span style="color:#FE640B">20</span><span style="color:#179299"> +</span><span style="color:#4C4F69"> Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">random</span><span style="color:#40A02B">() </span><span style="color:#179299">*</span><span style="color:#FE640B"> 15</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">°C`</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> results</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="tool-runner自动处理调用循环">Tool Runner：自动处理调用循环</h2>
+<p>第 6 课的 Agent Loop 我们手写了 30 行循环。把它抽成一个<strong>通用 Runner</strong>，所有 Agent 都能复用：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// shared/toolRunner.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./llmClient"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#8839EF"> type</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> Skill </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./skill"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> skillsToTools </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./skill"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> Msg </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionMessageParam</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runWithSkills</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">opts</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Msg[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  skills</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Skill</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">any</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> any</span><span style="color:#04A5E5">></span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  maxIterations</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  onIteration</span><span style="color:#179299">?:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">msg</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionMessage</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> iteration</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#8839EF"> void</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">})</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> skills</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> maxIterations </span><span style="color:#179299">=</span><span style="color:#FE640B"> 10</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> onIteration </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#4C4F69"> opts</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> skillByName </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Map</span><span style="color:#4C4F69">(skills</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">s</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> [s</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> s]))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> tools </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> skillsToTools</span><span style="color:#4C4F69">(skills)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">let</span><span style="color:#4C4F69"> i </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i </span><span style="color:#179299">&#x3C;</span><span style="color:#4C4F69"> maxIterations</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> i</span><span style="color:#179299">++</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> resp </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 4096</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      tools</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> msg </span><span style="color:#179299">=</span><span style="color:#4C4F69"> resp</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(msg)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    onIteration</span><span style="color:#179299">?.</span><span style="color:#4C4F69">(msg</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> i)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 没调工具 → 任务完成</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (resp</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">finish_reason </span><span style="color:#179299">!==</span><span style="color:#40A02B"> "tool_calls"</span><span style="color:#179299"> ||</span><span style="color:#179299"> !</span><span style="color:#4C4F69">msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool_calls</span><span style="color:#179299">?.</span><span style="color:#4C4F69">length) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#4C4F69"> msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">??</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 并行执行所有工具</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> results </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">all</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">      msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool_calls</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#8839EF">async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">call</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> skill </span><span style="color:#179299">=</span><span style="color:#4C4F69"> skillByName</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(call</span><span style="color:#179299">.</span><span style="color:#4C4F69">function</span><span style="color:#179299">.</span><span style="color:#4C4F69">name)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">skill) </span><span style="color:#8839EF">return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> id</span><span style="color:#179299">:</span><span style="color:#4C4F69"> call</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `Unknown skill: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">call</span><span style="color:#179299">.</span><span style="color:#4C4F69">function</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#8839EF">        try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">          const</span><span style="color:#4C4F69"> args </span><span style="color:#179299">=</span><span style="color:#4C4F69"> skill</span><span style="color:#179299">.</span><span style="color:#4C4F69">inputSchema</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(call</span><span style="color:#179299">.</span><span style="color:#4C4F69">function</span><span style="color:#179299">.</span><span style="color:#4C4F69">arguments))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">          const</span><span style="color:#4C4F69"> out </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> skill</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">run</span><span style="color:#4C4F69">(args)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">          return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> id</span><span style="color:#179299">:</span><span style="color:#4C4F69"> call</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#8839EF"> typeof</span><span style="color:#4C4F69"> out </span><span style="color:#179299">===</span><span style="color:#40A02B"> "string"</span><span style="color:#179299"> ?</span><span style="color:#4C4F69"> out </span><span style="color:#179299">:</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(out) </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">e</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">          return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> id</span><span style="color:#179299">:</span><span style="color:#4C4F69"> call</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `Skill error: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">e</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> r </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> results) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "tool"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> tool_call_id</span><span style="color:#179299">:</span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#40A02B"> "达到最大迭代次数"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="用法3-行就跑起来">用法：3 行就跑起来</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> runWithSkills </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../shared/toolRunner"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> answer </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> runWithSkills</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  skills</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [weatherSkill</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> searchSkill</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> calculatorSkill</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> dataCollectorSkill]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "北京和上海今天天气怎样？另外 (88+12)*3 等于多少？"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(answer)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="观察每轮迭代">观察每轮迭代</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> answer </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> runWithSkills</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  skills</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [weatherSkill</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> searchSkill</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> calculatorSkill</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> dataCollectorSkill]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "收集北京、上海、广州三个城市的天气，并计算平均温度"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  onIteration</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">msg</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> i</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool_calls</span><span style="color:#179299">?.</span><span style="color:#4C4F69">length) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`🔧 第 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">i</span><span style="color:#179299"> +</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 轮调用 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool_calls</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 个工具：`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      msg</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool_calls</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">forEach</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">c</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  - </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">c</span><span style="color:#179299">.</span><span style="color:#4C4F69">function</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">(</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">c</span><span style="color:#179299">.</span><span style="color:#4C4F69">function</span><span style="color:#179299">.</span><span style="color:#4C4F69">arguments</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">)`</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#4C4F69">      )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">最终答案:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> answer)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="skill-的最佳实践">Skill 的最佳实践</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// ✅ 好的 Skill：职责单一，描述清晰</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> goodSkill </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> defineSkill</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "get_stock_price"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "获取股票实时价格。当用户询问股价时使用。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  inputSchema</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    ticker</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">describe</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"股票代码，如 'AAPL'、'TSLA'"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  run</span><span style="color:#179299">:</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> ({</span><span style="color:#E64553;font-style:italic"> ticker</span><span style="color:#7C7F93"> })</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> fetchStockPrice</span><span style="color:#4C4F69">(ticker)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ❌ 差的 Skill：职责模糊，描述不清</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> badSkill </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> defineSkill</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "get_data"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">                   // 名字太笼统</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "获取数据"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">             // 描述不够清晰，模型不知道何时用</span></span>
+<span class="line"><span style="color:#4C4F69">  inputSchema</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    param</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">                 // 参数名不清晰</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  run</span><span style="color:#179299">:</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> ({</span><span style="color:#E64553;font-style:italic"> param</span><span style="color:#7C7F93"> })</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> getData</span><span style="color:#4C4F69">(param)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="关于-anthropic-原生-betazodtool">关于 Anthropic 原生 betaZodTool</h2>
+<p>如果你切到 Anthropic SDK，可以直接用官方 <code>betaZodTool</code> + <code>toolRunner</code>，省去自己实现：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Anthropic </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "@anthropic-ai/sdk"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> betaZodTool </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "@anthropic-ai/sdk/helpers/beta/zod"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> ant </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Anthropic</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> skill </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> betaZodTool</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> inputSchema</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> run </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 一行跑完整循环</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> final </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> ant</span><span style="color:#179299">.</span><span style="color:#4C4F69">beta</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toolRunner</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "claude-opus-4-7"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 4096</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  tools</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [skill</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic"> /* ... */</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "..."</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>差异：</p>
+<table>
+<thead>
+<tr>
+<th>通用版（本课）</th>
+<th>Anthropic 原生</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>defineSkill()</code> 自己实现</td>
+<td><code>betaZodTool()</code> SDK 提供</td>
+</tr>
+<tr>
+<td><code>runWithSkills()</code> 30 行</td>
+<td><code>client.beta.messages.toolRunner()</code></td>
+</tr>
+<tr>
+<td>跑 DeepSeek / Kimi / 任意 OpenAI 兼容</td>
+<td>仅 Anthropic</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="课程总结">课程总结</h2>
+<p>恭喜你完成了 TypeScript Agent 开发全部 13 课！</p>
+<p>你现在掌握了：</p>
+<ul>
+<li><strong>基础</strong>：API 调用、多轮对话、流式输出（DeepSeek / Kimi / Anthropic 三家通跑）</li>
+<li><strong>工具</strong>：Tool Use、并行调用、MCP 集成</li>
+<li><strong>Agent</strong>：Agentic Loop、上下文管理</li>
+<li><strong>多 Agent</strong>：Orchestrator/Worker、智能路由</li>
+<li><strong>高级</strong>：结构化输出、记忆系统、Skill/Tool Runner</li>
+</ul>
+<p>整套教程的代码在 <code>typescript/shared/</code> 沉淀了三个可复用模块：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>typescript/shared/</span></span>
+<span class="line"><span>├── llmClient.ts    一套代码切 DeepSeek / Kimi / Anthropic</span></span>
+<span class="line"><span>├── skill.ts        Zod-driven Skill 定义</span></span>
+<span class="line"><span>└── toolRunner.ts   通用 Agent Loop Runner</span></span></code></pre><p>把它们抽出去就是你下个项目的起点。</p>
+<p><strong>下一步</strong>：查看 Mini Claude Code 系列，从零构建一个真实的 AI 编程助手！</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ts-12-memory.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第12课：记忆 Agent</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/cc-01-philosophy.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第1课：设计哲学</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#学习目标">学习目标</a></li><li class="lvl-2"><a href="#什么是-skill">什么是 Skill？</a></li><li class="lvl-2"><a href="#用-zod-定义类型安全的-skill">用 Zod 定义类型安全的 Skill</a></li><li class="lvl-2"><a href="#定义-skills">定义 Skills</a></li><li class="lvl-2"><a href="#tool-runner自动处理调用循环">Tool Runner：自动处理调用循环</a></li><li class="lvl-2"><a href="#用法3-行就跑起来">用法：3 行就跑起来</a></li><li class="lvl-2"><a href="#观察每轮迭代">观察每轮迭代</a></li><li class="lvl-2"><a href="#skill-的最佳实践">Skill 的最佳实践</a></li><li class="lvl-2"><a href="#关于-anthropic-原生-betazodtool">关于 Anthropic 原生 betaZodTool</a></li><li class="lvl-2"><a href="#课程总结">课程总结</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

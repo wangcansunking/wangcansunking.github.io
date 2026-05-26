@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第8课：Fallback 与多模型协作 — 多 LLM 接入实战</title>
+  <meta name="description" content="主备切换、熔断器、负载均衡策略">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-cyan">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-cyan">
+      <div class="crumb">
+        <div class="crumb-icon">LM</div>
+        <div class="crumb-text">多 LLM 接入实战</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ml-01-openai.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">OpenAI API</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-02-deepseek.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">DeepSeek</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-03-gemini.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Google Gemini</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-04-kimi.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Kimi (Moonshot)</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-05-minimax.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MiniMax</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-06-unified.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">统一接口层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-07-selection.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">模型选型指南</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-08-fallback.html" class="active">
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Fallback 与多模型协作</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ml-01-openai.html" class="current">多 LLM 接入实战</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">08</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第8课：Fallback 与多模型协作</div>
+          <div class="desc">主备切换、熔断器、负载均衡策略</div>
+          <div class="tags">
+            <span class="tag">llm</span><span class="tag">advanced</span><span class="tag">architecture</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">08_fallback_strategy.md</code></span>
+            <span>📏 692 行</span>
+            <span style="opacity:0.7;">multi-llm/lessons/08_fallback_strategy.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第8课：Fallback 与可靠性 — 构建不宕机的 AI 服务</h1>
+<h2 id="介绍">介绍</h2>
+<p>生产环境中 LLM API 会有超时、限流、服务中断。依赖单一 API 意味着一旦出故障整个 AI 服务就崩了。本课构建多层可靠性保障：多模型 Fallback Chain、指数退避重试、熔断器模式（Circuit Breaker）、健康检查与自动恢复，确保服务 99.9% 可用。</p>
+<p><strong>可用性目标</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>可用性</th>
+<th>每年宕机时间</th>
+<th>每月宕机时间</th>
+<th>需要的措施</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>99%</td>
+<td>87.6 小时</td>
+<td>7.3 小时</td>
+<td>无重试也能达到</td>
+</tr>
+<tr>
+<td>99.9%</td>
+<td>8.76 小时</td>
+<td>43.8 分钟</td>
+<td>需要重试 + Fallback</td>
+</tr>
+<tr>
+<td>99.99%</td>
+<td>52.6 分钟</td>
+<td>4.4 分钟</td>
+<td>需要熔断器 + 多区域</td>
+</tr>
+</tbody></table>
+<p>实现 99.9% 可用性只需三个组件：<strong>指数退避重试 + 熔断器 + 多模型 Fallback</strong>。</p>
+<hr>
+<h2 id="整体架构三层可靠性保障">整体架构：三层可靠性保障</h2>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    A[用户请求] --&gt; B[FallbackChain\n协调层]
+
+    B --&gt; C{CircuitBreaker\n检查主模型}
+    C --&gt;|OPEN 已熔断| D[跳过，直接尝试备用]
+    C --&gt;|CLOSED/HALF_OPEN| E[withRetry\n指数退避重试]
+
+    E --&gt;|第1次调用| F[主模型 Provider 1\ne.g. OpenAI gpt-4o]
+    F --&gt;|成功| G[返回结果]
+    F --&gt;|429 Rate Limit| H[等待 1s → 2s → 4s\n最多重试3次]
+    H --&gt;|重试成功| G
+    H --&gt;|重试全失败| I[记录失败\n更新熔断器状态]
+
+    I --&gt; D
+    D --&gt; J{CircuitBreaker\n检查备用模型1}
+    J --&gt;|正常| K[备用模型 Provider 2\ne.g. Anthropic claude-sonnet-4-6]
+    K --&gt;|成功| L[返回结果 + 记录降级日志]
+    K --&gt;|失败| M[备用模型 Provider 3\ne.g. DeepSeek deepseek-chat]
+    J --&gt;|熔断| M
+    M --&gt;|成功| N[返回结果 + 记录降级日志]
+    M --&gt;|失败| O[抛出聚合错误\n所有模型均失败]
+
+    P[HealthChecker\n后台定期检查] -.-&gt;|更新状态| C
+    P -.-&gt;|更新状态| J
+
+    style G fill:#dcfce7,stroke:#86efac
+    style L fill:#dcfce7,stroke:#86efac
+    style N fill:#dcfce7,stroke:#86efac
+    style O fill:#fee2e2,stroke:#fca5a5</pre></div><blockquote>
+<p><strong>三层保障职责</strong>：</p>
+<ul>
+<li><strong>第一层（重试）</strong>：处理偶发性错误（网络抖动、瞬时限流）</li>
+<li><strong>第二层（熔断器）</strong>：隔离持续故障的模型，避免无效等待</li>
+<li><strong>第三层（Fallback）</strong>：当主模型不可用时自动切换备用模型</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="故障类型与对策">故障类型与对策</h2>
+<table>
+<thead>
+<tr>
+<th>故障类型</th>
+<th>HTTP 状态</th>
+<th>是否重试</th>
+<th>对策</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Rate Limit</td>
+<td>429</td>
+<td>✅ 退避重试</td>
+<td>指数退避，等待后重试；考虑切换备用</td>
+</tr>
+<tr>
+<td>临时服务错误</td>
+<td>500 / 503</td>
+<td>✅ 退避重试</td>
+<td>最多 3 次，间隔递增</td>
+</tr>
+<tr>
+<td>超时</td>
+<td>timeout</td>
+<td>✅ 退避重试</td>
+<td>缩短超时后切备用模型</td>
+</tr>
+<tr>
+<td>网络断开</td>
+<td>ECONNRESET</td>
+<td>✅ 退避重试</td>
+<td>重连后重试</td>
+</tr>
+<tr>
+<td>请求无效</td>
+<td>400</td>
+<td>❌ 不重试</td>
+<td>参数有问题，重试无意义，直接报错</td>
+</tr>
+<tr>
+<td>认证失败</td>
+<td>401</td>
+<td>❌ 不重试</td>
+<td>API Key 问题，需要人工介入</td>
+</tr>
+<tr>
+<td>配额超限</td>
+<td>402 / 429（账户级）</td>
+<td>❌ 不重试</td>
+<td>需要充值或升级计划，切换备用</td>
+</tr>
+<tr>
+<td>内容被拒绝</td>
+<td>400（safety）</td>
+<td>❌ 不重试</td>
+<td>内容违规，重试无效</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="三种模式详解">三种模式详解</h2>
+<h3 id="模式一指数退避重试">模式一：指数退避重试</h3>
+<div class="mermaid-wrapper"><pre class="mermaid">sequenceDiagram
+    participant C as 客户端
+    participant A as LLM API
+
+    C-&gt;&gt;A: 第1次调用
+    A--&gt;&gt;C: 429 Rate Limit
+
+    Note over C: 等待 1000ms（+ jitter）
+
+    C-&gt;&gt;A: 第2次重试
+    A--&gt;&gt;C: 429 Rate Limit
+
+    Note over C: 等待 2000ms（+ jitter）
+
+    C-&gt;&gt;A: 第3次重试
+    A--&gt;&gt;C: 200 成功
+
+    Note over C,A: 公式：waitTime = min(initialDelay × 2^attempt + jitter, maxDelay)</pre></div><p><strong>退避公式说明</strong>：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>waitTime = min(initialDelay × 2^attempt + jitter, maxDelay)</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>示例：initialDelay=1000ms, maxDelay=30000ms</span></span>
+<span class="line"><span>  第1次失败后等待：min(1000 × 2^0 + jitter, 30000) ≈ 1000-1300ms</span></span>
+<span class="line"><span>  第2次失败后等待：min(1000 × 2^1 + jitter, 30000) ≈ 2000-2600ms</span></span>
+<span class="line"><span>  第3次失败后等待：min(1000 × 2^2 + jitter, 30000) ≈ 4000-5200ms</span></span></code></pre><blockquote>
+<p><strong>为什么需要 jitter（抖动）</strong>：如果所有实例在同一时间重试（thundering herd），会再次打爆 API。加入随机抖动（<code>Math.random() × delay × 0.3</code>）能将重试分散在时间轴上。</p>
+</blockquote>
+<hr>
+<h3 id="模式二熔断器状态机">模式二：熔断器状态机</h3>
+<div class="mermaid-wrapper"><pre class="mermaid">stateDiagram-v2
+    [*] --&gt; CLOSED: 初始状态
+
+    CLOSED --&gt; OPEN: 失败次数 &gt;= 5\n（failureThreshold）
+    OPEN --&gt; HALF_OPEN: 等待超时 60s\n（timeout）
+    HALF_OPEN --&gt; CLOSED: 连续成功 &gt;= 2次\n（successThreshold）
+    HALF_OPEN --&gt; OPEN: 任意1次失败
+
+    CLOSED: CLOSED 关闭\n正常放行所有请求
+    OPEN: OPEN 打开\n拒绝所有请求（快速失败）
+    HALF_OPEN: HALF_OPEN 半开\n放行少量探测请求</pre></div><p><strong>三种状态说明</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>状态</th>
+<th>含义</th>
+<th>行为</th>
+<th>转换条件</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CLOSED</td>
+<td>正常运行</td>
+<td>放行所有请求，统计失败次数</td>
+<td>失败 &gt;= 5 次 → OPEN</td>
+</tr>
+<tr>
+<td>OPEN</td>
+<td>已熔断</td>
+<td>拒绝所有请求，立即抛出错误（快速失败）</td>
+<td>超时 60s → HALF_OPEN</td>
+</tr>
+<tr>
+<td>HALF_OPEN</td>
+<td>探测恢复</td>
+<td>放行少量请求，观察是否恢复</td>
+<td>成功 &gt;= 2 次 → CLOSED；失败 → OPEN</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>熔断器的价值</strong>：当一个模型持续故障时，不熔断的话每次请求都要等到超时（可能 30s），有了熔断器可以立即跳过故障节点（1ms），将时间花在可用的备用模型上。</p>
+</blockquote>
+<hr>
+<h3 id="模式三多模型-fallback-chain">模式三：多模型 Fallback Chain</h3>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    A[请求到来] --&gt; B{Provider 1\nOpenAI gpt-4o\n熔断器 OPEN?}
+    B --&gt;|是，跳过| E
+    B --&gt;|否，尝试| C[调用 Provider 1]
+    C --&gt;|成功| D[返回结果\n✓ 正常路径]
+    C --&gt;|失败| E{Provider 2\nAnthropic claude-sonnet-4-6\n熔断器 OPEN?}
+    E --&gt;|是，跳过| H
+    E --&gt;|否，尝试| F[调用 Provider 2]
+    F --&gt;|成功| G[返回结果\n⚠ 记录: 使用了备用模型]
+    F --&gt;|失败| H{Provider 3\nDeepSeek deepseek-chat\n熔断器 OPEN?}
+    H --&gt;|是，跳过| J
+    H --&gt;|否，尝试| I[调用 Provider 3]
+    I --&gt;|成功| K[返回结果\n⚠ 记录: 使用了兜底模型]
+    I --&gt;|失败| J[抛出聚合错误\n包含所有提供商的错误信息]
+
+    style D fill:#dcfce7,stroke:#86efac
+    style G fill:#fef9c3,stroke:#fbbf24
+    style K fill:#fed7aa,stroke:#fb923c
+    style J fill:#fee2e2,stroke:#fca5a5</pre></div><hr>
+<h2 id="快速方案litellm推荐">快速方案：LiteLLM（推荐）</h2>
+<p>如果不想自己实现以上三种模式，<strong>LiteLLM</strong> 是 2025 年最流行的 LLM 可靠性基础设施，支持 100+ 模型、内置 fallback / 重试 / 熔断：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># pip install litellm</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> litellm</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 配置：主用 Claude，自动 fallback 到 GPT-4o，最后 fallback 到 DeepSeek</span></span>
+<span class="line"><span style="color:#4C4F69">response </span><span style="color:#179299">=</span><span style="color:#4C4F69"> litellm</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">completion</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    model</span><span style="color:#179299">=</span><span style="color:#40A02B">"claude-opus-4-6"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    messages</span><span style="color:#179299">=</span><span style="color:#7C7F93">[{</span><span style="color:#40A02B">"role"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "content"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "Hello"</span><span style="color:#7C7F93">}],</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    fallbacks</span><span style="color:#179299">=</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"gpt-4o"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "deepseek/deepseek-chat"</span><span style="color:#7C7F93">],</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    num_retries</span><span style="color:#179299">=</span><span style="color:#FE640B">3</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    timeout</span><span style="color:#179299">=</span><span style="color:#FE640B">30</span></span>
+<span class="line"><span style="color:#7C7F93">)</span></span></code></pre><p>LiteLLM 的优势：</p>
+<ul>
+<li>统一接口，一行代码切换所有模型</li>
+<li>内置指数退避重试</li>
+<li>支持熔断器和路由策略</li>
+<li>提供 Proxy Server 模式，支持团队共享密钥</li>
+</ul>
+<p>如果需要精细控制（自定义熔断阈值、流式 Fallback、健康检查监控看板），继续阅读手动实现方案。</p>
+<hr>
+<h2 id="手动实现方案">手动实现方案</h2>
+<h3 id="指数退避重试retryts">指数退避重试（retry.ts）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/fallback/retry.ts</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> RetryOptions</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  maxAttempts</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">     // 最大重试次数</span></span>
+<span class="line"><span style="color:#4C4F69">  initialDelay</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">    // 初始等待时间（ms）</span></span>
+<span class="line"><span style="color:#4C4F69">  maxDelay</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">        // 最大等待时间（ms）</span></span>
+<span class="line"><span style="color:#4C4F69">  backoffMultiplier</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 退避倍数</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  retryableErrors</span><span style="color:#179299">?:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">error</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Error</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 哪些错误需要重试</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> DEFAULT_RETRY_OPTIONS</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> RetryOptions </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  maxAttempts</span><span style="color:#179299">:</span><span style="color:#FE640B"> 3</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  initialDelay</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  maxDelay</span><span style="color:#179299">:</span><span style="color:#FE640B"> 30000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  backoffMultiplier</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  retryableErrors</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">error</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> message </span><span style="color:#179299">=</span><span style="color:#4C4F69"> error</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toLowerCase</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> (</span></span>
+<span class="line"><span style="color:#4C4F69">      message</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"rate limit"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span></span>
+<span class="line"><span style="color:#4C4F69">      message</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"429"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span></span>
+<span class="line"><span style="color:#4C4F69">      message</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"503"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span></span>
+<span class="line"><span style="color:#4C4F69">      message</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"timeout"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span></span>
+<span class="line"><span style="color:#4C4F69">      message</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"econnreset"</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> withRetry</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">T</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  fn</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">T</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  options</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Partial</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">RetryOptions</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {}</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">T</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> opts </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">DEFAULT_RETRY_OPTIONS</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">options </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> lastError</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Error</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> delay </span><span style="color:#179299">=</span><span style="color:#4C4F69"> opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">initialDelay</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">let</span><span style="color:#4C4F69"> attempt </span><span style="color:#179299">=</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> attempt </span><span style="color:#179299">&#x3C;=</span><span style="color:#4C4F69"> opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxAttempts</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> attempt</span><span style="color:#179299">++</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> fn</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> catch</span><span style="color:#4C4F69"> (error) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      lastError </span><span style="color:#179299">=</span><span style="color:#4C4F69"> error </span><span style="color:#8839EF">as</span><span style="color:#DF8E1D;font-style:italic"> Error</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> isRetryable </span><span style="color:#179299">=</span><span style="color:#4C4F69"> opts</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">retryableErrors</span><span style="color:#179299">?.</span><span style="color:#4C4F69">(lastError) </span><span style="color:#179299">??</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> isLastAttempt </span><span style="color:#179299">=</span><span style="color:#4C4F69"> attempt </span><span style="color:#179299">===</span><span style="color:#4C4F69"> opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxAttempts</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">isRetryable </span><span style="color:#179299">||</span><span style="color:#4C4F69"> isLastAttempt) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        throw</span><span style="color:#4C4F69"> lastError</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 指数退避 + 随机抖动（避免 thundering herd）</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> jitter </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">random</span><span style="color:#4C4F69">() </span><span style="color:#179299">*</span><span style="color:#4C4F69"> delay </span><span style="color:#179299">*</span><span style="color:#FE640B"> 0.3</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> waitTime </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">min</span><span style="color:#4C4F69">(delay </span><span style="color:#179299">+</span><span style="color:#4C4F69"> jitter</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxDelay)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">        `[Retry] 第 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">attempt</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 次失败: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">lastError</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">，等待 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">round</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">waitTime</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">ms 后重试`</span></span>
+<span class="line"><span style="color:#4C4F69">      )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      await</span><span style="color:#1E66F5;font-style:italic"> sleep</span><span style="color:#4C4F69">(waitTime)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      delay </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">min</span><span style="color:#4C4F69">(delay </span><span style="color:#179299">*</span><span style="color:#4C4F69"> opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">backoffMultiplier</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxDelay)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  throw</span><span style="color:#4C4F69"> lastError</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> sleep</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">ms</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">resolve</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> setTimeout</span><span style="color:#4C4F69">(resolve</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> ms))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="熔断器circuit_breakerts">熔断器（circuit_breaker.ts）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/fallback/circuit_breaker.ts</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> CircuitState </span><span style="color:#179299">=</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">CLOSED</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">OPEN</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">HALF_OPEN</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> CircuitBreakerOptions</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  failureThreshold</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 触发熔断的失败次数</span></span>
+<span class="line"><span style="color:#4C4F69">  successThreshold</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 半开→关闭需要的成功次数</span></span>
+<span class="line"><span style="color:#4C4F69">  timeout</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">            // 熔断持续时间（ms），之后进入 HALF_OPEN</span></span>
+<span class="line"><span style="color:#4C4F69">  monitorInterval</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">    // 统计窗口时间（ms）</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> DEFAULT_CB_OPTIONS</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> CircuitBreakerOptions </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  failureThreshold</span><span style="color:#179299">:</span><span style="color:#FE640B"> 5</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">       // 5次失败后熔断</span></span>
+<span class="line"><span style="color:#4C4F69">  successThreshold</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">       // 2次成功后恢复</span></span>
+<span class="line"><span style="color:#4C4F69">  timeout</span><span style="color:#179299">:</span><span style="color:#FE640B"> 60000</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">            // 熔断 60 秒</span></span>
+<span class="line"><span style="color:#4C4F69">  monitorInterval</span><span style="color:#179299">:</span><span style="color:#FE640B"> 120000</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">   // 2分钟统计窗口</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> CircuitBreaker</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> state</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> CircuitState </span><span style="color:#179299">=</span><span style="color:#40A02B"> "CLOSED"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> failureCount </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> successCount </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> lastFailureTime </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#8839EF"> readonly</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#8839EF"> readonly</span><span style="color:#4C4F69"> options</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> CircuitBreakerOptions</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> options</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Partial</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">CircuitBreakerOptions</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {})</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">name </span><span style="color:#179299">=</span><span style="color:#4C4F69"> name</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">options </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">DEFAULT_CB_OPTIONS</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">options </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  get</span><span style="color:#1E66F5;font-style:italic"> currentState</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> CircuitState</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">state</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isOpen</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">state </span><span style="color:#179299">===</span><span style="color:#40A02B"> "OPEN"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 检查是否到了尝试恢复的时间</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">() </span><span style="color:#179299">-</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">lastFailureTime </span><span style="color:#179299">></span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">options</span><span style="color:#179299">.</span><span style="color:#4C4F69">timeout) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#D20F39">        this</span><span style="color:#179299">.</span><span style="color:#4C4F69">state </span><span style="color:#179299">=</span><span style="color:#40A02B"> "HALF_OPEN"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">        this</span><span style="color:#179299">.</span><span style="color:#4C4F69">successCount </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[CircuitBreaker:</span><span style="color:#7C7F93">${</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">] 进入 HALF_OPEN 状态，尝试恢复`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> execute</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">T</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">(</span><span style="color:#1E66F5;font-style:italic">fn</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">T</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">T</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">isOpen</span><span style="color:#4C4F69">()) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">        `[CircuitBreaker:</span><span style="color:#7C7F93">${</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">] 熔断器已开启，拒绝请求`</span></span>
+<span class="line"><span style="color:#4C4F69">      )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> fn</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">onSuccess</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#4C4F69"> result</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> catch</span><span style="color:#4C4F69"> (error) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">onFailure</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      throw</span><span style="color:#4C4F69"> error</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#1E66F5;font-style:italic"> onSuccess</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">failureCount </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">state </span><span style="color:#179299">===</span><span style="color:#40A02B"> "HALF_OPEN"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">successCount</span><span style="color:#179299">++</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">successCount </span><span style="color:#179299">>=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">options</span><span style="color:#179299">.</span><span style="color:#4C4F69">successThreshold) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#D20F39">        this</span><span style="color:#179299">.</span><span style="color:#4C4F69">state </span><span style="color:#179299">=</span><span style="color:#40A02B"> "CLOSED"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[CircuitBreaker:</span><span style="color:#7C7F93">${</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">] 恢复正常，进入 CLOSED 状态`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#1E66F5;font-style:italic"> onFailure</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">lastFailureTime </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">failureCount</span><span style="color:#179299">++</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">state </span><span style="color:#179299">===</span><span style="color:#40A02B"> "HALF_OPEN"</span><span style="color:#179299"> ||</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">failureCount </span><span style="color:#179299">>=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">options</span><span style="color:#179299">.</span><span style="color:#4C4F69">failureThreshold</span></span>
+<span class="line"><span style="color:#4C4F69">    ) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">state </span><span style="color:#179299">=</span><span style="color:#40A02B"> "OPEN"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">        `[CircuitBreaker:</span><span style="color:#7C7F93">${</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">] 触发熔断，进入 OPEN 状态，</span><span style="color:#7C7F93">${</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">options</span><span style="color:#179299">.</span><span style="color:#4C4F69">timeout</span><span style="color:#179299"> /</span><span style="color:#FE640B"> 1000</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">s 后尝试恢复`</span></span>
+<span class="line"><span style="color:#4C4F69">      )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  getStats</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      name</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      state</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">state</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      failureCount</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">failureCount</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      successCount</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">successCount</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      lastFailureTime</span><span style="color:#179299">:</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">lastFailureTime</span></span>
+<span class="line"><span style="color:#179299">        ?</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Date</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">lastFailureTime)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toISOString</span><span style="color:#4C4F69">()</span></span>
+<span class="line"><span style="color:#179299">        :</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    };</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="多模型-fallback-chainfallback_chaints">多模型 Fallback Chain（fallback_chain.ts）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/fallback/fallback_chain.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#8839EF"> type</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> LLMAdapter</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> LLMMessage</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> ChatOptions</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> LLMResponse </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../unified/types"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> CircuitBreaker </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./circuit_breaker"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> withRetry </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./retry"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> FallbackNode</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  adapter</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMAdapter</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  circuitBreaker</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> CircuitBreaker</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  priority</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 数字越小优先级越高</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> FallbackChain</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> nodes</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> FallbackNode[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">adapters</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMAdapter[]</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">nodes </span><span style="color:#179299">=</span><span style="color:#4C4F69"> adapters</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">adapter</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> index</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> (</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      adapter</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      circuitBreaker</span><span style="color:#179299">:</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> CircuitBreaker</span><span style="color:#4C4F69">(adapter</span><span style="color:#179299">.</span><span style="color:#4C4F69">name)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      priority</span><span style="color:#179299">:</span><span style="color:#4C4F69"> index</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> chat</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    options</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ChatOptions</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">LLMResponse </span><span style="color:#179299">&#x26;</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> provider</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> }</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> errors</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> provider</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> error</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> }</span><span style="color:#DF8E1D;font-style:italic">[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 按优先级尝试每个节点</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> node </span><span style="color:#8839EF">of</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">nodes) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (node</span><span style="color:#179299">.</span><span style="color:#4C4F69">circuitBreaker</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">isOpen</span><span style="color:#4C4F69">()) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[Fallback] </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">node</span><span style="color:#179299">.</span><span style="color:#4C4F69">adapter</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 熔断中，跳过`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        continue</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> node</span><span style="color:#179299">.</span><span style="color:#4C4F69">circuitBreaker</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">execute</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">()</span><span style="color:#179299"> =></span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">          withRetry</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#7C7F93">            ()</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> node</span><span style="color:#179299">.</span><span style="color:#4C4F69">adapter</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">chat</span><span style="color:#4C4F69">(messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> options)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">            {</span></span>
+<span class="line"><span style="color:#4C4F69">              maxAttempts</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">              initialDelay</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">            }</span></span>
+<span class="line"><span style="color:#4C4F69">          )</span></span>
+<span class="line"><span style="color:#4C4F69">        )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#4C4F69"> (node</span><span style="color:#179299">.</span><span style="color:#4C4F69">priority </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">          console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">            `[Fallback] 使用备用模型 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">node</span><span style="color:#179299">.</span><span style="color:#4C4F69">adapter</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">（主模型不可用）`</span></span>
+<span class="line"><span style="color:#4C4F69">          )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#7C7F93"> {</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">result</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> provider</span><span style="color:#179299">:</span><span style="color:#4C4F69"> node</span><span style="color:#179299">.</span><span style="color:#4C4F69">adapter</span><span style="color:#179299">.</span><span style="color:#4C4F69">name </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#8839EF"> catch</span><span style="color:#4C4F69"> (error) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> errorMsg </span><span style="color:#179299">=</span><span style="color:#4C4F69"> error </span><span style="color:#8839EF">instanceof</span><span style="color:#DF8E1D;font-style:italic"> Error</span><span style="color:#179299"> ?</span><span style="color:#4C4F69"> error</span><span style="color:#179299">.</span><span style="color:#4C4F69">message </span><span style="color:#179299">:</span><span style="color:#1E66F5;font-style:italic"> String</span><span style="color:#4C4F69">(error)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        errors</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> provider</span><span style="color:#179299">:</span><span style="color:#4C4F69"> node</span><span style="color:#179299">.</span><span style="color:#4C4F69">adapter</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> error</span><span style="color:#179299">:</span><span style="color:#4C4F69"> errorMsg </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[Fallback] </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">node</span><span style="color:#179299">.</span><span style="color:#4C4F69">adapter</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 失败: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">errorMsg</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 所有模型都失败</span></span>
+<span class="line"><span style="color:#8839EF">    throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">      `所有模型均失败:</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">errors</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#40A02B">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">e</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `  </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">e</span><span style="color:#179299">.</span><span style="color:#4C4F69">provider</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">e</span><span style="color:#179299">.</span><span style="color:#4C4F69">error</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#40A02B">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#8839EF"> *</span><span style="color:#1E66F5;font-style:italic">stream</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMMessage[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    options</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ChatOptions</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AsyncGenerator</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> node </span><span style="color:#8839EF">of</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">nodes) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (node</span><span style="color:#179299">.</span><span style="color:#4C4F69">circuitBreaker</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">isOpen</span><span style="color:#4C4F69">()) </span><span style="color:#8839EF">continue</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> generator </span><span style="color:#179299">=</span><span style="color:#4C4F69"> node</span><span style="color:#179299">.</span><span style="color:#4C4F69">adapter</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stream</span><span style="color:#4C4F69">(messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> options)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        // 先读第一个 chunk 验证连接正常</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> first </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> generator</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">next</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">first</span><span style="color:#179299">.</span><span style="color:#4C4F69">done) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">          yield</span><span style="color:#4C4F69"> first</span><span style="color:#179299">.</span><span style="color:#4C4F69">value</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">          for</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chunk </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> generator) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">            yield</span><span style="color:#4C4F69"> chunk</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">          }</span></span>
+<span class="line"><span style="color:#8839EF">          return</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#8839EF"> catch</span><span style="color:#4C4F69"> (error) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[Fallback Stream] </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">node</span><span style="color:#179299">.</span><span style="color:#4C4F69">adapter</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 失败，切换下一个`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"所有模型流式输出均失败"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  getHealthStatus</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">nodes</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">node</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> (</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      provider</span><span style="color:#179299">:</span><span style="color:#4C4F69"> node</span><span style="color:#179299">.</span><span style="color:#4C4F69">adapter</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      priority</span><span style="color:#179299">:</span><span style="color:#4C4F69"> node</span><span style="color:#179299">.</span><span style="color:#4C4F69">priority</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      circuitBreaker</span><span style="color:#179299">:</span><span style="color:#4C4F69"> node</span><span style="color:#179299">.</span><span style="color:#4C4F69">circuitBreaker</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">getStats</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="健康检查health_checkts">健康检查（health_check.ts）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/fallback/health_check.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#8839EF"> type</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> LLMAdapter </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../unified/types"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> HealthStatus</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  provider</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  healthy</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  latencyMs</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  error</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  lastChecked</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> HealthChecker</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> statuses</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Map</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> HealthStatus</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Map</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> checkIntervals</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Map</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> NodeJS</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">Timer</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Map</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 单次健康检查</span></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> checkAdapter</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">adapter</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMAdapter</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">HealthStatus</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> start </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      await</span><span style="color:#4C4F69"> adapter</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">chat</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">        [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "ping"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span><span style="color:#4C4F69"> maxTokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 5</span><span style="color:#7C7F93"> }</span><span style="color:#9CA0B0;font-style:italic">   // 最小 token 限制，减少成本</span></span>
+<span class="line"><span style="color:#4C4F69">      )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> status</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> HealthStatus </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        provider</span><span style="color:#179299">:</span><span style="color:#4C4F69"> adapter</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        healthy</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        latencyMs</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">() </span><span style="color:#179299">-</span><span style="color:#4C4F69"> start</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        lastChecked</span><span style="color:#179299">:</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Date</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toISOString</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">statuses</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">set</span><span style="color:#4C4F69">(adapter</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> status)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#4C4F69"> status</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> catch</span><span style="color:#4C4F69"> (error) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> status</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> HealthStatus </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        provider</span><span style="color:#179299">:</span><span style="color:#4C4F69"> adapter</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        healthy</span><span style="color:#179299">:</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        error</span><span style="color:#179299">:</span><span style="color:#4C4F69"> error </span><span style="color:#8839EF">instanceof</span><span style="color:#DF8E1D;font-style:italic"> Error</span><span style="color:#179299"> ?</span><span style="color:#4C4F69"> error</span><span style="color:#179299">.</span><span style="color:#4C4F69">message </span><span style="color:#179299">:</span><span style="color:#1E66F5;font-style:italic"> String</span><span style="color:#4C4F69">(error)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        lastChecked</span><span style="color:#179299">:</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Date</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toISOString</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">statuses</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">set</span><span style="color:#4C4F69">(adapter</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> status)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#4C4F69"> status</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 启动定期健康检查</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  startPeriodicCheck</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    adapters</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> LLMAdapter[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    intervalMs</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 30000</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> adapter </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> adapters) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 立即做一次检查</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">checkAdapter</span><span style="color:#4C4F69">(adapter)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">then</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">status</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">          `[HealthCheck] </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">status</span><span style="color:#179299">.</span><span style="color:#4C4F69">provider</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">status</span><span style="color:#179299">.</span><span style="color:#4C4F69">healthy</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> "✓"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "✗"</span><span style="color:#7C7F93">}</span><span style="color:#7C7F93"> ${</span></span>
+<span class="line"><span style="color:#4C4F69">            status</span><span style="color:#179299">.</span><span style="color:#4C4F69">latencyMs</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">status</span><span style="color:#179299">.</span><span style="color:#4C4F69">latencyMs</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">ms`</span><span style="color:#179299"> :</span><span style="color:#4C4F69"> status</span><span style="color:#179299">.</span><span style="color:#4C4F69">error</span></span>
+<span class="line"><span style="color:#7C7F93">          }</span><span style="color:#40A02B">`</span></span>
+<span class="line"><span style="color:#4C4F69">        )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 定期检查</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> timer </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> setInterval</span><span style="color:#4C4F69">(</span><span style="color:#8839EF">async</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> status </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">checkAdapter</span><span style="color:#4C4F69">(adapter)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">          `[HealthCheck] </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">status</span><span style="color:#179299">.</span><span style="color:#4C4F69">provider</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">status</span><span style="color:#179299">.</span><span style="color:#4C4F69">healthy</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> "健康"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "故障"</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span></span>
+<span class="line"><span style="color:#4C4F69">        )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span><span style="color:#4C4F69"> intervalMs)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">checkIntervals</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">set</span><span style="color:#4C4F69">(adapter</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> timer)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  stopAll</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> timer </span><span style="color:#8839EF">of</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">checkIntervals</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">values</span><span style="color:#4C4F69">()) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">      clearInterval</span><span style="color:#4C4F69">(timer)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">checkIntervals</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">clear</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  getAllStatuses</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> HealthStatus[]</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> Array</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">from</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">statuses</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">values</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isHealthy</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">providerName</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">statuses</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(providerName)</span><span style="color:#179299">?.</span><span style="color:#4C4F69">healthy </span><span style="color:#179299">??</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="生产级使用示例demots">生产级使用示例（demo.ts）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/fallback/demo.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> OpenAIAdapter</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> createDeepSeekAdapter </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../unified/adapters/openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> AnthropicAdapter </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../unified/adapters/anthropic"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> FallbackChain </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./fallback_chain"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> HealthChecker </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./health_check"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 构建 Fallback Chain：OpenAI 主力 → Anthropic 备用 → DeepSeek 兜底</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> chain </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> FallbackChain</span><span style="color:#4C4F69">([</span></span>
+<span class="line"><span style="color:#8839EF;font-weight:bold">  new</span><span style="color:#1E66F5;font-style:italic"> OpenAIAdapter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> defaultModel</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">      // 优先级 0（主）</span></span>
+<span class="line"><span style="color:#8839EF;font-weight:bold">  new</span><span style="color:#1E66F5;font-style:italic"> AnthropicAdapter</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">                              // 优先级 1（备）</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  createDeepSeekAdapter</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">                             // 优先级 2（兜底）</span></span>
+<span class="line"><span style="color:#4C4F69">])</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 健康检查</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> healthChecker </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> HealthChecker</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">healthChecker</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">startPeriodicCheck</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">  [</span><span style="color:#8839EF;font-weight:bold">new</span><span style="color:#1E66F5;font-style:italic"> OpenAIAdapter</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> AnthropicAdapter</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span><span style="color:#1E66F5;font-style:italic"> createDeepSeekAdapter</span><span style="color:#4C4F69">()]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#FE640B">  60000</span><span style="color:#9CA0B0;font-style:italic"> // 每分钟检查一次</span></span>
+<span class="line"><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> reliableChat</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userInput</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> chain</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">chat</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">      [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userInput </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.7</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[使用模型] </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">provider</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[回复] </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> response</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> catch</span><span style="color:#4C4F69"> (error) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"所有模型均不可用:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> error)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 降级：返回预设回复，不能直接崩溃</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "抱歉，AI 服务暂时不可用，请稍后重试。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      provider</span><span style="color:#179299">:</span><span style="color:#40A02B"> "fallback"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    };</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 查看系统健康状态</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> printHealthStatus</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> status </span><span style="color:#179299">=</span><span style="color:#4C4F69"> chain</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">getHealthStatus</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 模型健康状态 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> s </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> status) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">      `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">s</span><span style="color:#179299">.</span><span style="color:#4C4F69">provider</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">s</span><span style="color:#179299">.</span><span style="color:#4C4F69">circuitBreaker</span><span style="color:#179299">.</span><span style="color:#4C4F69">state</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> (失败: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">s</span><span style="color:#179299">.</span><span style="color:#4C4F69">circuitBreaker</span><span style="color:#179299">.</span><span style="color:#4C4F69">failureCount</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">)`</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 运行演示</span></span>
+<span class="line"><span style="color:#8839EF">await</span><span style="color:#1E66F5;font-style:italic"> reliableChat</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"什么是量子计算？"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">printHealthStatus</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="fallback-chain-配置建议">Fallback Chain 配置建议</h2>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>主模型</th>
+<th>备用模型1</th>
+<th>兜底模型2</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>通用生产</td>
+<td><code>gpt-4o</code></td>
+<td><code>claude-sonnet-4-6</code></td>
+<td><code>deepseek-chat</code></td>
+<td>质量 / 成本均衡，跨提供商分散风险</td>
+</tr>
+<tr>
+<td>成本敏感</td>
+<td><code>deepseek-chat</code></td>
+<td><code>gpt-4o-mini</code></td>
+<td><code>claude-haiku-4-5</code></td>
+<td>便宜优先，主备均为低成本模型</td>
+</tr>
+<tr>
+<td>中文场景</td>
+<td><code>deepseek-chat</code></td>
+<td><code>claude-sonnet-4-6</code></td>
+<td><code>gpt-4o</code></td>
+<td>中文优先 DeepSeek，备用 Claude</td>
+</tr>
+<tr>
+<td>代码任务</td>
+<td><code>claude-opus-4-6</code></td>
+<td><code>gpt-4o</code></td>
+<td><code>claude-sonnet-4-6</code></td>
+<td>质量优先，降级时保留较强模型</td>
+</tr>
+<tr>
+<td>高并发低延迟</td>
+<td><code>gpt-4o-mini</code></td>
+<td><code>claude-haiku-4-5</code></td>
+<td><code>gemini-2.0-flash</code></td>
+<td>全部选速度快的轻量模型</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="注意事项">注意事项</h2>
+<table>
+<thead>
+<tr>
+<th>注意点</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>指数退避必须加随机抖动（jitter）</td>
+<td>避免 thundering herd 问题：多个实例同时重试会再次打爆 API，加入 <code>Math.random() × delay × 0.3</code> 能将重试分散到不同时间点</td>
+</tr>
+<tr>
+<td>熔断器超时建议 60s</td>
+<td>不要太短（&lt; 10s，频繁进入 HALF_OPEN 浪费请求）也不要太长（&gt; 300s，故障恢复后等太久）</td>
+</tr>
+<tr>
+<td>流式输出 Fallback 的特殊性</td>
+<td>流式请求只能在收到第一个 chunk 后才能确认连接正常；如果在中间失败无法无缝切换，需要重置连接并重新请求备用模型</td>
+</tr>
+<tr>
+<td>HealthCheck 用 &quot;ping&quot; + maxTokens:5</td>
+<td>减少健康检查成本；每次 ping 消耗约 5-10 tokens，100 个模型 × 每分钟检查 = 每天约 $0.01</td>
+</tr>
+<tr>
+<td>所有模型均失败时要有降级文案</td>
+<td>不能直接崩溃抛出原始错误给用户；应返回预设的友好提示，并记录完整错误供排查</td>
+</tr>
+<tr>
+<td>不重试 400/401/402 错误</td>
+<td>这类错误重试无意义且浪费配额；<code>retryableErrors</code> 函数需要明确排除这些状态码</td>
+</tr>
+<tr>
+<td>FallbackChain 不应跨任务类型</td>
+<td>同一个 FallbackChain 内的模型应该能处理相同类型的任务；不要把纯文本模型和视觉模型混在同一个 chain 里</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="课程总结multi-llm-接入全景">课程总结：Multi-LLM 接入全景</h2>
+<table>
+<thead>
+<tr>
+<th>课程</th>
+<th>核心知识点</th>
+<th>关键代码 / 概念</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>01 OpenAI</td>
+<td>Tool Use Agent Loop</td>
+<td><code>finish_reason === &#39;tool_calls&#39;</code> 触发工具调用循环</td>
+</tr>
+<tr>
+<td>02 DeepSeek</td>
+<td>低成本推理，R1 思维链</td>
+<td><code>reasoning_content</code> 字段包含推理过程</td>
+</tr>
+<tr>
+<td>03 Gemini</td>
+<td>多模态 + 超长上下文</td>
+<td><code>@google/genai</code> 新 SDK，<code>inlineData</code> 传图像</td>
+</tr>
+<tr>
+<td>04 Kimi</td>
+<td>中文长文档处理</td>
+<td><code>kimi-latest</code> 模型，128K 中文上下文</td>
+</tr>
+<tr>
+<td>05 MiniMax</td>
+<td>TTS 语音生成</td>
+<td><code>/v1/t2a_v2</code> 端点，返回音频 base64</td>
+</tr>
+<tr>
+<td>06 统一接口</td>
+<td>Adapter 设计模式</td>
+<td><code>LLMAdapter</code> 接口统一所有提供商</td>
+</tr>
+<tr>
+<td>07 模型选型</td>
+<td>智能路由决策</td>
+<td><code>ModelRouter.selectModel()</code> 多维度路由</td>
+</tr>
+<tr>
+<td>08 Fallback</td>
+<td>生产级可靠性</td>
+<td><code>CircuitBreaker</code> + <code>withRetry</code> + <code>FallbackChain</code></td>
+</tr>
+</tbody></table>
+<p><strong>学完本模块你已掌握</strong>：</p>
+<ul>
+<li>8 个主流 LLM 提供商的接入方式</li>
+<li>统一接口设计，切换模型零改动</li>
+<li>智能路由，按任务选最优模型，成本节省 80%+</li>
+<li>生产级可靠性，99.9% 可用率保障</li>
+</ul>
+<hr>
+<h2 id="下一步">下一步</h2>
+<p>multi-llm 模块到此完结。接下来进入 <strong>multimodal（多模态）模块</strong>。第1课：视觉理解 — 让 AI 读懂图像。我们将系统学习 Claude Vision、GPT-4V、Gemini 的图像输入格式差异，以及图像分析、OCR 提取、多图对比的完整实现。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ml-07-selection.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第7课：模型选型指南</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/mm-01-vision.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第1课：图像理解</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#整体架构三层可靠性保障">整体架构：三层可靠性保障</a></li><li class="lvl-2"><a href="#故障类型与对策">故障类型与对策</a></li><li class="lvl-2"><a href="#三种模式详解">三种模式详解</a></li><li class="lvl-3"><a href="#模式一指数退避重试">模式一：指数退避重试</a></li><li class="lvl-3"><a href="#模式二熔断器状态机">模式二：熔断器状态机</a></li><li class="lvl-3"><a href="#模式三多模型-fallback-chain">模式三：多模型 Fallback Chain</a></li><li class="lvl-2"><a href="#快速方案litellm推荐">快速方案：LiteLLM（推荐）</a></li><li class="lvl-2"><a href="#手动实现方案">手动实现方案</a></li><li class="lvl-3"><a href="#指数退避重试retryts">指数退避重试（retry.ts）</a></li><li class="lvl-3"><a href="#熔断器circuit_breakerts">熔断器（circuit_breaker.ts）</a></li><li class="lvl-3"><a href="#多模型-fallback-chainfallback_chaints">多模型 Fallback Chain（fallback_chain.ts）</a></li><li class="lvl-3"><a href="#健康检查health_checkts">健康检查（health_check.ts）</a></li><li class="lvl-3"><a href="#生产级使用示例demots">生产级使用示例（demo.ts）</a></li><li class="lvl-2"><a href="#fallback-chain-配置建议">Fallback Chain 配置建议</a></li><li class="lvl-2"><a href="#注意事项">注意事项</a></li><li class="lvl-2"><a href="#课程总结multi-llm-接入全景">课程总结：Multi-LLM 接入全景</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

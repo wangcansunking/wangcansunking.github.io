@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第11课：Prompt Runtime — Claude Code 源码剖析</title>
+  <meta name="description" content="6 层装配 / 静态主干 + 动态 section / cache boundary">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-rose">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-rose">
+      <div class="crumb">
+        <div class="crumb-icon">CA</div>
+        <div class="crumb-text">Claude Code 源码剖析</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/cca-01-overview.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">泄露事件与全景导览</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-02-startup.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">启动路径剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-03-query.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Query 执行内核</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-04-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool 抽象与工具池</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-05-orchestration.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">工具调度与并发</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-06-permission.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">权限模型与 Sandbox</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-07-skills.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill 系统</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-09-memory.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Memory 分层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-10-compaction.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 自动压缩</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-11-prompt.html" class="active">
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Prompt Runtime</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-12-multi-agent.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 三层模型</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-13-session.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Session 持久化与 Resume</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-14-hidden.html" >
+            <span class="num">14</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第14课（番外）：隐藏命令与 Feature Flag</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/cca-01-overview.html" class="current">Claude Code 源码剖析</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">11</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第11课：Prompt Runtime</div>
+          <div class="desc">6 层装配 / 静态主干 + 动态 section / cache boundary</div>
+          <div class="tags">
+            <span class="tag">analysis</span><span class="tag">pattern</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">11_prompt_runtime.md</code></span>
+            <span>📏 375 行</span>
+            <span style="opacity:0.7;">claude-code-analysis/lessons/11_prompt_runtime.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第11课：Prompt 管理 — 不是字符串，是 runtime</h1>
+<h2 id="介绍">介绍</h2>
+<p>写 Agent 的人最初都会把 system prompt 当成一个字符串常量。Claude Code 不是这样。</p>
+<p>它把 prompt 做成了<strong>6 层装配的 runtime</strong>：默认主提示 / 组装器 / 上下文注入 / 启动期附加 / 缓存边界 / 专项 prompt 家族。本课拆这套设计，重点看它的 cache 边界和优先级覆盖规则。</p>
+<hr>
+<h2 id="源码定位">源码定位</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>src/constants/prompts.ts</code></td>
+<td>默认 system prompt（多段）</td>
+</tr>
+<tr>
+<td><code>src/utils/systemPrompt.ts</code></td>
+<td>buildEffectiveSystemPrompt 优先级覆盖</td>
+</tr>
+<tr>
+<td><code>src/context.ts</code></td>
+<td>userContext / systemContext 运行时注入</td>
+</tr>
+<tr>
+<td><code>src/constants/systemPromptSections.ts</code></td>
+<td>section cache + dynamic boundary</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="6-层结构">6 层结构</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>1. 默认主系统提示</span></span>
+<span class="line"><span>   src/constants/prompts.ts</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>2. 有效 system prompt 组装器</span></span>
+<span class="line"><span>   src/utils/systemPrompt.ts</span></span>
+<span class="line"><span>   - override   ← 完全替换</span></span>
+<span class="line"><span>   - coordinator ← coordinator mode 专用</span></span>
+<span class="line"><span>   - agent       ← agent 定义</span></span>
+<span class="line"><span>   - custom      ← 用户自定义</span></span>
+<span class="line"><span>   - append      ← 永远挂尾</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>3. 运行时上下文注入</span></span>
+<span class="line"><span>   src/context.ts</span></span>
+<span class="line"><span>   - CLAUDE.md</span></span>
+<span class="line"><span>   - currentDate</span></span>
+<span class="line"><span>   - git status</span></span>
+<span class="line"><span>   - cache breaker</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>4. 启动期附加指令入口</span></span>
+<span class="line"><span>   src/main.tsx</span></span>
+<span class="line"><span>   - --system-prompt</span></span>
+<span class="line"><span>   - --append-system-prompt</span></span>
+<span class="line"><span>   - systemPromptFile / appendSystemPromptFile</span></span>
+<span class="line"><span>   - proactive / chrome / teammate addendum</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>5. Prompt 缓存与失效管理</span></span>
+<span class="line"><span>   src/constants/systemPromptSections.ts</span></span>
+<span class="line"><span>   - section cache</span></span>
+<span class="line"><span>   - dynamic boundary</span></span>
+<span class="line"><span>   - cache break</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>6. 专项 prompt 家族</span></span>
+<span class="line"><span>   compact / session memory / extract memories / hooks / insights</span></span></code></pre><p>也就是说，这里管理的不是 prompt 文本，而是：</p>
+<ul>
+<li>哪些 prompt 属于主循环</li>
+<li>哪些属于子任务</li>
+<li>哪些要长期缓存</li>
+<li>哪些必须逐轮重算</li>
+<li>哪些允许外部覆盖</li>
+<li>哪些可以被导出审计</li>
+</ul>
+<hr>
+<h2 id="getsystemprompt-返回数组而不是字符串">getSystemPrompt 返回数组而不是字符串</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> getSystemPrompt</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  tools</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tools</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  model</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  additionalWorkingDirectories</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  mcpClients</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> MCPServerConnection[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#04A5E5">></span></span></code></pre><p>返回 <strong><code>string[]</code></strong>，每个元素是一个 section。这件事本身就说明设计意图：</p>
+<ul>
+<li>system prompt 被拆成多个 section</li>
+<li>每个 section 可以单独缓存、单独插拔、单独统计 token</li>
+<li>还能在 section 级别做 cache boundary 和动态失效</li>
+</ul>
+<hr>
+<h2 id="主体结构静态主干-动态-section">主体结构：静态主干 + 动态 section</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">return</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  getSimpleIntroSection</span><span style="color:#4C4F69">(outputStyleConfig)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  getSimpleSystemSection</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  outputStyleConfig </span><span style="color:#179299">===</span><span style="color:#8839EF"> null</span><span style="color:#179299"> ||</span><span style="color:#4C4F69"> outputStyleConfig</span><span style="color:#179299">.</span><span style="color:#4C4F69">keepCodingInstructions </span><span style="color:#179299">===</span><span style="color:#FE640B"> true</span></span>
+<span class="line"><span style="color:#179299">    ?</span><span style="color:#1E66F5;font-style:italic"> getSimpleDoingTasksSection</span><span style="color:#4C4F69">()</span></span>
+<span class="line"><span style="color:#179299">    :</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  getActionsSection</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  getUsingYourToolsSection</span><span style="color:#4C4F69">(enabledTools)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  getSimpleToneAndStyleSection</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  getOutputEfficiencySection</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#179299">  ...</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">shouldUseGlobalCacheScope</span><span style="color:#4C4F69">() </span><span style="color:#179299">?</span><span style="color:#4C4F69"> [SYSTEM_PROMPT_DYNAMIC_BOUNDARY] </span><span style="color:#179299">:</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  // ⚠️ 边界</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#179299">  ...</span><span style="color:#4C4F69">resolvedDynamicSections</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">s</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> s </span><span style="color:#179299">!==</span><span style="color:#8839EF"> null</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>注意中间那个 <strong><code>SYSTEM_PROMPT_DYNAMIC_BOUNDARY</code></strong>——它不是文字，是一个<strong>缓存边界标记</strong>：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>[静态主干]                ← 这一段 cache 命中率高，长期不变</span></span>
+<span class="line"><span>[DYNAMIC_BOUNDARY]        ← 边界标记</span></span>
+<span class="line"><span>[动态 section]            ← 这一段每轮都可能变化</span></span></code></pre><p>这意味着 prompt 不是按&quot;内容&quot;组织，而是按&quot;<strong>变更频率</strong>&quot;组织——把不变的放前面、把变的放后面，配合 prompt cache 命中率最大化。</p>
+<hr>
+<h2 id="静态主干完整的执行政策包">静态主干：完整的&quot;执行政策包&quot;</h2>
+<p>举几个静态段：</p>
+<ul>
+<li><code>getSimpleIntroSection()</code>：身份声明 + 安全指令</li>
+<li><code>getSimpleSystemSection()</code>：基础规则（输出格式、工具拒绝处理、prompt injection 警告、hooks 反馈、上下文压缩说明）</li>
+<li><code>getSimpleDoingTasksSection()</code>：coding agent 的工作规则（不过度设计、读再改、避免漏洞）</li>
+</ul>
+<p>这些<strong>几乎不会变</strong>，是 prompt cache 的稳定锚点。</p>
+<h2 id="动态-section依赖运行态">动态 section：依赖运行态</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> dynamicSections </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  systemPromptSection</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'session_guidance'</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  systemPromptSection</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'memory'</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  systemPromptSection</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'ant_model_override'</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  systemPromptSection</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'env_info_simple'</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  systemPromptSection</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'language'</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  systemPromptSection</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'output_style'</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  DANGEROUS_uncachedSystemPromptSection</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'mcp_instructions'</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  // ⚠️ 不可缓存</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  systemPromptSection</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'scratchpad'</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  systemPromptSection</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'frc'</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  systemPromptSection</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'summarize_tool_results'</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span></code></pre><p>注意 <code>DANGEROUS_uncachedSystemPromptSection</code>——这个名字本身就是设计文档：<strong>MCP instructions 是不可缓存的</strong>，因为它依赖当前连接的 MCP server 配置，缓存会出错。</p>
+<hr>
+<h2 id="buildeffectivesystemprompt优先级覆盖">buildEffectiveSystemPrompt：优先级覆盖</h2>
+<p>注释直接写明：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">/**</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"> * 0. Override system prompt</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"> * 1. Coordinator system prompt</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"> * 2. Agent system prompt</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"> * 3. Custom system prompt</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"> * 4. Default system prompt</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"> * Plus appendSystemPrompt is always added at the end</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"> */</span></span></code></pre><p>伪代码：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>if overrideSystemPrompt:</span></span>
+<span class="line"><span>    final = [overrideSystemPrompt]</span></span>
+<span class="line"><span>else if coordinator mode:</span></span>
+<span class="line"><span>    final = [coordinatorPrompt] + [appendPrompt?]</span></span>
+<span class="line"><span>else:</span></span>
+<span class="line"><span>    base =</span></span>
+<span class="line"><span>      agentPrompt</span></span>
+<span class="line"><span>      or customSystemPrompt</span></span>
+<span class="line"><span>      or defaultSystemPrompt</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>    if proactive mode and agentPrompt exists:</span></span>
+<span class="line"><span>        final = defaultSystemPrompt + ["# Custom Agent Instructions" + agentPrompt]</span></span>
+<span class="line"><span>    else:</span></span>
+<span class="line"><span>        final = [base]</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>    if appendSystemPrompt:</span></span>
+<span class="line"><span>        final += [appendSystemPrompt]</span></span></code></pre><p>最值得注意的两条：</p>
+<ol>
+<li><strong><code>customSystemPrompt</code> 替换默认，不是追加</strong>——用户写 <code>--system-prompt &quot;...&quot;</code> 是想完全控制，不该被默认 prompt 干扰</li>
+<li><strong><code>appendSystemPrompt</code> 永远挂尾</strong>——不管主体 prompt 来自哪里，挂尾都是允许的&quot;安全注入点&quot;</li>
+</ol>
+<p>这个区分很重要：<strong>override</strong>（替换语义）vs <strong>append</strong>（追加语义）必须严格分开。</p>
+<hr>
+<h2 id="usercontext-systemcontext运行时注入">userContext / systemContext：运行时注入</h2>
+<p>不是每段 prompt 都写在 <code>prompts.ts</code> 里。<code>src/context.ts</code> 负责运行时注入：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 伪代码</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> buildUserContext</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> claudeMd </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> readClaudeMd</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">          // 项目根 CLAUDE.md</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> userClaudeMd </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> readUserClaudeMd</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // ~/.claude/CLAUDE.md</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> [userClaudeMd</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> claudeMd</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> currentDate]</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> buildSystemContext</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">model</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#40A02B">    `Model: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">model</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    `Current dir: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">cwd</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    `Git status: </span><span style="color:#7C7F93">${</span><span style="color:#1E66F5;font-style:italic">runGitStatus</span><span style="color:#40A02B">()</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    `Cache breaker: </span><span style="color:#7C7F93">${</span><span style="color:#1E66F5;font-style:italic">getCacheBreakerToken</span><span style="color:#40A02B">()</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>注意 <strong><code>cacheBreaker</code></strong>——这是个特殊的&quot;打破缓存&quot;令牌。当系统知道某些条件改变（settings 变了、agents 变了）但 prompt 内容没变时，需要主动让缓存失效，就在 systemContext 里塞一个变化的 token。</p>
+<hr>
+<h2 id="专项-prompt-家族">专项 prompt 家族</h2>
+<p>主 prompt 之外，还有一组<strong>专项 prompt</strong> 服务于后台任务：</p>
+<table>
+<thead>
+<tr>
+<th>用途</th>
+<th>文件</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Compact 总结</td>
+<td><code>src/services/compact/prompt.ts</code></td>
+</tr>
+<tr>
+<td>Session Memory 更新</td>
+<td><code>src/services/SessionMemory/prompts.ts</code></td>
+</tr>
+<tr>
+<td>Auto Memory 提取</td>
+<td><code>src/services/extractMemories/prompts.ts</code></td>
+</tr>
+<tr>
+<td>Hooks</td>
+<td><code>src/hooks/prompts.ts</code></td>
+</tr>
+<tr>
+<td>Insights</td>
+<td><code>src/commands/insights/prompts.ts</code></td>
+</tr>
+</tbody></table>
+<p>每个专项 prompt 都<strong>独立维护</strong>，不和主 prompt 共享上下文。这避免了&quot;主 prompt 改一行，会话压缩 prompt 突然行为变了&quot;这种耦合事故。</p>
+<hr>
+<h2 id="可观测性dumpprompts">可观测性：dumpPrompts</h2>
+<p><code>src/services/api/dumpPrompts.ts</code> 提供了 <code>--dump-system-prompt</code> CLI 标志，可以<strong>把任意时刻的 system prompt 完整输出</strong>。</p>
+<p>这是 prompt 系统的<strong>审计能力</strong>——你不需要猜模型看到了什么，可以直接 dump 出来读。</p>
+<p>很多 Agent 项目缺这个能力，调试时只能&quot;靠想象&quot;。这一行 CLI 标志背后的设计哲学是：<strong>prompt 是数据，应该可观测</strong>。</p>
+<hr>
+<h2 id="pattern-提炼">Pattern 提炼</h2>
+<h3 id="pattern-1prompt-是-string不是-string">Pattern 1：prompt 是 <code>string[]</code>，不是 <code>string</code></h3>
+<p>每段独立缓存、独立插拔、独立审计。</p>
+<h3 id="pattern-2变更频率分组-cache-boundary">Pattern 2：变更频率分组 + cache boundary</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>[静态主干（高 cache 命中）]</span></span>
+<span class="line"><span>[DYNAMIC_BOUNDARY]</span></span>
+<span class="line"><span>[动态 section（每轮可能变）]</span></span></code></pre><p>让 cache 命中率最大化。</p>
+<h3 id="pattern-3override-append-严格分开">Pattern 3：Override / Append 严格分开</h3>
+<p>不要让用户写 <code>--system-prompt</code> 时被默认 prompt 干扰。</p>
+<h3 id="pattern-4cachebreaker-主动打破缓存">Pattern 4：cacheBreaker 主动打破缓存</h3>
+<p>当语义变化但 token 不变时，主动加变化的 token 让缓存失效。</p>
+<h3 id="pattern-5dump-system-prompt-是必备能力">Pattern 5：dump-system-prompt 是必备能力</h3>
+<p>prompt 是数据，不是黑盒。任何 Agent 项目都应该提供 dump 入口。</p>
+<h3 id="pattern-6专项-prompt-不共享上下文">Pattern 6：专项 prompt 不共享上下文</h3>
+<p>compact / memory extraction / hooks 都是独立 prompt，避免耦合事故。</p>
+<hr>
+<h2 id="自己实现50-行的分段-prompt-管理器">自己实现：50 行的分段 prompt 管理器</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// my-prompt-manager.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> 'fs/promises'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> Section </span><span style="color:#179299">=</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">static</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> key</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#1E66F5;font-style:italic"> render</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">dynamic</span><span style="color:#40A02B">'</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> key</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#1E66F5;font-style:italic"> render</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> '</span><span style="color:#40A02B;font-style:italic">cache_boundary</span><span style="color:#40A02B">'</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> DEFAULT_SECTIONS</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Section[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'static'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> key</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'identity'</span><span style="color:#7C7F93">,</span><span style="color:#1E66F5;font-style:italic"> render</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#40A02B"> 'You are a helpful assistant.'</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'static'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> key</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'rules'</span><span style="color:#7C7F93">,</span><span style="color:#1E66F5;font-style:italic"> render</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#40A02B"> 'Follow safety guidelines.'</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'static'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> key</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'tools'</span><span style="color:#7C7F93">,</span><span style="color:#1E66F5;font-style:italic"> render</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#40A02B"> 'You have Read/Write/Bash tools.'</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'cache_boundary'</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'dynamic'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> key</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'env'</span><span style="color:#7C7F93">,</span><span style="color:#1E66F5;font-style:italic"> render</span><span style="color:#179299">:</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `cwd: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">process</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">cwd</span><span style="color:#40A02B">()</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">date: </span><span style="color:#7C7F93">${</span><span style="color:#8839EF;font-weight:bold">new</span><span style="color:#1E66F5;font-style:italic"> Date</span><span style="color:#40A02B">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toISOString</span><span style="color:#40A02B">()</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'dynamic'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> key</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'memory'</span><span style="color:#7C7F93">,</span><span style="color:#1E66F5;font-style:italic"> render</span><span style="color:#179299">:</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93"> {</span><span style="color:#8839EF"> return</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFile</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'CLAUDE.md'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'utf-8'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> {</span><span style="color:#8839EF"> return</span><span style="color:#40A02B"> ''</span><span style="color:#7C7F93">;</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#7C7F93">  }},</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> buildEffectivePrompt</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">opts</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  override</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">       // 完全替换</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  custom</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">         // 替换默认</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  agent</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">          // agent 专属</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  append</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">         // 永远挂尾</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  proactive</span><span style="color:#179299">?:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">})</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 0. override：完全替换</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">override) </span><span style="color:#8839EF">return</span><span style="color:#4C4F69"> [opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">override]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 1. 选 base</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> base</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">proactive </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">agent) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> defaults </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> renderSections</span><span style="color:#4C4F69">(DEFAULT_SECTIONS)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    base </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#4C4F69">defaults</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> `# Custom Agent Instructions</span><span style="color:#EA76CB">\n\n</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">agent</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">agent) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    base </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">agent]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">custom) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    base </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">custom]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    base </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> renderSections</span><span style="color:#4C4F69">(DEFAULT_SECTIONS)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 4. append 总是挂尾</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">append) base</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(opts</span><span style="color:#179299">.</span><span style="color:#4C4F69">append)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> base</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> renderSections</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">sections</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Section[]</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> out</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> s </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> sections) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (s</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'cache_boundary'</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      out</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'---CACHE_BOUNDARY---'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 给上层知道缓存边界</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (s</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'static'</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      out</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(s</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">render</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      out</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#8839EF">await</span><span style="color:#4C4F69"> s</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">render</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> out</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// dumpSystemPrompt: 调试入口</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> dumpSystemPrompt</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">opts</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Parameters</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">typeof</span><span style="color:#4C4F69;font-style:italic"> buildEffectivePrompt</span><span style="color:#04A5E5">></span><span style="color:#DF8E1D;font-style:italic">[</span><span style="color:#FE640B;font-style:italic">0</span><span style="color:#DF8E1D;font-style:italic">]</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> sections </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> buildEffectivePrompt</span><span style="color:#4C4F69">(opts)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(sections</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">'</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>50 行就有了 Claude Code prompt 系统的核心 pattern：<strong>分段、cache 边界、Override/Append 分离、dump 入口</strong>。</p>
+<hr>
+<h2 id="本课小结">本课小结</h2>
+<ul>
+<li>prompt 是 <code>string[]</code> 而不是 <code>string</code>，让 cache / 审计 / 测试更可控</li>
+<li>静态主干在前、动态 section 在后，中间用 <code>DYNAMIC_BOUNDARY</code> 划线</li>
+<li><code>buildEffectiveSystemPrompt</code> 严格区分 override / coordinator / agent / custom / append 5 类语义</li>
+<li>专项 prompt（compact / memory）独立维护，不和主 prompt 耦合</li>
+<li><code>--dump-system-prompt</code> 让 prompt 可观测，调试时不必靠想象</li>
+</ul>
+<hr>
+<h2 id="延伸阅读">延伸阅读</h2>
+<ul>
+<li><code>analysis/04g-prompt-management.md</code> 全文 - 9 节完整剖析</li>
+<li><code>analysis/06-extra-findings.md</code> §1 - prompt 安全注入点（agent / custom / append）</li>
+<li>下一课：<code>12_multi_agent.md</code> - 多 Agent 三层模型</li>
+</ul>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/cca-10-compaction.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第10课：Context 自动压缩</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/cca-12-multi-agent.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第12课：多 Agent 三层模型</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#源码定位">源码定位</a></li><li class="lvl-2"><a href="#6-层结构">6 层结构</a></li><li class="lvl-2"><a href="#getsystemprompt-返回数组而不是字符串">getSystemPrompt 返回数组而不是字符串</a></li><li class="lvl-2"><a href="#主体结构静态主干-动态-section">主体结构：静态主干 + 动态 section</a></li><li class="lvl-2"><a href="#静态主干完整的执行政策包">静态主干：完整的&quot;执行政策包&quot;</a></li><li class="lvl-2"><a href="#动态-section依赖运行态">动态 section：依赖运行态</a></li><li class="lvl-2"><a href="#buildeffectivesystemprompt优先级覆盖">buildEffectiveSystemPrompt：优先级覆盖</a></li><li class="lvl-2"><a href="#usercontext-systemcontext运行时注入">userContext / systemContext：运行时注入</a></li><li class="lvl-2"><a href="#专项-prompt-家族">专项 prompt 家族</a></li><li class="lvl-2"><a href="#可观测性dumpprompts">可观测性：dumpPrompts</a></li><li class="lvl-2"><a href="#pattern-提炼">Pattern 提炼</a></li><li class="lvl-3"><a href="#pattern-1prompt-是-string不是-string">Pattern 1：prompt 是 string[]，不是 string</a></li><li class="lvl-3"><a href="#pattern-2变更频率分组-cache-boundary">Pattern 2：变更频率分组 + cache boundary</a></li><li class="lvl-3"><a href="#pattern-3override-append-严格分开">Pattern 3：Override / Append 严格分开</a></li><li class="lvl-3"><a href="#pattern-4cachebreaker-主动打破缓存">Pattern 4：cacheBreaker 主动打破缓存</a></li><li class="lvl-3"><a href="#pattern-5dump-system-prompt-是必备能力">Pattern 5：dump-system-prompt 是必备能力</a></li><li class="lvl-3"><a href="#pattern-6专项-prompt-不共享上下文">Pattern 6：专项 prompt 不共享上下文</a></li><li class="lvl-2"><a href="#自己实现50-行的分段-prompt-管理器">自己实现：50 行的分段 prompt 管理器</a></li><li class="lvl-2"><a href="#本课小结">本课小结</a></li><li class="lvl-2"><a href="#延伸阅读">延伸阅读</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

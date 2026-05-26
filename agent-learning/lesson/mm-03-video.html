@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第3课：视频生成 — 多模态 AI 开发</title>
+  <meta name="description" content="Kling / Runway / Sora，文生视频完整流程">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-green">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-green">
+      <div class="crumb">
+        <div class="crumb-icon">MM</div>
+        <div class="crumb-text">多模态 AI 开发</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/mm-01-vision.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">图像理解</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-02-image-gen.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">图像生成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-03-video.html" class="active">
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">视频生成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-04-documents.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">文档解析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-05-ppt.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">PPT 自动生成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-06-audio.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">语音处理</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-07-multimodal-agent.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多模态 Agent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/mm-08-multimodal-rag.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多模态 RAG</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/mm-01-vision.html" class="current">多模态 AI 开发</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">03</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第3课：视频生成</div>
+          <div class="desc">Kling / Runway / Sora，文生视频完整流程</div>
+          <div class="tags">
+            <span class="tag">video</span><span class="tag">multimodal</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">03_video_generation.md</code></span>
+            <span>📏 503 行</span>
+            <span style="opacity:0.7;">multimodal/lessons/03_video_generation.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第3课：视频生成 — Wan2.1 / HunyuanVideo / Kling / Runway</h1>
+<h2 id="介绍">介绍</h2>
+<p>视频生成是 2025 年 AI 最热门的方向。本课介绍 2025 年最新的视频生成技术栈：</p>
+<p><strong>开源模型（可本地/云部署）：</strong></p>
+<ul>
+<li><strong>Wan2.1</strong>（阿里巴巴，2025最强开源）— 支持文生视频/图生视频，支持中英文，可在 12GB 显存运行</li>
+<li><strong>HunyuanVideo</strong>（腾讯，11.8k ⭐）— 高质量开源，720p 视频，人物动作真实</li>
+<li><strong>CogVideoX</strong>（智谱，12.5k ⭐）— 开源，可商用，支持 6B 和 2B 两个版本</li>
+</ul>
+<p><strong>商业 API：</strong></p>
+<ul>
+<li><strong>Kling</strong>（快手）— 中文场景最优，API 稳定，国内访问无需代理</li>
+<li><strong>Runway Gen-3</strong>— 图生视频国际标准，有官方 SDK</li>
+<li><strong>Sora</strong>（OpenAI）— 最高质量，价格最高</li>
+</ul>
+<p><strong>本地工作流：</strong></p>
+<ul>
+<li><strong>ComfyUI</strong>（106k ⭐）— 最流行的可视化工作流工具，支持 Wan2.1/CogVideoX 节点</li>
+</ul>
+<p>视频生成有一个独特的工程挑战：生成时间长（30秒到几分钟），必须用<strong>异步任务模式</strong>处理，文件体积大（需要流式下载和存储管理）。</p>
+<hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>视频生成时间长（异步任务），需要轮询状态；文件大，需要正确处理存储和传输：</p>
+<ol>
+<li><strong>生成耗时</strong>：一个 5 秒视频可能需要 30-120 秒生成，不能用同步 HTTP 请求</li>
+<li><strong>轮询策略</strong>：过于频繁轮询浪费资源，间隔太长增加延迟，需要指数退避</li>
+<li><strong>文件管理</strong>：视频文件通常 5-50MB，需要流式下载、临时存储、及时清理</li>
+<li><strong>任务失败处理</strong>：生成可能因内容审查或服务异常失败，需要优雅降级</li>
+</ol>
+<hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-awan21阿里2025最强开源">方案 A：Wan2.1（阿里，2025最强开源）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># Wan2.1 — 最新开源视频模型，支持中英文，12GB 显存可运行</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> diffusers </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> AutoencoderKLWan</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> WanPipeline</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> diffusers</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">schedulers</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">scheduling_unipc_multistep </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> UniPCMultistepScheduler</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> torch</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 加载模型（自动从 Hugging Face 下载）</span></span>
+<span class="line"><span style="color:#4C4F69">pipe </span><span style="color:#179299">=</span><span style="color:#4C4F69"> WanPipeline</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">from_pretrained</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#40A02B">    "Wan-AI/Wan2.1-T2V-14B"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  # 14B 参数，最强版本</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    torch_dtype</span><span style="color:#179299">=</span><span style="color:#4C4F69">torch</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">bfloat16</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">pipe</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">to</span><span style="color:#7C7F93">(</span><span style="color:#40A02B">"cuda"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 文生视频（中文 prompt 直接支持）</span></span>
+<span class="line"><span style="color:#4C4F69">video </span><span style="color:#179299">=</span><span style="color:#1E66F5"> pipe</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    prompt</span><span style="color:#179299">=</span><span style="color:#40A02B">"一只小猫在阳光下玩耍，高清写实风格，4K画质"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    negative_prompt</span><span style="color:#179299">=</span><span style="color:#40A02B">"模糊，低质量，变形"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    num_frames</span><span style="color:#179299">=</span><span style="color:#FE640B">81</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">       # 约 5.4 秒（15fps）</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    guidance_scale</span><span style="color:#179299">=</span><span style="color:#FE640B">5.0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    num_inference_steps</span><span style="color:#179299">=</span><span style="color:#FE640B">50</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    height</span><span style="color:#179299">=</span><span style="color:#FE640B">480</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    width</span><span style="color:#179299">=</span><span style="color:#FE640B">832</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">).</span><span style="color:#E64553;font-style:italic">frames</span><span style="color:#7C7F93">[</span><span style="color:#FE640B;font-style:italic">0</span><span style="color:#7C7F93">]</span></span></code></pre><p>✅ <strong>2025年最强开源模型</strong>，质量接近 Kling/Runway
+✅ 支持中英文 prompt
+✅ 可本地运行（12GB VRAM），无审查限制
+✅ 免费使用，可商用
+❌ 需要 GPU 环境，首次下载 ~30GB 模型</p>
+<h3 id="方案-bhunyuanvideo腾讯118k">方案 B：HunyuanVideo（腾讯，11.8k ⭐）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> hyvideo</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">utils</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">file_utils </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> save_videos_grid</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> hyvideo</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">config </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> parse_args</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> hyvideo</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">inference </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> HunyuanVideoSampler</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># HunyuanVideo — 高质量开源，720p</span></span>
+<span class="line"><span style="color:#4C4F69">sampler </span><span style="color:#179299">=</span><span style="color:#4C4F69"> HunyuanVideoSampler</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">from_pretrained</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#40A02B">    "tencent/HunyuanVideo"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    args</span><span style="color:#179299">=</span><span style="color:#1E66F5">parse_args</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#7C7F93">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">outputs </span><span style="color:#179299">=</span><span style="color:#4C4F69"> sampler</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">predict</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    prompt</span><span style="color:#179299">=</span><span style="color:#40A02B">"A cat is running in the rain"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    height</span><span style="color:#179299">=</span><span style="color:#FE640B">720</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    width</span><span style="color:#179299">=</span><span style="color:#FE640B">1280</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    video_length</span><span style="color:#179299">=</span><span style="color:#FE640B">129</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  # ~5秒</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    seed</span><span style="color:#179299">=</span><span style="color:#FE640B">42</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    guidance_scale</span><span style="color:#179299">=</span><span style="color:#FE640B">6.0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    flow_shift</span><span style="color:#179299">=</span><span style="color:#FE640B">7.0</span></span>
+<span class="line"><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#1E66F5">save_videos_grid</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">outputs</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">samples</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">],</span><span style="color:#40A02B"> "output.mp4"</span><span style="color:#7C7F93">)</span></span></code></pre><p>✅ 720p 高质量，人物动作真实
+✅ 开源可商用（Apache 2.0）
+❌ 需要 80GB VRAM（A100×2）运行完整版</p>
+<h3 id="方案-crunway-gen-3国际标准-api">方案 C：Runway Gen-3（国际标准 API）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> RunwayML </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "@runwayml/sdk"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> runway </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> RunwayML</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">RUNWAY_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> task </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> runway</span><span style="color:#179299">.</span><span style="color:#4C4F69">imageToVideo</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gen3a_turbo"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  promptImage</span><span style="color:#179299">:</span><span style="color:#4C4F69"> imageBase64DataUri</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  promptText</span><span style="color:#179299">:</span><span style="color:#40A02B"> "the cat slowly opens its eyes"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  duration</span><span style="color:#179299">:</span><span style="color:#FE640B"> 5</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  ratio</span><span style="color:#179299">:</span><span style="color:#40A02B"> "1280:768"</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>✅ 图生视频质量业界最佳
+✅ 官方 TypeScript/Python SDK
+❌ 价格较高（约 $0.05/秒）</p>
+<h3 id="方案-dkling-api快手国内最优">方案 D：Kling API（快手，国内最优）</h3>
+<p>✅ 中文理解最好，国内访问无需代理
+✅ 支持文生视频和图生视频
+✅ 价格相对较低
+❌ 需要申请 API 权限</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>有 GPU，要免费</td>
+<td><strong>Wan2.1</strong></td>
+<td>最强开源，支持中文</td>
+</tr>
+<tr>
+<td>高质量人物视频</td>
+<td><strong>HunyuanVideo</strong></td>
+<td>动作真实，720p</td>
+</tr>
+<tr>
+<td>图生视频（商业）</td>
+<td><strong>Runway Gen-3</strong></td>
+<td>图生视频最佳</td>
+</tr>
+<tr>
+<td>国内中文场景</td>
+<td><strong>Kling</strong></td>
+<td>中文理解最好，稳定</td>
+</tr>
+<tr>
+<td>无 GPU 预算低</td>
+<td><strong>CogVideoX API</strong></td>
+<td>按需调用</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="wan21-本地部署推荐免费最强">Wan2.1 本地部署（推荐——免费最强）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># 1. 安装依赖</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">pip</span><span style="color:#40A02B"> install</span><span style="color:#40A02B"> diffusers</span><span style="color:#40A02B"> transformers</span><span style="color:#40A02B"> accelerate</span><span style="color:#40A02B"> torch</span><span style="color:#40A02B"> torchvision</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 2. 下载模型（约 30GB）</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">huggingface-cli</span><span style="color:#40A02B"> download</span><span style="color:#40A02B"> Wan-AI/Wan2.1-T2V-14B</span><span style="color:#40A02B"> --local-dir</span><span style="color:#40A02B"> ./models/wan2.1</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 对于显存不足的用户，使用 1.3B 轻量版（只需 6GB 显存）</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">huggingface-cli</span><span style="color:#40A02B"> download</span><span style="color:#40A02B"> Wan-AI/Wan2.1-T2V-1.3B</span><span style="color:#40A02B"> --local-dir</span><span style="color:#40A02B"> ./models/wan2.1-lite</span></span></code></pre><pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># wan2.1_demo.py</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> torch</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> diffusers </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> WanPipeline</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> diffusers</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">utils </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> export_to_video</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">def</span><span style="color:#1E66F5;font-style:italic"> generate_video_wan</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    prompt</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    output_path</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "output.mp4"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    num_frames</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> int</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 81</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    model_variant</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "14B"</span><span style="color:#9CA0B0;font-style:italic">  # "14B" 或 "1.3B"</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#40A02B">    """用 Wan2.1 生成视频（完全本地，无 API 费用）"""</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">    model_id </span><span style="color:#179299">=</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"Wan-AI/Wan2.1-T2V-</span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">model_variant</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">    print</span><span style="color:#7C7F93">(</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"加载模型 </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">model_id</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">..."</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">    pipe </span><span style="color:#179299">=</span><span style="color:#4C4F69"> WanPipeline</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">from_pretrained</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#4C4F69">        model_id</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">        torch_dtype</span><span style="color:#179299">=</span><span style="color:#4C4F69">torch</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">bfloat16 </span><span style="color:#8839EF">if</span><span style="color:#4C4F69"> model_variant </span><span style="color:#179299">==</span><span style="color:#40A02B"> "14B"</span><span style="color:#8839EF"> else</span><span style="color:#4C4F69"> torch</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">float16</span></span>
+<span class="line"><span style="color:#7C7F93">    )</span></span>
+<span class="line"><span style="color:#4C4F69">    pipe</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">enable_model_cpu_offload</span><span style="color:#7C7F93">()</span><span style="color:#9CA0B0;font-style:italic">  # 显存不够时自动 offload 到内存</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">    print</span><span style="color:#7C7F93">(</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"生成视频: </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">prompt</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">    output </span><span style="color:#179299">=</span><span style="color:#1E66F5"> pipe</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">        prompt</span><span style="color:#179299">=</span><span style="color:#4C4F69">prompt</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">        num_frames</span><span style="color:#179299">=</span><span style="color:#4C4F69">num_frames</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">        guidance_scale</span><span style="color:#179299">=</span><span style="color:#FE640B">5.0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">        num_inference_steps</span><span style="color:#179299">=</span><span style="color:#FE640B">50</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">        height</span><span style="color:#179299">=</span><span style="color:#FE640B">480</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">        width</span><span style="color:#179299">=</span><span style="color:#FE640B">832</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">        generator</span><span style="color:#179299">=</span><span style="color:#4C4F69">torch</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">Generator</span><span style="color:#7C7F93">(</span><span style="color:#40A02B">"cuda"</span><span style="color:#7C7F93">).</span><span style="color:#1E66F5">manual_seed</span><span style="color:#7C7F93">(</span><span style="color:#FE640B">42</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#7C7F93">    )</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5">    export_to_video</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">output</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">frames</span><span style="color:#7C7F93">[</span><span style="color:#FE640B;font-style:italic">0</span><span style="color:#7C7F93">],</span><span style="color:#4C4F69"> output_path</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> fps</span><span style="color:#179299">=</span><span style="color:#FE640B">15</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">    print</span><span style="color:#7C7F93">(</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"✅ 视频已保存: </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">output_path</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> output_path</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 测试</span></span>
+<span class="line"><span style="color:#1E66F5">generate_video_wan</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    prompt</span><span style="color:#179299">=</span><span style="color:#40A02B">"一只橘猫在落叶纷飞的秋日公园里慢跑，高清写实，暖色调"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    output_path</span><span style="color:#179299">=</span><span style="color:#40A02B">"cat_run.mp4"</span></span>
+<span class="line"><span style="color:#7C7F93">)</span></span></code></pre><h3 id="comfyui-工作流106k-可视化-wan21">ComfyUI 工作流（106k ⭐，可视化 Wan2.1）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># ComfyUI 支持 Wan2.1 节点，无需编程，拖拽即可</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">git</span><span style="color:#40A02B"> clone</span><span style="color:#40A02B"> https://github.com/comfyanonymous/ComfyUI</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">pip</span><span style="color:#40A02B"> install</span><span style="color:#40A02B"> -r</span><span style="color:#40A02B"> requirements.txt</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 安装 Wan2.1 自定义节点</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">cd</span><span style="color:#40A02B"> custom_nodes</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">git</span><span style="color:#40A02B"> clone</span><span style="color:#40A02B"> https://github.com/kijai/ComfyUI-WanVideoWrapper</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 启动 ComfyUI</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">python</span><span style="color:#40A02B"> main.py</span><span style="color:#40A02B"> --listen</span><span style="color:#FE640B"> 0.0.0.0</span><span style="color:#40A02B"> --port</span><span style="color:#FE640B"> 8188</span></span></code></pre><p>访问 <code>http://localhost:8188</code> → 下载 Wan2.1 工作流模板 → 拖入模型文件 → 输入中文 prompt → 生成</p>
+<h3 id="异步视频生成流程">异步视频生成流程</h3>
+<div class="mermaid-wrapper"><pre class="mermaid">sequenceDiagram
+    participant Client as 客户端
+    participant API as Runway API
+    participant Storage as 存储
+
+    Client-&gt;&gt;API: POST /image-to-video (图像 + 提示词)
+    API--&gt;&gt;Client: { taskId: &quot;xxx&quot;, status: &quot;PENDING&quot; }
+
+    loop 轮询（指数退避）
+        Client-&gt;&gt;API: GET /tasks/{taskId}
+        alt 生成中
+            API--&gt;&gt;Client: { status: &quot;RUNNING&quot;, progress: 45% }
+            Client-&gt;&gt;Client: 等待 N 秒
+        else 完成
+            API--&gt;&gt;Client: { status: &quot;SUCCEEDED&quot;, output: [url] }
+        else 失败
+            API--&gt;&gt;Client: { status: &quot;FAILED&quot;, failure: &quot;reason&quot; }
+        end
+    end
+
+    Client-&gt;&gt;API: GET video_url（流式下载）
+    API--&gt;&gt;Client: 视频数据流
+    Client-&gt;&gt;Storage: 保存到本地/云存储</pre></div><h3 id="runway-api-实现">Runway API 实现</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/video/runway.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> RunwayML </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "@runwayml/sdk"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> runway </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> RunwayML</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">RUNWAYML_API_SECRET</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">interface</span><span style="color:#DF8E1D;font-style:italic"> VideoOptions</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  promptText</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  duration</span><span style="color:#179299">?:</span><span style="color:#FE640B;font-style:italic"> 5</span><span style="color:#179299"> |</span><span style="color:#FE640B;font-style:italic"> 10</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">       // 5 或 10 秒</span></span>
+<span class="line"><span style="color:#4C4F69">  ratio</span><span style="color:#179299">?:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">1280:768</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">768:1280</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">1104:832</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">832:1104</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 横版/竖版/方形</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">?:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">gen3a_turbo</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">gen3a</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // turbo 更快，gen3a 质量更高</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 文生视频</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> textToVideo</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  options</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> VideoOptions</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  outputPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"提交视频生成任务..."</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> task </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> runway</span><span style="color:#179299">.</span><span style="color:#4C4F69">textToVideo</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">.</span><span style="color:#4C4F69">model </span><span style="color:#179299">||</span><span style="color:#40A02B"> "gen3a_turbo"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    promptText</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">.</span><span style="color:#4C4F69">promptText</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    duration</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">.</span><span style="color:#4C4F69">duration </span><span style="color:#179299">||</span><span style="color:#FE640B"> 5</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    ratio</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">.</span><span style="color:#4C4F69">ratio </span><span style="color:#179299">||</span><span style="color:#40A02B"> "1280:768"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`任务 ID: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">task</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">，开始轮询...`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> completedTask </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> pollUntilDone</span><span style="color:#4C4F69">(task</span><span style="color:#179299">.</span><span style="color:#4C4F69">id)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#1E66F5;font-style:italic"> downloadVideo</span><span style="color:#4C4F69">(completedTask</span><span style="color:#179299">.</span><span style="color:#4C4F69">output</span><span style="color:#179299">!</span><span style="color:#4C4F69">[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> outputPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 图生视频（让静态图像动起来）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> imageToVideo</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  imagePath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  promptText</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  outputPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  options</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> Partial</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">VideoOptions</span><span style="color:#04A5E5">></span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 读取图像并转 base64</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> imageBuffer </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFileSync</span><span style="color:#4C4F69">(imagePath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> base64Image </span><span style="color:#179299">=</span><span style="color:#4C4F69"> imageBuffer</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toString</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"base64"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> mimeType </span><span style="color:#179299">=</span><span style="color:#4C4F69"> imagePath</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">endsWith</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">".png"</span><span style="color:#4C4F69">) </span><span style="color:#179299">?</span><span style="color:#40A02B"> "image/png"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "image/jpeg"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> dataUri </span><span style="color:#179299">=</span><span style="color:#40A02B"> `data:</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">mimeType</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">;base64,</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">base64Image</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`提交图生视频任务: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">promptText</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> task </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> runway</span><span style="color:#179299">.</span><span style="color:#4C4F69">imageToVideo</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">model </span><span style="color:#179299">||</span><span style="color:#40A02B"> "gen3a_turbo"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    promptImage</span><span style="color:#179299">:</span><span style="color:#4C4F69"> dataUri</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    promptText</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    duration</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">duration </span><span style="color:#179299">||</span><span style="color:#FE640B"> 5</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    ratio</span><span style="color:#179299">:</span><span style="color:#4C4F69"> options</span><span style="color:#179299">?.</span><span style="color:#4C4F69">ratio </span><span style="color:#179299">||</span><span style="color:#40A02B"> "1280:768"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`任务 ID: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">task</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> completedTask </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> pollUntilDone</span><span style="color:#4C4F69">(task</span><span style="color:#179299">.</span><span style="color:#4C4F69">id)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#1E66F5;font-style:italic"> downloadVideo</span><span style="color:#4C4F69">(completedTask</span><span style="color:#179299">.</span><span style="color:#4C4F69">output</span><span style="color:#179299">!</span><span style="color:#4C4F69">[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> outputPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 轮询直到任务完成（指数退避）</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> pollUntilDone</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  taskId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  maxWaitMs</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 300000</span><span style="color:#9CA0B0;font-style:italic"> // 最多等 5 分钟</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">RunwayML</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">Task</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> startTime </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> pollInterval </span><span style="color:#179299">=</span><span style="color:#FE640B"> 5000</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 初始 5 秒</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> maxInterval </span><span style="color:#179299">=</span><span style="color:#FE640B"> 30000</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 最大 30 秒</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  while</span><span style="color:#4C4F69"> (Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">() </span><span style="color:#179299">-</span><span style="color:#4C4F69"> startTime </span><span style="color:#179299">&#x3C;</span><span style="color:#4C4F69"> maxWaitMs) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> task </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> runway</span><span style="color:#179299">.</span><span style="color:#4C4F69">tasks</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">retrieve</span><span style="color:#4C4F69">(taskId)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[</span><span style="color:#7C7F93">${</span><span style="color:#8839EF;font-weight:bold">new</span><span style="color:#1E66F5;font-style:italic"> Date</span><span style="color:#40A02B">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toLocaleTimeString</span><span style="color:#40A02B">()</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">] 状态: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">task</span><span style="color:#179299">.</span><span style="color:#4C4F69">status</span><span style="color:#7C7F93">}${</span></span>
+<span class="line"><span style="color:#4C4F69">      task</span><span style="color:#179299">.</span><span style="color:#4C4F69">progress</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> ` (</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">round</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">task</span><span style="color:#179299">.</span><span style="color:#4C4F69">progress</span><span style="color:#179299"> *</span><span style="color:#FE640B"> 100</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">%)`</span><span style="color:#179299"> :</span><span style="color:#40A02B"> ""</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (task</span><span style="color:#179299">.</span><span style="color:#4C4F69">status </span><span style="color:#179299">===</span><span style="color:#40A02B"> "SUCCEEDED"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"✓ 视频生成完成"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#4C4F69"> task</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (task</span><span style="color:#179299">.</span><span style="color:#4C4F69">status </span><span style="color:#179299">===</span><span style="color:#40A02B"> "FAILED"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`视频生成失败: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">task</span><span style="color:#179299">.</span><span style="color:#4C4F69">failure</span><span style="color:#179299"> ||</span><span style="color:#40A02B"> "未知错误"</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 指数退避：每次轮询后等待时间递增</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> setTimeout</span><span style="color:#4C4F69">(r</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> pollInterval))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    pollInterval </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">min</span><span style="color:#4C4F69">(pollInterval </span><span style="color:#179299">*</span><span style="color:#FE640B"> 1.5</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> maxInterval)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`超时：视频生成超过 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">maxWaitMs</span><span style="color:#179299"> /</span><span style="color:#FE640B"> 1000</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 秒`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 流式下载视频</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> downloadVideo</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">url</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> outputPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"下载视频中..."</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> fetch</span><span style="color:#4C4F69">(url)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">ok) </span><span style="color:#8839EF">throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`下载失败: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">status</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> totalSize </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> Number</span><span style="color:#4C4F69">(response</span><span style="color:#179299">.</span><span style="color:#4C4F69">headers</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"content-length"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> buffer </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Buffer</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">from</span><span style="color:#4C4F69">(</span><span style="color:#8839EF">await</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">arrayBuffer</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">writeFileSync</span><span style="color:#4C4F69">(outputPath</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> buffer)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`视频已保存: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> (</span><span style="color:#7C7F93">${</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">buffer</span><span style="color:#179299">.</span><span style="color:#40A02B">length </span><span style="color:#179299">/</span><span style="color:#FE640B"> 1024</span><span style="color:#179299"> /</span><span style="color:#FE640B"> 1024</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">1</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">MB)`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> outputPath</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="视频处理时长分辨率帧率">视频处理（时长、分辨率、帧率）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/video/processor.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> exec </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "child_process"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> promisify </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "util"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> execAsync </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> promisify</span><span style="color:#4C4F69">(exec)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 视频元数据提取（需要 ffprobe）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> getVideoInfo</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">videoPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  duration</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  width</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  height</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  fps</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  size</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  format</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> stdout </span><span style="color:#7C7F93">}</span><span style="color:#179299"> =</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> execAsync</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">    `ffprobe -v quiet -print_format json -show_streams -show_format "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">videoPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">"`</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> info </span><span style="color:#179299">=</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(stdout)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> videoStream </span><span style="color:#179299">=</span><span style="color:#4C4F69"> info</span><span style="color:#179299">.</span><span style="color:#4C4F69">streams</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">find</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">s</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> s</span><span style="color:#179299">.</span><span style="color:#4C4F69">codec_type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "video"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    duration</span><span style="color:#179299">:</span><span style="color:#1E66F5;font-style:italic"> parseFloat</span><span style="color:#4C4F69">(info</span><span style="color:#179299">.</span><span style="color:#4C4F69">format</span><span style="color:#179299">.</span><span style="color:#4C4F69">duration)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    width</span><span style="color:#179299">:</span><span style="color:#4C4F69"> videoStream</span><span style="color:#179299">.</span><span style="color:#4C4F69">width</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    height</span><span style="color:#179299">:</span><span style="color:#4C4F69"> videoStream</span><span style="color:#179299">.</span><span style="color:#4C4F69">height</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    fps</span><span style="color:#179299">:</span><span style="color:#1E66F5;font-style:italic"> eval</span><span style="color:#4C4F69">(videoStream</span><span style="color:#179299">.</span><span style="color:#4C4F69">r_frame_rate)</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic"> // "30/1" → 30</span></span>
+<span class="line"><span style="color:#4C4F69">    size</span><span style="color:#179299">:</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">statSync</span><span style="color:#4C4F69">(videoPath)</span><span style="color:#179299">.</span><span style="color:#4C4F69">size</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    format</span><span style="color:#179299">:</span><span style="color:#4C4F69"> info</span><span style="color:#179299">.</span><span style="color:#4C4F69">format</span><span style="color:#179299">.</span><span style="color:#4C4F69">format_name</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 视频压缩（使用 ffmpeg）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> compressVideo</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  inputPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  outputPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  options</span><span style="color:#179299">?:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    crf</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">        // 压缩质量 0-51，越大压缩越重，推荐 23-28</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    maxWidth</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 限制宽度</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    fps</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">        // 目标帧率</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> crf </span><span style="color:#179299">=</span><span style="color:#FE640B"> 23</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> maxWidth </span><span style="color:#179299">=</span><span style="color:#FE640B"> 1280</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> fps </span><span style="color:#179299">=</span><span style="color:#FE640B"> 30</span><span style="color:#7C7F93"> }</span><span style="color:#179299"> =</span><span style="color:#4C4F69"> options </span><span style="color:#179299">||</span><span style="color:#7C7F93"> {};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> scaleFilter </span><span style="color:#179299">=</span><span style="color:#4C4F69"> maxWidth </span><span style="color:#179299">?</span><span style="color:#40A02B"> `-vf "scale='min(</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">maxWidth</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">,iw)':-2"`</span><span style="color:#179299"> :</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> fpsFilter </span><span style="color:#179299">=</span><span style="color:#40A02B"> `-r </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">fps</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> cmd </span><span style="color:#179299">=</span><span style="color:#40A02B"> `ffmpeg -i "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">inputPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">" </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">scaleFilter</span><span style="color:#7C7F93">}</span><span style="color:#7C7F93"> ${</span><span style="color:#4C4F69">fpsFilter</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> -c:v libx264 -crf </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">crf</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> -preset medium -c:a aac -y "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">"`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"压缩视频中..."</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> execAsync</span><span style="color:#4C4F69">(cmd)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> originalSize </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">statSync</span><span style="color:#4C4F69">(inputPath)</span><span style="color:#179299">.</span><span style="color:#4C4F69">size</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> compressedSize </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">statSync</span><span style="color:#4C4F69">(outputPath)</span><span style="color:#179299">.</span><span style="color:#4C4F69">size</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> ratio </span><span style="color:#179299">=</span><span style="color:#4C4F69"> ((</span><span style="color:#FE640B">1</span><span style="color:#179299"> -</span><span style="color:#4C4F69"> compressedSize </span><span style="color:#179299">/</span><span style="color:#4C4F69"> originalSize) </span><span style="color:#179299">*</span><span style="color:#FE640B"> 100</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">1</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`压缩完成: </span><span style="color:#7C7F93">${</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">originalSize</span><span style="color:#179299"> /</span><span style="color:#FE640B"> 1024</span><span style="color:#179299"> /</span><span style="color:#FE640B"> 1024</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">1</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">MB → </span><span style="color:#7C7F93">${</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">compressedSize</span><span style="color:#179299"> /</span><span style="color:#FE640B"> 1024</span><span style="color:#179299"> /</span><span style="color:#FE640B"> 1024</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">1</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">MB (</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">ratio</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">%)`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 生成视频缩略图</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> generateThumbnail</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  videoPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  outputPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  timeSeconds</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 1</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> execAsync</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">    `ffmpeg -i "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">videoPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">" -ss </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">timeSeconds</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> -vframes 1 -y "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">"`</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`缩略图已保存: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 视频转 GIF（适合预览）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> videoToGif</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  videoPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  outputPath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  options</span><span style="color:#179299">?:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> fps</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> scale</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> duration</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> fps </span><span style="color:#179299">=</span><span style="color:#FE640B"> 10</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> scale </span><span style="color:#179299">=</span><span style="color:#FE640B"> 480</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> duration </span><span style="color:#179299">=</span><span style="color:#FE640B"> 3</span><span style="color:#7C7F93"> }</span><span style="color:#179299"> =</span><span style="color:#4C4F69"> options </span><span style="color:#179299">||</span><span style="color:#7C7F93"> {};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> execAsync</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">    `ffmpeg -i "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">videoPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">" -t </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">duration</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> -vf "fps=</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">fps</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">,scale=</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">scale</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 -y "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">"`</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`GIF 已保存: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputPath</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="完整使用示例">完整使用示例</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/video/demo.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> textToVideo</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> imageToVideo </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./runway"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> getVideoInfo</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> compressVideo</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> generateThumbnail </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./processor"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runDemo</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> outputDir </span><span style="color:#179299">=</span><span style="color:#40A02B"> "./output/videos"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">existsSync</span><span style="color:#4C4F69">(outputDir)) fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">mkdirSync</span><span style="color:#4C4F69">(outputDir</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> recursive</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 演示1：文生视频</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"=== 文生视频 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> videoPath </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> textToVideo</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#4C4F69">      promptText</span><span style="color:#179299">:</span></span>
+<span class="line"><span style="color:#40A02B">        "A majestic eagle soaring over snow-capped mountains at golden hour, cinematic slow motion"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      duration</span><span style="color:#179299">:</span><span style="color:#FE640B"> 5</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      ratio</span><span style="color:#179299">:</span><span style="color:#40A02B"> "1280:768"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gen3a_turbo"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#40A02B">    `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputDir</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">/eagle.mp4`</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 演示2：获取视频信息</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 视频信息 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> info </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> getVideoInfo</span><span style="color:#4C4F69">(videoPath)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`分辨率: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">info</span><span style="color:#179299">.</span><span style="color:#4C4F69">width</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">x</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">info</span><span style="color:#179299">.</span><span style="color:#4C4F69">height</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`时长: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">info</span><span style="color:#179299">.</span><span style="color:#4C4F69">duration</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">1</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">s`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`帧率: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">info</span><span style="color:#179299">.</span><span style="color:#4C4F69">fps</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">fps`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`文件大小: </span><span style="color:#7C7F93">${</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">info</span><span style="color:#179299">.</span><span style="color:#4C4F69">size</span><span style="color:#179299"> /</span><span style="color:#FE640B"> 1024</span><span style="color:#179299"> /</span><span style="color:#FE640B"> 1024</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">1</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">MB`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 演示3：压缩 + 缩略图</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 后处理 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> compressVideo</span><span style="color:#4C4F69">(videoPath</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputDir</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">/eagle_compressed.mp4`</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> crf</span><span style="color:#179299">:</span><span style="color:#FE640B"> 26</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> generateThumbnail</span><span style="color:#4C4F69">(videoPath</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> `</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">outputDir</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">/eagle_thumbnail.jpg`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 演示4：图生视频</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 图生视频 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // await imageToVideo(</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  //   "./photo.jpg",</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  //   "the person slowly turns their head and smiles",</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  //   `${outputDir}/portrait_animated.mp4`</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // );</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">runDemo</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课学习<strong>第4课：文档处理 — PDF + Word + Excel 智能解析</strong>。视频处理后，我们回到企业最常见的场景：大量数据存在于 PDF、Word、Excel 中。本课构建文档处理 Pipeline，掌握各类文档的解析方法和大文档的分块处理策略。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/mm-02-image-gen.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第2课：图像生成</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/mm-04-documents.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第4课：文档解析</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-awan21阿里2025最强开源">方案 A：Wan2.1（阿里，2025最强开源）</a></li><li class="lvl-3"><a href="#方案-bhunyuanvideo腾讯118k">方案 B：HunyuanVideo（腾讯，11.8k ⭐）</a></li><li class="lvl-3"><a href="#方案-crunway-gen-3国际标准-api">方案 C：Runway Gen-3（国际标准 API）</a></li><li class="lvl-3"><a href="#方案-dkling-api快手国内最优">方案 D：Kling API（快手，国内最优）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#wan21-本地部署推荐免费最强">Wan2.1 本地部署（推荐——免费最强）</a></li><li class="lvl-3"><a href="#comfyui-工作流106k-可视化-wan21">ComfyUI 工作流（106k ⭐，可视化 Wan2.1）</a></li><li class="lvl-3"><a href="#异步视频生成流程">异步视频生成流程</a></li><li class="lvl-3"><a href="#runway-api-实现">Runway API 实现</a></li><li class="lvl-3"><a href="#视频处理时长分辨率帧率">视频处理（时长、分辨率、帧率）</a></li><li class="lvl-3"><a href="#完整使用示例">完整使用示例</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第8课：MCP 集成 — Claude Code 源码剖析</title>
+  <meta name="description" content="4 种 transport / Auth Cache 防雪崩 / IDE 工具白名单">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-rose">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-rose">
+      <div class="crumb">
+        <div class="crumb-icon">CA</div>
+        <div class="crumb-text">Claude Code 源码剖析</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/cca-01-overview.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">泄露事件与全景导览</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-02-startup.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">启动路径剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-03-query.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Query 执行内核</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-04-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool 抽象与工具池</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-05-orchestration.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">工具调度与并发</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-06-permission.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">权限模型与 Sandbox</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-07-skills.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill 系统</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-08-mcp.html" class="active">
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-09-memory.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Memory 分层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-10-compaction.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 自动压缩</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-11-prompt.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Prompt Runtime</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-12-multi-agent.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 三层模型</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-13-session.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Session 持久化与 Resume</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-14-hidden.html" >
+            <span class="num">14</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第14课（番外）：隐藏命令与 Feature Flag</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/cca-01-overview.html" class="current">Claude Code 源码剖析</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">08</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第8课：MCP 集成</div>
+          <div class="desc">4 种 transport / Auth Cache 防雪崩 / IDE 工具白名单</div>
+          <div class="tags">
+            <span class="tag">analysis</span><span class="tag">mcp</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">08_mcp.md</code></span>
+            <span>📏 370 行</span>
+            <span style="opacity:0.7;">claude-code-analysis/lessons/08_mcp.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第8课：MCP 集成 — 4 种 transport 与 Auth Cache 防雪崩</h1>
+<h2 id="介绍">介绍</h2>
+<p>MCP（Model Context Protocol）是 Anthropic 主导的开放标准，让模型统一接入外部工具和数据源。</p>
+<p>很多项目把 MCP 当成&quot;加个 stdio 进程就行&quot;，Claude Code 的实现把它做到了<strong>生产级</strong>：4 种 transport、OAuth 认证、Auth Cache 防雪崩、Session 重连、IDE 工具白名单……本课逐项拆开。</p>
+<hr>
+<h2 id="源码定位">源码定位</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>src/services/mcp/client.ts</code></td>
+<td>MCP 客户端核心</td>
+</tr>
+<tr>
+<td><code>src/services/mcp/auth.ts</code></td>
+<td>OAuth + Step-up 检测</td>
+</tr>
+<tr>
+<td><code>src/services/mcp/mcpStringUtils.ts</code></td>
+<td>工具命名规则</td>
+</tr>
+<tr>
+<td><code>src/utils/mcpWebSocketTransport.ts</code></td>
+<td>WebSocket 传输层</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="工具命名buildmcptoolname">工具命名：buildMcpToolName</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/services/mcp/mcpStringUtils.ts</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> buildMcpToolName</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">serverName</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> toolName</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#40A02B"> `mcp__</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">serverName</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">__</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">toolName</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 例：mcp__filesystem__read_file</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  //     mcp__puppeteer__screenshot</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>简单一行，但意图清晰：</p>
+<ul>
+<li>前缀 <code>mcp__</code> 让来源一目了然</li>
+<li>中间 <code>serverName</code> 让命名空间不会冲突</li>
+<li>模型看到的工具列表是统一 schema，<strong>不需要区分内建还是 MCP</strong></li>
+</ul>
+<hr>
+<h2 id="4-种-transport">4 种 transport</h2>
+<p>真实源码节选（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/services/mcp/client.ts"><code>src/services/mcp/client.ts:595</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> connectToServer </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> memoize</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">name</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> serverRef</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> serverStats</span><span style="color:#179299">?</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> transport</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (serverRef</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'sse'</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> authProvider </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> ClaudeAuthProvider</span><span style="color:#4C4F69">(name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> serverRef)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      transport </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> SSEClientTransport</span><span style="color:#4C4F69">(serverRef</span><span style="color:#179299">.</span><span style="color:#4C4F69">url</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        authProvider</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        fetch</span><span style="color:#179299">:</span><span style="color:#1E66F5;font-style:italic"> wrapFetchWithTimeout</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">          wrapFetchWithStepUpDetection</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">createFetchWithInit</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> authProvider)</span></span>
+<span class="line"><span style="color:#4C4F69">        )</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (serverRef</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'ws'</span><span style="color:#179299"> ||</span><span style="color:#4C4F69"> serverRef</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'ws-ide'</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      transport </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> WebSocketTransport</span><span style="color:#4C4F69">(serverRef</span><span style="color:#179299">.</span><span style="color:#4C4F69">url)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (serverRef</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'http'</span><span style="color:#179299"> ||</span><span style="color:#4C4F69"> serverRef</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'streamable-http'</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      transport </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> StreamableHTTPClientTransport</span><span style="color:#4C4F69">(serverRef</span><span style="color:#179299">.</span><span style="color:#4C4F69">url</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        fetch</span><span style="color:#179299">:</span><span style="color:#1E66F5;font-style:italic"> wrapFetchWithTimeout</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">createClaudeAiProxyFetch</span><span style="color:#4C4F69">(baseFetch))</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 默认：stdio</span></span>
+<span class="line"><span style="color:#4C4F69">      transport </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> StdioClientTransport</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        command</span><span style="color:#179299">:</span><span style="color:#4C4F69"> serverRef</span><span style="color:#179299">.</span><span style="color:#4C4F69">command</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        args</span><span style="color:#179299">:</span><span style="color:#4C4F69"> serverRef</span><span style="color:#179299">.</span><span style="color:#4C4F69">args</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        env</span><span style="color:#179299">:</span><span style="color:#4C4F69"> serverRef</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> client </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Client</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'claude-code'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> version</span><span style="color:#179299">:</span><span style="color:#179299"> ...</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">connect</span><span style="color:#4C4F69">(transport)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> transport</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#4C4F69">  getServerCacheKey</span></span>
+<span class="line"><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><table>
+<thead>
+<tr>
+<th>Transport</th>
+<th>适用场景</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>stdio</code></td>
+<td>本地进程（最常用）</td>
+<td>最简单，子进程通信</td>
+</tr>
+<tr>
+<td><code>sse</code> / <code>sse-ide</code></td>
+<td>远程 HTTP 长连接</td>
+<td>OAuth + Step-up 检测</td>
+</tr>
+<tr>
+<td><code>ws</code> / <code>ws-ide</code></td>
+<td>长久 WebSocket（IDE 集成）</td>
+<td>可推可拉，最适合 IDE</td>
+</tr>
+<tr>
+<td><code>http</code> / <code>streamable-http</code></td>
+<td>HTTP + claude.ai 代理</td>
+<td>适合无状态调用</td>
+</tr>
+</tbody></table>
+<p>注意 <code>connectToServer</code> 用 <strong><code>memoize</code> 包裹</strong>——同一 server 配置只建一次连接。</p>
+<hr>
+<h2 id="wrapfetchwithtimeout踩过坑的代码">wrapFetchWithTimeout：踩过坑的代码</h2>
+<p>真实源码（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/services/mcp/client.ts"><code>src/services/mcp/client.ts:492</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> wrapFetchWithTimeout</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">baseFetch</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> FetchLike</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> FetchLike</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">url</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> init</span><span style="color:#179299">?</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> method </span><span style="color:#179299">=</span><span style="color:#4C4F69"> (init</span><span style="color:#179299">?.</span><span style="color:#4C4F69">method </span><span style="color:#179299">??</span><span style="color:#40A02B"> 'GET'</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toUpperCase</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // GET 不加超时 —— SSE 是长连接 GET，不能被超时切断</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (method </span><span style="color:#179299">===</span><span style="color:#40A02B"> 'GET'</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">return</span><span style="color:#1E66F5;font-style:italic"> baseFetch</span><span style="color:#4C4F69">(url</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> init)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // ⚠️ 用 setTimeout 而非 AbortSignal.timeout()</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 原因：AbortSignal.timeout() 在 Bun 中内存泄漏（每请求 ~2.4KB 在 GC 前残留）</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> controller </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> AbortController</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> timer </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> setTimeout</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">      c</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> c</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">abort</span><span style="color:#4C4F69">(</span><span style="color:#8839EF;font-weight:bold">new</span><span style="color:#1E66F5;font-style:italic"> DOMException</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'The operation timed out.'</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'TimeoutError'</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      MCP_REQUEST_TIMEOUT_MS</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      controller</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    timer</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">unref</span><span style="color:#179299">?.</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 不阻止进程退出</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> baseFetch</span><span style="color:#4C4F69">(url</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">init</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> signal</span><span style="color:#179299">:</span><span style="color:#4C4F69"> controller</span><span style="color:#179299">.</span><span style="color:#4C4F69">signal </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">      clearTimeout</span><span style="color:#4C4F69">(timer)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#4C4F69"> response</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> catch</span><span style="color:#4C4F69"> (error) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">      clearTimeout</span><span style="color:#4C4F69">(timer)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      throw</span><span style="color:#4C4F69"> error</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>两个非常工程化的细节：</p>
+<ol>
+<li><strong>GET 不加超时</strong>：因为 SSE 长连接是 GET 请求，超时会把它切断</li>
+<li><strong>不用 <code>AbortSignal.timeout()</code></strong>：原本的简洁写法，但在 Bun 运行时有内存泄漏</li>
+</ol>
+<p>注释直接写明原因——这种&quot;踩坑后留痕&quot;的注释比&quot;添加超时&quot;这类无意义注释<strong>有价值得多</strong>。</p>
+<hr>
+<h2 id="max_mcp_description_length防-prompt-爆炸">MAX_MCP_DESCRIPTION_LENGTH：防 prompt 爆炸</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/services/mcp/client.ts:218</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 注释原文：OpenAPI-generated MCP servers have been observed dumping 15-60KB</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// of endpoint docs into tool.description; this caps the p95 tail without losing the intent.</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> MAX_MCP_DESCRIPTION_LENGTH </span><span style="color:#179299">=</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">;</span></span></code></pre><p>OpenAPI 自动转 MCP 的工具，描述常常长达 60KB（Swagger 的完整 docs）。如果不截断，5 个这样的工具就把 200K context window 吃掉一半。</p>
+<p><code>2048</code> 这个数字是测过 p95 的——既不破坏意图，又不让 prompt 爆。</p>
+<hr>
+<h2 id="并发连接控制">并发连接控制</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/services/mcp/client.ts:552</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> getMcpServerConnectionBatchSize</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#1E66F5;font-style:italic"> parseInt</span><span style="color:#4C4F69">(process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">MCP_SERVER_CONNECTION_BATCH_SIZE</span><span style="color:#179299"> ||</span><span style="color:#40A02B"> ''</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 10</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#FE640B"> 3</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> getRemoteMcpServerConnectionBatchSize</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#1E66F5;font-style:italic"> parseInt</span><span style="color:#4C4F69">(process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">MCP_REMOTE_SERVER_CONNECTION_BATCH_SIZE</span><span style="color:#179299"> ||</span><span style="color:#40A02B"> ''</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 10</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#FE640B"> 20</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>通过 <code>pMap(servers, connectToServer, { concurrency: batchSize })</code> 控制连接并发：</p>
+<ul>
+<li><strong>本地默认 3</strong>：避免一次起太多子进程</li>
+<li><strong>远端默认 20</strong>：网络 IO 并发价值高</li>
+</ul>
+<hr>
+<h2 id="auth-cache-防雪崩-全文最值得学的设计">Auth Cache 防雪崩 — 全文最值得学的设计</h2>
+<p><strong>问题</strong>：100 个并发工具子调用同时遇到过期 Token，<strong>100 个都尝试刷新</strong>，目标 OAuth 服务被打爆。这就是&quot;认证雪崩&quot;。</p>
+<p><strong>解法</strong>：本地文件缓存&quot;已知需要认证&quot;的状态。</p>
+<p>真实源码（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/services/mcp/client.ts"><code>src/services/mcp/client.ts:259</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">type</span><span style="color:#DF8E1D;font-style:italic"> McpAuthCacheData </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> timestamp</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> }</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 缓存文件：~/.claude/mcp-needs-auth-cache.json</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> getMcpAuthCachePath</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span><span style="color:#179299"> ...</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 读取：Promise 结果 memoize，避免并发读重复 fs.readFile</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> getMcpAuthCache</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">McpAuthCacheData</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  authCachePromise </span><span style="color:#179299">??=</span><span style="color:#1E66F5;font-style:italic"> readFile</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">getMcpAuthCachePath</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'utf-8'</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">    .</span><span style="color:#1E66F5;font-style:italic">then</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">data</span><span style="color:#179299"> =></span><span style="color:#1E66F5;font-style:italic"> jsonParse</span><span style="color:#4C4F69">(data) </span><span style="color:#8839EF">as</span><span style="color:#DF8E1D;font-style:italic"> McpAuthCacheData</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">    .</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">()</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> (</span><span style="color:#7C7F93">{}</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> authCachePromise</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 写入：标记某 serverId 认证失败</span></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> setMcpAuthCacheEntry</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">serverId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 异步写入，不阻塞调用方</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 校验：若服务 15 分钟内已知需要认证，直接返回 needs-auth 不重试</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> isMcpAuthCached</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">serverId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">boolean</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> cache </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> getMcpAuthCache</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> entry </span><span style="color:#179299">=</span><span style="color:#4C4F69"> cache[serverId]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">entry) </span><span style="color:#8839EF">return</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> MCP_AUTH_CACHE_TTL_MS </span><span style="color:#179299">=</span><span style="color:#FE640B"> 15</span><span style="color:#179299"> *</span><span style="color:#FE640B"> 60</span><span style="color:#179299"> *</span><span style="color:#FE640B"> 1000</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">() </span><span style="color:#179299">-</span><span style="color:#4C4F69"> entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">timestamp </span><span style="color:#179299">&#x3C;</span><span style="color:#4C4F69"> MCP_AUTH_CACHE_TTL_MS</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>效果：<strong>一个 Server 认证失败一次 → 后续 15 分钟所有对它的调用直接短路返回 <code>needs-auth</code></strong>，不消耗额外的 Token / 网络请求。</p>
+<p>这是<strong>断路器模式</strong>（Circuit Breaker）的最小化实现：</p>
+<table>
+<thead>
+<tr>
+<th>状态</th>
+<th>触发条件</th>
+<th>行为</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Closed（正常）</td>
+<td>默认</td>
+<td>走完整 OAuth 流</td>
+</tr>
+<tr>
+<td>Open（失败）</td>
+<td>一次 401/403</td>
+<td>15 分钟内直接返回 needs-auth</td>
+</tr>
+</tbody></table>
+<p>15 分钟 TTL 既给&quot;用户主动刷新认证&quot;留窗口，也防止&quot;一次性失败永久烙印&quot;。</p>
+<hr>
+<h2 id="session-过期检测">Session 过期检测</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/services/mcp/client.ts:193</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> isMcpSessionExpiredError</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">error</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Error</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> httpStatus </span><span style="color:#179299">=</span><span style="color:#4C4F69"> (error </span><span style="color:#8839EF">as</span><span style="color:#DF8E1D;font-style:italic"> Error</span><span style="color:#179299"> &#x26;</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> code</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#4C4F69">code</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (httpStatus </span><span style="color:#179299">!==</span><span style="color:#FE640B"> 404</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">return</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // MCP 规范：Session 过期 → HTTP 404 + JSON-RPC 错误码 -32001</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> (</span></span>
+<span class="line"><span style="color:#4C4F69">    error</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'"code":-32001'</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span></span>
+<span class="line"><span style="color:#4C4F69">    error</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'"code": -32001'</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>检测到过期 → 清缓存 (<code>connectToServer.cache.clear()</code>) → 重新调用 <code>connectToServer()</code> 建新连接。</p>
+<p>注意它<strong>同时检查 HTTP 404 和 JSON-RPC -32001</strong>——这是协议规范，符合就是过期。</p>
+<hr>
+<h2 id="ide-工具白名单">IDE 工具白名单</h2>
+<p>IDE 集成（<code>ws-ide</code>）能力很强——能推 LSP 诊断、文件树、活动编辑器。但不是所有 IDE 工具都该自动信任：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/services/mcp/client.ts:569</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> ALLOWED_IDE_TOOLS </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#40A02B">  'mcp__ide__getDiagnostics'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">  'mcp__ide__getOpenEditorFiles'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ... 仅少数高权限工具通过白名单</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> isIncludedMcpTool</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">tool</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tool</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // non-IDE 工具全部允许；IDE 工具只允许白名单内</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#179299"> !</span><span style="color:#4C4F69">tool</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">startsWith</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'mcp__ide__'</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#FE640B"> ALLOWED_IDE_TOOLS</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(tool</span><span style="color:#179299">.</span><span style="color:#4C4F69">name)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>这是<strong>默认拒绝 + 显式允许</strong>模式（与之前 Tool Fail-Closed 一致）。新增 IDE 工具必须显式加进白名单，不能&quot;反向通过 deny 列表防御未知&quot;。</p>
+<hr>
+<h2 id="pattern-提炼">Pattern 提炼</h2>
+<h3 id="pattern-1踩坑注释比解释代码更有价值">Pattern 1：踩坑注释比解释代码更有价值</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// AbortSignal.timeout() leaks ~2.4KB per request in Bun before GC</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> controller </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> AbortController</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span></code></pre><p>不要写&quot;添加超时控制&quot;。要写&quot;为什么不用看起来更优雅的写法&quot;。</p>
+<h3 id="pattern-2auth-cache-circuit-breaker-简化版">Pattern 2：Auth Cache = Circuit Breaker 简化版</h3>
+<p>第一次失败 → 15 分钟内同 server 短路。最小成本，最大效果。</p>
+<h3 id="pattern-3白名单-黑名单">Pattern 3：白名单 &gt; 黑名单</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">return</span><span style="color:#179299"> !</span><span style="color:#4C4F69">isIdeTool </span><span style="color:#179299">||</span><span style="color:#FE640B"> ALLOWED</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(tool</span><span style="color:#179299">.</span><span style="color:#4C4F69">name)</span><span style="color:#7C7F93">;</span></span></code></pre><p>新增 IDE 能力<strong>默认拒绝</strong>，不能靠&quot;我相信开发者会更新 deny list&quot;。</p>
+<h3 id="pattern-4长度上限基于真实数据">Pattern 4：长度上限基于真实数据</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> MAX_MCP_DESCRIPTION_LENGTH </span><span style="color:#179299">=</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 测过 p95</span></span></code></pre><p>不要拍脑袋，要看真实数据 p50 / p95 / p99。</p>
+<hr>
+<h2 id="自己实现60-行的-auth-cache">自己实现：60 行的 Auth Cache</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// my-mcp-auth-cache.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> 'fs/promises'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> path </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> 'path'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> CACHE_FILE </span><span style="color:#179299">=</span><span style="color:#4C4F69"> path</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">HOME</span><span style="color:#179299">!</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> '.my-mcp-auth-cache.json'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> TTL_MS </span><span style="color:#179299">=</span><span style="color:#FE640B"> 15</span><span style="color:#179299"> *</span><span style="color:#FE640B"> 60</span><span style="color:#179299"> *</span><span style="color:#FE640B"> 1000</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">let</span><span style="color:#4C4F69"> cachePromise</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> ts</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> }</span><span style="color:#04A5E5">>></span><span style="color:#179299"> |</span><span style="color:#8839EF;font-style:italic"> null</span><span style="color:#179299"> =</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> readCache</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> ts</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> }</span><span style="color:#04A5E5">>></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  cachePromise </span><span style="color:#179299">??=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFile</span><span style="color:#4C4F69">(CACHE_FILE</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'utf-8'</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">    .</span><span style="color:#1E66F5;font-style:italic">then</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">d</span><span style="color:#179299"> =></span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(d))</span></span>
+<span class="line"><span style="color:#179299">    .</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">()</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> (</span><span style="color:#7C7F93">{}</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> cachePromise</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> writeCacheEntry</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">serverId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> cache </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> readCache</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  cache[serverId] </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> ts</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">() </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#4C4F69">  cachePromise </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">resolve</span><span style="color:#4C4F69">(cache)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 立刻更新内存版</span></span>
+<span class="line"><span style="color:#4C4F69">  fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">writeFile</span><span style="color:#4C4F69">(CACHE_FILE</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(cache))</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">()</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 异步落盘</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> isAuthFailedRecently</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">serverId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">boolean</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> cache </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> readCache</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> entry </span><span style="color:#179299">=</span><span style="color:#4C4F69"> cache[serverId]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">entry) </span><span style="color:#8839EF">return</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">() </span><span style="color:#179299">-</span><span style="color:#4C4F69"> entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">ts </span><span style="color:#179299">&#x3C;</span><span style="color:#4C4F69"> TTL_MS</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> markAuthFailed</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">serverId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">void</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  await</span><span style="color:#1E66F5;font-style:italic"> writeCacheEntry</span><span style="color:#4C4F69">(serverId)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ===== 用法 =====</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> callMcp</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">serverId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> request</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">await</span><span style="color:#1E66F5;font-style:italic"> isAuthFailedRecently</span><span style="color:#4C4F69">(serverId)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> error</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'needs-auth'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> cached</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#8839EF">  try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> actuallyCallMcp</span><span style="color:#4C4F69">(serverId</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> request)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">e</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (e</span><span style="color:#179299">.</span><span style="color:#4C4F69">status </span><span style="color:#179299">===</span><span style="color:#FE640B"> 401</span><span style="color:#179299"> ||</span><span style="color:#4C4F69"> e</span><span style="color:#179299">.</span><span style="color:#4C4F69">status </span><span style="color:#179299">===</span><span style="color:#FE640B"> 403</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      await</span><span style="color:#1E66F5;font-style:italic"> markAuthFailed</span><span style="color:#4C4F69">(serverId)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> error</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'needs-auth'</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#8839EF">    throw</span><span style="color:#4C4F69"> e</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>60 行就阻止了认证雪崩。把这个 pattern 用到任何&quot;远端调用 + 易过期凭证&quot;的场景，都能省下大量 token / API 调用。</p>
+<hr>
+<h2 id="本课小结">本课小结</h2>
+<ul>
+<li>4 种 transport：stdio / sse / ws / http，按场景选</li>
+<li><code>wrapFetchWithTimeout</code> 用 setTimeout 而非 AbortSignal.timeout()——这是踩过坑的代码</li>
+<li><code>MAX_MCP_DESCRIPTION_LENGTH = 2048</code> 基于真实 p95 数据</li>
+<li><strong>Auth Cache 防雪崩</strong>是全文最值得抄的 pattern，15 分钟 TTL 短路同 server 调用</li>
+<li>IDE 工具用白名单而非黑名单</li>
+</ul>
+<hr>
+<h2 id="延伸阅读">延伸阅读</h2>
+<ul>
+<li><code>analysis/04d-mcp-implementation.md</code> 全文 - 包含所有 transport 细节与 auth.ts 解读</li>
+<li>官方 MCP 规范：<a href="https://modelcontextprotocol.io/">https://modelcontextprotocol.io/</a></li>
+<li>下一课：<code>09_memory_system.md</code> - 4 层文件化 memory + relevant recall</li>
+</ul>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/cca-07-skills.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第7课：Skill 系统</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/cca-09-memory.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第9课：Agent Memory 分层</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#源码定位">源码定位</a></li><li class="lvl-2"><a href="#工具命名buildmcptoolname">工具命名：buildMcpToolName</a></li><li class="lvl-2"><a href="#4-种-transport">4 种 transport</a></li><li class="lvl-2"><a href="#wrapfetchwithtimeout踩过坑的代码">wrapFetchWithTimeout：踩过坑的代码</a></li><li class="lvl-2"><a href="#max_mcp_description_length防-prompt-爆炸">MAX_MCP_DESCRIPTION_LENGTH：防 prompt 爆炸</a></li><li class="lvl-2"><a href="#并发连接控制">并发连接控制</a></li><li class="lvl-2"><a href="#auth-cache-防雪崩-全文最值得学的设计">Auth Cache 防雪崩 — 全文最值得学的设计</a></li><li class="lvl-2"><a href="#session-过期检测">Session 过期检测</a></li><li class="lvl-2"><a href="#ide-工具白名单">IDE 工具白名单</a></li><li class="lvl-2"><a href="#pattern-提炼">Pattern 提炼</a></li><li class="lvl-3"><a href="#pattern-1踩坑注释比解释代码更有价值">Pattern 1：踩坑注释比解释代码更有价值</a></li><li class="lvl-3"><a href="#pattern-2auth-cache-circuit-breaker-简化版">Pattern 2：Auth Cache = Circuit Breaker 简化版</a></li><li class="lvl-3"><a href="#pattern-3白名单-黑名单">Pattern 3：白名单 &gt; 黑名单</a></li><li class="lvl-3"><a href="#pattern-4长度上限基于真实数据">Pattern 4：长度上限基于真实数据</a></li><li class="lvl-2"><a href="#自己实现60-行的-auth-cache">自己实现：60 行的 Auth Cache</a></li><li class="lvl-2"><a href="#本课小结">本课小结</a></li><li class="lvl-2"><a href="#延伸阅读">延伸阅读</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

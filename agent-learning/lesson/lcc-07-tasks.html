@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第7课：Task System — Agent Harness 工程</title>
+  <meta name="description" content="JSON 依赖图持久化，跨会话恢复">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-indigo">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-indigo">
+      <div class="crumb">
+        <div class="crumb-icon">HC</div>
+        <div class="crumb-text">Agent Harness 工程</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/lcc-01-loop.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-02-tools.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool Dispatch Map</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-03-planning.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">TodoWrite 规划</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-04-subagents.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Subagents</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-05-skills.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill Loading</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-06-compression.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context Compression</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-07-tasks.html" class="active">
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Task System</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-08-background.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Background Tasks</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-09-teams.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Teams</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-10-protocols.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Team Protocols</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-11-autonomous.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Autonomous Agents</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-12-worktree.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Worktree Isolation</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/lcc-01-loop.html" class="current">Agent Harness 工程</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">07</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第7课：Task System</div>
+          <div class="desc">JSON 依赖图持久化，跨会话恢复</div>
+          <div class="tags">
+            <span class="tag">agent</span><span class="tag">advanced</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">07_task_system.md</code></span>
+            <span>📏 223 行</span>
+            <span style="opacity:0.7;">learn-claude-code/lessons/07_task_system.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第7课：Task System — 持久化依赖任务图</h1>
+<h2 id="介绍">介绍</h2>
+<p>内存中的 Todo 列表在 Agent 重启或崩溃时消失。Task System 把任务持久化到 JSON 文件，支持任务间的依赖关系（DAG），实现跨会话连续工作。Agent 重启后可以继续未完成的任务，而不是从头开始。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>源码参考：github.com/shareAI-lab/learn-claude-code — agents/s07_task_system.py</span></span></code></pre><hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>复杂工程任务存在天然依赖：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>安装依赖</span></span>
+<span class="line"><span>    ↓</span></span>
+<span class="line"><span>初始化数据库 ← 必须在安装后</span></span>
+<span class="line"><span>    ↓               ↓</span></span>
+<span class="line"><span>实现 API     写数据迁移脚本</span></span>
+<span class="line"><span>    ↓               ↓</span></span>
+<span class="line"><span>         写集成测试 ← 依赖 API + 数据库</span></span>
+<span class="line"><span>                ↓</span></span>
+<span class="line"><span>          部署到 staging</span></span></code></pre><p>如果 Agent 在&quot;实现 API&quot;步骤崩溃，重启后它怎么知道：</p>
+<ol>
+<li>哪些任务已完成？</li>
+<li>接下来该做什么？</li>
+<li>哪些任务可以并行？</li>
+</ol>
+<hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a内存-todos03-方案">方案 A：内存 Todo（s03 方案）</h3>
+<p>✅ 简单
+❌ 不持久化，重启即失</p>
+<h3 id="方案-b纯文本任务文件">方案 B：纯文本任务文件</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span># tasks.txt</span></span>
+<span class="line"><span>[done] 安装依赖</span></span>
+<span class="line"><span>[wip]  初始化数据库</span></span>
+<span class="line"><span>[ ]   实现 API</span></span></code></pre><p>✅ 持久化
+❌ 无依赖关系，无法自动确定执行顺序</p>
+<h3 id="方案-cjson-依赖图推荐">方案 C：JSON 依赖图（推荐）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#7C7F93">  "</span><span style="color:#1E66F5">tasks</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#7C7F93">"</span><span style="color:#1E66F5">id</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "t1"</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> "</span><span style="color:#1E66F5">title</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "安装依赖"</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> "</span><span style="color:#1E66F5">status</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "done"</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> "</span><span style="color:#1E66F5">deps</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> []},</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#7C7F93">"</span><span style="color:#1E66F5">id</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "t2"</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> "</span><span style="color:#1E66F5">title</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "初始化数据库"</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> "</span><span style="color:#1E66F5">status</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "pending"</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> "</span><span style="color:#1E66F5">deps</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> [</span><span style="color:#40A02B">"t1"</span><span style="color:#7C7F93">]},</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#7C7F93">"</span><span style="color:#1E66F5">id</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "t3"</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> "</span><span style="color:#1E66F5">title</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "实现 API"</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> "</span><span style="color:#1E66F5">status</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "pending"</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> "</span><span style="color:#1E66F5">deps</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> [</span><span style="color:#40A02B">"t1"</span><span style="color:#7C7F93">]}</span></span>
+<span class="line"><span style="color:#7C7F93">  ]</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>✅ 持久化，Agent 重启可恢复
+✅ 依赖感知：自动找出&quot;可执行&quot;任务
+✅ 可并行：多个无依赖的 pending 任务同时运行</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p><strong>方案 C</strong>。JSON 依赖图是最小化的生产级任务系统。可以直接存文件，也可以迁移到 SQLite。</p>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="tasksystem-实现">TaskSystem 实现</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># agents/s07_task_system.py</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> json</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> time</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> pathlib </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Path</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> dataclasses </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> dataclass</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> asdict</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> field</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> typing </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Literal</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">@dataclass</span></span>
+<span class="line"><span style="color:#8839EF">class</span><span style="color:#DF8E1D;font-style:italic"> Task</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">    id</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span></span>
+<span class="line"><span style="color:#4C4F69">    title</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span></span>
+<span class="line"><span style="color:#4C4F69">    description</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#179299"> =</span><span style="color:#40A02B"> ""</span></span>
+<span class="line"><span style="color:#4C4F69">    status</span><span style="color:#7C7F93">:</span><span style="color:#E64553;font-style:italic"> Literal</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">pending</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">in_progress</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">done</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">failed</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">]</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "pending"</span></span>
+<span class="line"><span style="color:#4C4F69">    priority</span><span style="color:#7C7F93">:</span><span style="color:#E64553;font-style:italic"> Literal</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">high</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">medium</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">low</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">]</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "medium"</span></span>
+<span class="line"><span style="color:#4C4F69">    deps</span><span style="color:#7C7F93">:</span><span style="color:#E64553;font-style:italic"> list</span><span style="color:#7C7F93">[</span><span style="color:#FE640B;font-style:italic">str</span><span style="color:#7C7F93">]</span><span style="color:#179299"> =</span><span style="color:#1E66F5"> field</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">default_factory</span><span style="color:#179299">=</span><span style="color:#FE640B;font-style:italic">list</span><span style="color:#7C7F93">)</span><span style="color:#9CA0B0;font-style:italic">   # 依赖的任务 ID 列表</span></span>
+<span class="line"><span style="color:#4C4F69">    result</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#179299"> =</span><span style="color:#40A02B"> ""</span><span style="color:#9CA0B0;font-style:italic">                                  # 完成时填写结果摘要</span></span>
+<span class="line"><span style="color:#4C4F69">    created_at</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> float</span><span style="color:#179299"> =</span><span style="color:#1E66F5"> field</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">default_factory</span><span style="color:#179299">=</span><span style="color:#4C4F69">time</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">time</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">    updated_at</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> float</span><span style="color:#179299"> =</span><span style="color:#1E66F5"> field</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">default_factory</span><span style="color:#179299">=</span><span style="color:#4C4F69">time</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">time</span><span style="color:#7C7F93">)</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">class</span><span style="color:#DF8E1D;font-style:italic"> TaskSystem</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#04A5E5;font-style:italic"> __init__</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> db_path</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#179299"> =</span><span style="color:#40A02B"> ".tasks/tasks.json"</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">db_path </span><span style="color:#179299">=</span><span style="color:#1E66F5"> Path</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">db_path</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">db_path</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">parent</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">mkdir</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">exist_ok</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">tasks</span><span style="color:#7C7F93">:</span><span style="color:#E64553;font-style:italic"> dict</span><span style="color:#7C7F93">[</span><span style="color:#FE640B;font-style:italic">str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> Task</span><span style="color:#7C7F93">]</span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {}</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">_load</span><span style="color:#7C7F93">()</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> _load</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">db_path</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">exists</span><span style="color:#7C7F93">():</span></span>
+<span class="line"><span style="color:#4C4F69">            data </span><span style="color:#179299">=</span><span style="color:#4C4F69"> json</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">loads</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">db_path</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">read_text</span><span style="color:#7C7F93">())</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">            self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">tasks </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#E64553;font-style:italic">t</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">id</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">]:</span><span style="color:#1E66F5"> Task</span><span style="color:#7C7F93">(</span><span style="color:#179299">**</span><span style="color:#4C4F69">t</span><span style="color:#7C7F93">)</span><span style="color:#8839EF"> for</span><span style="color:#4C4F69"> t </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> data</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">get</span><span style="color:#7C7F93">(</span><span style="color:#40A02B">"tasks"</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> [])}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> _save</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#4C4F69">        data </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"tasks"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> [</span><span style="color:#1E66F5">asdict</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">t</span><span style="color:#7C7F93">)</span><span style="color:#8839EF"> for</span><span style="color:#4C4F69"> t </span><span style="color:#8839EF">in</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">tasks</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">values</span><span style="color:#7C7F93">()]}</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">db_path</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">write_text</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">json</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">dumps</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">data</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> indent</span><span style="color:#179299">=</span><span style="color:#FE640B">2</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> ensure_ascii</span><span style="color:#179299">=</span><span style="color:#8839EF">False</span><span style="color:#7C7F93">))</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> create_task</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> title</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> description</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#179299"> =</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">                    deps</span><span style="color:#7C7F93">:</span><span style="color:#E64553;font-style:italic"> list</span><span style="color:#7C7F93">[</span><span style="color:#FE640B;font-style:italic">str</span><span style="color:#7C7F93">]</span><span style="color:#179299"> =</span><span style="color:#8839EF"> None</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> priority</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "medium"</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#4C4F69"> Task</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">        task_id </span><span style="color:#179299">=</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"t</span><span style="color:#EA76CB">{</span><span style="color:#FE640B;font-style:italic">int</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">time</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">time</span><span style="color:#7C7F93">()</span><span style="color:#179299"> *</span><span style="color:#FE640B"> 1000</span><span style="color:#7C7F93">)</span><span style="color:#179299"> %</span><span style="color:#FE640B"> 100000</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span></span>
+<span class="line"><span style="color:#4C4F69">        task </span><span style="color:#179299">=</span><span style="color:#1E66F5"> Task</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            id</span><span style="color:#179299">=</span><span style="color:#4C4F69">task_id</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> title</span><span style="color:#179299">=</span><span style="color:#4C4F69">title</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> description</span><span style="color:#179299">=</span><span style="color:#4C4F69">description</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            deps</span><span style="color:#179299">=</span><span style="color:#4C4F69">deps </span><span style="color:#8839EF">or</span><span style="color:#7C7F93"> [],</span><span style="color:#E64553;font-style:italic"> priority</span><span style="color:#179299">=</span><span style="color:#4C4F69">priority</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">tasks</span><span style="color:#7C7F93">[</span><span style="color:#E64553;font-style:italic">task_id</span><span style="color:#7C7F93">]</span><span style="color:#179299"> =</span><span style="color:#4C4F69"> task</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">_save</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#4C4F69"> task</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> update_status</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> task_id</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> status</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> result</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#179299"> =</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#4C4F69"> task_id </span><span style="color:#8839EF">not</span><span style="color:#8839EF"> in</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">tasks</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">            return</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"Task </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">task_id</span><span style="color:#EA76CB">}</span><span style="color:#40A02B"> not found"</span></span>
+<span class="line"><span style="color:#4C4F69">        task </span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">tasks</span><span style="color:#7C7F93">[</span><span style="color:#E64553;font-style:italic">task_id</span><span style="color:#7C7F93">]</span></span>
+<span class="line"><span style="color:#4C4F69">        task</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">status </span><span style="color:#179299">=</span><span style="color:#4C4F69"> status</span></span>
+<span class="line"><span style="color:#4C4F69">        task</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">result </span><span style="color:#179299">=</span><span style="color:#4C4F69"> result</span></span>
+<span class="line"><span style="color:#4C4F69">        task</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">updated_at </span><span style="color:#179299">=</span><span style="color:#4C4F69"> time</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">time</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">_save</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"Task </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">task_id</span><span style="color:#EA76CB">}</span><span style="color:#40A02B"> (</span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">task</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">title</span><span style="color:#7C7F93">[:</span><span style="color:#FE640B;font-style:italic">40</span><span style="color:#7C7F93">]</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">) → </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">status</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> get_ready_tasks</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#E64553;font-style:italic"> list</span><span style="color:#7C7F93">[</span><span style="color:#E64553;font-style:italic">Task</span><span style="color:#7C7F93">]:</span></span>
+<span class="line"><span style="color:#40A02B">        """返回所有依赖都已完成的 pending 任务"""</span></span>
+<span class="line"><span style="color:#4C4F69">        done_ids </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69">t</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">id </span><span style="color:#8839EF">for</span><span style="color:#4C4F69"> t </span><span style="color:#8839EF">in</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">tasks</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">values</span><span style="color:#7C7F93">()</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> t</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">status </span><span style="color:#179299">==</span><span style="color:#40A02B"> "done"</span><span style="color:#7C7F93">}</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#7C7F93"> [</span></span>
+<span class="line"><span style="color:#4C4F69">            t </span><span style="color:#8839EF">for</span><span style="color:#4C4F69"> t </span><span style="color:#8839EF">in</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">tasks</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">values</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#8839EF">            if</span><span style="color:#4C4F69"> t</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">status </span><span style="color:#179299">==</span><span style="color:#40A02B"> "pending"</span><span style="color:#8839EF"> and</span><span style="color:#FE640B;font-style:italic"> all</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">dep </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> done_ids </span><span style="color:#8839EF">for</span><span style="color:#4C4F69"> dep </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> t</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">deps</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#7C7F93">        ]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> get_status_summary</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#40A02B">        """可读的任务状态摘要，注入到系统 Prompt"""</span></span>
+<span class="line"><span style="color:#4C4F69">        counts </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"pending"</span><span style="color:#7C7F93">:</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "in_progress"</span><span style="color:#7C7F93">:</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "done"</span><span style="color:#7C7F93">:</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "failed"</span><span style="color:#7C7F93">:</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">}</span></span>
+<span class="line"><span style="color:#4C4F69">        lines </span><span style="color:#179299">=</span><span style="color:#7C7F93"> [</span><span style="color:#40A02B">"=== TASK SYSTEM ==="</span><span style="color:#7C7F93">]</span></span>
+<span class="line"><span style="color:#8839EF">        for</span><span style="color:#4C4F69"> task </span><span style="color:#8839EF">in</span><span style="color:#FE640B;font-style:italic"> sorted</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">tasks</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">values</span><span style="color:#7C7F93">(),</span><span style="color:#E64553;font-style:italic"> key</span><span style="color:#179299">=</span><span style="color:#8839EF">lambda</span><span style="color:#E64553;font-style:italic"> t</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> t</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">created_at</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            counts</span><span style="color:#7C7F93">[</span><span style="color:#E64553;font-style:italic">task</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">status</span><span style="color:#7C7F93">]</span><span style="color:#179299"> =</span><span style="color:#4C4F69"> counts</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">get</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">task</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">status</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">)</span><span style="color:#179299"> +</span><span style="color:#FE640B"> 1</span></span>
+<span class="line"><span style="color:#4C4F69">            icon </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span><span style="color:#40A02B">"pending"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "○"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "in_progress"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "◐"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "done"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "✓"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "failed"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "✗"</span><span style="color:#7C7F93">}[</span><span style="color:#4C4F69">task</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">status</span><span style="color:#7C7F93">]</span></span>
+<span class="line"><span style="color:#4C4F69">            deps_info </span><span style="color:#179299">=</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">" [deps: </span><span style="color:#EA76CB">{</span><span style="color:#40A02B">','</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">join</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">task</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">deps</span><span style="color:#7C7F93">)</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">]"</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> task</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">deps </span><span style="color:#8839EF">else</span><span style="color:#40A02B"> ""</span></span>
+<span class="line"><span style="color:#4C4F69">            lines</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">append</span><span style="color:#7C7F93">(</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"  </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">icon</span><span style="color:#EA76CB">}</span><span style="color:#40A02B"> [</span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">task</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">id</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">] </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">task</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">title</span><span style="color:#EA76CB">}{</span><span style="color:#4C4F69">deps_info</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#8839EF">            if</span><span style="color:#4C4F69"> task</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">result</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">                lines</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">append</span><span style="color:#7C7F93">(</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"      → </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">task</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">result</span><span style="color:#7C7F93">[:</span><span style="color:#FE640B;font-style:italic">80</span><span style="color:#7C7F93">]</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">        lines</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">append</span><span style="color:#7C7F93">(</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">Ready to execute: </span><span style="color:#EA76CB">{</span><span style="color:#7C7F93">[</span><span style="color:#4C4F69">t</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">id </span><span style="color:#8839EF">for</span><span style="color:#4C4F69"> t </span><span style="color:#8839EF">in</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">get_ready_tasks</span><span style="color:#7C7F93">()]</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B"> "</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">join</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">lines</span><span style="color:#7C7F93">)</span></span></code></pre><h3 id="工具接口">工具接口</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#4C4F69">task_system </span><span style="color:#179299">=</span><span style="color:#1E66F5"> TaskSystem</span><span style="color:#7C7F93">()</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">TOOL_HANDLERS</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">update</span><span style="color:#7C7F93">({</span></span>
+<span class="line"><span style="color:#40A02B">    "task_create"</span><span style="color:#7C7F93">:</span><span style="color:#8839EF"> lambda</span><span style="color:#179299"> **</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">(</span><span style="color:#1E66F5">asdict</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">task_system</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">create_task</span><span style="color:#7C7F93">(</span><span style="color:#179299">**</span><span style="color:#4C4F69">kw</span><span style="color:#7C7F93">))),</span></span>
+<span class="line"><span style="color:#40A02B">    "task_update"</span><span style="color:#7C7F93">:</span><span style="color:#8839EF"> lambda</span><span style="color:#179299"> **</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> task_system</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">update_status</span><span style="color:#7C7F93">(</span><span style="color:#179299">**</span><span style="color:#4C4F69">kw</span><span style="color:#7C7F93">),</span></span>
+<span class="line"><span style="color:#40A02B">    "task_list"</span><span style="color:#7C7F93">:</span><span style="color:#8839EF">   lambda</span><span style="color:#179299"> **</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> task_system</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">get_status_summary</span><span style="color:#7C7F93">(),</span></span>
+<span class="line"><span style="color:#7C7F93">})</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 注册三个工具到 TOOLS 列表（task_create / task_update / task_list）</span></span></code></pre><h3 id="系统-prompt-注入任务状态">系统 Prompt 注入任务状态</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">def</span><span style="color:#1E66F5;font-style:italic"> build_system_prompt</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"""You are a persistent engineering agent at </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">WORKDIR</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">.</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EA76CB">{</span><span style="color:#4C4F69">task_system</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">get_status_summary</span><span style="color:#7C7F93">()</span><span style="color:#EA76CB">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">Instructions:</span></span>
+<span class="line"><span style="color:#40A02B">- Use task_create to break work into tracked tasks with dependencies</span></span>
+<span class="line"><span style="color:#40A02B">- Use task_update to mark progress as you work</span></span>
+<span class="line"><span style="color:#40A02B">- Always execute ready tasks (dependencies satisfied) next</span></span>
+<span class="line"><span style="color:#40A02B">- After restart, check task_list to resume from where you left off"""</span></span></code></pre><h3 id="跨会话恢复演示">跨会话恢复演示</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># 第一次运行</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">s07</span><span style="color:#179299"> >></span><span style="color:#40A02B"> build</span><span style="color:#40A02B"> a</span><span style="color:#40A02B"> REST</span><span style="color:#40A02B"> API</span><span style="color:#40A02B"> for</span><span style="color:#40A02B"> a</span><span style="color:#40A02B"> todo</span><span style="color:#40A02B"> app</span><span style="color:#40A02B"> with</span><span style="color:#40A02B"> SQLite</span><span style="color:#40A02B"> backend</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># Agent 创建任务图：</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># ○ [t001] 安装依赖 (fastapi, sqlite3)</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># ○ [t002] 初始化 SQLite 数据库 [deps: t001]</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># ○ [t003] 实现 CRUD API [deps: t001, t002]</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># ○ [t004] 写测试 [deps: t003]</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># ○ [t005] 写 README [deps: t003]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># ... Agent 完成 t001, t002 后中断 ...</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 第二次运行（无需告诉 Agent 之前做了什么）</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">s07</span><span style="color:#179299"> >></span><span style="color:#40A02B"> continue</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># Agent 读取任务状态，自动继续：</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># ✓ [t001] 安装依赖 — done</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># ✓ [t002] 初始化 SQLite 数据库 — done</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># ◐ [t003] 实现 CRUD API — 开始执行...</span></span></code></pre><hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课学习<strong>第8课：Background Tasks — 非阻塞异步操作</strong>。某些任务（构建、部署、长时间测试）执行时间很长，不应阻塞 Agent 主循环。Background Tasks 让 Agent 把这类任务扔到后台执行，同时继续其他工作，之后查询结果。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/lcc-06-compression.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第6课：Context Compression</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/lcc-08-background.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第8课：Background Tasks</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a内存-todos03-方案">方案 A：内存 Todo（s03 方案）</a></li><li class="lvl-3"><a href="#方案-b纯文本任务文件">方案 B：纯文本任务文件</a></li><li class="lvl-3"><a href="#方案-cjson-依赖图推荐">方案 C：JSON 依赖图（推荐）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#tasksystem-实现">TaskSystem 实现</a></li><li class="lvl-3"><a href="#工具接口">工具接口</a></li><li class="lvl-3"><a href="#系统-prompt-注入任务状态">系统 Prompt 注入任务状态</a></li><li class="lvl-3"><a href="#跨会话恢复演示">跨会话恢复演示</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

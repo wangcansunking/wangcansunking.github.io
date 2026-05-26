@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第7课：模型选型指南 — 多 LLM 接入实战</title>
+  <meta name="description" content="场景 × 成本 × 能力决策矩阵">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-cyan">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-cyan">
+      <div class="crumb">
+        <div class="crumb-icon">LM</div>
+        <div class="crumb-text">多 LLM 接入实战</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ml-01-openai.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">OpenAI API</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-02-deepseek.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">DeepSeek</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-03-gemini.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Google Gemini</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-04-kimi.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Kimi (Moonshot)</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-05-minimax.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MiniMax</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-06-unified.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">统一接口层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-07-selection.html" class="active">
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">模型选型指南</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ml-08-fallback.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Fallback 与多模型协作</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ml-01-openai.html" class="current">多 LLM 接入实战</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">07</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第7课：模型选型指南</div>
+          <div class="desc">场景 × 成本 × 能力决策矩阵</div>
+          <div class="tags">
+            <span class="tag">llm</span><span class="tag">architecture</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">07_model_selection.md</code></span>
+            <span>📏 593 行</span>
+            <span style="opacity:0.7;">multi-llm/lessons/07_model_selection.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第7课：模型选型 — 什么任务用什么模型</h1>
+<h2 id="介绍">介绍</h2>
+<p>2025 年可用的 LLM 超过 100 个，盲目使用同一个模型要么浪费成本要么效果不够好。本课建立系统的模型选型框架：能力矩阵、成本对比、场景决策树，并实现 <code>ModelRouter</code> 自动根据任务上下文选择最优模型。</p>
+<p><strong>核心问题</strong>：一个高质量任务可能需要 $5/1M token 的 Claude Opus，但简单分类任务用 $0.15/1M 的 GPT-4o-mini 就够了。如果全部用同一个模型，成本可能相差 <strong>30 倍</strong>。</p>
+<hr>
+<h2 id="整体架构modelrouter-决策流程">整体架构：ModelRouter 决策流程</h2>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    A[任务输入 TaskContext] --&gt; B{hasImages?}
+    B --&gt;|是| C[gpt-4o\n或 gemini-2.5-pro]
+    B --&gt;|否| D{requiresLongContext?\n输入 &gt; 128K tokens}
+    D --&gt;|是| E[gemini-2.0-flash\n1M 上下文窗口]
+    D --&gt;|否| F{language = zh?\n且非代码/数学任务}
+    F --&gt;|是| G[deepseek-chat\n中文最强 + 极便宜]
+    F --&gt;|否| H{type = math\n或逻辑推理?}
+    H --&gt;|是| I[o3-mini\n推理专项优化]
+    H --&gt;|否| J{type = simple_qa\n或 classification?}
+    J --&gt;|是| K[gpt-4o-mini\n成本最低]
+    J --&gt;|否| L{type = code\n且 quality = high?}
+    L --&gt;|是| M[claude-opus-4-6\n代码能力最强]
+    L --&gt;|否| N{type = code\n或 analysis\n或 creative?}
+    N --&gt;|是| O[claude-sonnet-4-6\n均衡生产任务]
+    N --&gt;|否| P[claude-sonnet-4-6\n默认兜底]
+
+    Q{成本约束\nmaxCostPer1M\n超出预算?} --&gt;|是，中文| R[降级: deepseek-chat]
+    Q --&gt;|是，英文| S[降级: gpt-4o-mini]
+
+    style C fill:#dbeafe,stroke:#93c5fd
+    style E fill:#dcfce7,stroke:#86efac
+    style G fill:#fef9c3,stroke:#fbbf24
+    style I fill:#e0f2fe,stroke:#7dd3fc
+    style K fill:#f0fdf4,stroke:#6ee7b7
+    style M fill:#fce7f3,stroke:#f9a8d4
+    style O fill:#ede9fe,stroke:#c4b5fd</pre></div><blockquote>
+<p><strong>决策优先级</strong>：多模态 &gt; 长上下文 &gt; 语言特化 &gt; 任务类型 &gt; 质量要求 &gt; 成本约束</p>
+</blockquote>
+<hr>
+<h2 id="2025-年主流模型价格对比">2025 年主流模型价格对比</h2>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>模型 ID</th>
+<th>提供商</th>
+<th>输入价格/1M</th>
+<th>输出价格/1M</th>
+<th>上下文窗口</th>
+<th>最适合场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Claude Opus 4.6</td>
+<td><code>claude-opus-4-6</code></td>
+<td>Anthropic</td>
+<td>$5.00</td>
+<td>$25.00</td>
+<td>200K</td>
+<td>复杂代码 / 深度分析</td>
+</tr>
+<tr>
+<td>Claude Sonnet 4.6</td>
+<td><code>claude-sonnet-4-6</code></td>
+<td>Anthropic</td>
+<td>$3.00</td>
+<td>$15.00</td>
+<td>200K</td>
+<td>均衡生产任务</td>
+</tr>
+<tr>
+<td>Claude Haiku 4.5</td>
+<td><code>claude-haiku-4-5</code></td>
+<td>Anthropic</td>
+<td>$1.00</td>
+<td>$5.00</td>
+<td>200K</td>
+<td>简单任务 / 高并发</td>
+</tr>
+<tr>
+<td>GPT-4o</td>
+<td><code>gpt-4o</code></td>
+<td>OpenAI</td>
+<td>$2.50</td>
+<td>$10.00</td>
+<td>128K</td>
+<td>多模态 / 英文任务</td>
+</tr>
+<tr>
+<td>GPT-4o mini</td>
+<td><code>gpt-4o-mini</code></td>
+<td>OpenAI</td>
+<td>$0.15</td>
+<td>$0.60</td>
+<td>128K</td>
+<td>分类 / 翻译 / 简单 QA</td>
+</tr>
+<tr>
+<td>o3-mini</td>
+<td><code>o3-mini</code></td>
+<td>OpenAI</td>
+<td>$3.00</td>
+<td>$12.00</td>
+<td>200K</td>
+<td>数学 / 逻辑推理</td>
+</tr>
+<tr>
+<td>DeepSeek-V3</td>
+<td><code>deepseek-chat</code></td>
+<td>DeepSeek</td>
+<td>$0.27</td>
+<td>$1.10</td>
+<td>64K</td>
+<td>中文任务 / 代码</td>
+</tr>
+<tr>
+<td>DeepSeek-R1</td>
+<td><code>deepseek-reasoner</code></td>
+<td>DeepSeek</td>
+<td>$0.55</td>
+<td>$2.19</td>
+<td>64K</td>
+<td>复杂推理</td>
+</tr>
+<tr>
+<td>Gemini 2.0 Flash</td>
+<td><code>gemini-2.0-flash</code></td>
+<td>Google</td>
+<td>$0.10</td>
+<td>$0.40</td>
+<td>1M</td>
+<td>超长文档 / 多模态</td>
+</tr>
+<tr>
+<td>Gemini 2.5 Pro</td>
+<td><code>gemini-2.5-pro</code></td>
+<td>Google</td>
+<td>$1.25</td>
+<td>$10.00</td>
+<td>2M</td>
+<td>最强多模态推理</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>价格说明</strong>：以上为 2025 年参考定价（美元/百万 Token）。各提供商可能有缓存折扣、批量折扣等优惠政策，实际成本以官网为准。</p>
+</blockquote>
+<hr>
+<h2 id="任务类型-模型选择矩阵">任务类型 × 模型选择矩阵</h2>
+<table>
+<thead>
+<tr>
+<th>任务类型</th>
+<th>首选模型</th>
+<th>次选模型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>简单问答 / 分类</td>
+<td><code>gpt-4o-mini</code></td>
+<td><code>claude-haiku-4-5</code></td>
+<td>成本最低，速度最快</td>
+</tr>
+<tr>
+<td>代码生成（高质量）</td>
+<td><code>claude-opus-4-6</code></td>
+<td><code>gpt-4o</code></td>
+<td>Opus 代码最强，比旧版 opus-3 便宜 60%</td>
+</tr>
+<tr>
+<td>代码生成（普通）</td>
+<td><code>claude-sonnet-4-6</code></td>
+<td><code>deepseek-chat</code></td>
+<td>质量 / 成本均衡</td>
+</tr>
+<tr>
+<td>数学 / 逻辑推理</td>
+<td><code>o3-mini</code></td>
+<td><code>deepseek-reasoner</code></td>
+<td>推理专项，优于通用模型</td>
+</tr>
+<tr>
+<td>中文内容处理</td>
+<td><code>deepseek-chat</code></td>
+<td><code>claude-sonnet-4-6</code></td>
+<td>中文最强且比 GPT-4o 便宜 90%</td>
+</tr>
+<tr>
+<td>超长文档（&gt;128K）</td>
+<td><code>gemini-2.0-flash</code></td>
+<td><code>gemini-2.5-pro</code></td>
+<td>只有 Gemini 支持 1M+ 上下文</td>
+</tr>
+<tr>
+<td>图像 / 多模态</td>
+<td><code>gpt-4o</code></td>
+<td><code>gemini-2.5-pro</code></td>
+<td>原生多模态支持</td>
+</tr>
+<tr>
+<td>创意写作</td>
+<td><code>claude-sonnet-4-6</code></td>
+<td><code>claude-opus-4-6</code></td>
+<td>Claude 写作风格最自然</td>
+</tr>
+<tr>
+<td>翻译（中英）</td>
+<td><code>deepseek-chat</code></td>
+<td><code>gpt-4o-mini</code></td>
+<td>中文翻译优先 DeepSeek</td>
+</tr>
+<tr>
+<td>摘要提取</td>
+<td><code>claude-haiku-4-5</code></td>
+<td><code>gpt-4o-mini</code></td>
+<td>快速低成本，质量足够</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>所有任务使用同一个模型，导致成本浪费或质量不足：</p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    T{任务类型} --&gt;|简单问答/分类| H[Claude Haiku 4.5 / GPT-4o-mini\n成本最低，速度最快]
+    T --&gt;|代码生成/调试| O[Claude Opus 4.6 / Sonnet 4.6\n代码能力最强]
+    T --&gt;|数学/逻辑推理| R[o3-mini / DeepSeek-R1\n推理专项优化]
+    T --&gt;|超长文档处理| G[Gemini 2.0 Flash\n1M Token 上下文]
+    T --&gt;|中文内容处理| D[DeepSeek V3\n中文最强 + 极便宜]
+    T --&gt;|多模态图像| V[GPT-4o / Gemini 2.5 Pro\n原生多模态]
+    T --&gt;|均衡生产任务| S[Claude Sonnet 4.6\n最佳性价比]
+
+    style H fill:#d1fae5,stroke:#6ee7b7
+    style D fill:#fef9c3,stroke:#fbbf24
+    style R fill:#e0f2fe,stroke:#7dd3fc</pre></div><p><strong>典型痛点</strong>：</p>
+<ul>
+<li>用 Claude Opus 做简单翻译：单次调用成本是 GPT-4o-mini 的 <strong>30 倍</strong></li>
+<li>用 GPT-4o-mini 做复杂代码 Review：质量不够，返工成本更高</li>
+<li>用 GPT-4o 处理 200K 字长文档：128K 上下文窗口不够用，直接报错</li>
+<li>用英文模型处理中文：输出质量明显下降，且 token 消耗更多</li>
+</ul>
+<hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a手动规则路由">方案 A：手动规则路由</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> selectModel</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">task</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> type</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> hasImages</span><span style="color:#179299">?:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93"> })</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (task</span><span style="color:#179299">.</span><span style="color:#4C4F69">hasImages) </span><span style="color:#8839EF">return</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (task</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "math"</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">return</span><span style="color:#40A02B"> "o3-mini"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (task</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "simple_qa"</span><span style="color:#4C4F69">) </span><span style="color:#8839EF">return</span><span style="color:#40A02B"> "claude-haiku-4-5"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#40A02B"> "claude-sonnet-4-6"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>✅ 可预测，零额外成本
+❌ 需要手动维护，新模型上线要更新规则
+❌ 只考虑了任务类型，忽略语言、输入长度等维度</p>
+<h3 id="方案-b基于成本约束的自动选择">方案 B：基于成本约束的自动选择</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 自动选择满足质量要求且成本最低的模型</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> model </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> selectCheapestModelMeetingQuality</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">  taskType</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  maxCostPer1M: </span><span style="color:#FE640B">2.0</span></span>
+<span class="line"><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>✅ 自动平衡质量和成本
+❌ 质量要求难以量化为具体数值
+❌ 无法处理能力边界（如超长上下文、多模态）</p>
+<h3 id="方案-c上下文感知路由推荐">方案 C：上下文感知路由（推荐）</h3>
+<p>综合考虑任务类型、输入长度、是否有图像、语言、成本预算，实现 <code>ModelRouter</code>。</p>
+<p>✅ 多维度决策，覆盖边界情况
+✅ 可扩展，新增规则无需重构
+✅ 支持成本约束降级，保证服务可用</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p>选择<strong>方案 C</strong>，实现 <code>ModelRouter</code> 类。生产环境中 90% 的调用可以通过任务类型和几个关键维度做出正确的模型选择，剩余 10% 的特殊场景通过显式参数覆盖。</p>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="model_catalogts">model_catalog.ts</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/router/model_catalog.ts</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> ModelConfig</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  provider</span><span style="color:#179299">:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">anthropic</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">openai</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">deepseek</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">google</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  inputCostPer1M</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 美元/百万 Token</span></span>
+<span class="line"><span style="color:#4C4F69">  outputCostPer1M</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  contextWindow</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  strengths</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> MODEL_CATALOG</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> ModelConfig</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // Anthropic（2025 最新定价）</span></span>
+<span class="line"><span style="color:#40A02B">  "claude-opus-4-6"</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    provider</span><span style="color:#179299">:</span><span style="color:#40A02B"> "anthropic"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "claude-opus-4-6"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    inputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 5</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    outputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 25</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contextWindow</span><span style="color:#179299">:</span><span style="color:#FE640B"> 200_000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    strengths</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"code"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "analysis"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "complex_reasoning"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "writing"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#40A02B">  "claude-sonnet-4-6"</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    provider</span><span style="color:#179299">:</span><span style="color:#40A02B"> "anthropic"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "claude-sonnet-4-6"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    inputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 3</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    outputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 15</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contextWindow</span><span style="color:#179299">:</span><span style="color:#FE640B"> 200_000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    strengths</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"analysis"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "writing"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "balanced"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#40A02B">  "claude-haiku-4-5"</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    provider</span><span style="color:#179299">:</span><span style="color:#40A02B"> "anthropic"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "claude-haiku-4-5"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    inputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    outputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 5</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contextWindow</span><span style="color:#179299">:</span><span style="color:#FE640B"> 200_000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    strengths</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"simple_qa"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "classification"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "translation"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "speed"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // OpenAI</span></span>
+<span class="line"><span style="color:#40A02B">  "gpt-4o"</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    provider</span><span style="color:#179299">:</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    inputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2.5</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    outputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 10</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contextWindow</span><span style="color:#179299">:</span><span style="color:#FE640B"> 128_000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    strengths</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"vision"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "multimodal"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "code"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "balanced"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#40A02B">  "gpt-4o-mini"</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    provider</span><span style="color:#179299">:</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o-mini"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    inputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.15</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    outputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.6</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contextWindow</span><span style="color:#179299">:</span><span style="color:#FE640B"> 128_000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    strengths</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"simple_qa"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "classification"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "cost_sensitive"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#40A02B">  "o3-mini"</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    provider</span><span style="color:#179299">:</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "o3-mini"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    inputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 3</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    outputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 12</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contextWindow</span><span style="color:#179299">:</span><span style="color:#FE640B"> 200_000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    strengths</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"math"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "logic"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "code"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "reasoning"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // DeepSeek</span></span>
+<span class="line"><span style="color:#40A02B">  "deepseek-chat"</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    provider</span><span style="color:#179299">:</span><span style="color:#40A02B"> "deepseek"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "deepseek-chat"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    inputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.27</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    outputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1.10</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contextWindow</span><span style="color:#179299">:</span><span style="color:#FE640B"> 64_000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    strengths</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"chinese"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "code"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "cost_sensitive"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#40A02B">  "deepseek-reasoner"</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    provider</span><span style="color:#179299">:</span><span style="color:#40A02B"> "deepseek"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "deepseek-reasoner"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    inputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.55</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    outputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2.19</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contextWindow</span><span style="color:#179299">:</span><span style="color:#FE640B"> 64_000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    strengths</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"math"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "reasoning"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "chinese"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // Google</span></span>
+<span class="line"><span style="color:#40A02B">  "gemini-2.0-flash"</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    provider</span><span style="color:#179299">:</span><span style="color:#40A02B"> "google"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gemini-2.0-flash"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    inputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.1</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    outputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.4</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contextWindow</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1_000_000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    strengths</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"long_context"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "cost_sensitive"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "speed"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "multimodal"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#40A02B">  "gemini-2.5-pro"</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    provider</span><span style="color:#179299">:</span><span style="color:#40A02B"> "google"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gemini-2.5-pro"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    inputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1.25</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    outputCostPer1M</span><span style="color:#179299">:</span><span style="color:#FE640B"> 10</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    contextWindow</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2_000_000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    strengths</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"long_context"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "multimodal"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "reasoning"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "vision"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span></code></pre><h3 id="typests">types.ts</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/router/types.ts</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> type</span><span style="color:#DF8E1D;font-style:italic"> TaskType </span><span style="color:#179299">=</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">simple_qa</span><span style="color:#40A02B">"</span><span style="color:#9CA0B0;font-style:italic">       // 简单问答：今天星期几、翻译单词</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">code</span><span style="color:#40A02B">"</span><span style="color:#9CA0B0;font-style:italic">            // 代码生成、调试、审查</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">analysis</span><span style="color:#40A02B">"</span><span style="color:#9CA0B0;font-style:italic">        // 文档分析、数据分析</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">creative</span><span style="color:#40A02B">"</span><span style="color:#9CA0B0;font-style:italic">        // 创意写作、营销文案</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">math</span><span style="color:#40A02B">"</span><span style="color:#9CA0B0;font-style:italic">            // 数学、逻辑推理</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">translation</span><span style="color:#40A02B">"</span><span style="color:#9CA0B0;font-style:italic">     // 翻译</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">classification</span><span style="color:#40A02B">"</span><span style="color:#9CA0B0;font-style:italic">  // 分类、打标签</span></span>
+<span class="line"><span style="color:#179299">  |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">summarization</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 摘要</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> TaskContext</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  type</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> TaskType</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  inputLength</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">           // 输入字符数（估算 Token 数 ≈ 字符数 / 3）</span></span>
+<span class="line"><span style="color:#4C4F69">  hasImages</span><span style="color:#179299">?:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  requiresLongContext</span><span style="color:#179299">?:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 是否需要超过 128K Token 的上下文</span></span>
+<span class="line"><span style="color:#4C4F69">  language</span><span style="color:#179299">?:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">zh</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">en</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">mixed</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  maxCostPer1MTokens</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">    // 成本约束（美元）</span></span>
+<span class="line"><span style="color:#4C4F69">  qualityRequirement</span><span style="color:#179299">?:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">high</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">medium</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">low</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 自动检测任务上下文（基于输入文本）</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> detectTaskContext</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Partial</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">TaskContext</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> lower </span><span style="color:#179299">=</span><span style="color:#4C4F69"> input</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toLowerCase</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 语言检测</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> chineseChars </span><span style="color:#179299">=</span><span style="color:#4C4F69"> (input</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">match</span><span style="color:#4C4F69">(</span><span style="color:#EA76CB">/</span><span style="color:#DF8E1D">[</span><span style="color:#FE640B">\u4e00</span><span style="color:#DC8A78">-</span><span style="color:#FE640B">\u9fff</span><span style="color:#DF8E1D">]</span><span style="color:#EA76CB">/</span><span style="color:#8839EF">g</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> [])</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> language</span><span style="color:#179299">:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">zh</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">en</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">mixed</span><span style="color:#40A02B">"</span><span style="color:#179299"> =</span></span>
+<span class="line"><span style="color:#4C4F69">    chineseChars </span><span style="color:#179299">></span><span style="color:#4C4F69"> input</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">*</span><span style="color:#FE640B"> 0.3</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> "zh"</span><span style="color:#179299"> :</span></span>
+<span class="line"><span style="color:#4C4F69">    chineseChars </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> "mixed"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "en"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 任务类型检测</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> TaskType </span><span style="color:#179299">=</span><span style="color:#40A02B"> "simple_qa"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"代码"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"函数"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"实现"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span></span>
+<span class="line"><span style="color:#4C4F69">      lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"code"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"function"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"implement"</span><span style="color:#4C4F69">)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    type </span><span style="color:#179299">=</span><span style="color:#40A02B"> "code"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"分析"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"summarize"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"analyze"</span><span style="color:#4C4F69">)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    type </span><span style="color:#179299">=</span><span style="color:#40A02B"> "analysis"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"翻译"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"translate"</span><span style="color:#4C4F69">)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    type </span><span style="color:#179299">=</span><span style="color:#40A02B"> "translation"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"计算"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"数学"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"calculate"</span><span style="color:#4C4F69">)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    type </span><span style="color:#179299">=</span><span style="color:#40A02B"> "math"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"分类"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"classify"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"categorize"</span><span style="color:#4C4F69">)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    type </span><span style="color:#179299">=</span><span style="color:#40A02B"> "classification"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"摘要"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"总结"</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> lower</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"summarize"</span><span style="color:#4C4F69">)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    type </span><span style="color:#179299">=</span><span style="color:#40A02B"> "summarization"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    inputLength</span><span style="color:#179299">:</span><span style="color:#4C4F69"> input</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    language</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    requiresLongContext</span><span style="color:#179299">:</span><span style="color:#4C4F69"> input</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 300_000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="model_routerts">model_router.ts</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/router/model_router.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Anthropic </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "@anthropic-ai/sdk"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> MODEL_CATALOG </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./model_catalog"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#8839EF"> type</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> TaskContext </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./types"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> RouteResult</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  content</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  inputTokens</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  outputTokens</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  estimatedCost</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> ModelRouter</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> anthropic </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Anthropic</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">ANTHROPIC_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> openai </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> usageLog</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Array</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69;font-style:italic"> model</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> cost</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> timestamp</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> }</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  selectModel</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">ctx</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> TaskContext</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 优先规则（强制覆盖）：能力边界优先于成本</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">hasImages) </span><span style="color:#8839EF">return</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">requiresLongContext) </span><span style="color:#8839EF">return</span><span style="color:#40A02B"> "gemini-2.0-flash"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 中文任务优先 DeepSeek（中文最强且最便宜）</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 注意：代码和数学任务即使是中文，也优先用专项模型</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">language </span><span style="color:#179299">===</span><span style="color:#40A02B"> "zh"</span><span style="color:#179299"> &#x26;&#x26;</span><span style="color:#4C4F69"> ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">!==</span><span style="color:#40A02B"> "code"</span><span style="color:#179299"> &#x26;&#x26;</span><span style="color:#4C4F69"> ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">!==</span><span style="color:#40A02B"> "math"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#40A02B"> "deepseek-chat"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 按任务类型选择基础模型</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> taskModelMap</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> string</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      simple_qa</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o-mini"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      classification</span><span style="color:#179299">:</span><span style="color:#4C4F69"> ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">language </span><span style="color:#179299">===</span><span style="color:#40A02B"> "zh"</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> "deepseek-chat"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "gpt-4o-mini"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      translation</span><span style="color:#179299">:</span><span style="color:#4C4F69"> ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">language </span><span style="color:#179299">===</span><span style="color:#40A02B"> "zh"</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> "deepseek-chat"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "claude-haiku-4-5"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      summarization</span><span style="color:#179299">:</span><span style="color:#40A02B"> "claude-haiku-4-5"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      code</span><span style="color:#179299">:</span><span style="color:#40A02B"> "claude-sonnet-4-6"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">       // 默认 Sonnet，高质量要求升级到 Opus</span></span>
+<span class="line"><span style="color:#4C4F69">      math</span><span style="color:#179299">:</span><span style="color:#40A02B"> "o3-mini"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      analysis</span><span style="color:#179299">:</span><span style="color:#40A02B"> "claude-sonnet-4-6"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      creative</span><span style="color:#179299">:</span><span style="color:#40A02B"> "claude-sonnet-4-6"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> selected </span><span style="color:#179299">=</span><span style="color:#4C4F69"> taskModelMap[ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">type] </span><span style="color:#179299">||</span><span style="color:#40A02B"> "claude-sonnet-4-6"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 质量要求调整</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">qualityRequirement </span><span style="color:#179299">===</span><span style="color:#40A02B"> "high"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "code"</span><span style="color:#179299"> ||</span><span style="color:#4C4F69"> ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "analysis"</span><span style="color:#179299"> ||</span><span style="color:#4C4F69"> ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "creative"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        selected </span><span style="color:#179299">=</span><span style="color:#40A02B"> "claude-opus-4-6"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">qualityRequirement </span><span style="color:#179299">===</span><span style="color:#40A02B"> "low"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> ([</span><span style="color:#40A02B">"analysis"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "code"</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">type)) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        selected </span><span style="color:#179299">=</span><span style="color:#40A02B"> "gpt-4o-mini"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 成本约束降级：当所选模型超出预算时，切换到便宜备选</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxCostPer1MTokens </span><span style="color:#179299">!==</span><span style="color:#8839EF"> undefined</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> config </span><span style="color:#179299">=</span><span style="color:#4C4F69"> MODEL_CATALOG[selected]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (config </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> config</span><span style="color:#179299">.</span><span style="color:#4C4F69">inputCostPer1M </span><span style="color:#179299">></span><span style="color:#4C4F69"> ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxCostPer1MTokens) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        // 中英文选择不同的降级模型</span></span>
+<span class="line"><span style="color:#4C4F69">        selected </span><span style="color:#179299">=</span><span style="color:#4C4F69"> ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">language </span><span style="color:#179299">===</span><span style="color:#40A02B"> "zh"</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> "deepseek-chat"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "gpt-4o-mini"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> selected</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> route</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    messages</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> role</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> content</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> }</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    ctx</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> TaskContext</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">RouteResult</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> modelId </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">selectModel</span><span style="color:#4C4F69">(ctx)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> config </span><span style="color:#179299">=</span><span style="color:#4C4F69"> MODEL_CATALOG[modelId]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">config) </span><span style="color:#8839EF">throw</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`未知模型: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">modelId</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[ModelRouter] 模型: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">modelId</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">（任务: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">type</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">，语言: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">language</span><span style="color:#179299"> ||</span><span style="color:#40A02B"> "en"</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">）`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> inputTokens </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">ceil</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">reduce</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">sum</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> sum </span><span style="color:#179299">+</span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#179299">/</span><span style="color:#FE640B"> 3</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> content </span><span style="color:#179299">=</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (config</span><span style="color:#179299">.</span><span style="color:#4C4F69">provider </span><span style="color:#179299">===</span><span style="color:#40A02B"> "anthropic"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> systemMsg </span><span style="color:#179299">=</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">find</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">role </span><span style="color:#179299">===</span><span style="color:#40A02B"> "system"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> userMessages </span><span style="color:#179299">=</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">m</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> m</span><span style="color:#179299">.</span><span style="color:#4C4F69">role </span><span style="color:#179299">!==</span><span style="color:#40A02B"> "system"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">anthropic</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> modelId</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        system</span><span style="color:#179299">:</span><span style="color:#4C4F69"> systemMsg</span><span style="color:#179299">?.</span><span style="color:#4C4F69">content</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userMessages </span><span style="color:#8839EF">as</span><span style="color:#DF8E1D;font-style:italic"> Anthropic</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">MessageParam[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      content </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">content[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "text"</span><span style="color:#179299"> ?</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">content[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">text </span><span style="color:#179299">:</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> else</span><span style="color:#8839EF"> if</span><span style="color:#4C4F69"> (config</span><span style="color:#179299">.</span><span style="color:#4C4F69">provider </span><span style="color:#179299">===</span><span style="color:#40A02B"> "openai"</span><span style="color:#179299"> ||</span><span style="color:#4C4F69"> config</span><span style="color:#179299">.</span><span style="color:#4C4F69">provider </span><span style="color:#179299">===</span><span style="color:#40A02B"> "deepseek"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> client </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> config</span><span style="color:#179299">.</span><span style="color:#4C4F69">provider </span><span style="color:#179299">===</span><span style="color:#40A02B"> "deepseek"</span></span>
+<span class="line"><span style="color:#179299">          ?</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">DEEPSEEK_API_KEY</span></span>
+<span class="line"><span style="color:#179299">          :</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        baseURL</span><span style="color:#179299">:</span><span style="color:#4C4F69"> config</span><span style="color:#179299">.</span><span style="color:#4C4F69">provider </span><span style="color:#179299">===</span><span style="color:#40A02B"> "deepseek"</span></span>
+<span class="line"><span style="color:#179299">          ?</span><span style="color:#40A02B"> "https://api.deepseek.com/v1"</span></span>
+<span class="line"><span style="color:#179299">          :</span><span style="color:#8839EF"> undefined</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> modelId</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2048</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> messages </span><span style="color:#8839EF">as</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionMessageParam[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        temperature</span><span style="color:#179299">:</span><span style="color:#4C4F69"> ctx</span><span style="color:#179299">.</span><span style="color:#4C4F69">type </span><span style="color:#179299">===</span><span style="color:#40A02B"> "math"</span><span style="color:#179299"> ?</span><span style="color:#FE640B"> 0.1</span><span style="color:#179299"> :</span><span style="color:#FE640B"> 0.7</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      content </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">||</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> outputTokens </span><span style="color:#179299">=</span><span style="color:#4C4F69"> Math</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">ceil</span><span style="color:#4C4F69">(content</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">/</span><span style="color:#FE640B"> 3</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> estimatedCost </span><span style="color:#179299">=</span></span>
+<span class="line"><span style="color:#4C4F69">      (inputTokens </span><span style="color:#179299">/</span><span style="color:#FE640B"> 1_000_000</span><span style="color:#4C4F69">) </span><span style="color:#179299">*</span><span style="color:#4C4F69"> config</span><span style="color:#179299">.</span><span style="color:#4C4F69">inputCostPer1M </span><span style="color:#179299">+</span></span>
+<span class="line"><span style="color:#4C4F69">      (outputTokens </span><span style="color:#179299">/</span><span style="color:#FE640B"> 1_000_000</span><span style="color:#4C4F69">) </span><span style="color:#179299">*</span><span style="color:#4C4F69"> config</span><span style="color:#179299">.</span><span style="color:#4C4F69">outputCostPer1M</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">usageLog</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> modelId</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> cost</span><span style="color:#179299">:</span><span style="color:#4C4F69"> estimatedCost</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> timestamp</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">() </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> content</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model</span><span style="color:#179299">:</span><span style="color:#4C4F69"> modelId</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> inputTokens</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> outputTokens</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> estimatedCost </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 成本报告</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  printCostReport</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> byModel </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Map</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> calls</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> cost</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> }</span><span style="color:#04A5E5">></span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> entry </span><span style="color:#8839EF">of</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">usageLog) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> stats </span><span style="color:#179299">=</span><span style="color:#4C4F69"> byModel</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">model) </span><span style="color:#179299">||</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> calls</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> cost</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#4C4F69">      stats</span><span style="color:#179299">.</span><span style="color:#4C4F69">calls</span><span style="color:#179299">++</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      stats</span><span style="color:#179299">.</span><span style="color:#4C4F69">cost </span><span style="color:#179299">+=</span><span style="color:#4C4F69"> entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">cost</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      byModel</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">set</span><span style="color:#4C4F69">(entry</span><span style="color:#179299">.</span><span style="color:#4C4F69">model</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> stats)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 成本报告 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    let</span><span style="color:#4C4F69"> totalCost </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#7C7F93"> [</span><span style="color:#4C4F69">model</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> stats</span><span style="color:#7C7F93">]</span><span style="color:#8839EF"> of</span><span style="color:#4C4F69"> byModel) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">model</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">stats</span><span style="color:#179299">.</span><span style="color:#4C4F69">calls</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 次调用，$</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">stats</span><span style="color:#179299">.</span><span style="color:#4C4F69">cost</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">6</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      totalCost </span><span style="color:#179299">+=</span><span style="color:#4C4F69"> stats</span><span style="color:#179299">.</span><span style="color:#4C4F69">cost</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`总成本：$</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">totalCost</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">6</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="demots">demo.ts</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/router/demo.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> ModelRouter </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./model_router"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> MODEL_CATALOG </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./model_catalog"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> detectTaskContext </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./types"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">function</span><span style="color:#1E66F5;font-style:italic"> estimateMonthlyCost</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  dailyRequests</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  avgInputTokens</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  avgOutputTokens</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  modelId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> config </span><span style="color:#179299">=</span><span style="color:#4C4F69"> MODEL_CATALOG[modelId]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">config) </span><span style="color:#8839EF">return</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> dailyCost </span><span style="color:#179299">=</span></span>
+<span class="line"><span style="color:#4C4F69">    (dailyRequests </span><span style="color:#179299">*</span><span style="color:#4C4F69"> avgInputTokens </span><span style="color:#179299">/</span><span style="color:#FE640B"> 1_000_000</span><span style="color:#4C4F69">) </span><span style="color:#179299">*</span><span style="color:#4C4F69"> config</span><span style="color:#179299">.</span><span style="color:#4C4F69">inputCostPer1M </span><span style="color:#179299">+</span></span>
+<span class="line"><span style="color:#4C4F69">    (dailyRequests </span><span style="color:#179299">*</span><span style="color:#4C4F69"> avgOutputTokens </span><span style="color:#179299">/</span><span style="color:#FE640B"> 1_000_000</span><span style="color:#4C4F69">) </span><span style="color:#179299">*</span><span style="color:#4C4F69"> config</span><span style="color:#179299">.</span><span style="color:#4C4F69">outputCostPer1M</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">modelId</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">: 日 $</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">dailyCost</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">2</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">，月 $</span><span style="color:#7C7F93">${</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">dailyCost</span><span style="color:#179299"> *</span><span style="color:#FE640B"> 30</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">2</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runDemo</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> router </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> ModelRouter</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 演示自动路由</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> testCases </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "今天是星期几？"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      ctx</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "simple_qa"</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "用 TypeScript 实现一个线程安全的 LRU Cache"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      ctx</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "code"</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> qualityRequirement</span><span style="color:#179299">:</span><span style="color:#40A02B"> "high"</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "帮我把这段文字翻译成英文：人工智能正在改变世界"</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      ctx</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "translation"</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> language</span><span style="color:#179299">:</span><span style="color:#40A02B"> "zh"</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "分析这份 50 万字的合同..."</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      ctx</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "analysis"</span><span style="color:#8839EF"> as</span><span style="color:#8839EF"> const</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> requiresLongContext</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tc </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> testCases) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> router</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">route</span><span style="color:#4C4F69">(tc</span><span style="color:#179299">.</span><span style="color:#4C4F69">messages</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> tc</span><span style="color:#179299">.</span><span style="color:#4C4F69">ctx)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  模型: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">model</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">，预估成本: $</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">estimatedCost</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">6</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  回答: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#40A02B">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 80</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">...</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">  router</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">printCostReport</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 成本对比：场景模拟（1万次/天，500 输入 + 200 输出 tokens）</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 场景成本估算（1万次/天，500+200 tokens）==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> models </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"claude-opus-4-6"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "claude-sonnet-4-6"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "claude-haiku-4-5"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "gpt-4o-mini"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "deepseek-chat"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> model </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> models) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    estimateMonthlyCost</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">10_000</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 500</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 200</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 自动检测演示</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 自动任务检测 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> inputs </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#40A02B">    "请帮我分析这段 Python 代码的性能问题"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "今天天气怎么样"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "Prove that sqrt(2) is irrational"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> input </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> inputs) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> detected </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> detectTaskContext</span><span style="color:#4C4F69">(input)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> selectedModel </span><span style="color:#179299">=</span><span style="color:#4C4F69"> router</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">selectModel</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      type</span><span style="color:#179299">:</span><span style="color:#4C4F69"> detected</span><span style="color:#179299">.</span><span style="color:#4C4F69">type</span><span style="color:#179299">!</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      language</span><span style="color:#179299">:</span><span style="color:#4C4F69"> detected</span><span style="color:#179299">.</span><span style="color:#4C4F69">language</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      inputLength</span><span style="color:#179299">:</span><span style="color:#4C4F69"> detected</span><span style="color:#179299">.</span><span style="color:#4C4F69">inputLength</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`输入: "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#40A02B">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 30</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">..."`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  检测: 任务=</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">detected</span><span style="color:#179299">.</span><span style="color:#4C4F69">type</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">, 语言=</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">detected</span><span style="color:#179299">.</span><span style="color:#4C4F69">language</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  选择: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">selectedModel</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">runDemo</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="成本节省计算智能路由-vs-全用同一模型">成本节省计算：智能路由 vs 全用同一模型</h2>
+<p><strong>假设场景</strong>：每天 1 万次请求，平均 500 输入 token + 200 输出 token</p>
+<table>
+<thead>
+<tr>
+<th>策略</th>
+<th>月成本估算</th>
+<th>节省比例</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>全用 GPT-4o</td>
+<td>~$600</td>
+<td>baseline（基准）</td>
+<td>$2.5×0.5M×10K×30 + $10×0.2M×10K×30</td>
+</tr>
+<tr>
+<td>全用 Claude Sonnet 4.6</td>
+<td>~$750</td>
+<td>-25%（更贵）</td>
+<td>输出价格高于 GPT-4o</td>
+</tr>
+<tr>
+<td>全用 Claude Opus 4.6</td>
+<td>~$2,250</td>
+<td>-275%（昂贵）</td>
+<td>只适合高价值任务</td>
+</tr>
+<tr>
+<td>全用 DeepSeek-V3</td>
+<td>~$51</td>
+<td>91% 更便宜</td>
+<td>但不适合所有场景</td>
+</tr>
+<tr>
+<td>全用 GPT-4o-mini</td>
+<td>~$27</td>
+<td>95% 更便宜</td>
+<td>质量最差</td>
+</tr>
+<tr>
+<td><strong>智能路由（推荐）</strong></td>
+<td><strong>~$120</strong></td>
+<td><strong>80% 更便宜</strong></td>
+<td>质量保留 + 成本大幅降低</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>智能路由混合策略</strong>：30% 任务用 gpt-4o-mini（$0.15/$0.6），40% 用 deepseek-chat（$0.27/$1.1），20% 用 claude-sonnet-4-6（$3/$15），10% 用 claude-opus-4-6（$5/$25）。按场景权重加权后月均约 $120。</p>
+</blockquote>
+<hr>
+<h2 id="注意事项">注意事项</h2>
+<table>
+<thead>
+<tr>
+<th>注意点</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>claude-opus-4-6 比旧版 opus-3 便宜很多</td>
+<td>claude-3-opus 定价为 $15/$75，claude-opus-4-6 为 $5/$25，降幅超 60%</td>
+</tr>
+<tr>
+<td>路由逻辑中中文任务优先 DeepSeek</td>
+<td>DeepSeek-V3 中文质量接近 GPT-4o，但价格便宜约 90%</td>
+</tr>
+<tr>
+<td>超长文档（&gt;128K tokens）只有 Gemini 能处理</td>
+<td>GPT-4o 上下文窗口 128K，Claude 200K，Gemini 1M-2M</td>
+</tr>
+<tr>
+<td>成本约束降级时注意中英文差异</td>
+<td>中文降级选 deepseek-chat，英文降级选 gpt-4o-mini，避免用错语言优化的模型</td>
+</tr>
+<tr>
+<td>DeepSeek 上下文仅 64K</td>
+<td>如果任务是中文且超长，需要改用 Gemini，不能因为语言优先而忽略容量限制</td>
+</tr>
+<tr>
+<td>qualityRequirement 只影响特定任务类型</td>
+<td>目前只有 code / analysis / creative 支持 high 升级到 opus；simple_qa 不升级</td>
+</tr>
+<tr>
+<td>模型价格会变动</td>
+<td>MODEL_CATALOG 中的价格应定期更新，建议从配置文件或环境变量读取</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课学习<strong>第8课：Fallback 策略 — 构建不宕机的 AI 服务</strong>。模型选型解决了&quot;选哪个模型&quot;的问题，Fallback 解决&quot;模型挂了怎么办&quot;的问题：指数退避重试、熔断器、多模型故障转移，构建 99.9% 可用的 AI 服务。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ml-06-unified.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第6课：统一接口层</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ml-08-fallback.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第8课：Fallback 与多模型协作</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#整体架构modelrouter-决策流程">整体架构：ModelRouter 决策流程</a></li><li class="lvl-2"><a href="#2025-年主流模型价格对比">2025 年主流模型价格对比</a></li><li class="lvl-2"><a href="#任务类型-模型选择矩阵">任务类型 × 模型选择矩阵</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a手动规则路由">方案 A：手动规则路由</a></li><li class="lvl-3"><a href="#方案-b基于成本约束的自动选择">方案 B：基于成本约束的自动选择</a></li><li class="lvl-3"><a href="#方案-c上下文感知路由推荐">方案 C：上下文感知路由（推荐）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#model_catalogts">model_catalog.ts</a></li><li class="lvl-3"><a href="#typests">types.ts</a></li><li class="lvl-3"><a href="#model_routerts">model_router.ts</a></li><li class="lvl-3"><a href="#demots">demo.ts</a></li><li class="lvl-2"><a href="#成本节省计算智能路由-vs-全用同一模型">成本节省计算：智能路由 vs 全用同一模型</a></li><li class="lvl-2"><a href="#注意事项">注意事项</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

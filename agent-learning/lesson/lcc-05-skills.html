@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第5课：Skill Loading — Agent Harness 工程</title>
+  <meta name="description" content="两层按需加载，Token 消耗最优化">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-indigo">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-indigo">
+      <div class="crumb">
+        <div class="crumb-icon">HC</div>
+        <div class="crumb-text">Agent Harness 工程</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/lcc-01-loop.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-02-tools.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool Dispatch Map</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-03-planning.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">TodoWrite 规划</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-04-subagents.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Subagents</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-05-skills.html" class="active">
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill Loading</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-06-compression.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context Compression</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-07-tasks.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Task System</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-08-background.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Background Tasks</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-09-teams.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Teams</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-10-protocols.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Team Protocols</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-11-autonomous.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Autonomous Agents</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-12-worktree.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Worktree Isolation</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/lcc-01-loop.html" class="current">Agent Harness 工程</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">05</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第5课：Skill Loading</div>
+          <div class="desc">两层按需加载，Token 消耗最优化</div>
+          <div class="tags">
+            <span class="tag">skill</span><span class="tag">advanced</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">05_skill_loading.md</code></span>
+            <span>📏 233 行</span>
+            <span style="opacity:0.7;">learn-claude-code/lessons/05_skill_loading.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第5课：Skill Loading — 按需注入专业知识</h1>
+<h2 id="介绍">介绍</h2>
+<p>把所有领域知识（API 文档、编码规范、操作手册）预加载到系统 prompt 会大量浪费 tokens。本课实现两层 Skill 架构：<strong>层一</strong>只注入技能名称+描述（~100 tokens/条），<strong>层二</strong>在模型请求时才加载完整技能内容。这是 Claude Code Skill 系统的核心设计。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>源码参考：github.com/shareAI-lab/learn-claude-code — agents/s05_skill_loading.py</span></span></code></pre><hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>一个具备 10 个领域技能的 Agent，每个技能文档约 2000 tokens：</p>
+<table>
+<thead>
+<tr>
+<th>策略</th>
+<th>每轮 token 消耗</th>
+<th>问题</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>全部预加载</td>
+<td>20000+ tokens</td>
+<td>贵、慢、超出上下文</td>
+</tr>
+<tr>
+<td>不加载</td>
+<td>0 tokens</td>
+<td>模型不知道如何操作</td>
+</tr>
+<tr>
+<td>按需加载</td>
+<td>100 (索引) + 2000 (单次)</td>
+<td>✅ 最优</td>
+</tr>
+</tbody></table>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart LR
+    A[系统 Prompt] --&gt;|层一：索引| B[&quot;pdf: Process PDF files\ndocker: Build containers\ngit: Git operations...&quot;]
+    B --&gt; C[模型决定需要 pdf 知识]
+    C --&gt; D[load_skill(&#39;pdf&#39;)]
+    D --&gt; E[层二：完整技能内容注入]
+    E --&gt; F[执行 PDF 相关操作]</pre></div><hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a全部预加载到系统-prompt">方案 A：全部预加载到系统 Prompt</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#4C4F69">SYSTEM </span><span style="color:#179299">=</span><span style="color:#40A02B"> "</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">join</span><span style="color:#7C7F93">([</span><span style="color:#4C4F69">skill</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">full_content </span><span style="color:#8839EF">for</span><span style="color:#4C4F69"> skill </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> all_skills</span><span style="color:#7C7F93">])</span></span></code></pre><p>✅ 模型始终有完整知识
+❌ Token 消耗爆炸，每轮都要付出高昂成本</p>
+<h3 id="方案-brag-检索注入">方案 B：RAG 检索注入</h3>
+<p>根据用户问题语义检索最相关的技能片段。</p>
+<p>✅ 精准匹配
+❌ 需要 embedding 模型，增加延迟和复杂度</p>
+<h3 id="方案-c两层按需加载推荐">方案 C：两层按需加载（推荐）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>系统 Prompt → 技能摘要（名称 + 1行描述）</span></span>
+<span class="line"><span>模型判断后 → load_skill(name) → 完整内容作为 tool_result 注入</span></span></code></pre><p>✅ 零 RAG 依赖，模型自己判断需要哪个技能
+✅ Token 消耗最优：只加载当前任务需要的技能</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p><strong>方案 C</strong>。信任模型的判断力——给它索引，它会自己决定何时需要完整文档。<code>load_skill</code> 工具的 <code>tool_result</code> 把技能内容注入到当前上下文，效果等同于事先放在系统 prompt 里。</p>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="skill-文件格式">Skill 文件格式</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">&#x3C;!-- skills/pdf/SKILL.md --></span></span>
+<span class="line"><span style="color:#179299">---</span></span>
+<span class="line"><span style="color:#4C4F69">name: pdf</span></span>
+<span class="line"><span style="color:#4C4F69">description: Process, parse, and extract data from PDF files using pdfplumber</span></span>
+<span class="line"><span style="color:#4C4F69">version: 1.0</span></span>
+<span class="line"><span style="color:#FE640B">---</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D20F39"># PDF Processing Skill</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#FE640B">## 安装</span></span>
+<span class="line"><span style="color:#4C4F69">pip install pdfplumber</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#FE640B">## 基础用法</span></span>
+<span class="line"><span style="color:#7C7F93">```</span><span style="color:#04A5E5">python</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> pdfplumber</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">with</span><span style="color:#4C4F69"> pdfplumber</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">open</span><span style="color:#7C7F93">(</span><span style="color:#40A02B">"file.pdf"</span><span style="color:#7C7F93">)</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> pdf</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> page </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> pdf</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">pages</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">        text </span><span style="color:#179299">=</span><span style="color:#4C4F69"> page</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">extract_text</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#4C4F69">        tables </span><span style="color:#179299">=</span><span style="color:#4C4F69"> page</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">extract_tables</span><span style="color:#7C7F93">()</span></span></code></pre><h2 id="常见场景">常见场景</h2>
+<h3 id="提取所有文本">提取所有文本</h3>
+<p>...（完整文档，约 2000 tokens）</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span></span></span>
+<span class="line"><span>### SkillLoader 实现</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>```python</span></span>
+<span class="line"><span># agents/s05_skill_loading.py</span></span>
+<span class="line"><span>import yaml</span></span>
+<span class="line"><span>from pathlib import Path</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>class SkillLoader:</span></span>
+<span class="line"><span>    def __init__(self, skills_dir: str = "skills"):</span></span>
+<span class="line"><span>        self.skills_dir = Path(skills_dir)</span></span>
+<span class="line"><span>        self._cache: dict[str, dict] = {}</span></span>
+<span class="line"><span>        self._scan()</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>    def _scan(self):</span></span>
+<span class="line"><span>        """扫描所有 skills/*/SKILL.md 文件，解析 YAML frontmatter"""</span></span>
+<span class="line"><span>        for skill_file in self.skills_dir.glob("*/SKILL.md"):</span></span>
+<span class="line"><span>            content = skill_file.read_text()</span></span>
+<span class="line"><span>            # 解析 --- frontmatter ---</span></span>
+<span class="line"><span>            if content.startswith("---"):</span></span>
+<span class="line"><span>                _, frontmatter, body = content.split("---", 2)</span></span>
+<span class="line"><span>                meta = yaml.safe_load(frontmatter)</span></span>
+<span class="line"><span>                self._cache[meta["name"]] = {</span></span>
+<span class="line"><span>                    "meta": meta,</span></span>
+<span class="line"><span>                    "body": body.strip(),</span></span>
+<span class="line"><span>                }</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>    def get_descriptions(self) -> str:</span></span>
+<span class="line"><span>        """层一：紧凑摘要，注入系统 Prompt（~100 tokens/条）"""</span></span>
+<span class="line"><span>        if not self._cache:</span></span>
+<span class="line"><span>            return "No skills available."</span></span>
+<span class="line"><span>        lines = ["Available skills (use load_skill to get full content):"]</span></span>
+<span class="line"><span>        for name, skill in self._cache.items():</span></span>
+<span class="line"><span>            desc = skill["meta"].get("description", "No description")</span></span>
+<span class="line"><span>            lines.append(f"  - {name}: {desc}")</span></span>
+<span class="line"><span>        return "\n".join(lines)</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>    def get_content(self, name: str) -> str:</span></span>
+<span class="line"><span>        """层二：完整技能内容，作为 tool_result 返回"""</span></span>
+<span class="line"><span>        if name not in self._cache:</span></span>
+<span class="line"><span>            available = ", ".join(self._cache.keys())</span></span>
+<span class="line"><span>            return f"Skill '{name}' not found. Available: {available}"</span></span>
+<span class="line"><span>        skill = self._cache[name]</span></span>
+<span class="line"><span>        return f"&#x3C;skill name='{name}'>\n{skill['body']}\n&#x3C;/skill>"</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 全局 loader</span></span>
+<span class="line"><span>skill_loader = SkillLoader("skills")</span></span></code></pre><h3 id="系统-prompt-注入层一">系统 Prompt 注入层一</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">def</span><span style="color:#1E66F5;font-style:italic"> build_system_prompt</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"""You are a coding agent at </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">WORKDIR</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">.</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EA76CB">{</span><span style="color:#4C4F69">skill_loader</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">get_descriptions</span><span style="color:#7C7F93">()</span><span style="color:#EA76CB">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">When you need domain knowledge, call load_skill(name) BEFORE attempting the task.</span></span>
+<span class="line"><span style="color:#40A02B">The skill content will be injected directly into your context.</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">Act, don't explain."""</span></span></code></pre><h3 id="load_skill-工具">load_skill 工具</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#E64553;font-style:italic">TOOL_HANDLERS</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">load_skill</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">]</span><span style="color:#179299"> =</span><span style="color:#8839EF"> lambda</span><span style="color:#179299"> **</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">:</span><span style="color:#4C4F69"> skill_loader</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">get_content</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">kw</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">name</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">])</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">TOOLS</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">append</span><span style="color:#7C7F93">({</span></span>
+<span class="line"><span style="color:#40A02B">    "name"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "load_skill"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "description"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "Load full content of a skill into context. Call before starting domain-specific tasks."</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "input_schema"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">        "type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">        "properties"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">            "name"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#40A02B">                "type"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">                "description"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "Skill name as listed in the available skills"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">            }</span></span>
+<span class="line"><span style="color:#7C7F93">        },</span></span>
+<span class="line"><span style="color:#40A02B">        "required"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> [</span><span style="color:#40A02B">"name"</span><span style="color:#7C7F93">],</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#7C7F93">})</span></span></code></pre><h3 id="实际执行流程">实际执行流程</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#1E66F5;font-style:italic">s05</span><span style="color:#179299"> >></span><span style="color:#40A02B"> parse</span><span style="color:#40A02B"> tables</span><span style="color:#40A02B"> from</span><span style="color:#40A02B"> report.pdf</span><span style="color:#40A02B"> and</span><span style="color:#40A02B"> save</span><span style="color:#40A02B"> as</span><span style="color:#40A02B"> CSV</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 模型推理：</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 1. 系统 prompt 中看到 "pdf: Process, parse PDF files using pdfplumber"</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 2. 调用 load_skill("pdf") ← 触发层二加载</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 3. tool_result: &#x3C;skill name='pdf'>完整2000 tokens文档&#x3C;/skill></span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 4. 模型现在有了完整知识，开始实际操作：</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">#    bash("pip install pdfplumber")</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">#    write_file("extract.py", "import pdfplumber...")</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">#    bash("python extract.py report.pdf")</span></span></code></pre><h3 id="创建自定义-skill">创建自定义 Skill</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># 目录结构</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">skills/</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">├──</span><span style="color:#40A02B"> pdf/SKILL.md</span><span style="color:#9CA0B0;font-style:italic">         # PDF 处理</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">├──</span><span style="color:#40A02B"> docker/SKILL.md</span><span style="color:#9CA0B0;font-style:italic">      # Docker 操作</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">├──</span><span style="color:#40A02B"> api_design/SKILL.md</span><span style="color:#9CA0B0;font-style:italic">  # REST API 规范</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">└──</span><span style="color:#40A02B"> testing/SKILL.md</span><span style="color:#9CA0B0;font-style:italic">     # 测试最佳实践</span></span></code></pre><pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">&#x3C;!-- skills/testing/SKILL.md --></span></span>
+<span class="line"><span style="color:#179299">---</span></span>
+<span class="line"><span style="color:#4C4F69">name: testing</span></span>
+<span class="line"><span style="color:#4C4F69">description: Write pytest tests with fixtures, mocks, and coverage reports</span></span>
+<span class="line"><span style="color:#4C4F69">version: 1.0</span></span>
+<span class="line"><span style="color:#FE640B">---</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D20F39"># Testing Skill</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#FE640B">## 基础测试结构</span></span>
+<span class="line"><span style="color:#4C4F69">...</span></span></code></pre><hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课学习<strong>第6课：Context Compression — 无限会话的上下文管理</strong>。会话越长，历史 tokens 越多，最终超过模型的上下文窗口。Context Compression 策略：自动检测上下文接近限制时，用摘要替换早期历史，在不丢失关键信息的前提下继续无限运行。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/lcc-04-subagents.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第4课：Subagents</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/lcc-06-compression.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第6课：Context Compression</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a全部预加载到系统-prompt">方案 A：全部预加载到系统 Prompt</a></li><li class="lvl-3"><a href="#方案-brag-检索注入">方案 B：RAG 检索注入</a></li><li class="lvl-3"><a href="#方案-c两层按需加载推荐">方案 C：两层按需加载（推荐）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#skill-文件格式">Skill 文件格式</a></li><li class="lvl-2"><a href="#常见场景">常见场景</a></li><li class="lvl-3"><a href="#提取所有文本">提取所有文本</a></li><li class="lvl-3"><a href="#系统-prompt-注入层一">系统 Prompt 注入层一</a></li><li class="lvl-3"><a href="#load_skill-工具">load_skill 工具</a></li><li class="lvl-3"><a href="#实际执行流程">实际执行流程</a></li><li class="lvl-3"><a href="#创建自定义-skill">创建自定义 Skill</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

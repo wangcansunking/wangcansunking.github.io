@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第1课：Hello Claude — TypeScript Agent 开发</title>
+  <meta name="description" content="基础 API 调用与类型守卫">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-blue">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-blue">
+      <div class="crumb">
+        <div class="crumb-icon">TS</div>
+        <div class="crumb-text">TypeScript Agent 开发</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ts-01-hello.html" class="active">
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Hello Claude</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-02-multi-turn.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多轮对话</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-03-streaming.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">流式输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-04-first-tool.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第一个工具</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-05-multi-tools.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多工具并行</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-06-agent-loop.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agentic Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-07-context.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">上下文管理</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-09-orchestrator.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Orchestrator + Worker</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-10-handoff.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Handoff</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-11-structured.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">结构化输出</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-12-memory.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">记忆 Agent</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ts-13-skill.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill + Tool Runner</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ts-01-hello.html" class="current">TypeScript Agent 开发</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">01</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第1课：Hello Claude</div>
+          <div class="desc">基础 API 调用与类型守卫</div>
+          <div class="tags">
+            <span class="tag">basics</span><span class="tag">api</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">01_hello_claude.md</code></span>
+            <span>📏 228 行</span>
+            <span style="opacity:0.7;">typescript/lessons/01_hello_claude.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第1课：Hello Claude</h1>
+<h2 id="学习目标">学习目标</h2>
+<ol>
+<li>理解 <code>messages</code> 的结构（<code>role</code> + <code>content</code>）</li>
+<li>掌握 OpenAI SDK 的基本用法（DeepSeek / Kimi / Anthropic 三家通用）</li>
+<li>读懂响应结构（<code>choices</code>、<code>finish_reason</code>、<code>usage</code>）</li>
+<li>理解 TypeScript <strong>类型守卫</strong>在 API 响应中的作用</li>
+</ol>
+<hr>
+<h2 id="技术背景">技术背景</h2>
+<p>主流 LLM 都对外暴露<strong>无状态的 HTTP 端点</strong> <code>POST /v1/chat/completions</code>。无论你用什么框架，底层都是往这个地址发 JSON、收 JSON。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>你的代码</span></span>
+<span class="line"><span>  └── OpenAI SDK</span></span>
+<span class="line"><span>        └── POST &#x3C;baseURL>/chat/completions</span></span>
+<span class="line"><span>              └── DeepSeek / Kimi / Anthropic / ...</span></span></code></pre><p>为什么用 OpenAI SDK？因为 <strong>DeepSeek、Kimi、Anthropic 都提供 OpenAI 兼容协议</strong>——一套代码切换 baseURL 就能跑任意一家。本教程默认用 <strong>DeepSeek</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>模型</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>DeepSeek</strong>（推荐）</td>
+<td><code>deepseek-chat</code></td>
+<td>最便宜，1 元/百万 token，国内 5 分钟拿 key</td>
+</tr>
+<tr>
+<td>DeepSeek</td>
+<td><code>deepseek-reasoner</code></td>
+<td>推理（R1），思考链可见</td>
+</tr>
+<tr>
+<td>Kimi (Moonshot)</td>
+<td><code>moonshot-v1-32k</code></td>
+<td>128K 上下文，文档分析最强</td>
+</tr>
+<tr>
+<td>Anthropic</td>
+<td><code>claude-opus-4-7</code></td>
+<td>行业最强 Tool Use，需海外信用卡</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="第一步注册-拿-api-key">第一步：注册 + 拿 API Key</h2>
+<p>打开 <a href="https://platform.deepseek.com/">platform.deepseek.com</a>，手机号/微信登录，到 <strong>API keys</strong> 页面创建一个 key（<code>sk-...</code> 开头）。</p>
+<blockquote>
+<p>想换 Kimi？去 <a href="https://platform.moonshot.cn/">platform.moonshot.cn</a> 拿 key。
+想用 Anthropic？去 <a href="https://console.anthropic.com/">console.anthropic.com</a>。
+三家都跟着本教程跑，唯一差异是环境变量与默认模型，下面有切换说明。</p>
+</blockquote>
+<hr>
+<h2 id="第二步安装-sdk">第二步：安装 SDK</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#1E66F5;font-style:italic">npm</span><span style="color:#40A02B"> install</span><span style="color:#40A02B"> openai</span></span></code></pre><p>设置环境变量：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#4C4F69"> DEEPSEEK_API_KEY</span><span style="color:#179299">=</span><span style="color:#40A02B">"sk-xxxxxxxxxxxx"</span></span></code></pre><hr>
+<h2 id="第三步发送第一个请求">第三步：发送第一个请求</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> client </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  baseURL</span><span style="color:#179299">:</span><span style="color:#40A02B"> "https://api.deepseek.com/v1"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">DEEPSEEK_API_KEY</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "deepseek-chat"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1024</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">            // 控制最大输出长度</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#4C4F69">      role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">            // 角色：system | user | assistant | tool</span></span>
+<span class="line"><span style="color:#4C4F69">      content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "用一句话解释什么是 AI Agent？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><blockquote>
+<p><strong><code>max_tokens</code> 为什么重要？</strong>
+防止模型无限输出导致费用失控。通常设 1024~4096 即可，复杂任务设 16000。</p>
+</blockquote>
+<hr>
+<h2 id="第四步读取响应">第四步：读取响应</h2>
+<p>OpenAI 兼容协议下读取很直观：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> message </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"回答:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content)</span><span style="color:#7C7F93">;</span></span></code></pre><p><strong>为什么是 <code>choices</code> 数组？</strong></p>
+<p>理论上 <code>n</code> 参数可以让模型一次返回多个候选回答。99% 的场景只用第一条 <code>choices[0]</code>。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 完整可能的响应结构</span></span>
+<span class="line"><span style="color:#4C4F69">response </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  choices</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#4C4F69">      index</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      message</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "AI Agent 是..."</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        tool_calls</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">     // 工具调用（第4课）</span></span>
+<span class="line"><span style="color:#4C4F69">        reasoning_content</span><span style="color:#179299">:</span><span style="color:#179299"> ...</span><span style="color:#9CA0B0;font-style:italic"> // R1 模型才有的思考过程</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">      finish_reason</span><span style="color:#179299">:</span><span style="color:#40A02B"> "stop"</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">   // stop | length | tool_calls | content_filter</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  usage</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> prompt_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 20</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> completion_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 35</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> total_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 55</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span></code></pre><hr>
+<h2 id="第五步读取响应元数据">第五步：读取响应元数据</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`finish_reason: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices</span><span style="color:#40A02B">[</span><span style="color:#FE640B">0</span><span style="color:#40A02B">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">finish_reason</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// stop          → 正常完成</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// length        → 超出 max_tokens，需要增大或改用流式</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// tool_calls    → 模型要调用工具（第4课）</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// content_filter → 触发安全过滤</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`输入 tokens: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">?.</span><span style="color:#4C4F69">prompt_tokens</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`输出 tokens: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">?.</span><span style="color:#4C4F69">completion_tokens</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="完整代码">完整代码</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> client </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  baseURL</span><span style="color:#179299">:</span><span style="color:#40A02B"> "https://api.deepseek.com/v1"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">DEEPSEEK_API_KEY</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "deepseek-chat"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1024</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "用一句话解释什么是 AI Agent？"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"回答:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`finish_reason: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices</span><span style="color:#40A02B">[</span><span style="color:#FE640B">0</span><span style="color:#40A02B">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">finish_reason</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`tokens: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">?.</span><span style="color:#4C4F69">prompt_tokens</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> in / </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">response</span><span style="color:#179299">.</span><span style="color:#4C4F69">usage</span><span style="color:#179299">?.</span><span style="color:#4C4F69">completion_tokens</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> out`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>跑一下：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#1E66F5;font-style:italic">npx</span><span style="color:#40A02B"> tsx</span><span style="color:#40A02B"> 01_hello_claude.ts</span></span></code></pre><hr>
+<h2 id="切换-provider-一行环境变量">切换 Provider — 一行环境变量</h2>
+<p>本仓库 <code>typescript/shared/llmClient.ts</code> 提供了三 provider 适配层。所有后续课程都直接 <code>import { client, model } from &#39;../shared/llmClient&#39;</code>，环境变量切换：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># 默认：DeepSeek</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#4C4F69"> LLM_PROVIDER</span><span style="color:#179299">=</span><span style="color:#4C4F69">deepseek</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#4C4F69"> DEEPSEEK_API_KEY</span><span style="color:#179299">=</span><span style="color:#4C4F69">sk-xxxxxxxxxxxx</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 切到 Kimi</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#4C4F69"> LLM_PROVIDER</span><span style="color:#179299">=</span><span style="color:#4C4F69">kimi</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#4C4F69"> MOONSHOT_API_KEY</span><span style="color:#179299">=</span><span style="color:#4C4F69">sk-xxxxxxxxxxxx</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 切到 Anthropic</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#4C4F69"> LLM_PROVIDER</span><span style="color:#179299">=</span><span style="color:#4C4F69">anthropic</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#4C4F69"> ANTHROPIC_API_KEY</span><span style="color:#179299">=</span><span style="color:#4C4F69">sk-ant-xxxxxxxx</span></span></code></pre><p>代码本身<strong>不变</strong>：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> client</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> model </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "../shared/llmClient"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> client</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  model</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  max_tokens</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1024</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "..."</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="响应结构速查">响应结构速查</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#7C7F93">  "</span><span style="color:#1E66F5">id</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "chatcmpl-xxx"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  "</span><span style="color:#1E66F5">object</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "chat.completion"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  "</span><span style="color:#1E66F5">model</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "deepseek-chat"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  "</span><span style="color:#1E66F5">choices</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span></span>
+<span class="line"><span style="color:#7C7F93">      "</span><span style="color:#1E66F5">index</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      "</span><span style="color:#1E66F5">message</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#7C7F93"> "</span><span style="color:#1E66F5">role</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> "</span><span style="color:#1E66F5">content</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "AI Agent 是能自主感知环境..."</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      "</span><span style="color:#1E66F5">finish_reason</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "stop"</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  ],</span></span>
+<span class="line"><span style="color:#7C7F93">  "</span><span style="color:#1E66F5">usage</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#7C7F93"> {</span><span style="color:#7C7F93"> "</span><span style="color:#1E66F5">prompt_tokens</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#FE640B"> 20</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> "</span><span style="color:#1E66F5">completion_tokens</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#FE640B"> 35</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> "</span><span style="color:#1E66F5">total_tokens</span><span style="color:#7C7F93">"</span><span style="color:#7C7F93">:</span><span style="color:#FE640B"> 55</span><span style="color:#7C7F93"> }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><hr>
+<h2 id="小结">小结</h2>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>要点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>messages</code></td>
+<td>数组，每条有 <code>role</code>（system/user/assistant/tool）和 <code>content</code></td>
+</tr>
+<tr>
+<td><code>choices[0].message.content</code></td>
+<td>模型回复正文</td>
+</tr>
+<tr>
+<td><code>finish_reason</code></td>
+<td><code>stop</code> = 正常结束；<code>tool_calls</code> = 需要执行工具（第4课）</td>
+</tr>
+<tr>
+<td><code>usage</code></td>
+<td>记录 token 消耗，用于计费和监控</td>
+</tr>
+<tr>
+<td><code>baseURL</code> 切换</td>
+<td>一套 SDK 跑 DeepSeek / Kimi / Anthropic</td>
+</tr>
+</tbody></table>
+<p>下一课：学习如何让模型<strong>记住上下文</strong>，实现多轮对话 →</p>
+
+      </article>
+
+      <nav class="prevnext">
+        <div></div>
+        
+          <a class="next" href="/agent-learning/lesson/ts-02-multi-turn.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第2课：多轮对话</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#学习目标">学习目标</a></li><li class="lvl-2"><a href="#技术背景">技术背景</a></li><li class="lvl-2"><a href="#第一步注册-拿-api-key">第一步：注册 + 拿 API Key</a></li><li class="lvl-2"><a href="#第二步安装-sdk">第二步：安装 SDK</a></li><li class="lvl-2"><a href="#第三步发送第一个请求">第三步：发送第一个请求</a></li><li class="lvl-2"><a href="#第四步读取响应">第四步：读取响应</a></li><li class="lvl-2"><a href="#第五步读取响应元数据">第五步：读取响应元数据</a></li><li class="lvl-2"><a href="#完整代码">完整代码</a></li><li class="lvl-2"><a href="#切换-provider-一行环境变量">切换 Provider — 一行环境变量</a></li><li class="lvl-2"><a href="#响应结构速查">响应结构速查</a></li><li class="lvl-2"><a href="#小结">小结</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

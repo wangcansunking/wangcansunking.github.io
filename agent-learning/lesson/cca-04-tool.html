@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第4课：Tool 抽象与工具池 — Claude Code 源码剖析</title>
+  <meta name="description" content="Fail-Closed 默认值 / 工具池动态装配 / 内建优先合并">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-rose">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-rose">
+      <div class="crumb">
+        <div class="crumb-icon">CA</div>
+        <div class="crumb-text">Claude Code 源码剖析</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/cca-01-overview.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">泄露事件与全景导览</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-02-startup.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">启动路径剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-03-query.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Query 执行内核</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-04-tool.html" class="active">
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool 抽象与工具池</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-05-orchestration.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">工具调度与并发</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-06-permission.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">权限模型与 Sandbox</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-07-skills.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill 系统</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-08-mcp.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MCP 集成</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-09-memory.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Memory 分层</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-10-compaction.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 自动压缩</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-11-prompt.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Prompt Runtime</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-12-multi-agent.html" >
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 三层模型</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-13-session.html" >
+            <span class="num">13</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Session 持久化与 Resume</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/cca-14-hidden.html" >
+            <span class="num">14</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">第14课（番外）：隐藏命令与 Feature Flag</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/cca-01-overview.html" class="current">Claude Code 源码剖析</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">04</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第4课：Tool 抽象与工具池</div>
+          <div class="desc">Fail-Closed 默认值 / 工具池动态装配 / 内建优先合并</div>
+          <div class="tags">
+            <span class="tag">analysis</span><span class="tag">tools</span><span class="tag">pattern</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">04_tool_abstraction.md</code></span>
+            <span>📏 374 行</span>
+            <span style="opacity:0.7;">claude-code-analysis/lessons/04_tool_abstraction.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第4课：Tool 抽象与工具池</h1>
+<h2 id="介绍">介绍</h2>
+<p>很多人对&quot;Agent 的工具&quot;印象停留在：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tools </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'read_file'</span><span style="color:#7C7F93">,</span><span style="color:#1E66F5;font-style:italic"> run</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFile</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path) </span><span style="color:#7C7F93">}</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span></code></pre><p>Claude Code 的工具系统比这复杂<strong>两个数量级</strong>。本课拆 <code>Tool</code> 接口，看看一个生产级工具到底要包含哪些字段，以及 <code>buildTool()</code> 的&quot;默认 Fail-Closed&quot;策略为什么是核心安全特性。</p>
+<hr>
+<h2 id="源码定位">源码定位</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>src/Tool.ts</code></td>
+<td>Tool 接口、buildTool()、TOOL_DEFAULTS</td>
+</tr>
+<tr>
+<td><code>src/tools.ts</code></td>
+<td>getAllBaseTools()、assembleToolPool()</td>
+</tr>
+<tr>
+<td><code>src/tools/AgentTool/AgentTool.tsx</code></td>
+<td>一个最复杂的工具示例</td>
+</tr>
+<tr>
+<td><code>src/tools/AskUserQuestionTool/AskUserQuestionTool.tsx</code></td>
+<td>反向工具示例</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="tool-接口长什么样">Tool 接口长什么样</h2>
+<p>真实源码（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/Tool.ts"><code>src/Tool.ts:362</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> type</span><span style="color:#DF8E1D;font-style:italic"> Tool</span><span style="color:#04A5E5">&#x3C;</span></span>
+<span class="line"><span style="color:#DF8E1D;font-style:italic">  Input </span><span style="color:#8839EF">extends</span><span style="color:#DF8E1D;font-style:italic"> AnyObject </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> AnyObject</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#DF8E1D;font-style:italic">  Output </span><span style="color:#179299">=</span><span style="color:#8839EF"> unknown</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#DF8E1D;font-style:italic">  P </span><span style="color:#8839EF">extends</span><span style="color:#DF8E1D;font-style:italic"> ToolProgressData </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> ToolProgressData</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ===== 能力描述 =====</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  description</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> Input</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  prompt</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">                              // 喂给模型的工具说明</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  searchHint</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">                           // 工具搜索的关键词</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  aliases</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ===== 输入输出 =====</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  inputSchema</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> z</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ZodObject</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">any</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  outputSchema</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> z</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ZodSchema</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Output</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  mapToolResultToToolResultBlockParam</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">result</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolResult</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Output</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolResultBlockParam</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ===== 安全属性（默认值都是保守的） =====</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isEnabled</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">ctx</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ToolUseContext</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isConcurrencySafe</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> Input</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">     // 并发安全？</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isReadOnly</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> Input</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">            // 只读？</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isDestructive</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> Input</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">         // 破坏性操作？</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  checkPermissions</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Input</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> ctx</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ToolUseContext</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">PermissionResult</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  preparePermissionMatcher</span><span style="color:#179299">?</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Input</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> PermissionMatcher</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ===== 语义校验 =====</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  validateInput</span><span style="color:#179299">?</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Input</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> ctx</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ToolUseContext</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">ValidationResult</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ===== UI 表现 =====</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  renderToolUseMessage</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Input</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> React</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ReactNode</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  renderToolResultMessage</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">result</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolResult</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Output</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> React</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ReactNode</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  renderToolUseRejectedMessage</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Input</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> reason</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> React</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ReactNode</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  renderToolUseErrorMessage</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Input</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> error</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Error</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> React</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ReactNode</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ===== 运行控制 =====</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  interruptBehavior</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> InterruptBehavior</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  requiresUserInteraction</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> Input</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  shouldDefer</span><span style="color:#179299">?</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> Input</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  backfillObservableInput</span><span style="color:#179299">?</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Input</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Input</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ===== 主体 =====</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  call</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    args</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> z</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">infer</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Input</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    context</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolUseContext</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    canUseTool</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> CanUseToolFn</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    parentMessage</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> AssistantMessage</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    onProgress</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> ToolCallProgress</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">P</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">ToolResult</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">Output</span><span style="color:#04A5E5">>></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span></code></pre><p>注意它<strong>远不止 <code>call()</code> 一个函数</strong>。一个 Tool 是一个完整的运行时协议对象：</p>
+<ul>
+<li><strong>能力声明</strong>（描述、prompt、别名）</li>
+<li><strong>类型契约</strong>（输入 schema、输出 schema、结果转换）</li>
+<li><strong>安全声明</strong>（enable / concurrencySafe / readOnly / destructive / permissions）</li>
+<li><strong>校验</strong>（validate）</li>
+<li><strong>UI 适配</strong>（4 种渲染态：use / result / rejected / error）</li>
+<li><strong>运行行为</strong>（中断、人类交互、defer、backfill）</li>
+<li><strong>执行入口</strong>（call）</li>
+</ul>
+<p>新人写工具时容易只关心 <code>call</code>，但 Claude Code 的接口设计强迫工具作者在写之前考虑：</p>
+<blockquote>
+<p>&quot;我这个工具能并发吗？只读吗？破坏性吗？被中断时该怎么收拾？&quot;</p>
+</blockquote>
+<p>这就是接口设计带来的<strong>强制思考</strong>。</p>
+<hr>
+<h2 id="buildtool-的-fail-closed-策略">buildTool 的 Fail-Closed 策略</h2>
+<p>真实源码（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/Tool.ts"><code>src/Tool.ts:757</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> TOOL_DEFAULTS </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isEnabled</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isConcurrencySafe</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">_input</span><span style="color:#179299">?:</span><span style="color:#8839EF"> unknown</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">    // ⚠️ 默认不安全</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isReadOnly</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">_input</span><span style="color:#179299">?:</span><span style="color:#8839EF"> unknown</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">           // ⚠️ 默认非只读</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isDestructive</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">_input</span><span style="color:#179299">?:</span><span style="color:#8839EF"> unknown</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">        // 默认非破坏（这一项例外）</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  checkPermissions</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> _ctx</span><span style="color:#179299">?</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span></span>
+<span class="line"><span style="color:#DF8E1D;font-style:italic">    Promise</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">resolve</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> behavior</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'allow'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> updatedInput</span><span style="color:#179299">:</span><span style="color:#4C4F69"> input </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  toAutoClassifierInput</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">_input</span><span style="color:#179299">?:</span><span style="color:#8839EF"> unknown</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#40A02B"> ''</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">   // ⚠️ 安全分类器默认短路</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  userFacingName</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">_input</span><span style="color:#179299">?:</span><span style="color:#8839EF"> unknown</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#40A02B"> ''</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> buildTool</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">D </span><span style="color:#8839EF">extends</span><span style="color:#DF8E1D;font-style:italic"> AnyToolDef</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">def</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> D</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> BuiltTool</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">D</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#179299">    ...</span><span style="color:#4C4F69">TOOL_DEFAULTS</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    userFacingName</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> def</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#179299">    ...</span><span style="color:#4C4F69">def</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> as</span><span style="color:#DF8E1D;font-style:italic"> BuiltTool</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">D</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>这段代码体现的是<strong>Fail-Closed</strong>（保守失败）原则：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>默认值</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>isConcurrencySafe</code></td>
+<td><code>false</code></td>
+<td>默认假定<strong>有副作用、不可并发</strong></td>
+</tr>
+<tr>
+<td><code>isReadOnly</code></td>
+<td><code>false</code></td>
+<td>默认假定<strong>有写操作</strong></td>
+</tr>
+<tr>
+<td><code>toAutoClassifierInput</code></td>
+<td><code>&#39;&#39;</code></td>
+<td>安全分类器默认拿不到输入，触发短路拦截</td>
+</tr>
+</tbody></table>
+<p>这意味着：<strong>新工具写好之后，如果作者忘了声明，系统会用最保守的策略对待它</strong>。</p>
+<p>对比一下&quot;乐观默认&quot;（Fail-Open）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 反例：默认值都是宽松的</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> TOOL_DEFAULTS </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isConcurrencySafe</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">    // 默认认为并发安全</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isReadOnly</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">           // 默认认为只读</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span></code></pre><p>如果你按这个写，假设有人提交了一个新工具忘了声明 <code>isConcurrencySafe</code>，系统就会把它和其他读工具并发执行——结果是 race condition、数据损坏。Fail-Closed 让&quot;忘了声明&quot;变成&quot;性能稍差&quot;，而不是&quot;安全事故&quot;。</p>
+<blockquote>
+<p>框架宁可错杀也不放过，所有新建工具都被假定为&quot;有风险的&quot;、&quot;不可并发的&quot;，除非开发者<strong>显式声明</strong>。</p>
+</blockquote>
+<hr>
+<h2 id="getallbasetools动态装配的工具池">getAllBaseTools：动态装配的工具池</h2>
+<p>真实源码（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/tools.ts"><code>src/tools.ts:193</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> getAllBaseTools</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tools</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#4C4F69">    AgentTool</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    TaskOutputTool</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    BashTool</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    FileEditTool</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    WebFetchTool</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // ... 其他基础工具</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 条件加载：环境变量控制</span></span>
+<span class="line"><span style="color:#179299">    ...</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">isEnvTruthy</span><span style="color:#4C4F69">(process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">ENABLE_LSP_TOOL</span><span style="color:#4C4F69">) </span><span style="color:#179299">?</span><span style="color:#4C4F69"> [LSPTool] </span><span style="color:#179299">:</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">,</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 条件加载：feature 模式</span></span>
+<span class="line"><span style="color:#179299">    ...</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">isWorktreeModeEnabled</span><span style="color:#4C4F69">() </span><span style="color:#179299">?</span><span style="color:#4C4F69"> [EnterWorktreeTool</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> ExitWorktreeTool] </span><span style="color:#179299">:</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">,</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 条件加载：feature flag</span></span>
+<span class="line"><span style="color:#179299">    ...</span><span style="color:#4C4F69">(</span><span style="color:#1E66F5;font-style:italic">isToolSearchEnabledOptimistic</span><span style="color:#4C4F69">() </span><span style="color:#179299">?</span><span style="color:#4C4F69"> [ToolSearchTool] </span><span style="color:#179299">:</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>工具池<strong>不是写死的常量</strong>，而是按 3 类来源动态装配：</p>
+<ol>
+<li><strong>永远存在的基础工具</strong>：Bash / FileEdit / WebFetch / Read / Glob / Grep</li>
+<li><strong>环境变量条件启用</strong>：<code>ENABLE_LSP_TOOL=1</code> 才出现 LSPTool</li>
+<li><strong>Feature Flag / 内部身份控制</strong>：<code>isWorktreeModeEnabled()</code> / <code>process.env.USER_TYPE === &#39;ant&#39;</code></li>
+</ol>
+<p>这种&quot;按数组扩展运算符 + 三元/条件展开&quot;的模式很优雅：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#4C4F69">[</span></span>
+<span class="line"><span style="color:#4C4F69">  BaseTool</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#179299">  ...</span><span style="color:#4C4F69">(condition </span><span style="color:#179299">?</span><span style="color:#4C4F69"> [OptionalTool] </span><span style="color:#179299">:</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">]</span></span></code></pre><p>比 <code>if (condition) tools.push(...)</code> 命令式风格更可读，也更适合静态分析。</p>
+<hr>
+<h2 id="assembletoolpool内建工具与-mcp-融合">assembleToolPool：内建工具与 MCP 融合</h2>
+<p>真实源码（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/tools.ts"><code>src/tools.ts:345</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> assembleToolPool</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  permissionContext</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolPermissionContext</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  mcpTools</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tools</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tools</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> builtInTools </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> getTools</span><span style="color:#4C4F69">(permissionContext)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 过滤出未被拦截的 MCP Server 工具</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> allowedMcpTools </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> filterToolsByDenyRules</span><span style="color:#4C4F69">(mcpTools</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> permissionContext)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#1E66F5;font-style:italic"> byName</span><span style="color:#179299"> =</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">a</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tool</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> b</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tool</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> a</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">localeCompare</span><span style="color:#4C4F69">(b</span><span style="color:#179299">.</span><span style="color:#4C4F69">name)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 合并、排序，名字冲突时优先保留内建工具</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#1E66F5;font-style:italic"> uniqBy</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">    [</span><span style="color:#179299">...</span><span style="color:#4C4F69">builtInTools]</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">sort</span><span style="color:#4C4F69">(byName)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">concat</span><span style="color:#4C4F69">(allowedMcpTools</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">sort</span><span style="color:#4C4F69">(byName))</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    'name'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>注意 <code>uniqBy(..., &#39;name&#39;)</code> 的关键：<strong>前置数组优先</strong>。这意味着：</p>
+<ul>
+<li>内建工具排在前面</li>
+<li>MCP 工具排在后面</li>
+<li>名字冲突时，<strong>内建工具胜出</strong></li>
+</ul>
+<p>这是一道安全护栏：即便恶意 MCP Server 注册了一个叫 <code>Bash</code> 的工具试图覆盖内建 BashTool，<code>uniqBy</code> 也会把它丢掉。</p>
+<hr>
+<h2 id="askuserquestiontool颠覆工具是后端代码的认知">AskUserQuestionTool：颠覆&quot;工具是后端代码&quot;的认知</h2>
+<p>真实源码（<a href="../../cc-history/2026-05-01-claude-code-analysis-tutorial/source/src/tools/AskUserQuestionTool/AskUserQuestionTool.tsx"><code>src/tools/AskUserQuestionTool/AskUserQuestionTool.tsx</code></a>）：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> AskUserQuestionTool </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> buildTool</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'AskUserQuestion'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  shouldDefer</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  requiresUserInteraction</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  isReadOnly</span><span style="color:#179299">:</span><span style="color:#7C7F93"> ()</span><span style="color:#179299"> =></span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // ...</span></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> call</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> context</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 弹出一个 UI 表单，等用户输入</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> userResponse </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> context</span><span style="color:#179299">.</span><span style="color:#4C4F69">uiAdapter</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">askQuestion</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">questions)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'result'</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> data</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userResponse </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>这个工具<strong>没有任何后端逻辑</strong>——它的 <code>call()</code> 只做一件事：弹出 UI 表单，等用户填。</p>
+<p>但它仍然是一个标准的 Tool。这揭示了 Tool 抽象的真正威力：</p>
+<blockquote>
+<p>Tool 不是&quot;让模型调函数&quot;，而是&quot;让模型与外界交互&quot;。外界可以是文件系统、Bash、MCP Server，<strong>也可以是人</strong>。</p>
+</blockquote>
+<p>模型调用 <code>AskUserQuestion(...)</code> 时，它走的还是同一个 <code>runTools</code> 调度链：schema 校验 → 权限 → call() → tool_result → 回流 messages。</p>
+<hr>
+<h2 id="pattern-提炼">Pattern 提炼</h2>
+<h3 id="pattern-1fail-closed-默认值">Pattern 1：Fail-Closed 默认值</h3>
+<p>凡是涉及&quot;安全 / 并发 / 权限 / 副作用&quot;的属性，<strong>默认都用最保守的值</strong>。让&quot;忘了声明&quot;变成&quot;功能稍差&quot;，而不是&quot;安全事故&quot;。</p>
+<h3 id="pattern-2tool-是协议对象不是函数">Pattern 2：Tool 是协议对象，不是函数</h3>
+<p>强迫 tool 作者在写之前考虑：</p>
+<ul>
+<li>这个工具能不能并发？</li>
+<li>是不是只读？</li>
+<li>出错怎么呈现？</li>
+<li>被中断怎么收拾？</li>
+</ul>
+<p>接口本身就是设计文档。</p>
+<h3 id="pattern-3扩展运算符-条件展开装配">Pattern 3：扩展运算符 + 条件展开装配</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#4C4F69">[</span></span>
+<span class="line"><span style="color:#179299">  ...</span><span style="color:#4C4F69">always</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#179299">  ...</span><span style="color:#4C4F69">(cond1 </span><span style="color:#179299">?</span><span style="color:#4C4F69"> [Tool1] </span><span style="color:#179299">:</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#179299">  ...</span><span style="color:#4C4F69">(cond2 </span><span style="color:#179299">?</span><span style="color:#4C4F69"> [Tool2] </span><span style="color:#179299">:</span><span style="color:#4C4F69"> [])</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">]</span></span></code></pre><p>比 <code>if (cond) tools.push(...)</code> 风格更声明式。</p>
+<h3 id="pattern-4内建优先合并">Pattern 4：内建优先合并</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#1E66F5;font-style:italic">uniqBy</span><span style="color:#4C4F69">([</span><span style="color:#179299">...</span><span style="color:#4C4F69">builtIn</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">mcp]</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'name'</span><span style="color:#4C4F69">)   </span><span style="color:#9CA0B0;font-style:italic">// 前者优先</span></span></code></pre><p>防止外部扩展覆盖内建工具，是一道天然护栏。</p>
+<hr>
+<h2 id="自己实现50-行的-tool-系统">自己实现：50 行的 Tool 系统</h2>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// my-tool.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> z </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> 'zod'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> type</span><span style="color:#DF8E1D;font-style:italic"> ToolDef</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">I </span><span style="color:#8839EF">extends</span><span style="color:#DF8E1D;font-style:italic"> z</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ZodObject</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">any</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> O</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  description</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  inputSchema</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> I</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  isConcurrencySafe</span><span style="color:#179299">?:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  isReadOnly</span><span style="color:#179299">?:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  call</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> z</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">infer</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">I</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">O</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> TOOL_DEFAULTS </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  isConcurrencySafe</span><span style="color:#179299">:</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">    // Fail-Closed</span></span>
+<span class="line"><span style="color:#4C4F69">  isReadOnly</span><span style="color:#179299">:</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">           // Fail-Closed</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> type</span><span style="color:#DF8E1D;font-style:italic"> Tool </span><span style="color:#179299">=</span><span style="color:#DF8E1D;font-style:italic"> ReturnType</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">typeof</span><span style="color:#4C4F69;font-style:italic"> buildTool</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> buildTool</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">I </span><span style="color:#8839EF">extends</span><span style="color:#DF8E1D;font-style:italic"> z</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ZodObject</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">any</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> O</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">def</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ToolDef</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">I</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> O</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">TOOL_DEFAULTS</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">def </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ===== 示例：声明三个工具 =====</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> ReadFile </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> buildTool</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'ReadFile'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'Read a file from disk'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  inputSchema</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> path</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">() </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  isConcurrencySafe</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">           // 显式声明：并发安全</span></span>
+<span class="line"><span style="color:#4C4F69">  isReadOnly</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">                  // 显式声明：只读</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  call</span><span style="color:#179299">:</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> ({</span><span style="color:#E64553;font-style:italic"> path</span><span style="color:#7C7F93"> })</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">await</span><span style="color:#179299"> import</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'fs/promises'</span><span style="color:#4C4F69">))</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFile</span><span style="color:#4C4F69">(path</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> 'utf-8'</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> WriteFile </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> buildTool</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'WriteFile'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#40A02B"> 'Write content to a file'</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  inputSchema</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">object</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> path</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> z</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">string</span><span style="color:#4C4F69">() </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 没声明 isConcurrencySafe / isReadOnly → 默认 false（Fail-Closed）</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  call</span><span style="color:#179299">:</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> ({</span><span style="color:#E64553;font-style:italic"> path</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> content</span><span style="color:#7C7F93"> })</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    await</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">await</span><span style="color:#179299"> import</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">'fs/promises'</span><span style="color:#4C4F69">))</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">writeFile</span><span style="color:#4C4F69">(path</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#40A02B"> 'OK'</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// ===== 装配工具池 =====</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> assembleToolPool</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">mcpTools</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tool[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tool[]</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> builtIn </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [ReadFile</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> WriteFile]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> merged </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#4C4F69">builtIn</span><span style="color:#7C7F93">,</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">mcpTools]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 内建优先：去重时保留前面的</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#8839EF;font-weight:bold">new</span><span style="color:#1E66F5;font-style:italic"> Map</span><span style="color:#4C4F69">(merged</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#E64553;font-style:italic">t</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> [t</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> t]))</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">values</span><span style="color:#4C4F69">()]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><p>50 行就抓住了 Tool 系统的核心 pattern：<strong>协议接口 + Fail-Closed + 内建优先合并</strong>。</p>
+<hr>
+<h2 id="本课小结">本课小结</h2>
+<ul>
+<li><code>Tool</code> 接口远不止 <code>call()</code>，覆盖描述/类型/安全/校验/UI/运行控制 6 大类字段</li>
+<li><code>buildTool()</code> 的 <code>TOOL_DEFAULTS</code> 是<strong>Fail-Closed</strong>：忘了声明 = 最保守对待</li>
+<li><code>getAllBaseTools</code> 用扩展运算符做条件装配，比命令式更可读</li>
+<li><code>assembleToolPool</code> 用 <code>uniqBy</code> 让内建工具优先于 MCP，防覆盖</li>
+<li><code>AskUserQuestionTool</code> 提醒我们：Tool 是&quot;双边交互抽象隧道&quot;，不只是后端函数</li>
+</ul>
+<hr>
+<h2 id="延伸阅读">延伸阅读</h2>
+<ul>
+<li><code>analysis/04b-tool-call-implementation.md</code> §2 - Tool 接口 30+ 字段全清单</li>
+<li><code>analysis/04b-tool-call-implementation.md</code> §9 - AskUserQuestionTool 完整解读</li>
+<li>下一课：<code>05_tool_orchestration.md</code> - 工具调度 / 并发分批 / 状态机</li>
+</ul>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/cca-03-query.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第3课：Query 执行内核</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/cca-05-orchestration.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第5课：工具调度与并发</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#源码定位">源码定位</a></li><li class="lvl-2"><a href="#tool-接口长什么样">Tool 接口长什么样</a></li><li class="lvl-2"><a href="#buildtool-的-fail-closed-策略">buildTool 的 Fail-Closed 策略</a></li><li class="lvl-2"><a href="#getallbasetools动态装配的工具池">getAllBaseTools：动态装配的工具池</a></li><li class="lvl-2"><a href="#assembletoolpool内建工具与-mcp-融合">assembleToolPool：内建工具与 MCP 融合</a></li><li class="lvl-2"><a href="#askuserquestiontool颠覆工具是后端代码的认知">AskUserQuestionTool：颠覆&quot;工具是后端代码&quot;的认知</a></li><li class="lvl-2"><a href="#pattern-提炼">Pattern 提炼</a></li><li class="lvl-3"><a href="#pattern-1fail-closed-默认值">Pattern 1：Fail-Closed 默认值</a></li><li class="lvl-3"><a href="#pattern-2tool-是协议对象不是函数">Pattern 2：Tool 是协议对象，不是函数</a></li><li class="lvl-3"><a href="#pattern-3扩展运算符-条件展开装配">Pattern 3：扩展运算符 + 条件展开装配</a></li><li class="lvl-3"><a href="#pattern-4内建优先合并">Pattern 4：内建优先合并</a></li><li class="lvl-2"><a href="#自己实现50-行的-tool-系统">自己实现：50 行的 Tool 系统</a></li><li class="lvl-2"><a href="#本课小结">本课小结</a></li><li class="lvl-2"><a href="#延伸阅读">延伸阅读</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

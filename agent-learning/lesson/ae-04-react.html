@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第4课：ReAct 范式 — Agent 工程进阶</title>
+  <meta name="description" content="思考-行动-观察循环，从零实现">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-amber">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-amber">
+      <div class="crumb">
+        <div class="crumb-icon">AE</div>
+        <div class="crumb-text">Agent 工程进阶</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ae-01-context.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 管理深度剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-02-rag.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">RAG 基础</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-03-rag-advanced.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">RAG 进阶</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-04-react.html" class="active">
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">ReAct 范式</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-05-plan-execute.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Plan-and-Execute</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-06-reflexion.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Reflexion</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-07-frameworks.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 框架</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-08-langgraph.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">LangGraph</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-09-evaluation.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent 评估与可观测性</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-10-production.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">生产级 Agent</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ae-01-context.html" class="current">Agent 工程进阶</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">04</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第4课：ReAct 范式</div>
+          <div class="desc">思考-行动-观察循环，从零实现</div>
+          <div class="tags">
+            <span class="tag">agent</span><span class="tag">pattern</span><span class="tag">advanced</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">04_react_pattern.md</code></span>
+            <span>📏 357 行</span>
+            <span style="opacity:0.7;">agent-engineering/lessons/04_react_pattern.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第4课：ReAct 模式 — 推理与行动交替</h1>
+<h2 id="介绍">介绍</h2>
+<p>ReAct（Reasoning + Acting）是最经典的 Agent 范式：让模型在每次行动前先&quot;推理&quot;（Thought），再&quot;行动&quot;（Action），再&quot;观察&quot;（Observation），循环直到答案。ReAct 的 Thought 让 Agent 的决策过程可观察，大幅提升可调试性。</p>
+<hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>纯工具调用 Agent 没有明显的推理步骤，难以调试和干预：</p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    A[用户问题] --&gt; B{ReAct 循环}
+    B --&gt; C[Thought\n推理当前状态和下一步]
+    C --&gt; D[Action\n选择并执行工具]
+    D --&gt; E[Observation\n获取工具执行结果]
+    E --&gt; F{是否有最终答案?}
+    F --&gt;|否| C
+    F --&gt;|是| G[Final Answer]
+    style C fill:#fff3cd
+    style D fill:#d4edda
+    style E fill:#d1ecf1</pre></div><hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a普通工具调用-agent无推理步骤">方案 A：普通工具调用 Agent（无推理步骤）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 直接调用工具，没有中间思考</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  tools</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#179299">...</span><span style="color:#4C4F69">]</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>✅ 简单，延迟低
+❌ 无推理过程，出错难以调试
+❌ 复杂任务容易跑偏</p>
+<h3 id="方案-breactthought-action-observation-循环">方案 B：ReAct（Thought → Action → Observation 循环）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// 强制模型输出 Thought 再 Action</span></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> systemPrompt </span><span style="color:#179299">=</span><span style="color:#40A02B"> `</span></span>
+<span class="line"><span style="color:#40A02B">你必须按以下格式输出：</span></span>
+<span class="line"><span style="color:#40A02B">Thought: [你的推理过程]</span></span>
+<span class="line"><span style="color:#40A02B">Action: [工具名称]</span></span>
+<span class="line"><span style="color:#40A02B">Action Input: [工具参数]</span></span>
+<span class="line"><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span></code></pre><p>✅ 推理过程可观察，方便调试
+✅ 复杂任务表现更稳定
+❌ 比直接调用多 50-200ms 延迟</p>
+<h3 id="方案-creact-structured-output推荐">方案 C：ReAct + Structured Output（推荐）</h3>
+<p>使用 JSON Schema 强制结构化输出，而不是依赖文本解析。</p>
+<p>✅ 更可靠，不会因格式错误失败
+✅ TypeScript 类型安全</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p>选择<strong>方案 C</strong>（ReAct + Structured Output）。生产环境中文本解析容易失败，用 JSON Schema 强制输出结构保证可靠性。同时展示推理链，方便监控和调试。</p>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="react-数据结构">ReAct 数据结构</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/react/types.ts</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> Thought</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  reasoning</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">       // 当前状态分析</span></span>
+<span class="line"><span style="color:#4C4F69">  plan</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">            // 下一步计划</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> Action</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  tool</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">            // 工具名称</span></span>
+<span class="line"><span style="color:#4C4F69">  input</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> any</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 工具参数</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> Observation</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  result</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">          // 工具执行结果</span></span>
+<span class="line"><span style="color:#4C4F69">  success</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  error</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> ReActStep</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  thought</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Thought</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  action</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> Action</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  observation</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> Observation</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  isFinal</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  finalAnswer</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> Tool</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  parameters</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> any</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // JSON Schema</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  execute</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> any</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="react-agent-实现">ReAct Agent 实现</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/react/react_agent.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#8839EF"> type</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> Tool</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> ReActStep </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./types"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> openai </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> REACT_SYSTEM_PROMPT </span><span style="color:#179299">=</span><span style="color:#40A02B"> `你是一个使用 ReAct 框架的 AI Agent。</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">对于每一步，你必须输出以下 JSON 格式：</span></span>
+<span class="line"><span style="color:#40A02B">{</span></span>
+<span class="line"><span style="color:#40A02B">  "thought": {</span></span>
+<span class="line"><span style="color:#40A02B">    "reasoning": "分析当前情况和已有信息",</span></span>
+<span class="line"><span style="color:#40A02B">    "plan": "下一步要做什么以及为什么"</span></span>
+<span class="line"><span style="color:#40A02B">  },</span></span>
+<span class="line"><span style="color:#40A02B">  "action": {</span></span>
+<span class="line"><span style="color:#40A02B">    "tool": "工具名称（或 final_answer）",</span></span>
+<span class="line"><span style="color:#40A02B">    "input": {}</span></span>
+<span class="line"><span style="color:#40A02B">  },</span></span>
+<span class="line"><span style="color:#40A02B">  "is_final": false,</span></span>
+<span class="line"><span style="color:#40A02B">  "final_answer": null</span></span>
+<span class="line"><span style="color:#40A02B">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">如果已经有足够信息回答，设置 is_final: true 并填写 final_answer。</span></span>
+<span class="line"><span style="color:#40A02B">可用工具：{TOOLS}`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> ReActAgent</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> tools</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Map</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#DF8E1D;font-style:italic"> Tool</span><span style="color:#04A5E5">></span><span style="color:#179299"> =</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Map</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> maxSteps</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">tools</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tool[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> maxSteps</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 10</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tool </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> tools) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#4C4F69">tools</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">set</span><span style="color:#4C4F69">(tool</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> tool)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxSteps </span><span style="color:#179299">=</span><span style="color:#4C4F69"> maxSteps</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> run</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">userQuestion</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    answer</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    steps</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ReActStep[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">    totalSteps</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> steps</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> ReActStep[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> messages</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> OpenAI</span><span style="color:#179299">.</span><span style="color:#DF8E1D;font-style:italic">ChatCompletionMessageParam[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#FE640B"> REACT_SYSTEM_PROMPT</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">replace</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">          "{TOOLS}"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#D20F39">          this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">getToolDescriptions</span><span style="color:#4C4F69">()</span></span>
+<span class="line"><span style="color:#4C4F69">        )</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> userQuestion </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">let</span><span style="color:#4C4F69"> step </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> step </span><span style="color:#179299">&#x3C;</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxSteps</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69"> step</span><span style="color:#179299">++</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">[ReAct] 步骤 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">step</span><span style="color:#179299"> +</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">/</span><span style="color:#7C7F93">${</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxSteps</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 1. 让 LLM 推理</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        messages</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        response_format</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "json_object"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">        temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.3</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> rawOutput </span><span style="color:#179299">=</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">!</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      let</span><span style="color:#4C4F69"> parsed</span><span style="color:#179299">:</span><span style="color:#8839EF"> any</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        parsed </span><span style="color:#179299">=</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(rawOutput)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">error</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"[ReAct] JSON 解析失败:"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> rawOutput)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        break</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> thought </span><span style="color:#179299">=</span><span style="color:#4C4F69"> parsed</span><span style="color:#179299">.</span><span style="color:#4C4F69">thought </span><span style="color:#179299">||</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> reasoning</span><span style="color:#179299">:</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> plan</span><span style="color:#179299">:</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> action </span><span style="color:#179299">=</span><span style="color:#4C4F69"> parsed</span><span style="color:#179299">.</span><span style="color:#4C4F69">action</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> isFinal </span><span style="color:#179299">=</span><span style="color:#4C4F69"> parsed</span><span style="color:#179299">.</span><span style="color:#4C4F69">is_final</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> finalAnswer </span><span style="color:#179299">=</span><span style="color:#4C4F69"> parsed</span><span style="color:#179299">.</span><span style="color:#4C4F69">final_answer</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  Thought: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">thought</span><span style="color:#179299">.</span><span style="color:#4C4F69">reasoning</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  Plan: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">thought</span><span style="color:#179299">.</span><span style="color:#4C4F69">plan</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (isFinal </span><span style="color:#179299">&#x26;&#x26;</span><span style="color:#4C4F69"> finalAnswer) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  Final Answer: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">finalAnswer</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        steps</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> thought</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> isFinal</span><span style="color:#179299">:</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> finalAnswer </span><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> answer</span><span style="color:#179299">:</span><span style="color:#4C4F69"> finalAnswer</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> steps</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> totalSteps</span><span style="color:#179299">:</span><span style="color:#4C4F69"> step </span><span style="color:#179299">+</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">action</span><span style="color:#179299">?.</span><span style="color:#4C4F69">tool) </span><span style="color:#8839EF">break</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 2. 执行工具</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  Action: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">action</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">(</span><span style="color:#7C7F93">${</span><span style="color:#FE640B">JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">action</span><span style="color:#179299">.</span><span style="color:#4C4F69">input</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">)`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> tool </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">tools</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(action</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      let</span><span style="color:#4C4F69"> observation</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      let</span><span style="color:#4C4F69"> success </span><span style="color:#179299">=</span><span style="color:#FE640B"> true</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">tool) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        observation </span><span style="color:#179299">=</span><span style="color:#40A02B"> `错误：工具 "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">action</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">" 不存在`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">        success </span><span style="color:#179299">=</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">        try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">          observation </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> tool</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">execute</span><span style="color:#4C4F69">(action</span><span style="color:#179299">.</span><span style="color:#4C4F69">input)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span><span style="color:#8839EF"> catch</span><span style="color:#4C4F69"> (error) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">          observation </span><span style="color:#179299">=</span><span style="color:#40A02B"> `执行错误: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">error</span><span style="color:#8839EF"> instanceof</span><span style="color:#DF8E1D;font-style:italic"> Error</span><span style="color:#179299"> ?</span><span style="color:#4C4F69"> error</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299"> :</span><span style="color:#1E66F5;font-style:italic"> String</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">error</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">          success </span><span style="color:#179299">=</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  Observation: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">observation</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">substring</span><span style="color:#40A02B">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 100</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">...`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">      steps</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        thought</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        action</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> tool</span><span style="color:#179299">:</span><span style="color:#4C4F69"> action</span><span style="color:#179299">.</span><span style="color:#4C4F69">tool</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> input</span><span style="color:#179299">:</span><span style="color:#4C4F69"> action</span><span style="color:#179299">.</span><span style="color:#4C4F69">input </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#4C4F69">        observation</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> result</span><span style="color:#179299">:</span><span style="color:#4C4F69"> observation</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> success </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#4C4F69">        isFinal</span><span style="color:#179299">:</span><span style="color:#FE640B"> false</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">      // 3. 把结果加入对话历史</span></span>
+<span class="line"><span style="color:#4C4F69">      messages</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "assistant"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> rawOutput </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">        {</span></span>
+<span class="line"><span style="color:#4C4F69">          role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">          content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `Observation: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">observation</span><span style="color:#7C7F93">}</span><span style="color:#EA76CB">\n\n</span><span style="color:#40A02B">继续推理，输出下一步的 JSON。`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span></span>
+<span class="line"><span style="color:#4C4F69">      )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      answer</span><span style="color:#179299">:</span><span style="color:#40A02B"> "达到最大步骤数，未找到答案"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      steps</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      totalSteps</span><span style="color:#179299">:</span><span style="color:#4C4F69"> steps</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    };</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#1E66F5;font-style:italic"> getToolDescriptions</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> Array</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">from</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">tools</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">values</span><span style="color:#4C4F69">())</span></span>
+<span class="line"><span style="color:#179299">      .</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">t</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `- </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">t</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">t</span><span style="color:#179299">.</span><span style="color:#4C4F69">description</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">      .</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="工具定义示例">工具定义示例</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/react/tools.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#8839EF"> type</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> Tool </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./types"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> searchTool</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tool </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "search_web"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "搜索互联网获取最新信息"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      query</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "搜索关键词"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#4C4F69">    required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"query"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  execute</span><span style="color:#179299">:</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 实际使用时调用搜索 API（如 Tavily、SerpAPI）</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[搜索] </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#4C4F69">query</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#40A02B"> `搜索 "</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#4C4F69">query</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">" 的结果：找到相关信息 3 条...`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> calculatorTool</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tool </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "calculator"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "执行数学计算"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      expression</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "数学表达式，如 '2 + 3 * 4'"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#4C4F69">    required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"expression"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  execute</span><span style="color:#179299">:</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> eval</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">expression)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 实际生产请用安全的表达式解析器</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#40A02B"> `计算结果: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">input</span><span style="color:#179299">.</span><span style="color:#4C4F69">expression</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> = </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#40A02B"> `计算失败: 无效的表达式`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> const</span><span style="color:#4C4F69"> readFileTool</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Tool </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "read_file"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "读取本地文件内容"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  parameters</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "object"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    properties</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      path</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "string"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "文件路径"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">    },</span></span>
+<span class="line"><span style="color:#4C4F69">    required</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"path"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">  execute</span><span style="color:#179299">:</span><span style="color:#8839EF"> async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">input</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> fs </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#179299"> import</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"fs"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    try</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> content </span><span style="color:#179299">=</span><span style="color:#4C4F69"> fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFileSync</span><span style="color:#4C4F69">(input</span><span style="color:#179299">.</span><span style="color:#4C4F69">path</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "utf-8"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#4C4F69"> content</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#4C4F69">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 2000</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic"> // 限制返回长度</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> catch</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#40A02B"> `读取失败: 文件不存在或无权限`</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  },</span></span>
+<span class="line"><span style="color:#7C7F93">};</span></span></code></pre><h3 id="完整演示">完整演示</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/react/demo.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> ReActAgent </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./react_agent"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> searchTool</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> calculatorTool </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./tools"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runDemo</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> agent </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> ReActAgent</span><span style="color:#4C4F69">([searchTool</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> calculatorTool]</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 8</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> questions </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#40A02B">    "如果每月节省 15% 的工资，年薪 20 万的人一年能存多少钱？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "查一下最新的 iPhone 价格，然后计算如果我买 3 台需要多少钱"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> q </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> questions) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#7C7F93">${</span><span style="color:#40A02B">"="</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">repeat</span><span style="color:#40A02B">(</span><span style="color:#FE640B">60</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`问题: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">q</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> agent</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">run</span><span style="color:#4C4F69">(q)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">最终答案: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">answer</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`总步骤: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">result</span><span style="color:#179299">.</span><span style="color:#4C4F69">totalSteps</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">runDemo</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课学习<strong>第5课：Plan-and-Execute — 先规划后执行</strong>。ReAct 是&quot;走一步看一步&quot;，适合简单任务。但长任务（如&quot;帮我写一份完整的市场分析报告&quot;）容易偏离目标。Plan-and-Execute 先用强模型做全局规划，再逐步执行，更适合复杂长任务。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ae-03-rag-advanced.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第3课：RAG 进阶</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ae-05-plan-execute.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第5课：Plan-and-Execute</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a普通工具调用-agent无推理步骤">方案 A：普通工具调用 Agent（无推理步骤）</a></li><li class="lvl-3"><a href="#方案-breactthought-action-observation-循环">方案 B：ReAct（Thought → Action → Observation 循环）</a></li><li class="lvl-3"><a href="#方案-creact-structured-output推荐">方案 C：ReAct + Structured Output（推荐）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#react-数据结构">ReAct 数据结构</a></li><li class="lvl-3"><a href="#react-agent-实现">ReAct Agent 实现</a></li><li class="lvl-3"><a href="#工具定义示例">工具定义示例</a></li><li class="lvl-3"><a href="#完整演示">完整演示</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>

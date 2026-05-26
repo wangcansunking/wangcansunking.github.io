@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第12课：Worktree Isolation — Agent Harness 工程</title>
+  <meta name="description" content="Git Worktree 并行无冲突，Claude Code 底层机制">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-indigo">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-indigo">
+      <div class="crumb">
+        <div class="crumb-icon">HC</div>
+        <div class="crumb-text">Agent Harness 工程</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/lcc-01-loop.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Loop</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-02-tools.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tool Dispatch Map</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-03-planning.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">TodoWrite 规划</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-04-subagents.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Subagents</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-05-skills.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Skill Loading</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-06-compression.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context Compression</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-07-tasks.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Task System</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-08-background.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Background Tasks</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-09-teams.html" >
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent Teams</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-10-protocols.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Team Protocols</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-11-autonomous.html" >
+            <span class="num">11</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Autonomous Agents</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/lcc-12-worktree.html" class="active">
+            <span class="num">12</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Worktree Isolation</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/lcc-01-loop.html" class="current">Agent Harness 工程</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">12</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第12课：Worktree Isolation</div>
+          <div class="desc">Git Worktree 并行无冲突，Claude Code 底层机制</div>
+          <div class="tags">
+            <span class="tag">advanced</span><span class="tag">architecture</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">12_worktree_isolation.md</code></span>
+            <span>📏 270 行</span>
+            <span style="opacity:0.7;">learn-claude-code/lessons/12_worktree_isolation.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第12课：Worktree Isolation — Git 工作树安全并行</h1>
+<h2 id="介绍">介绍</h2>
+<p>多个 Agent 并发修改同一 Git 仓库会产生冲突。Git Worktree 让每个 Agent 在独立目录工作（独立分支），完成后提交并自动合并。这是 Claude Code 本身用来并行处理多任务的底层机制。</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>源码参考：github.com/shareAI-lab/learn-claude-code — agents/s12_worktree_task_isolation.py</span></span></code></pre><hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>多 Agent 共享工作目录时：</p>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span>Agent-1: edit src/api.py → 修改第 42 行</span></span>
+<span class="line"><span>Agent-2: edit src/api.py → 同时修改第 42 行</span></span>
+<span class="line"><span>结果：冲突，其中一个 Agent 的修改丢失</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>Agent-1: git checkout main → 影响 Agent-2 正在编辑的文件</span></span>
+<span class="line"><span>Agent-2: ???</span></span></code></pre><hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-a文件锁">方案 A：文件锁</h3>
+<p>每个文件只允许一个 Agent 编辑。</p>
+<p>✅ 防冲突
+❌ 阻塞并行，锁死频繁，性能差</p>
+<h3 id="方案-b复制仓库">方案 B：复制仓库</h3>
+<p>每个 Agent 完整克隆一份仓库。</p>
+<p>✅ 完全隔离
+❌ 磁盘浪费（仓库很大时几GB），克隆耗时</p>
+<h3 id="方案-cgit-worktree推荐">方案 C：Git Worktree（推荐）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#1E66F5;font-style:italic">git</span><span style="color:#40A02B"> worktree</span><span style="color:#40A02B"> add</span><span style="color:#40A02B"> .worktrees/agent-1-branch</span><span style="color:#40A02B"> agent-1-branch</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">git</span><span style="color:#40A02B"> worktree</span><span style="color:#40A02B"> add</span><span style="color:#40A02B"> .worktrees/agent-2-branch</span><span style="color:#40A02B"> agent-2-branch</span></span></code></pre><p>✅ 每个 worktree 是独立目录 + 独立分支
+✅ 共享 <code>.git</code> 对象库，无额外磁盘消耗
+✅ 并行修改同一文件不冲突
+✅ 完成后 <code>git merge</code> 自动合并</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p><strong>方案 C</strong>。Git Worktree 是专为此场景设计的原生 Git 功能，零额外依赖，Claude Code 本身就用这个机制实现 Agent 并行。</p>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="worktree-管理器">Worktree 管理器</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic"># agents/s12_worktree_task_isolation.py</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> subprocess</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> shutil</span></span>
+<span class="line"><span style="color:#8839EF">from</span><span style="color:#4C4F69"> pathlib </span><span style="color:#8839EF">import</span><span style="color:#4C4F69"> Path</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">class</span><span style="color:#DF8E1D;font-style:italic"> WorktreeManager</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#04A5E5;font-style:italic"> __init__</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> repo_path</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "."</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">repo </span><span style="color:#179299">=</span><span style="color:#1E66F5"> Path</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">repo_path</span><span style="color:#7C7F93">).</span><span style="color:#1E66F5">resolve</span><span style="color:#7C7F93">()</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">worktrees_dir </span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">repo </span><span style="color:#179299">/</span><span style="color:#40A02B"> ".worktrees"</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">worktrees_dir</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">mkdir</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">exist_ok</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> create</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> branch_name</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#40A02B">        """</span></span>
+<span class="line"><span style="color:#40A02B">        创建新 worktree。</span></span>
+<span class="line"><span style="color:#40A02B">        返回 worktree 路径（Agent 在此路径工作）。</span></span>
+<span class="line"><span style="color:#40A02B">        """</span></span>
+<span class="line"><span style="color:#4C4F69">        wt_path </span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">worktrees_dir </span><span style="color:#179299">/</span><span style="color:#4C4F69"> branch_name</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        # 如果分支不存在则创建</span></span>
+<span class="line"><span style="color:#4C4F69">        result </span><span style="color:#179299">=</span><span style="color:#4C4F69"> subprocess</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">run</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#7C7F93">            [</span><span style="color:#40A02B">"git"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "show-ref"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "--verify"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"refs/heads/</span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">branch_name</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">],</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            cwd</span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">repo</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> capture_output</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#4C4F69"> result</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">returncode </span><span style="color:#179299">!=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">            subprocess</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">run</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#7C7F93">                [</span><span style="color:#40A02B">"git"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "branch"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> branch_name</span><span style="color:#7C7F93">],</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">                cwd</span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">repo</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> check</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">            )</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        # 添加 worktree</span></span>
+<span class="line"><span style="color:#4C4F69">        subprocess</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">run</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#7C7F93">            [</span><span style="color:#40A02B">"git"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "worktree"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "add"</span><span style="color:#7C7F93">,</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">wt_path</span><span style="color:#7C7F93">),</span><span style="color:#4C4F69"> branch_name</span><span style="color:#7C7F93">],</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            cwd</span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">repo</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> check</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">wt_path</span><span style="color:#7C7F93">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> merge</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> branch_name</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> target</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "main"</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#40A02B">        """</span></span>
+<span class="line"><span style="color:#40A02B">        将 worktree 分支合并回目标分支。</span></span>
+<span class="line"><span style="color:#40A02B">        返回合并结果描述。</span></span>
+<span class="line"><span style="color:#40A02B">        """</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        # 先在 worktree 内提交未提交的变更</span></span>
+<span class="line"><span style="color:#4C4F69">        wt_path </span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">worktrees_dir </span><span style="color:#179299">/</span><span style="color:#4C4F69"> branch_name</span></span>
+<span class="line"><span style="color:#4C4F69">        subprocess</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">run</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#7C7F93">            [</span><span style="color:#40A02B">"git"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "add"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "-A"</span><span style="color:#7C7F93">],</span><span style="color:#E64553;font-style:italic"> cwd</span><span style="color:#179299">=</span><span style="color:#4C4F69">wt_path</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> check</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"><span style="color:#4C4F69">        subprocess</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">run</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#7C7F93">            [</span><span style="color:#40A02B">"git"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "commit"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "-m"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"agent: complete task on </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">branch_name</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">             "--allow-empty"</span><span style="color:#7C7F93">],</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            cwd</span><span style="color:#179299">=</span><span style="color:#4C4F69">wt_path</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        # 切到目标分支合并</span></span>
+<span class="line"><span style="color:#4C4F69">        subprocess</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">run</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#7C7F93">            [</span><span style="color:#40A02B">"git"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "checkout"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> target</span><span style="color:#7C7F93">],</span><span style="color:#E64553;font-style:italic"> cwd</span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">repo</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> check</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"><span style="color:#4C4F69">        result </span><span style="color:#179299">=</span><span style="color:#4C4F69"> subprocess</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">run</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#7C7F93">            [</span><span style="color:#40A02B">"git"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "merge"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "--no-ff"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> branch_name</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">             "-m"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"merge: </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">branch_name</span><span style="color:#EA76CB">}</span><span style="color:#40A02B"> into </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">target</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">],</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            cwd</span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">repo</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> capture_output</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> text</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#4C4F69"> result</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">returncode </span><span style="color:#179299">!=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">            return</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"MERGE CONFLICT: </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">result</span><span style="color:#7C7F93">.</span><span style="color:#E64553;font-style:italic">stderr</span><span style="color:#7C7F93">[:</span><span style="color:#FE640B;font-style:italic">300</span><span style="color:#7C7F93">]</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"Merged </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">branch_name</span><span style="color:#EA76CB">}</span><span style="color:#40A02B"> → </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">target</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> remove</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> branch_name</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> delete_branch</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> bool</span><span style="color:#179299"> =</span><span style="color:#8839EF"> True</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#40A02B">        """清理 worktree（任务完成后调用）"""</span></span>
+<span class="line"><span style="color:#4C4F69">        subprocess</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">run</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#7C7F93">            [</span><span style="color:#40A02B">"git"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "worktree"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "remove"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">             str</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">worktrees_dir </span><span style="color:#179299">/</span><span style="color:#4C4F69"> branch_name</span><span style="color:#7C7F93">),</span><span style="color:#40A02B"> "--force"</span><span style="color:#7C7F93">],</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            cwd</span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">repo</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#4C4F69"> delete_branch</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">            subprocess</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">run</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#7C7F93">                [</span><span style="color:#40A02B">"git"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "branch"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "-d"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> branch_name</span><span style="color:#7C7F93">],</span><span style="color:#E64553;font-style:italic"> cwd</span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">repo</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">            )</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> list_worktrees</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">        result </span><span style="color:#179299">=</span><span style="color:#4C4F69"> subprocess</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">run</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#7C7F93">            [</span><span style="color:#40A02B">"git"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "worktree"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "list"</span><span style="color:#7C7F93">],</span><span style="color:#E64553;font-style:italic"> cwd</span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">repo</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            capture_output</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> text</span><span style="color:#179299">=</span><span style="color:#8839EF">True</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#4C4F69"> result</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">stdout</span></span></code></pre><h3 id="带-worktree-的-agent">带 Worktree 的 Agent</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">class</span><span style="color:#DF8E1D;font-style:italic"> IsolatedAgent</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#04A5E5;font-style:italic"> __init__</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> agent_id</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> wt_manager</span><span style="color:#7C7F93">:</span><span style="color:#E64553"> WorktreeManager</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">agent_id </span><span style="color:#179299">=</span><span style="color:#4C4F69"> agent_id</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">wt_manager </span><span style="color:#179299">=</span><span style="color:#4C4F69"> wt_manager</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">branch </span><span style="color:#179299">=</span><span style="color:#40A02B;font-style:italic"> f</span><span style="color:#40A02B">"agent-</span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">agent_id</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">-</span><span style="color:#EA76CB">{</span><span style="color:#FE640B;font-style:italic">int</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">time</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">time</span><span style="color:#7C7F93">())</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">workdir </span><span style="color:#179299">=</span><span style="color:#8839EF"> None</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#04A5E5;font-style:italic"> __enter__</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#40A02B">        """进入：创建独立 worktree"""</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">workdir </span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">wt_manager</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">create</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">branch</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">        print</span><span style="color:#7C7F93">(</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"[</span><span style="color:#EA76CB">{</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">agent_id</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">] Working in: </span><span style="color:#EA76CB">{</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">workdir</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#D20F39;font-style:italic"> self</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#04A5E5;font-style:italic"> __exit__</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> exc_type</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> exc_val</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> exc_tb</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#40A02B">        """退出：合并并清理"""</span></span>
+<span class="line"><span style="color:#8839EF">        if</span><span style="color:#4C4F69"> exc_type </span><span style="color:#8839EF">is</span><span style="color:#8839EF"> None</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">            result </span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic"> self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">wt_manager</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">merge</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">branch</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#FE640B;font-style:italic">            print</span><span style="color:#7C7F93">(</span><span style="color:#40A02B;font-style:italic">f</span><span style="color:#40A02B">"[</span><span style="color:#EA76CB">{</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">agent_id</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">] </span><span style="color:#EA76CB">{</span><span style="color:#4C4F69">result</span><span style="color:#EA76CB">}</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#D20F39;font-style:italic">        self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">wt_manager</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">remove</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">branch</span><span style="color:#7C7F93">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> run_task</span><span style="color:#7C7F93">(</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> task</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> -></span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#40A02B">        """在独立 worktree 中执行任务"""</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        # Agent 的所有文件操作都在 self.workdir 进行</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">        # 与其他 Agent 完全隔离</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#1E66F5"> run_subagent</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            task_description</span><span style="color:#179299">=</span><span style="color:#4C4F69">task</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            workdir</span><span style="color:#179299">=</span><span style="color:#D20F39;font-style:italic">self</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">workdir</span><span style="color:#7C7F93">,</span><span style="color:#9CA0B0;font-style:italic">  # ← 关键：使用 worktree 路径</span></span>
+<span class="line"><span style="color:#7C7F93">        )</span></span></code></pre><h3 id="并行执行多-agent">并行执行多 Agent</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> concurrent</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">futures</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">def</span><span style="color:#1E66F5;font-style:italic"> run_parallel_agents</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">tasks</span><span style="color:#7C7F93">:</span><span style="color:#E64553;font-style:italic"> list</span><span style="color:#7C7F93">[</span><span style="color:#FE640B;font-style:italic">dict</span><span style="color:#7C7F93">],</span><span style="color:#E64553;font-style:italic"> repo_path</span><span style="color:#7C7F93">:</span><span style="color:#FE640B;font-style:italic"> str</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "."</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#40A02B">    """并行运行多个 Agent，每个使用独立 worktree"""</span></span>
+<span class="line"><span style="color:#4C4F69">    wt_manager </span><span style="color:#179299">=</span><span style="color:#1E66F5"> WorktreeManager</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">repo_path</span><span style="color:#7C7F93">)</span></span>
+<span class="line"><span style="color:#4C4F69">    results </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    def</span><span style="color:#1E66F5;font-style:italic"> run_one</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">task</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#4C4F69">        agent_id </span><span style="color:#179299">=</span><span style="color:#E64553;font-style:italic"> task</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">id</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">]</span></span>
+<span class="line"><span style="color:#8839EF">        with</span><span style="color:#1E66F5"> IsolatedAgent</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">agent_id</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> wt_manager</span><span style="color:#7C7F93">)</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> agent</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#8839EF">            return</span><span style="color:#4C4F69"> agent</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">run_task</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">task</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">description</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">])</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    with</span><span style="color:#4C4F69"> concurrent</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">futures</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">ThreadPoolExecutor</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">max_workers</span><span style="color:#179299">=</span><span style="color:#FE640B">4</span><span style="color:#7C7F93">)</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> executor</span><span style="color:#7C7F93">:</span></span>
+<span class="line"><span style="color:#4C4F69">        future_to_task </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">            executor</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">submit</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">run_one</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> task</span><span style="color:#7C7F93">):</span><span style="color:#4C4F69"> task </span><span style="color:#8839EF">for</span><span style="color:#4C4F69"> task </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> tasks</span></span>
+<span class="line"><span style="color:#7C7F93">        }</span></span>
+<span class="line"><span style="color:#8839EF">        for</span><span style="color:#4C4F69"> future </span><span style="color:#8839EF">in</span><span style="color:#4C4F69"> concurrent</span><span style="color:#7C7F93">.</span><span style="color:#4C4F69">futures</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">as_completed</span><span style="color:#7C7F93">(</span><span style="color:#4C4F69">future_to_task</span><span style="color:#7C7F93">):</span></span>
+<span class="line"><span style="color:#4C4F69">            task </span><span style="color:#179299">=</span><span style="color:#E64553;font-style:italic"> future_to_task</span><span style="color:#7C7F93">[</span><span style="color:#E64553;font-style:italic">future</span><span style="color:#7C7F93">]</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">            results</span><span style="color:#7C7F93">[</span><span style="color:#E64553;font-style:italic">task</span><span style="color:#7C7F93">[</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">id</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">]]</span><span style="color:#179299"> =</span><span style="color:#4C4F69"> future</span><span style="color:#7C7F93">.</span><span style="color:#1E66F5">result</span><span style="color:#7C7F93">()</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> results</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 使用示例：3 个 Agent 并行处理不同功能</span></span>
+<span class="line"><span style="color:#1E66F5">run_parallel_agents</span><span style="color:#7C7F93">([</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#40A02B">"id"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "feat-auth"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B">   "description"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "Implement OAuth2 login"</span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#40A02B">"id"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "feat-search"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "description"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "Add full-text search to /posts"</span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#40A02B">"id"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "fix-perf"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B">    "description"</span><span style="color:#7C7F93">:</span><span style="color:#40A02B"> "Fix N+1 query in user dashboard"</span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">])</span></span></code></pre><h3 id="完整执行流程">完整执行流程</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#1E66F5;font-style:italic">s12</span><span style="color:#179299"> >></span><span style="color:#40A02B"> implement</span><span style="color:#FE640B"> 3</span><span style="color:#40A02B"> features</span><span style="color:#40A02B"> in</span><span style="color:#40A02B"> parallel</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># Agent 创建 3 个 worktree：</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># .worktrees/agent-feat-auth/    ← OAuth2 实现</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># .worktrees/agent-feat-search/  ← 搜索功能</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># .worktrees/agent-fix-perf/     ← 性能修复</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 并行执行（互不干扰）：</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># [feat-auth]   edit src/auth.py</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># [feat-search] edit src/search.py</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># [fix-perf]    edit src/dashboard.py  ← 同时进行，无冲突</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 完成后顺序合并：</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># Merged agent-feat-auth   → main</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># Merged agent-feat-search → main</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># Merged agent-fix-perf    → main</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 清理 worktrees</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">git</span><span style="color:#40A02B"> worktree</span><span style="color:#40A02B"> list</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic"># 只剩 main</span></span></code></pre><hr>
+<h2 id="课程总结">课程总结</h2>
+<p>恭喜完成 <strong>Agent Harness Engineering</strong> 全部 12 课！</p>
+<table>
+<thead>
+<tr>
+<th>课程</th>
+<th>核心概念</th>
+<th>关键模式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>01</td>
+<td>Agent Loop</td>
+<td><code>while tool_use: execute → append → LLM</code></td>
+</tr>
+<tr>
+<td>02</td>
+<td>Tool Dispatch</td>
+<td><code>TOOL_HANDLERS</code> dict</td>
+</tr>
+<tr>
+<td>03</td>
+<td>Planning</td>
+<td><code>todo_write</code> 强制规划</td>
+</tr>
+<tr>
+<td>04</td>
+<td>Subagents</td>
+<td><code>messages=[]</code> 上下文隔离</td>
+</tr>
+<tr>
+<td>05</td>
+<td>Skill Loading</td>
+<td>两层按需加载</td>
+</tr>
+<tr>
+<td>06</td>
+<td>Context Compression</td>
+<td>LLM 摘要压缩</td>
+</tr>
+<tr>
+<td>07</td>
+<td>Task System</td>
+<td>JSON 依赖图持久化</td>
+</tr>
+<tr>
+<td>08</td>
+<td>Background Tasks</td>
+<td>ThreadPoolExecutor 非阻塞</td>
+</tr>
+<tr>
+<td>09</td>
+<td>Agent Teams</td>
+<td>MessageBus 多 Agent 协作</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Team Protocols</td>
+<td>消息类型 + 超时防死锁</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Autonomous Agents</td>
+<td>能力匹配 + 乐观锁认领</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Worktree Isolation</td>
+<td>Git Worktree 并行无冲突</td>
+</tr>
+</tbody></table>
+<p><strong>核心思想</strong>：Agent 始终是模型，你只需要精心设计 Harness = 工具 + 知识 + 观察 + 权限。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/lcc-11-autonomous.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第11课：Autonomous Agents</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ae-01-context.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第1课：Context 管理深度剖析</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-a文件锁">方案 A：文件锁</a></li><li class="lvl-3"><a href="#方案-b复制仓库">方案 B：复制仓库</a></li><li class="lvl-3"><a href="#方案-cgit-worktree推荐">方案 C：Git Worktree（推荐）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#worktree-管理器">Worktree 管理器</a></li><li class="lvl-3"><a href="#带-worktree-的-agent">带 Worktree 的 Agent</a></li><li class="lvl-3"><a href="#并行执行多-agent">并行执行多 Agent</a></li><li class="lvl-3"><a href="#完整执行流程">完整执行流程</a></li><li class="lvl-2"><a href="#课程总结">课程总结</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+
+</body>
+</html>

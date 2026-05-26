@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第9课：Agent 评估与可观测性 — Agent 工程进阶</title>
+  <meta name="description" content="指标体系、链路追踪、A/B 测试">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/agent-learning/assets/styles.css?v=mowndz6l">
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+</head>
+<script>document.documentElement.classList.add('js')</script>
+<body class="tone-amber">
+  <div class="lesson-shell">
+    
+    <aside class="lesson-sidebar tone-amber">
+      <div class="crumb">
+        <div class="crumb-icon">AE</div>
+        <div class="crumb-text">Agent 工程进阶</div>
+      </div>
+      <nav>
+        
+          <a href="/agent-learning/lesson/ae-01-context.html" >
+            <span class="num">01</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Context 管理深度剖析</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-02-rag.html" >
+            <span class="num">02</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">RAG 基础</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-03-rag-advanced.html" >
+            <span class="num">03</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">RAG 进阶</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-04-react.html" >
+            <span class="num">04</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">ReAct 范式</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-05-plan-execute.html" >
+            <span class="num">05</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Plan-and-Execute</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-06-reflexion.html" >
+            <span class="num">06</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Reflexion</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-07-frameworks.html" >
+            <span class="num">07</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">多 Agent 框架</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-08-langgraph.html" >
+            <span class="num">08</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">LangGraph</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-09-evaluation.html" class="active">
+            <span class="num">09</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agent 评估与可观测性</span>
+          </a>
+        
+          <a href="/agent-learning/lesson/ae-10-production.html" >
+            <span class="num">10</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">生产级 Agent</span>
+          </a>
+        
+      </nav>
+      <a href="/agent-learning/courses.html" class="all-courses">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>所有课程</span>
+      </a>
+    </aside>
+  
+
+    <main class="lesson-main">
+      <nav class="breadcrumb">
+        <a href="/agent-learning/">首页</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/courses.html">课程</a>
+        <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="/agent-learning/lesson/ae-01-context.html" class="current">Agent 工程进阶</a>
+      </nav>
+
+      <header class="lesson-header">
+        <div class="num-tile">09</div>
+        <div style="flex:1; min-width:0;">
+          <div class="title">第9课：Agent 评估与可观测性</div>
+          <div class="desc">指标体系、链路追踪、A/B 测试</div>
+          <div class="tags">
+            <span class="tag">advanced</span><span class="tag">ops</span>
+            <span class="tag">Markdown</span>
+          </div>
+          <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-soft); font-size:0.75rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:0.85rem;">
+            <span>📄 <code style="font-family:var(--font-mono);">09_evaluation.md</code></span>
+            <span>📏 506 行</span>
+            <span style="opacity:0.7;">agent-engineering/lessons/09_evaluation.md</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="prose">
+<h1>第9课：Agent 评估 — 如何量化 Agent 质量</h1>
+<h2 id="介绍">介绍</h2>
+<p>Agent 和 RAG 系统很难用传统单元测试评估——输出是自然语言，没有唯一正确答案。本课实现三种评估范式：LLM-as-Judge（用 LLM 打分替代人工标注）、基于规则的自动评估（检查工具调用、格式、内容）、回归测试套件（防止迭代中质量下降）。</p>
+<hr>
+<h2 id="遇到什么问题">遇到什么问题</h2>
+<p>传统测试方法无法评估 Agent 输出质量：</p>
+<div class="mermaid-wrapper"><pre class="mermaid">flowchart TD
+    A[Agent 输出] --&gt; B{评估方式？}
+    B --&gt;|精确匹配| C[assert output === expected\n❌ 自然语言有多种正确表达]
+    B --&gt;|关键词匹配| D[output.includes keyword\n❌ 无法判断逻辑正确性]
+    B --&gt;|LLM-as-Judge| E[GPT-4o 打分 1-10\n✅ 接近人类判断]
+    B --&gt;|规则检查| F[格式/工具调用/长度\n✅ 快速客观]
+    B --&gt;|回归测试| G[对比历史基准分数\n✅ 防止质量退化]
+    E --&gt; H[综合评估报告]
+    F --&gt; H
+    G --&gt; H</pre></div><hr>
+<h2 id="有哪些方案">有哪些方案</h2>
+<h3 id="方案-allm-as-judgellm-评审">方案 A：LLM-as-Judge（LLM 评审）</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> score </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> judge</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">evaluate</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">  question</span><span style="color:#179299">:</span><span style="color:#40A02B"> "解释 RAG 的工作原理"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  answer</span><span style="color:#179299">:</span><span style="color:#4C4F69"> agentOutput</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  criteria</span><span style="color:#179299">:</span><span style="color:#40A02B"> "accuracy"</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// → { score: 8.5, reasoning: "回答准确，覆盖了关键步骤..." }</span></span></code></pre><p>✅ 最接近人类判断，适合开放性任务
+❌ 需要 API 调用，有一定随机性</p>
+<h3 id="方案-b规则检查器">方案 B：规则检查器</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> check </span><span style="color:#179299">=</span><span style="color:#4C4F69"> evaluator</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">checkFormat</span><span style="color:#4C4F69">(output</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  minLength</span><span style="color:#179299">:</span><span style="color:#FE640B"> 100</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  maxLength</span><span style="color:#179299">:</span><span style="color:#FE640B"> 2000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  requiredSections</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"问题"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "解决方案"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">  forbiddenPhrases</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"我不知道"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "无法确定"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span></code></pre><p>✅ 快速、零成本，适合格式和行为约束
+❌ 无法评估语义质量</p>
+<h3 id="方案-c综合评估套件推荐">方案 C：综合评估套件（推荐）</h3>
+<p>结合 LLM-as-Judge + 规则检查 + 回归测试基准，形成完整的持续评估体系。</p>
+<p>✅ 多维度覆盖，结果更可靠
+✅ 可集成 CI/CD，每次发布前自动运行</p>
+<hr>
+<h2 id="怎么选择">怎么选择</h2>
+<p>选择<strong>方案 C</strong>：规则检查做快速过滤，LLM-as-Judge 做质量评分，回归测试防止退化。三层防护确保 Agent 质量持续改善而不是退步。</p>
+<hr>
+<h2 id="怎么执行">怎么执行</h2>
+<h3 id="llm-as-judge">LLM-as-Judge</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/evaluation/llm_judge.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> openai </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> JudgeResult</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  score</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">       // 0-10</span></span>
+<span class="line"><span style="color:#4C4F69">  passed</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">     // 是否达标（默认 7 分以上）</span></span>
+<span class="line"><span style="color:#4C4F69">  reasoning</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 评分理由</span></span>
+<span class="line"><span style="color:#4C4F69">  dimensions</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Record</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> number</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 各维度分数</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> JudgeCriteria</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  name</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  description</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  weight</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">      // 权重 0-1，所有权重之和应为 1</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> DEFAULT_CRITERIA</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> JudgeCriteria[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "accuracy"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "事实准确性：回答是否包含正确的信息"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> weight</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.4</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "completeness"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "完整性：是否覆盖了问题的所有重要方面"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> weight</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.3</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "clarity"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "清晰度：表达是否清晰易懂"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> weight</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.2</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">  {</span><span style="color:#4C4F69"> name</span><span style="color:#179299">:</span><span style="color:#40A02B"> "relevance"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> description</span><span style="color:#179299">:</span><span style="color:#40A02B"> "相关性：是否直接回应了问题，没有跑题"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> weight</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.1</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> judgeOutput</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  question</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  answer</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  groundTruth</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  criteria</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> JudgeCriteria[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> DEFAULT_CRITERIA</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  threshold</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#179299"> =</span><span style="color:#FE640B"> 7</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">JudgeResult</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> criteriaList </span><span style="color:#179299">=</span><span style="color:#4C4F69"> criteria</span></span>
+<span class="line"><span style="color:#179299">    .</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">c</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#40A02B"> `- </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">c</span><span style="color:#179299">.</span><span style="color:#4C4F69">name</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">（权重</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">c</span><span style="color:#179299">.</span><span style="color:#4C4F69">weight</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">）：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">c</span><span style="color:#179299">.</span><span style="color:#4C4F69">description</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">    .</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> referenceSection </span><span style="color:#179299">=</span><span style="color:#4C4F69"> groundTruth</span></span>
+<span class="line"><span style="color:#179299">    ?</span><span style="color:#40A02B"> `</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">参考答案（仅供参考）：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">groundTruth</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span></span>
+<span class="line"><span style="color:#179299">    :</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个严格客观的质量评审专家。请根据评分维度对 AI 回答评分。"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span></span>
+<span class="line"><span style="color:#4C4F69">        role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        content</span><span style="color:#179299">:</span><span style="color:#40A02B"> `评估以下 AI 回答的质量：</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">问题：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">question</span><span style="color:#7C7F93">}${</span><span style="color:#4C4F69">referenceSection</span><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">AI 回答：</span></span>
+<span class="line"><span style="color:#7C7F93">${</span><span style="color:#4C4F69">answer</span><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">评分维度：</span></span>
+<span class="line"><span style="color:#7C7F93">${</span><span style="color:#4C4F69">criteriaList</span><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#40A02B">请以 JSON 格式输出：</span></span>
+<span class="line"><span style="color:#40A02B">{</span></span>
+<span class="line"><span style="color:#40A02B">  "dimensions": {"accuracy": 8, "completeness": 7, ...},</span></span>
+<span class="line"><span style="color:#40A02B">  "overall_score": 7.8,</span></span>
+<span class="line"><span style="color:#40A02B">  "reasoning": "评分理由（50字以内）"</span></span>
+<span class="line"><span style="color:#40A02B">}`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    response_format</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> type</span><span style="color:#179299">:</span><span style="color:#40A02B"> "json_object"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">    temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.1</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> parsed </span><span style="color:#179299">=</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content</span><span style="color:#179299">!</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> score </span><span style="color:#179299">=</span><span style="color:#4C4F69"> parsed</span><span style="color:#179299">.</span><span style="color:#4C4F69">overall_score </span><span style="color:#179299">||</span><span style="color:#4C4F69"> parsed</span><span style="color:#179299">.</span><span style="color:#4C4F69">score </span><span style="color:#179299">||</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    score</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    passed</span><span style="color:#179299">:</span><span style="color:#4C4F69"> score </span><span style="color:#179299">>=</span><span style="color:#4C4F69"> threshold</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    reasoning</span><span style="color:#179299">:</span><span style="color:#4C4F69"> parsed</span><span style="color:#179299">.</span><span style="color:#4C4F69">reasoning </span><span style="color:#179299">||</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    dimensions</span><span style="color:#179299">:</span><span style="color:#4C4F69"> parsed</span><span style="color:#179299">.</span><span style="color:#4C4F69">dimensions </span><span style="color:#179299">||</span><span style="color:#7C7F93"> {},</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 批量评估多个测试用例</span></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> batchJudge</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  testCases</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Array</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69;font-style:italic"> question</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> answer</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> groundTruth</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> }</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">  criteria</span><span style="color:#179299">?:</span><span style="color:#DF8E1D;font-style:italic"> JudgeCriteria[]</span></span>
+<span class="line"><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  results</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Array</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">JudgeResult </span><span style="color:#179299">&#x26;</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> question</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93"> }</span><span style="color:#04A5E5">></span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69;font-style:italic">  summary</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69;font-style:italic"> avgScore</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#4C4F69;font-style:italic"> passRate</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> results </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">all</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">    testCases</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#8839EF">async</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">tc</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> result </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> judgeOutput</span><span style="color:#4C4F69">(tc</span><span style="color:#179299">.</span><span style="color:#4C4F69">question</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> tc</span><span style="color:#179299">.</span><span style="color:#4C4F69">answer</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> tc</span><span style="color:#179299">.</span><span style="color:#4C4F69">groundTruth</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> criteria)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      return</span><span style="color:#7C7F93"> {</span><span style="color:#179299"> ...</span><span style="color:#4C4F69">result</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> question</span><span style="color:#179299">:</span><span style="color:#4C4F69"> tc</span><span style="color:#179299">.</span><span style="color:#4C4F69">question </span><span style="color:#7C7F93">};</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> avgScore </span><span style="color:#179299">=</span><span style="color:#4C4F69"> results</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">reduce</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">sum</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> sum </span><span style="color:#179299">+</span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">score</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#179299">/</span><span style="color:#4C4F69"> results</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> passRate </span><span style="color:#179299">=</span><span style="color:#4C4F69"> results</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">passed)</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">/</span><span style="color:#4C4F69"> results</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> results</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> summary</span><span style="color:#179299">:</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> avgScore</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> passRate </span><span style="color:#7C7F93">}</span><span style="color:#7C7F93"> };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="规则检查器">规则检查器</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/evaluation/rule_checker.ts</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> RuleCheckResult</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  passed</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  violations</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  score</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 通过的规则比例</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> CheckRules</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  minLength</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  maxLength</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  requiredKeywords</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">         // 必须包含的关键词</span></span>
+<span class="line"><span style="color:#4C4F69">  forbiddenPhrases</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">         // 禁止出现的短语</span></span>
+<span class="line"><span style="color:#4C4F69">  requiredSections</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">         // 必须包含的章节标题</span></span>
+<span class="line"><span style="color:#4C4F69">  codeBlockRequired</span><span style="color:#179299">?:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">         // 是否必须包含代码块</span></span>
+<span class="line"><span style="color:#4C4F69">  maxBulletPoints</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">            // 最大条目数</span></span>
+<span class="line"><span style="color:#4C4F69">  languageConsistency</span><span style="color:#179299">?:</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">zh</span><span style="color:#40A02B">"</span><span style="color:#179299"> |</span><span style="color:#40A02B"> "</span><span style="color:#40A02B;font-style:italic">en</span><span style="color:#40A02B">"</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 语言一致性</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> checkRules</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">output</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> rules</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> CheckRules</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> RuleCheckResult</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> violations</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> totalChecks </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  let</span><span style="color:#4C4F69"> passedChecks </span><span style="color:#179299">=</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  function</span><span style="color:#1E66F5;font-style:italic"> check</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">condition</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> message</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    totalChecks</span><span style="color:#179299">++</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (condition) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      passedChecks</span><span style="color:#179299">++</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      violations</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(message)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (rules</span><span style="color:#179299">.</span><span style="color:#4C4F69">minLength </span><span style="color:#179299">!==</span><span style="color:#8839EF"> undefined</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    check</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">      output</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">>=</span><span style="color:#4C4F69"> rules</span><span style="color:#179299">.</span><span style="color:#4C4F69">minLength</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">      `输出过短：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">output</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> &#x3C; </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">rules</span><span style="color:#179299">.</span><span style="color:#4C4F69">minLength</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 字符`</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (rules</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxLength </span><span style="color:#179299">!==</span><span style="color:#8839EF"> undefined</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    check</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">      output</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">&#x3C;=</span><span style="color:#4C4F69"> rules</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxLength</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">      `输出过长：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">output</span><span style="color:#179299">.</span><span style="color:#40A02B">length</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> > </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">rules</span><span style="color:#179299">.</span><span style="color:#4C4F69">maxLength</span><span style="color:#7C7F93">}</span><span style="color:#40A02B"> 字符`</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (rules</span><span style="color:#179299">.</span><span style="color:#4C4F69">requiredKeywords) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> keyword </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> rules</span><span style="color:#179299">.</span><span style="color:#4C4F69">requiredKeywords) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">      check</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">        output</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toLowerCase</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(keyword</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toLowerCase</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">        `缺少必要关键词：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">keyword</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span></span>
+<span class="line"><span style="color:#4C4F69">      )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (rules</span><span style="color:#179299">.</span><span style="color:#4C4F69">forbiddenPhrases) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> phrase </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> rules</span><span style="color:#179299">.</span><span style="color:#4C4F69">forbiddenPhrases) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">      check</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#179299">        !</span><span style="color:#4C4F69">output</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toLowerCase</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(phrase</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toLowerCase</span><span style="color:#4C4F69">())</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">        `出现禁止短语：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">phrase</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span></span>
+<span class="line"><span style="color:#4C4F69">      )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (rules</span><span style="color:#179299">.</span><span style="color:#4C4F69">requiredSections) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> section </span><span style="color:#8839EF">of</span><span style="color:#4C4F69"> rules</span><span style="color:#179299">.</span><span style="color:#4C4F69">requiredSections) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">      check</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">        output</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(section)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">        `缺少必要章节：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">section</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span></span>
+<span class="line"><span style="color:#4C4F69">      )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (rules</span><span style="color:#179299">.</span><span style="color:#4C4F69">codeBlockRequired) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    check</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">      output</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">includes</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"```"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">      "缺少代码块（要求包含 ``` 代码块）"</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (rules</span><span style="color:#179299">.</span><span style="color:#4C4F69">languageConsistency </span><span style="color:#179299">===</span><span style="color:#40A02B"> "zh"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> chineseChars </span><span style="color:#179299">=</span><span style="color:#4C4F69"> (output</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">match</span><span style="color:#4C4F69">(</span><span style="color:#EA76CB">/</span><span style="color:#DF8E1D">[</span><span style="color:#FE640B">\u4e00</span><span style="color:#DC8A78">-</span><span style="color:#FE640B">\u9fff</span><span style="color:#DF8E1D">]</span><span style="color:#EA76CB">/</span><span style="color:#8839EF">g</span><span style="color:#4C4F69">) </span><span style="color:#179299">||</span><span style="color:#4C4F69"> [])</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> totalChars </span><span style="color:#179299">=</span><span style="color:#4C4F69"> output</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">replace</span><span style="color:#4C4F69">(</span><span style="color:#EA76CB">/\s/</span><span style="color:#8839EF">g</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> ""</span><span style="color:#4C4F69">)</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    check</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">      totalChars </span><span style="color:#179299">===</span><span style="color:#FE640B"> 0</span><span style="color:#179299"> ||</span><span style="color:#4C4F69"> chineseChars </span><span style="color:#179299">/</span><span style="color:#4C4F69"> totalChars </span><span style="color:#179299">></span><span style="color:#FE640B"> 0.3</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">      "语言不一致：期望中文内容"</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> score </span><span style="color:#179299">=</span><span style="color:#4C4F69"> totalChecks </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#179299"> ?</span><span style="color:#4C4F69"> passedChecks </span><span style="color:#179299">/</span><span style="color:#4C4F69"> totalChecks </span><span style="color:#179299">:</span><span style="color:#FE640B"> 1</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    passed</span><span style="color:#179299">:</span><span style="color:#4C4F69"> violations</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">===</span><span style="color:#FE640B"> 0</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    violations</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    score</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  };</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="回归测试套件">回归测试套件</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/evaluation/regression.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#D20F39"> *</span><span style="color:#8839EF"> as</span><span style="color:#4C4F69"> fs </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "fs"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> judgeOutput </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./llm_judge"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> TestCase</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  id</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  question</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  groundTruth</span><span style="color:#179299">?:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  rules</span><span style="color:#179299">?:</span><span style="color:#179299"> import</span><span style="color:#DF8E1D;font-style:italic">(</span><span style="color:#40A02B">"</span><span style="color:#40A02B;font-style:italic">./rule_checker</span><span style="color:#40A02B">"</span><span style="color:#DF8E1D;font-style:italic">).CheckRules</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  minScore</span><span style="color:#179299">?:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">  // 该测试用例的最低分要求</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> BenchmarkResult</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  testCaseId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  question</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  answer</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  score</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  passed</span><span style="color:#179299">:</span><span style="color:#8839EF"> boolean</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  timestamp</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> interface</span><span style="color:#DF8E1D;font-style:italic"> RegressionReport</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">  runId</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  timestamp</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  totalTests</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  passedTests</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  avgScore</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  passRate</span><span style="color:#179299">:</span><span style="color:#8839EF"> number</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  results</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> BenchmarkResult[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  regressions</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93">;</span><span style="color:#9CA0B0;font-style:italic">   // 与基准相比下降的测试用例 ID</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">export</span><span style="color:#8839EF"> class</span><span style="color:#DF8E1D;font-style:italic"> RegressionSuite</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> testCases</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> TestCase[]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#4C4F69"> baselinePath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  constructor</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">testCases</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> TestCase[]</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> baselinePath</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#179299"> =</span><span style="color:#40A02B"> "./baseline.json"</span><span style="color:#7C7F93">)</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">testCases </span><span style="color:#179299">=</span><span style="color:#4C4F69"> testCases</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#D20F39">    this</span><span style="color:#179299">.</span><span style="color:#4C4F69">baselinePath </span><span style="color:#179299">=</span><span style="color:#4C4F69"> baselinePath</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  async</span><span style="color:#1E66F5;font-style:italic"> run</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">    agentFn</span><span style="color:#179299">:</span><span style="color:#7C7F93"> (</span><span style="color:#E64553;font-style:italic">question</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#DF8E1D;font-style:italic">RegressionReport</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> results</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> BenchmarkResult[] </span><span style="color:#179299">=</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    for</span><span style="color:#4C4F69"> (</span><span style="color:#8839EF">const</span><span style="color:#4C4F69"> tc </span><span style="color:#8839EF">of</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#4C4F69">testCases) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`[Regression] 测试 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">tc</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">tc</span><span style="color:#179299">.</span><span style="color:#4C4F69">question</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">slice</span><span style="color:#40A02B">(</span><span style="color:#FE640B">0</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 50</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">...`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> answer </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> agentFn</span><span style="color:#4C4F69">(tc</span><span style="color:#179299">.</span><span style="color:#4C4F69">question)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">      const</span><span style="color:#4C4F69"> judgeResult </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> judgeOutput</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">        tc</span><span style="color:#179299">.</span><span style="color:#4C4F69">question</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        answer</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        tc</span><span style="color:#179299">.</span><span style="color:#4C4F69">groundTruth</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#8839EF">        undefined</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        tc</span><span style="color:#179299">.</span><span style="color:#4C4F69">minScore </span><span style="color:#179299">||</span><span style="color:#FE640B"> 7</span></span>
+<span class="line"><span style="color:#4C4F69">      )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">      results</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">push</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">        testCaseId</span><span style="color:#179299">:</span><span style="color:#4C4F69"> tc</span><span style="color:#179299">.</span><span style="color:#4C4F69">id</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        question</span><span style="color:#179299">:</span><span style="color:#4C4F69"> tc</span><span style="color:#179299">.</span><span style="color:#4C4F69">question</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        answer</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        score</span><span style="color:#179299">:</span><span style="color:#4C4F69"> judgeResult</span><span style="color:#179299">.</span><span style="color:#4C4F69">score</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        passed</span><span style="color:#179299">:</span><span style="color:#4C4F69"> judgeResult</span><span style="color:#179299">.</span><span style="color:#4C4F69">passed</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">        timestamp</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">        `  分数: </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">judgeResult</span><span style="color:#179299">.</span><span style="color:#4C4F69">score</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">1</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">/10 </span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">judgeResult</span><span style="color:#179299">.</span><span style="color:#4C4F69">passed</span><span style="color:#179299"> ?</span><span style="color:#40A02B"> "✓"</span><span style="color:#179299"> :</span><span style="color:#40A02B"> "✗"</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span></span>
+<span class="line"><span style="color:#4C4F69">      )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 与基准对比，检测回归</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> baseline </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">loadBaseline</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> regressions </span><span style="color:#179299">=</span><span style="color:#D20F39"> this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">detectRegressions</span><span style="color:#4C4F69">(results</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> baseline)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> report</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> RegressionReport </span><span style="color:#179299">=</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">      runId</span><span style="color:#179299">:</span><span style="color:#40A02B"> `run_</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#40A02B">()</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      timestamp</span><span style="color:#179299">:</span><span style="color:#4C4F69"> Date</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">now</span><span style="color:#4C4F69">()</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      totalTests</span><span style="color:#179299">:</span><span style="color:#4C4F69"> results</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      passedTests</span><span style="color:#179299">:</span><span style="color:#4C4F69"> results</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">passed)</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      avgScore</span><span style="color:#179299">:</span><span style="color:#4C4F69"> results</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">reduce</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">sum</span><span style="color:#7C7F93">,</span><span style="color:#E64553;font-style:italic"> r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> sum </span><span style="color:#179299">+</span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">score</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#179299">/</span><span style="color:#4C4F69"> results</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      passRate</span><span style="color:#179299">:</span><span style="color:#4C4F69"> results</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">passed)</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">/</span><span style="color:#4C4F69"> results</span><span style="color:#179299">.</span><span style="color:#4C4F69">length</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      results</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">      regressions</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">    };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">    // 如果整体分数提升，更新基准</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">baseline </span><span style="color:#179299">||</span><span style="color:#4C4F69"> report</span><span style="color:#179299">.</span><span style="color:#4C4F69">avgScore </span><span style="color:#179299">></span><span style="color:#4C4F69"> baseline</span><span style="color:#179299">.</span><span style="color:#4C4F69">avgScore) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#D20F39">      this</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">saveBaseline</span><span style="color:#4C4F69">(report)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">      console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"[Regression] 基准已更新"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> report</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#1E66F5;font-style:italic"> loadBaseline</span><span style="color:#7C7F93">()</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> RegressionReport</span><span style="color:#179299"> |</span><span style="color:#8839EF;font-style:italic"> null</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">existsSync</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">baselinePath)) </span><span style="color:#8839EF">return</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">parse</span><span style="color:#4C4F69">(fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">readFileSync</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">baselinePath</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "utf-8"</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#1E66F5;font-style:italic"> saveBaseline</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">report</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> RegressionReport</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#8839EF"> void</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    fs</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">writeFileSync</span><span style="color:#4C4F69">(</span><span style="color:#D20F39">this</span><span style="color:#179299">.</span><span style="color:#4C4F69">baselinePath</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> JSON</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">stringify</span><span style="color:#4C4F69">(report</span><span style="color:#7C7F93">,</span><span style="color:#8839EF"> null</span><span style="color:#7C7F93">,</span><span style="color:#FE640B"> 2</span><span style="color:#4C4F69">))</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  private</span><span style="color:#1E66F5;font-style:italic"> detectRegressions</span><span style="color:#7C7F93">(</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    current</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> BenchmarkResult[]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#E64553;font-style:italic">    baseline</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> RegressionReport </span><span style="color:#179299">|</span><span style="color:#8839EF;font-style:italic"> null</span></span>
+<span class="line"><span style="color:#7C7F93">  )</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#DF8E1D;font-style:italic">[]</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">    if</span><span style="color:#4C4F69"> (</span><span style="color:#179299">!</span><span style="color:#4C4F69">baseline) </span><span style="color:#8839EF">return</span><span style="color:#4C4F69"> []</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    const</span><span style="color:#4C4F69"> baselineMap </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> Map</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">      baseline</span><span style="color:#179299">.</span><span style="color:#4C4F69">results</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> [r</span><span style="color:#179299">.</span><span style="color:#4C4F69">testCaseId</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">score])</span></span>
+<span class="line"><span style="color:#4C4F69">    )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">    return</span><span style="color:#4C4F69"> current</span></span>
+<span class="line"><span style="color:#179299">      .</span><span style="color:#1E66F5;font-style:italic">filter</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">        const</span><span style="color:#4C4F69"> baselineScore </span><span style="color:#179299">=</span><span style="color:#4C4F69"> baselineMap</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">get</span><span style="color:#4C4F69">(r</span><span style="color:#179299">.</span><span style="color:#4C4F69">testCaseId)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">        return</span><span style="color:#4C4F69"> baselineScore </span><span style="color:#179299">!==</span><span style="color:#8839EF"> undefined</span><span style="color:#179299"> &#x26;&#x26;</span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">score </span><span style="color:#179299">&#x3C;</span><span style="color:#4C4F69"> baselineScore </span><span style="color:#179299">-</span><span style="color:#FE640B"> 1.0</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">      }</span><span style="color:#4C4F69">)</span></span>
+<span class="line"><span style="color:#179299">      .</span><span style="color:#1E66F5;font-style:italic">map</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">r</span><span style="color:#7C7F93">)</span><span style="color:#179299"> =></span><span style="color:#4C4F69"> r</span><span style="color:#179299">.</span><span style="color:#4C4F69">testCaseId)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span></code></pre><h3 id="完整评估-pipeline-演示">完整评估 Pipeline 演示</h3>
+<pre class="shiki catppuccin-latte" style="background-color:#eff1f5;color:#4c4f69" tabindex="0"><code><span class="line"><span style="color:#9CA0B0;font-style:italic">// src/evaluation/demo.ts</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#4C4F69"> OpenAI </span><span style="color:#8839EF">from</span><span style="color:#40A02B"> "openai"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> judgeOutput</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> batchJudge </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./llm_judge"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> checkRules </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./rule_checker"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">import</span><span style="color:#7C7F93"> {</span><span style="color:#4C4F69"> RegressionSuite </span><span style="color:#7C7F93">}</span><span style="color:#8839EF"> from</span><span style="color:#40A02B"> "./regression"</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">const</span><span style="color:#4C4F69"> openai </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> OpenAI</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span><span style="color:#4C4F69"> apiKey</span><span style="color:#179299">:</span><span style="color:#4C4F69"> process</span><span style="color:#179299">.</span><span style="color:#4C4F69">env</span><span style="color:#179299">.</span><span style="color:#FE640B">OPENAI_API_KEY</span><span style="color:#7C7F93"> }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">// 被评估的 Agent（模拟）</span></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> myAgent</span><span style="color:#7C7F93">(</span><span style="color:#E64553;font-style:italic">question</span><span style="color:#179299">:</span><span style="color:#8839EF"> string</span><span style="color:#7C7F93">)</span><span style="color:#179299">:</span><span style="color:#DF8E1D;font-style:italic"> Promise</span><span style="color:#04A5E5">&#x3C;</span><span style="color:#8839EF">string</span><span style="color:#04A5E5">></span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> response </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> openai</span><span style="color:#179299">.</span><span style="color:#4C4F69">chat</span><span style="color:#179299">.</span><span style="color:#4C4F69">completions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">create</span><span style="color:#4C4F69">(</span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    model</span><span style="color:#179299">:</span><span style="color:#40A02B"> "gpt-4o-mini"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    messages</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "system"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#40A02B"> "你是一个 AI 技术助手，用中文简洁回答问题。"</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> role</span><span style="color:#179299">:</span><span style="color:#40A02B"> "user"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> content</span><span style="color:#179299">:</span><span style="color:#4C4F69"> question </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    temperature</span><span style="color:#179299">:</span><span style="color:#FE640B"> 0.7</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  return</span><span style="color:#4C4F69"> response</span><span style="color:#179299">.</span><span style="color:#4C4F69">choices[</span><span style="color:#FE640B">0</span><span style="color:#4C4F69">]</span><span style="color:#179299">.</span><span style="color:#4C4F69">message</span><span style="color:#179299">.</span><span style="color:#4C4F69">content </span><span style="color:#179299">||</span><span style="color:#40A02B"> ""</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">async</span><span style="color:#8839EF"> function</span><span style="color:#1E66F5;font-style:italic"> runDemo</span><span style="color:#7C7F93">()</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 1. 单次 LLM-as-Judge 评估</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"=== 1. LLM-as-Judge 评估 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> answer </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> myAgent</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"什么是 RAG？它解决了什么问题？"</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> judgeResult </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> judgeOutput</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#40A02B">    "什么是 RAG？它解决了什么问题？"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    answer</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "RAG（Retrieval-Augmented Generation）通过检索外部知识库来增强 LLM 的回答，解决 LLM 知识截止和幻觉问题"</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`分数：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">judgeResult</span><span style="color:#179299">.</span><span style="color:#4C4F69">score</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">/10，通过：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">judgeResult</span><span style="color:#179299">.</span><span style="color:#4C4F69">passed</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`理由：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">judgeResult</span><span style="color:#179299">.</span><span style="color:#4C4F69">reasoning</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 2. 规则检查</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 2. 规则检查 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> ruleResult </span><span style="color:#179299">=</span><span style="color:#1E66F5;font-style:italic"> checkRules</span><span style="color:#4C4F69">(answer</span><span style="color:#7C7F93">,</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    minLength</span><span style="color:#179299">:</span><span style="color:#FE640B"> 100</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    maxLength</span><span style="color:#179299">:</span><span style="color:#FE640B"> 1000</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    requiredKeywords</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"检索"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "生成"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "知识库"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    forbiddenPhrases</span><span style="color:#179299">:</span><span style="color:#4C4F69"> [</span><span style="color:#40A02B">"我不确定"</span><span style="color:#7C7F93">,</span><span style="color:#40A02B"> "可能是"</span><span style="color:#4C4F69">]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#4C4F69">    languageConsistency</span><span style="color:#179299">:</span><span style="color:#40A02B"> "zh"</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`规则通过：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">ruleResult</span><span style="color:#179299">.</span><span style="color:#4C4F69">passed</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">，得分：</span><span style="color:#7C7F93">${</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">ruleResult</span><span style="color:#179299">.</span><span style="color:#4C4F69">score</span><span style="color:#179299"> *</span><span style="color:#FE640B"> 100</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">0</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">%`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (ruleResult</span><span style="color:#179299">.</span><span style="color:#4C4F69">violations</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"违规："</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> ruleResult</span><span style="color:#179299">.</span><span style="color:#4C4F69">violations)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 3. 批量评估</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 3. 批量评估 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> testCases </span><span style="color:#179299">=</span><span style="color:#4C4F69"> [</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> question</span><span style="color:#179299">:</span><span style="color:#40A02B"> "解释 ReAct 模式"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> answer</span><span style="color:#179299">:</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> myAgent</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"解释 ReAct 模式"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> question</span><span style="color:#179299">:</span><span style="color:#40A02B"> "什么是 Chain of Thought？"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> answer</span><span style="color:#179299">:</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> myAgent</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"什么是 Chain of Thought？"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#7C7F93">    {</span><span style="color:#4C4F69"> question</span><span style="color:#179299">:</span><span style="color:#40A02B"> "Transformer 的核心机制是什么？"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> answer</span><span style="color:#179299">:</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> myAgent</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"Transformer 的核心机制是什么？"</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">},</span></span>
+<span class="line"><span style="color:#4C4F69">  ]</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> batchResult </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#1E66F5;font-style:italic"> batchJudge</span><span style="color:#4C4F69">(testCases)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`平均分：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">batchResult</span><span style="color:#179299">.</span><span style="color:#4C4F69">summary</span><span style="color:#179299">.</span><span style="color:#4C4F69">avgScore</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">1</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">/10`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`通过率：</span><span style="color:#7C7F93">${</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">batchResult</span><span style="color:#179299">.</span><span style="color:#4C4F69">summary</span><span style="color:#179299">.</span><span style="color:#4C4F69">passRate</span><span style="color:#179299"> *</span><span style="color:#FE640B"> 100</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">0</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">%`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#9CA0B0;font-style:italic">  // 4. 回归测试</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">"</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">=== 4. 回归测试 ==="</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> suite </span><span style="color:#179299">=</span><span style="color:#8839EF;font-weight:bold"> new</span><span style="color:#1E66F5;font-style:italic"> RegressionSuite</span><span style="color:#4C4F69">(</span></span>
+<span class="line"><span style="color:#4C4F69">    [</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> id</span><span style="color:#179299">:</span><span style="color:#40A02B"> "rag-basics"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> question</span><span style="color:#179299">:</span><span style="color:#40A02B"> "什么是 RAG？"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> minScore</span><span style="color:#179299">:</span><span style="color:#FE640B"> 7</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> id</span><span style="color:#179299">:</span><span style="color:#40A02B"> "react-pattern"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> question</span><span style="color:#179299">:</span><span style="color:#40A02B"> "解释 ReAct 模式的 Thought-Action-Observation 循环"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> minScore</span><span style="color:#179299">:</span><span style="color:#FE640B"> 7</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#7C7F93">      {</span><span style="color:#4C4F69"> id</span><span style="color:#179299">:</span><span style="color:#40A02B"> "reflexion"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> question</span><span style="color:#179299">:</span><span style="color:#40A02B"> "Reflexion 与普通重试有什么区别？"</span><span style="color:#7C7F93">,</span><span style="color:#4C4F69"> minScore</span><span style="color:#179299">:</span><span style="color:#FE640B"> 6</span><span style="color:#7C7F93"> },</span></span>
+<span class="line"><span style="color:#4C4F69">    ]</span><span style="color:#7C7F93">,</span></span>
+<span class="line"><span style="color:#40A02B">    "./agent_baseline.json"</span></span>
+<span class="line"><span style="color:#4C4F69">  )</span><span style="color:#7C7F93">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#8839EF">  const</span><span style="color:#4C4F69"> report </span><span style="color:#179299">=</span><span style="color:#8839EF"> await</span><span style="color:#4C4F69"> suite</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">run</span><span style="color:#4C4F69">(myAgent)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`</span><span style="color:#EA76CB">\n</span><span style="color:#40A02B">回归测试报告：`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  总测试数：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">report</span><span style="color:#179299">.</span><span style="color:#4C4F69">totalTests</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  通过数：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">report</span><span style="color:#179299">.</span><span style="color:#4C4F69">passedTests</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  平均分：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">report</span><span style="color:#179299">.</span><span style="color:#4C4F69">avgScore</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">1</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#4C4F69">  console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  通过率：</span><span style="color:#7C7F93">${</span><span style="color:#40A02B">(</span><span style="color:#4C4F69">report</span><span style="color:#179299">.</span><span style="color:#4C4F69">passRate</span><span style="color:#179299"> *</span><span style="color:#FE640B"> 100</span><span style="color:#40A02B">)</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">toFixed</span><span style="color:#40A02B">(</span><span style="color:#FE640B">0</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">%`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#8839EF">  if</span><span style="color:#4C4F69"> (report</span><span style="color:#179299">.</span><span style="color:#4C4F69">regressions</span><span style="color:#179299">.</span><span style="color:#4C4F69">length </span><span style="color:#179299">></span><span style="color:#FE640B"> 0</span><span style="color:#4C4F69">) </span><span style="color:#7C7F93">{</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  ⚠️ 检测到回归：</span><span style="color:#7C7F93">${</span><span style="color:#4C4F69">report</span><span style="color:#179299">.</span><span style="color:#4C4F69">regressions</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">join</span><span style="color:#40A02B">(</span><span style="color:#40A02B">", "</span><span style="color:#40A02B">)</span><span style="color:#7C7F93">}</span><span style="color:#40A02B">`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span><span style="color:#8839EF"> else</span><span style="color:#7C7F93"> {</span></span>
+<span class="line"><span style="color:#4C4F69">    console</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">log</span><span style="color:#4C4F69">(</span><span style="color:#40A02B">`  ✓ 无回归`</span><span style="color:#4C4F69">)</span><span style="color:#7C7F93">;</span></span>
+<span class="line"><span style="color:#7C7F93">  }</span></span>
+<span class="line"><span style="color:#7C7F93">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#1E66F5;font-style:italic">runDemo</span><span style="color:#4C4F69">()</span><span style="color:#179299">.</span><span style="color:#1E66F5;font-style:italic">catch</span><span style="color:#4C4F69">(console</span><span style="color:#179299">.</span><span style="color:#4C4F69">error)</span><span style="color:#7C7F93">;</span></span></code></pre><hr>
+<h2 id="下一步">下一步</h2>
+<p>下一课学习<strong>第10课：生产 Agent — 可靠性、监控、成本控制</strong>。评估帮你知道质量好不好，生产部署则要解决稳定性、可观测性和成本问题：如何在 API 故障时优雅降级，如何追踪每次调用的延迟和费用，如何在不影响质量的前提下降低 50% 成本。</p>
+
+      </article>
+
+      <nav class="prevnext">
+        
+          <a class="prev" href="/agent-learning/lesson/ae-08-langgraph.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">上一课</div>
+              <div class="title">第8课：LangGraph</div>
+            </div>
+          </a>
+        
+        
+          <a class="next" href="/agent-learning/lesson/ae-10-production.html">
+            <svg class="arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <div style="min-width:0;">
+              <div class="label">下一课</div>
+              <div class="title">第10课：生产级 Agent</div>
+            </div>
+          </a>
+        
+      </nav>
+    </main>
+
+    
+    <aside class="lesson-toc">
+      <div class="toc-title">本课目录</div>
+      <nav>
+        <ul>
+          <li class="lvl-2"><a href="#介绍">介绍</a></li><li class="lvl-2"><a href="#遇到什么问题">遇到什么问题</a></li><li class="lvl-2"><a href="#有哪些方案">有哪些方案</a></li><li class="lvl-3"><a href="#方案-allm-as-judgellm-评审">方案 A：LLM-as-Judge（LLM 评审）</a></li><li class="lvl-3"><a href="#方案-b规则检查器">方案 B：规则检查器</a></li><li class="lvl-3"><a href="#方案-c综合评估套件推荐">方案 C：综合评估套件（推荐）</a></li><li class="lvl-2"><a href="#怎么选择">怎么选择</a></li><li class="lvl-2"><a href="#怎么执行">怎么执行</a></li><li class="lvl-3"><a href="#llm-as-judge">LLM-as-Judge</a></li><li class="lvl-3"><a href="#规则检查器">规则检查器</a></li><li class="lvl-3"><a href="#回归测试套件">回归测试套件</a></li><li class="lvl-3"><a href="#完整评估-pipeline-演示">完整评估 Pipeline 演示</a></li><li class="lvl-2"><a href="#下一步">下一步</a></li>
+        </ul>
+      </nav>
+    </aside>
+  
+  </div>
+
+  <script src="/agent-learning/assets/scroll.js?v=mowndz6l" defer></script>
+  <script src="/agent-learning/assets/toc.js?v=mowndz6l" defer></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ecfdf5', primaryTextColor: '#065f46',
+        primaryBorderColor: '#6ee7b7', lineColor: '#6b7280',
+        secondaryColor: '#fef9c3', tertiaryColor: '#fce7f3',
+        background: '#fafaf8', mainBkg: '#f0fdf4',
+        nodeBorder: '#a7f3d0', clusterBkg: '#f0fdf4',
+        titleColor: '#1f2937', edgeLabelBackground: '#ffffff',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      },
+    });
+  </script>
+
+</body>
+</html>
