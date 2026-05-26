@@ -1,0 +1,135 @@
+name: Sync products
+
+# 统一同步 4 个 product 到 portfolio 子路径：
+#   - agent-learning:    cp + path-rewrite (static HTML already)
+#   - ai-daily:          markdown → HTML via scripts/sync-products.mjs
+#   - daily-report:      markdown → HTML (PAT required, private repo)
+#   - can-claude-plugins: README render
+#
+# AGENT_LEARNING_PAT secret 必须有 contents:read on 4 个 source repo
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 0 * * *"      # 每天 08:30 北京时间
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/sync-products.yml"
+      - "scripts/sync-products.mjs"
+      - "scripts/package.json"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    environment: github-pages
+    concurrency:
+      group: sync-products
+      cancel-in-progress: false
+    steps:
+      - name: Checkout this repo (master)
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 1
+
+      # ---------- Source checkouts ----------
+      - name: Checkout agent-learning-cn (website-static/public)
+        uses: actions/checkout@v4
+        with:
+          repository: wangcansunking/agent-learning-cn
+          token: ${{ secrets.AGENT_LEARNING_PAT }}
+          path: sources/agent-learning-cn
+          fetch-depth: 1
+          sparse-checkout: |
+            website-static/public
+          sparse-checkout-cone-mode: false
+
+      - name: Checkout ai-daily
+        uses: actions/checkout@v4
+        with:
+          repository: wangcansunking/ai-daily
+          token: ${{ secrets.AGENT_LEARNING_PAT }}
+          path: sources/ai-daily
+          fetch-depth: 1
+
+      - name: Checkout daily-report (public/ only)
+        uses: actions/checkout@v4
+        with:
+          repository: wangcansunking/daily-report
+          token: ${{ secrets.AGENT_LEARNING_PAT }}
+          path: sources/daily-report
+          fetch-depth: 1
+          sparse-checkout: |
+            public
+          sparse-checkout-cone-mode: false
+
+      - name: Checkout can-claude-plugins
+        uses: actions/checkout@v4
+        with:
+          repository: wangcansunking/can-claude-plugins
+          token: ${{ secrets.AGENT_LEARNING_PAT }}
+          path: sources/can-claude-plugins
+          fetch-depth: 1
+
+      # ---------- agent-learning: cp + path rewrite ----------
+      - name: Replace ./agent-learning with new content
+        run: |
+          set -euo pipefail
+          rm -rf agent-learning
+          mkdir -p agent-learning
+          cp -r sources/agent-learning-cn/website-static/public/. agent-learning/
+
+      - name: Rewrite absolute paths for /agent-learning subpath
+        run: |
+          set -euo pipefail
+          find agent-learning -type f \( -name "*.html" -o -name "*.js" -o -name "*.css" -o -name "*.json" \) -print0 \
+            | xargs -0 sed -i -E \
+                -e 's|"/assets/|"/agent-learning/assets/|g' \
+                -e "s|'/assets/|'/agent-learning/assets/|g" \
+                -e 's|"/data/|"/agent-learning/data/|g' \
+                -e "s|'/data/|'/agent-learning/data/|g" \
+                -e 's|"/lesson/|"/agent-learning/lesson/|g' \
+                -e "s|'/lesson/|'/agent-learning/lesson/|g" \
+                -e 's|href="/courses.html"|href="/agent-learning/courses.html"|g' \
+                -e 's|href="/learning-path.html"|href="/agent-learning/learning-path.html"|g' \
+                -e 's|href="/"|href="/agent-learning/"|g'
+
+      # ---------- Node + render the 3 markdown products ----------
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install render deps
+        working-directory: scripts
+        run: npm install --no-fund --no-audit --silent
+
+      - name: Render ai-daily / daily-report / can-claude-plugins
+        working-directory: scripts
+        run: node sync-products.mjs
+
+      # ---------- Cleanup sources/ before commit ----------
+      - name: Remove sources/
+        run: rm -rf sources
+
+      # ---------- Commit + push ----------
+      - name: Commit & push if changed
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add agent-learning ai-daily daily-report can-claude-plugins
+          if git diff --cached --quiet; then
+            echo "No changes — nothing to commit."
+            exit 0
+          fi
+          ts=$(date -u +"%Y-%m-%d %H:%M UTC")
+          git commit -m "chore(sync): refresh product subpaths ($ts)" \
+            -m "Synced: agent-learning, ai-daily, daily-report, can-claude-plugins" \
+            -m "" \
+            -m "Co-Authored-By: CodeBlend <aka.ms/codeblend> & Claude <noreply@anthropic.com>"
+          git push origin master
