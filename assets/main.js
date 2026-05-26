@@ -61,6 +61,8 @@
       soon:    'COMING SOON',
     };
 
+    // Render fresh — clear any prior content first
+    grid.replaceChildren();
     grid.innerHTML = products.map((p, i) => `
       <a class="product reveal d${(i % 4) + 1}"
          href="${p.disabled ? '#' : p.href}"
@@ -73,13 +75,7 @@
         <h3>${escapeHtml(p.title)}</h3>
         <p class="desc">${escapeHtml(p.description)}</p>
         ${(p.tags || []).length ? `<div class="tags">${p.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
-        <div class="footer">
-          <span class="visit">
-            ${p.disabled ? '即将上线' : (p.cta ?? '查看详情')}
-            ${p.disabled ? '' : `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>`}
-          </span>
-          ${p.repo ? `<a class="repo" href="${p.repo}" target="_blank" rel="noopener" onclick="event.stopPropagation();">${escapeHtml(p.repoLabel ?? p.repo.replace(/^https?:\/\/github\.com\//, ''))}</a>` : ''}
-        </div>
+        ${p.repo ? `<div class="footer"><a class="repo" href="${p.repo}" target="_blank" rel="noopener" onclick="event.stopPropagation();"><svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .5C5.6.5.5 5.6.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.4-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2 1-.3 2-.4 3-.4s2 .1 3 .4c2.3-1.6 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.6 18.4.5 12 .5z"/></svg><span>${escapeHtml(p.repoLabel ?? p.repo.replace(/^https?:\/\/github\.com\//, ''))}</span></a></div>` : ''}
       </a>
     `).join('');
 
