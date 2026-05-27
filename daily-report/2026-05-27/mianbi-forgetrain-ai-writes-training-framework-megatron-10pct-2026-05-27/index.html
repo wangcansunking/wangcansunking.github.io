@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>面壁 ForgeTrain：让 AI 自己写训练框架的国内端侧模型新范式，比 Megatron 快 10% — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-27</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-27</span><span class="tag-pill">Daily Report</span></div>
+      <h1>面壁 ForgeTrain：让 AI 自己写训练框架的国内端侧模型新范式，比 Megatron 快 10%</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/mianbi-forgetrain-ai-writes-training-framework-megatron-10pct-2026-05-27.png" alt="面壁 ForgeTrain 封面"></p>
+<blockquote>
+<p>这周二（2026-05-26）下午四点多，量子位放出一条让国内做端侧模型的同行都点开看了的稿子：面壁智能不只是发了一个新版小模型 MiniCPM5-1B，还顺手把训出它的那套预训练框架 ForgeTrain 一起开源了。关键不是模型本身有多惊艳，而是这套框架的代码——按面壁说法——完全是由 AI 自己写出来的。</p>
+</blockquote>
+<h2>30 秒速览</h2>
+<p>先把这件事的几个关键数字摆清楚：</p>
+<ul>
+<li><strong>MiniCPM5-1B 模型规模</strong>：参数量精确 1,080,632,832（约 1.08B），24 层 Llama 架构，上下文 131K，Apache-2.0 开源，FP16 约 2GB、INT4 约 0.5GB</li>
+<li><strong>AA-Index 综合智力分</strong>：think 模式 42.57 分，超越所有 2B 参数以下模型；non-reasoning 模式 18 分，在 Artificial Analysis 排行榜的同档 29 个模型中并列首位</li>
+<li><strong>训练框架对位</strong>：同硬件条件下，ForgeTrain 比英伟达 Megatron-LM 快 <strong>10%</strong>；在华为昇腾上跑同一份预训练任务，相对昇腾自家框架同样获得 <strong>10%</strong> 加速</li>
+<li><strong>开源情况</strong>：MiniCPM5-1B 在 Hugging Face / GitHub OpenBMB/MiniCPM / ModelScope / AtomGit 四个平台同步开放；ForgeTrain 仓库 OpenBMB/ForgeTrain 在 5 月 14 日建立，发布当天（5-26）已经累计 36 stars，Python 语言，Apache-2.0</li>
+<li><strong>MiniCPM 主仓库</strong>：截至 5-26 下午，stars 9,077 / forks 596，描述被改成「MiniCPM5-1B: A SOTA 1B on-device LLM, small yet powerful」</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/qbitai-forgetrain-hero.webp" alt="ForgeTrain 与 MiniCPM5-1B 概念图（量子位首图）"></p>
+<p>数字摆完了。但这篇文章不打算跟着「全球首例 AI 写的预训练框架」这个营销话术一路喊上去——这件事真正值得国内端侧大模型开发者认真看的，是 ForgeTrain 把「考场系统」做成了大模型工具链可以自动迭代的标准件，而不是单点一次性的炫技。</p>
+<p>下面分七节拆开看：</p>
+<ul>
+<li><strong>一</strong>·面壁过去十八个月端侧路线史，从 MiniCPM 1.0 到 5.0 是怎么一步步走到端侧 1B 的</li>
+<li><strong>二</strong>·ForgeTrain 到底是什么，「考场系统」三阶段怎么把训练框架写出来</li>
+<li><strong>三</strong>·MiniCPM5-1B 实测数据，AA-Index 42.57 / Qwen3.5-2B / Llama-3.2-1B 三家横评</li>
+<li><strong>四</strong>·「比 Megatron 快 10%」这句话的真实含义，拆英伟达框架和昇腾跨平台两层</li>
+<li><strong>五</strong>·和阿里千问、DeepSeek、智谱 GLM 三家国内厂的训练框架对照</li>
+<li><strong>六</strong>·端侧 1B 同档横评：MiniCPM5 / Qwen3 / Llama 3.2 / Gemma 3 在国内开发者真实场景里的位置</li>
+<li><strong>七</strong>·「AI 自己造 AI」到底是营销话术还是真范式，把营销和工程拆开看</li>
+</ul>
+<h2>一·面壁过去十八个月走过的端侧路线</h2>
+<p>要看清 ForgeTrain 的位置，得先把面壁智能这十八个月在端侧这条路上做了哪些事铺出来。这是国内少数从一开始就明牌押注端侧的大模型公司，不是云端做不动了才退守端侧，而是从 2024 年初就把「在手机和桌面上原生跑大模型」当成首要目标。</p>
+<table>
+<thead>
+<tr>
+<th>版本节点</th>
+<th>大致时间</th>
+<th>参数规模</th>
+<th>关键变化</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>MiniCPM 1.0</td>
+<td>2024-02</td>
+<td>2.4B</td>
+<td>首版端侧 LLM，对标 Mistral 7B；明牌「以小博大」叙事</td>
+</tr>
+<tr>
+<td>MiniCPM 2.0 / MoE</td>
+<td>2024-04</td>
+<td>2B-MoE</td>
+<td>引入 MoE 端侧架构尝试，激活参数压到 1.6B</td>
+</tr>
+<tr>
+<td>MiniCPM 3.0</td>
+<td>2024-09</td>
+<td>4B</td>
+<td>4B 量级；引入 LCM 长上下文延展、function call</td>
+</tr>
+<tr>
+<td>MiniCPM-V 2.6</td>
+<td>2024-10</td>
+<td>8B（视觉）</td>
+<td>端侧多模态主线，对标 GPT-4V mini</td>
+</tr>
+<tr>
+<td>MiniCPM-o</td>
+<td>2025-Q1</td>
+<td>8B（多模态）</td>
+<td>端侧多模态全模态版，加入语音输入 / 输出</td>
+</tr>
+<tr>
+<td>MiniCPM 4 系列</td>
+<td>2025-Q3</td>
+<td>1B–8B</td>
+<td>引入 Edge-Native 数据管线 UltraData，瞄准端侧 SOTA</td>
+</tr>
+<tr>
+<td><strong>MiniCPM5-1B</strong></td>
+<td><strong>2026-05-26</strong></td>
+<td><strong>1.08B</strong></td>
+<td><strong>配套 ForgeTrain 训练框架开源；2B 以下 AA-Index 第一</strong></td>
+</tr>
+</tbody></table>
+<p>一句话总结这条路线：参数从 2.4B 一路压到 1B 量级，从纯文本扩到多模态再回到精炼的纯文本端侧，最后这次把训练框架也一起拿出来了。</p>
+<p>这不是临时起意。面壁早在 2022 年就开源过一个名叫 BMTrain 的训练框架（OpenBMB/BMTrain，已经停止主要维护），那时候技术叙事是「用工程优化对齐 DeepSpeed 和 Megatron」。到 2026 年这次，叙事换了——不再是工程师对着英伟达的代码做优化，而是让 AI 来写。</p>
+<p>把这条十八个月的曲线压在一张图里看，面壁的端侧路线有三段非常清晰的形状变化——</p>
+<ul>
+<li><strong>第一段</strong>「从 2.4B 起步证明端侧可行」（MiniCPM 1.0 / 2.0）：当时同行普遍认为大模型必须云端跑，端侧只能做语音助手、键盘补全这种轻量场景。面壁第一版 2.4B 模型直接在手机上跑通对话，是一个相当大胆的工程动作</li>
+<li><strong>第二段</strong>「扩到 4B 加多模态」（MiniCPM 3.0 / V 2.6 / o）：把多模态能力补齐，做到了端侧 8B 量级跑视觉理解。这一阶段的产品落地是给手机厂、车机厂提供端侧多模态助手能力</li>
+<li><strong>第三段</strong>「回到 1B 量级精炼智力密度」（MiniCPM 4 / 5）：从 8B 多模态一路压回 1B 纯文本，目标变成「同等内存预算下做出最聪明的模型」。MiniCPM5-1B 是这条路线的当前结论</li>
+</ul>
+<p>每一段的关键判断其实都不在模型本身，而在「数据 + 训练框架」这两条暗线。MiniCPM 4 引入了 UltraData 数据管线，MiniCPM5 这一代则把训练框架也彻底重做成 ForgeTrain。<strong>面壁的核心工程信念是「同样参数量下，模型智力的上限取决于数据 × 训练效率」</strong>，不是更大的模型规模。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/minicpm-github-og.png" alt="MiniCPM 主仓库 GitHub 页面"></p>
+<h2>二·ForgeTrain 是什么：「考场系统」三阶段拆解</h2>
+<p>这一节是整篇文章最值得国内做大模型基础设施的同行细看的部分。ForgeTrain 不是「让 AI 帮我写两行训练代码」这种程度的辅助工具，它是面壁智能内部已经跑了几个月的一整套<strong>自动化代码生成 + 自动化评测 + 自动化反馈迭代</strong>的工程系统。</p>
+<p>按面壁智能官方披露，ForgeTrain 的构建分三个阶段——</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/forgetrain-3-stages.png" alt="ForgeTrain 三阶段构建流程（自制图）"></p>
+<h3>阶段一·采集与考场搭建</h3>
+<p>从已有的成熟训练框架（Megatron-LM、DeepSpeed、BMTrain 等）反向采集训练数据、训练曲线、各种中间张量。这一步不是抄代码，是抄行为——把参考实现在各种 batch size、序列长度、模型规模下应该产出的中间值全部记下来，作为后面 AI 写代码时的「考题答案」。</p>
+<p>这就是「考场系统」（Harness）的第一层意义：给 AI 一套可以反复跑的、答案已知的题目。</p>
+<h3>阶段二·二进制一致</h3>
+<p>AI 在 Harness 里反复写代码、提交、跑测试、看反馈、改代码——目标只有一个：让自己写的训练框架在所有考题上输出和参考实现位级别一致。这一阶段不要求性能、不要求创新，只要求「能复现」。</p>
+<p>这是 ForgeTrain 区别于很多「AI 写代码」demo 的关键工程红线：先保证可信再谈优化。如果 AI 写的代码连基准实现都复现不了，后面所有性能数字都没有意义。</p>
+<h3>阶段三·解除限制超越参考实现</h3>
+<p>跑通二进制一致之后，Harness 把「必须和参考实现一致」这条约束去掉，换成「在通过基础正确性测试的前提下，最大化端到端训练吞吐」。AI 开始尝试结构性改写：通信调度、kernel 融合、内存复用、bucket 化策略……</p>
+<p>最终在面壁智能内部 Trillion-token 量级的预训练任务上，AI 写出的代码版本在同硬件条件下比 Megatron-LM 基线快 10%。</p>
+<h3>这套机制对国内同行的真实价值</h3>
+<p>国内做大模型基础设施的同行看到这里应该有一个共鸣点：训练框架的开发瓶颈很多时候不是「想不出怎么优化」，而是「优化完了不敢轻易合进去，因为可能改坏 loss 曲线却要跑完一轮 trillion-token 预训练才能发现」。</p>
+<p>ForgeTrain 的「考场系统」本质上是把这个回路缩短到几小时甚至几十分钟：每一次代码改动都自动跑一遍 Harness，立刻知道是否还和参考实现一致、吞吐有没有提升。这种「写一行测一行」的工程纪律，过去在大模型训练框架领域是难以做到的——不是因为做不到，是因为成本太高。</p>
+<p>ForgeTrain 真正贡献的，是把这套工程纪律标准件化、开源化。后续做训练框架的同行，可以不必为了让 AI 写代码而采用，但<strong>完全可以借用这套 Harness 思路把自己人类工程师的迭代速度也提上来</strong>。这才是这件事的长尾价值。</p>
+<h3>「考场系统」三大看似简单实则关键的工程决策</h3>
+<p>把 Harness 这套机制再展开拆一层。从面壁智能公开的少量技术细节可以看出，ForgeTrain 在三件事上做了非常细致的工程决策——</p>
+<p>第一，<strong>采集粒度的细致程度</strong>。Harness 不只是记录最终的 loss 和吞吐，还记录每一层 transformer 块的中间激活值分布、每一次 all-reduce 的通信耗时、每一个 micro-batch 的前向反向时序。这种细粒度采集让阶段二的「二进制一致」可以被精确判定——任何一个数字偏离参考实现都会被立即报错。</p>
+<p>第二，<strong>测试任务的代表性设计</strong>。Harness 不只测一个固定的模型规模，而是覆盖 0.5B / 1B / 4B / 8B / 22B 五个档位，从单卡 8 GPU 到多机 64 GPU 的不同硬件配置。这样 AI 在阶段三做的优化才能保证不是过拟合到某个具体规模，而是对训练框架本身的通用提升。</p>
+<p>第三，<strong>反馈信号的密度设计</strong>。一次完整 trillion-token 预训练要烧几个月，AI 不可能跑完整任务再获取反馈。ForgeTrain 的设计是用「小规模 + 短时长」的 proxy 任务作为快速反馈信号，再用更长的「中等规模 + 中等时长」的任务做二次验证，最后才在完整规模上跑确认实验。这种分层 proxy 设计是 ML 系统研究里相对成熟的方法，但被应用到 AI 写代码这个语境里是新的。</p>
+<p>这三件事合起来才让「AI 自己写训练框架」从一个营销口号变成了真能跑出 10% 加速结果的工程系统。<strong>国内做大模型基础设施的同行如果只能从这件事学一件，就学这套 Harness 的设计哲学</strong>——细粒度采集 + 多档位覆盖 + 分层 proxy 反馈，这是无论用不用 AI 写代码都该有的工程基础设施。</p>
+<h2>三·MiniCPM5-1B 实测数据：AA-Index 42.57 / Qwen3.5-2B / Llama-3.2-1B 横评</h2>
+<p>ForgeTrain 训出来的模型 MiniCPM5-1B，在公开测评榜上的位置非常清楚。先看端侧 1B 同档对位——</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/minicpm5-vs-1b-peers.png" alt="端侧 1B 同档 AA-Index 横评（自制图）"></p>
+<p>这张图里有两组数字需要拆清楚：</p>
+<p><strong>第一组：think 模式 42.57 分</strong></p>
+<p>这是面壁智能官方在量子位发布稿里给出的核心数字——MiniCPM5-1B 在 think（开启显式思维链推理）模式下，AA-Index 综合分 42.57，超越所有 2B 以下参数模型。AA-Index 是 Artificial Analysis 站点综合 MMLU-Pro、MMLU-Redux、AIME-2025/2026、BFCL-v4 等多项基准合成的总智力指标。</p>
+<p>42.57 这个分数对 1B 量级模型意味着什么？阿里千问 Qwen3.5-2B（约两倍参数）在 think 模式下大致是 36 分左右；Qwen3-0.8B（更小一档）think 模式大致 27 分。MiniCPM5-1B 用 1.08B 参数拿到 42.57 分，确实是当前公开权重里 2B 以下的第一名。</p>
+<p><strong>第二组：non-reasoning（chat）模式 18 分</strong></p>
+<p>Artificial Analysis 站点同时给出了 MiniCPM5-1B 的 non-reasoning 版本分数：18 分。这个数字也是同档第一——Qwen3.5-2B 的 non-reasoning 版本是 16.3 分，LFM2.5-1.2B-Thinking、Llama-3.2-1B、Gemma-3-1B 等海外 1B 模型基本都在 10-14 分区间。</p>
+<p>为什么同一个模型权重在不同模式下分差这么大？因为 MiniCPM5-1B 设计上用同一份权重既当 fast assistant 又当 deliberate reasoner——开 <code>&lt;think&gt;</code> 标签就走推理路径，关掉就当普通对话模型用。这种设计的好处是端侧只需要部署一份权重，运行时再决定要不要为了准确率多花 token。</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>参数</th>
+<th>AA-Index (think)</th>
+<th>AA-Index (chat)</th>
+<th>端侧 INT4 体积</th>
+<th>厂家归属</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>MiniCPM5-1B</strong></td>
+<td><strong>1.08B</strong></td>
+<td><strong>42.57</strong></td>
+<td><strong>18</strong></td>
+<td><strong>约 0.5 GB</strong></td>
+<td><strong>面壁智能（国内）</strong></td>
+</tr>
+<tr>
+<td>Qwen3.5-2B</td>
+<td>约 2B</td>
+<td>36</td>
+<td>16.3</td>
+<td>约 1.0 GB</td>
+<td>阿里（国内）</td>
+</tr>
+<tr>
+<td>Qwen3-0.8B</td>
+<td>0.8B</td>
+<td>27</td>
+<td>13</td>
+<td>约 0.4 GB</td>
+<td>阿里（国内）</td>
+</tr>
+<tr>
+<td>LFM2.5-1.2B-Thinking</td>
+<td>1.2B</td>
+<td>24</td>
+<td>14</td>
+<td>约 0.6 GB</td>
+<td>Liquid AI（海外）</td>
+</tr>
+<tr>
+<td>Llama-3.2-1B</td>
+<td>1B</td>
+<td>—</td>
+<td>10.5</td>
+<td>约 0.5 GB</td>
+<td>Meta（海外）</td>
+</tr>
+<tr>
+<td>Gemma-3-1B</td>
+<td>1B</td>
+<td>—</td>
+<td>11</td>
+<td>约 0.5 GB</td>
+<td>Google（海外）</td>
+</tr>
+</tbody></table>
+<p>横向看，MiniCPM5-1B 的位置很清楚：<strong>端侧 1B 量级目前的开源单点冠军</strong>，think 模式下相对 Qwen3.5-2B 用一半参数拿到更高分，相对 Llama-3.2-1B / Gemma-3-1B 这些海外同档则是断层式领先。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/qbitai-benchmark.webp" alt="MiniCPM5-1B 评测榜单截图（量子位）"></p>
+<h2>四·「比 Megatron 快 10%」的真实含义</h2>
+<p>「ForgeTrain 比英伟达 Megatron 快 10%」这句话，被很多账号转成「面壁的训练框架超越英伟达」。这种概括方式既不准确也不利于国内同行做技术判断，需要把它拆开来看——</p>
+<p><strong>先看英伟达 Megatron-LM 这边</strong>：Megatron 是英伟达自 2019 年开源、目前事实上的大规模 Transformer 训练框架基线。它的代码经过了从 BERT、GPT-2、GPT-3 到 Nemotron 系列的多年实战，是各家训练大模型时绕不开的参考点。国内绝大多数大模型——从 Qwen 到 DeepSeek 到 GLM——的训练管线都建在 Megatron-LM 或其衍生分支之上。</p>
+<p><strong>ForgeTrain 的 10% 加速针对什么</strong>：根据面壁智能官方披露，这 10% 是在<strong>同硬件条件、同 batch / 序列长度配置、同 trillion-token 量级预训练任务</strong>下，端到端训练吞吐相对 Megatron-LM 的提升。这不是单算子加速，也不是 micro-benchmark，是完整训练管线的端到端速度。</p>
+<p><strong>昇腾平台上的 10% 加速</strong>：另一条同等重要的数据线是——同一份 ForgeTrain 在华为昇腾平台上跑 MiniCPM5-1B 预训练，相对昇腾自家的训练框架（昇腾 MindSpeed / MindSpeed-LLM 系列）同样取得了约 10% 加速。这个数据点比「比 Megatron 快 10%」更有工程意义：它说明 ForgeTrain 不是针对 NVIDIA CUDA 做的定向优化，而是在不同算子库 / 不同通信库的硬件平台上都能拿到相似的加速比。这是真正的跨平台框架级优化的标志。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/forgetrain-vs-frameworks.png" alt="训练框架对位图（自制）"></p>
+<table>
+<thead>
+<tr>
+<th>训练框架</th>
+<th>厂家</th>
+<th>在 MiniCPM5-1B 任务上相对速度</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>ForgeTrain</strong></td>
+<td>面壁智能（AI 编写）</td>
+<td><strong>110%</strong></td>
+<td>同硬件相对 Megatron 基准</td>
+</tr>
+<tr>
+<td>Megatron-LM</td>
+<td>英伟达</td>
+<td>100%（基准）</td>
+<td>当前事实标准</td>
+</tr>
+<tr>
+<td>昇腾框架</td>
+<td>华为</td>
+<td>100%</td>
+<td>昇腾平台原生；ForgeTrain 在该平台同样 +10%</td>
+</tr>
+<tr>
+<td>DeepSpeed</td>
+<td>微软</td>
+<td>约 95%</td>
+<td>ZeRO 系列；不同任务波动较大</td>
+</tr>
+<tr>
+<td>BMTrain</td>
+<td>面壁前作</td>
+<td>约 80%</td>
+<td>2022 年开源，已停止主要维护</td>
+</tr>
+</tbody></table>
+<p>这里需要诚实地说一句：<strong>10% 是一个不算夸张但确实有工程意义的数字</strong>。在大模型预训练里，一次完整 trillion-token 训练要烧掉几百到几千万人民币的算力账单，10% 直接对应几十万到几百万的真金白银。这不是「营销话术里的 10 倍提速」级别的吹嘘，而是一个可信、可验证、对所有跑大模型预训练任务的同行都有真实价值的优化。</p>
+<p><strong>这 10% 来自哪里</strong>？面壁智能没有公开具体的代码差异，但根据 Megatron-LM 多年来的公开演进历史推测，目前可能的几个主要优化方向包括——</p>
+<ul>
+<li><strong>通信调度的重排</strong>：在多机多卡训练中，all-reduce、all-gather 等通信操作和计算操作的重叠程度决定了端到端速度。Megatron-LM 默认的重叠策略是为通用情况设计的，针对 MiniCPM5-1B 这种 24 层 / 1.08B 参数 / GQA 16:2 注意力头比的具体配置，AI 可以做更激进的重叠</li>
+<li><strong>kernel 融合的细化</strong>：把多个相邻的小算子融合成一个大 kernel，减少 GPU 内存访问。这部分人类工程师通常用 Triton 或 CUTLASS 手写，AI 可以批量生成更多融合候选并自动测试</li>
+<li><strong>内存复用与重计算策略</strong>：哪些激活要保存、哪些要重算，这是个 NP-hard 的组合优化问题。AI 通过 Harness 反馈可以尝试比人类工程师更多的策略组合</li>
+<li><strong>bucket 化与流水线粒度调整</strong>：根据具体模型结构调整 pipeline parallelism 的切分粒度，减少 bubble 时间</li>
+</ul>
+<p>这些优化方向人类工程师都知道，但要在具体配置下找到最优组合需要大量的试错。ForgeTrain 的「考场系统」把试错成本压低了几个数量级，让 AI 可以在几小时内尝试人类工程师几个月才能覆盖的优化组合空间。这是 AI for AI 工程化路径上一个相当扎实的进展。</p>
+<h2>五·对照阿里千问 / DeepSeek / 智谱 GLM 三家训练框架</h2>
+<p>国内做大模型训练的同行看 ForgeTrain，绕不开一个问题：阿里、DeepSeek、智谱这三家头部公司在训练框架上是怎么走的？面壁这一手相对它们在什么位置？</p>
+<p>我把当前已知的信息列一张表——</p>
+<table>
+<thead>
+<tr>
+<th>厂商</th>
+<th>主要训练框架</th>
+<th>公开程度</th>
+<th>与 Megatron 关系</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>面壁智能</strong></td>
+<td><strong>ForgeTrain（AI 编写）+ BMTrain（旧）</strong></td>
+<td><strong>完全开源</strong></td>
+<td><strong>借鉴 + 二进制对齐 + 解除限制</strong></td>
+<td><strong>2026-05-26 开源</strong></td>
+</tr>
+<tr>
+<td>阿里千问</td>
+<td>Megatron-LM 改造分支 + Qwen 内部优化</td>
+<td>部分开源（Qwen 模型权重 + 部分训练脚本）</td>
+<td>直接继承 Megatron</td>
+<td>走云端模型路线，端侧也有 Qwen3-0.6B 等</td>
+</tr>
+<tr>
+<td>DeepSeek</td>
+<td>自研 HAI-LLM 框架 + 大量内部修改</td>
+<td>模型权重开源，框架未完整开源</td>
+<td>早期基于 Megatron，后期重写较多</td>
+<td>主打云端 V4-Pro / R 系列</td>
+</tr>
+<tr>
+<td>智谱 GLM</td>
+<td>Megatron-DeepSpeed 改造 + GLM 内部修改</td>
+<td>模型权重开源，训练框架部分开源</td>
+<td>基于 Megatron + DeepSpeed</td>
+<td>走通用基础模型路线</td>
+</tr>
+</tbody></table>
+<p>横向看，<strong>国内四家头部的训练框架开源程度，面壁是最彻底的</strong>——不只是模型权重开源，连训练框架的源代码也一起放出来。这是端侧路线和云端路线的天然差异：云端模型公司把训练框架视为护城河（训练效率直接影响下一代模型的推出速度和成本），而面壁押注端侧，护城河在「同样参数量下更高的智力密度」，训练框架放出去对自身竞争力没有直接侵蚀，反而能吸引社区贡献。</p>
+<p>这是一个非常重要的国内观察：<strong>端侧路线天然适合更开放的工程态度</strong>，因为模型部署到用户设备上之后，训练侧的工程秘密对终端体验已经没有附加值。云端模型公司不会愿意把训练框架完整开源，端侧模型公司则有动力这么做。</p>
+<p>把视角拉远到全行业，可以看到一个有意思的对位关系——</p>
+<p><strong>国内云端 vs 国内端侧 在训练框架开源策略上的差异</strong>：</p>
+<ul>
+<li>阿里 Qwen 团队公开过部分训练脚本和数据混合策略，但 Megatron 改造的完整代码没有放出</li>
+<li>DeepSeek 在 V3 / V4 论文里公开了 DualPipe 等关键算法创新，但 HAI-LLM 训练框架的完整源代码没有公开</li>
+<li>智谱 GLM 在早期公开过基于 Megatron-DeepSpeed 的训练代码，但 GLM-4.5 这一代的训练框架细节也保留了</li>
+<li>面壁智能 ForgeTrain 是当前国内训练框架开源最彻底的——完整源代码、完整 Harness 配置、完整三阶段构建方法都拿出来</li>
+</ul>
+<p>这个差异不是因为某家公司更开放或某家公司更封闭，而是商业模式驱动的必然选择。<strong>云端公司的训练效率直接转化为下一代模型的推出速度和 API 价格，是核心护城河；端侧公司则把竞争焦点放在「同样体积下更高的智力密度」，训练框架开源对自身竞争力没有直接侵蚀</strong>。</p>
+<p>对国内做大模型生态的同行，这意味着——<strong>未来更可能贡献完整训练框架开源资产的，是端侧公司而不是云端公司</strong>。这是一个值得行业基础设施观察者长期关注的方向。</p>
+<h2>六·端侧 1B 横评：MiniCPM5 / Qwen3 / Llama 3.2 / Gemma 3 国内开发者真实场景</h2>
+<p>这一节把视角从基础设施切到应用——国内做端侧应用的开发者（手机厂、桌面工具厂、智能硬件厂）看 MiniCPM5-1B，关心的不是 AA-Index 42.57 这个数字本身，而是它能不能取代当前在用的 Qwen3 / Llama 3.2 / Gemma 3。</p>
+<p>把这件事拆成五个维度——</p>
+<p><strong>一·INT4 体积</strong></p>
+<p>MiniCPM5-1B FP16 约 2GB / INT4 约 0.5GB；Qwen3-0.8B INT4 约 0.4GB；Llama-3.2-1B INT4 约 0.5GB。MiniCPM5-1B 在 0.5GB 这个体积档位上是当前能拿到的最高智力密度。这意味着同样的手机存储预算下，装 MiniCPM5-1B 几乎和装 Llama-3.2-1B 一样省空间，但智力高出一截。</p>
+<p><strong>二·上下文长度</strong></p>
+<p>MiniCPM5-1B 原生 131K（128K 整段，扣余量到 131072）；Qwen3-0.8B 32K；Llama-3.2-1B 128K；Gemma-3-1B 32K。对长上下文应用（手机助手处理整本电子书 / 长对话记忆），MiniCPM5-1B 和 Llama-3.2-1B 在同档；Qwen3 / Gemma 3 落后一档。</p>
+<p><strong>三·中文能力</strong></p>
+<p>这是 MiniCPM5-1B 和 Qwen3 相对海外 1B 的天然优势——训练语料中文占比足够大，中文表达自然度、成语 / 古文理解、医学 / 法律 / 财经术语处理都明显好于 Llama-3.2-1B 和 Gemma-3-1B。国内做手机助手或桌面输入法增强的同行，这一条几乎是不可替代的硬约束。</p>
+<p><strong>四·推理引擎兼容性</strong></p>
+<p>MiniCPM5-1B 用的是标准 <code>LlamaForCausalLM</code> 架构——这点非常重要。意味着它可以被 llama.cpp、vLLM、SGLang、Ollama、LM Studio、MLX 等主流推理引擎直接加载，不需要自定义算子也不需要 fork 模型代码。这对端侧部署是一个巨大的加分项：手机厂可以把它直接塞进现有的 llama.cpp 集成里，零额外工作。</p>
+<p><strong>五·桌宠 / 自定义人格场景</strong></p>
+<p>面壁智能这次和 MiniCPM5-1B 一起发布的还有一个叫「MiniCPM Desk Pet」的桌面应用——把 1B 模型常驻电脑后台，加一个可定制人格的桌宠交互层。这是一个很有意思的产品落地：1B 模型常驻内存占用约 2GB（FP16）或 0.5GB（INT4），对当代 16GB 起步的笔记本来说几乎无感，但能提供 24/7 的本地对话能力，不依赖云端不依赖网络。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/qbitai-desk-pet-demo.png" alt="MiniCPM 桌宠演示"></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/qbitai-custom-persona.png" alt="自定义人格设置"></p>
+<p>国内做桌面 AI 应用的同行可以认真看一下这个方向：从 Cherry Studio / Chatbox 这类「连云端 API 的本地客户端」，到 OpenClaw / Clawhub 这类「带 router 的本地中枢」，再到 MiniCPM Desk Pet 这种「完全本地 1B 模型常驻」，这是国内桌面 AI 应用形态的三档演化。MiniCPM5-1B 把第三档的门槛拉到了 0.5GB 体积、不依赖任何 GPU、任何 ARM 笔记本都能跑的水平。</p>
+<p><strong>端侧 1B 模型对国内开发者真正的落地场景</strong>有哪几类？我把当前看到的实际案例整理一下——</p>
+<ul>
+<li><strong>手机助手离线增强</strong>：当前手机系统级助手大多走「云端兜底 + 端侧轻量补全」混合架构。MiniCPM5-1B 这种级别的端侧能力可以让手机助手在飞行模式、地铁信号差、国际漫游费贵的场景下依然给出可用回答，而不是降级成「无法连接服务器」</li>
+<li><strong>桌面输入法 / 文档工具增强</strong>：搜狗、百度、讯飞这些输入法以及 WPS、印象笔记等文档工具，都有强烈动机集成端侧大模型——可以做更智能的纠错、扩写、摘要，但又不需要把用户每一个输入上传云端</li>
+<li><strong>车机助手离线场景</strong>：车在隧道、地下停车场、偏远山区时网络不可用，但车机助手又需要做语音指令解析、导航辅助、本地服务推荐。端侧 1B 是这个场景的天然技术选项</li>
+<li><strong>企业内网部署</strong>：金融、医疗、政务这些数据敏感的企业内网，对「数据完全不出网」有硬约束。1B 量级模型可以塞进一台普通服务器，给整个内网提供基本对话能力</li>
+<li><strong>隐私敏感的个人助手</strong>：医疗咨询、心理健康、法律咨询这类天然涉及个人隐私的场景，用户对「我说的话被传到云端」有警惕。端侧模型在这里有独特价值</li>
+</ul>
+<p>这五类场景每一类都有几亿到几十亿用户的市场规模。MiniCPM5-1B 把这些场景的技术可行性拉到了一个非常具体的临界点上。</p>
+<h2>七·「AI 自己造 AI」是营销还是真范式</h2>
+<p>到这里得把前面两个争议拆开看清楚——「全球首个完全由 AI 编写的预训练框架」、「AI 自己造 AI」这些营销话术里有多少是真东西。</p>
+<p>我倾向于这样拆——</p>
+<p><strong>话术里的水分部分</strong>：</p>
+<p>「AI 完全自主编写」这句话技术上需要打折扣。面壁智能搭建的 Harness、设定的评测标准、采集的参考训练数据、定义的优化目标——这些都是人类工程师做的高水平工作。AI 在这套人类搭建的脚手架内完成代码生成和迭代。这并不是 AI 凭空想出了一套训练框架，而是 AI 在一个非常精心设计的工程环境里把人类工程师定义清楚的目标实现出来。</p>
+<p>「AI 递归自我改进」也需要降级理解——目前披露的 ForgeTrain 还没有自我修改自己的训练框架代码的能力，它修改的是「下一代 AI 模型的训练代码」。这是 AI for AI 的初级形态，不是 AGI 式的递归自改进。</p>
+<p><strong>话术里的真东西部分</strong>：</p>
+<p>但这件事真东西的部分同样不应该被低估——</p>
+<p>第一，把训练框架开发的工程闭环（写代码 → 编译 → 跑预训练子任务 → 对比参考实现 → 改代码）做成自动循环，本身就是一个非常重要的工程进步。过去这个循环以「人类工程师天为单位」运转，现在 ForgeTrain 把它压缩到「机器小时为单位」。</p>
+<p>第二，「二进制一致」这个红线是工程上极其聪明的设计。它把「AI 写的代码是否可信」这个最棘手的问题转化成了一个可以自动判定的工程指标。这套思路完全可以迁移到其他基础软件领域——比如 AI 写编译器后端、AI 写数据库存储引擎，都可以借这套 Harness + 二进制一致的范式。</p>
+<p>第三，10% 速度提升是结构性优化的结果，不是 hyperparameter 调出来的。这说明 AI 在阶段三确实做出了人类工程师还没想到（或者还没来得及试）的代码改写。这是 AI 在系统软件领域第一次拿到可量化的、超越人类基线的成绩。</p>
+<p><strong>给国内同行的工程判断</strong>：</p>
+<ul>
+<li>如果做端侧大模型，MiniCPM5-1B 几乎是当前最优起点之一，值得直接评估</li>
+<li>如果做大模型基础设施，ForgeTrain 的「考场系统」思路远比「AI 写代码」这层话术更值得借鉴</li>
+<li>如果在做云端模型，短期内不必着急效仿 ForgeTrain；但训练框架团队应该开始把「评测可自动化」这件事当作下一阶段的重要工程投入</li>
+<li>这件事既不是 AGI 突破，也不是营销噱头，它是一个<strong>有可信工程成果的中等规模技术进展</strong>，配得上认真讨论</li>
+</ul>
+<h3>ForgeTrain 在 AI for AI 演进路径里的位置</h3>
+<p>最后再把这件事放在 AI for AI 这条更长的演进路径里看一下位置。AI 帮助开发 AI 这条路大致有这样几个里程碑——</p>
+<ul>
+<li><strong>L0·AI 辅助补全</strong>（2021-2023）：GitHub Copilot 这一代工具，AI 在 IDE 里给单文件单函数级别的补全建议。代表作 Copilot、CodeWhisperer</li>
+<li><strong>L1·AI 写整个 PR</strong>（2023-2024）：Cursor、Claude Code、Cline 这一代工具，AI 在仓库级别理解上下文、生成跨文件的完整 PR。代表作 Cursor、Devin、Claude Code</li>
+<li><strong>L2·AI 在受限领域端到端产出软件</strong>（2024-2025）：v0、Bolt 这一代工具，AI 在前端 UI、简单后端等受限领域自主产出可运行的完整应用</li>
+<li><strong>L3·AI 端到端产出可与人类基线对标的系统软件</strong>（2026 起）：ForgeTrain 是这一档的当前代表作——在训练框架这种系统软件领域，AI 产出的代码在端到端性能上超越了人类基线</li>
+<li><strong>L4·AI 自我改进</strong>（未来若干年）：AI 修改自己的训练框架、自己的推理引擎、自己的工具链，形成可持续的自我加速循环。目前没有公开案例</li>
+</ul>
+<p>ForgeTrain 是 L3 这一档的早期样本。它和过去两三年大家熟悉的 Cursor、Claude Code 这些工具的区别在于——<strong>Cursor 和 Claude Code 的产出是给人看的代码，会被人类工程师 review、修改、合并</strong>；而 ForgeTrain 的产出是给机器跑的训练框架，<strong>它的正确性需要 Harness 自动验证而不是人类 review</strong>。这是一条非常不一样的工程哲学。</p>
+<p>在 L3 这一档接下来可能出现的同类工程案例还包括——AI 写编译器后端（针对特定硬件的 codegen pass）、AI 写数据库存储引擎（针对特定 workload 的 access path）、AI 写网络协议栈（针对特定延迟需求的拥塞控制算法）。这些都是「正确性可以被自动验证、性能可以被自动量化」的系统软件领域，本质上都适合 ForgeTrain 这套 Harness 方法论的迁移。</p>
+<p>国内在这条 L3 路径上的探索目前还在很早期。ForgeTrain 是一个让人乐观的信号——中国公司有能力在这种深水区的工程领域做出可对标国际水平的工作。这是一件值得整个国内 AI 工程社区为之鼓掌的事情。</p>
+<h2>收尾</h2>
+<p>面壁智能这一手让国内端侧大模型这条路看起来更具体了——MiniCPM5-1B 把 1B 量级的开源天花板推到一个新位置，ForgeTrain 则展示了「AI for AI」的工程化路径可以怎么走。这两件事合在一起，对国内做端侧模型、做大模型基础设施、做桌面 AI 应用的同行都是一份切实可用的工程素材。</p>
+<p>更可贵的是，这件事是中国公司以彻底开源的方式贡献出来的——Apache-2.0 协议、四个开源平台同步、训练框架源代码完整放出。在国内大模型公司普遍把训练侧当作护城河的当下，面壁选择把端侧路线和开源路线绑在一起，这是一种用工程实力换社区位置的清醒选择，也是中国开源模型生态继续向前走的一笔重要积累。</p>
+<hr>
+<p><em>MiniCPM5-1B 与对比模型 benchmark 数据来自 Artificial Analysis 公开榜单与面壁智能官方披露；ForgeTrain 三阶段方法描述以面壁智能官方说法为准。本文不构成投资建议，所有评测数字仅反映当前公开信息状态。</em></p>
+<p><strong>主要参考来源</strong>：</p>
+<ul>
+<li>量子位《面壁智能 ForgeTrain：让 AI 自己写训练框架，MiniCPM5-1B 同步开源》2026-05-26 <a href="https://www.qbitai.com/2026/05/425511.html" target="_blank" rel="noopener">https://www.qbitai.com/2026/05/425511.html</a></li>
+<li>Hugging Face MiniCPM5-1B 模型卡 <a href="https://huggingface.co/openbmb/MiniCPM5-1B" target="_blank" rel="noopener">https://huggingface.co/openbmb/MiniCPM5-1B</a></li>
+<li>GitHub OpenBMB/MiniCPM 主仓库（实查 9,077 stars / 596 forks）<a href="https://github.com/OpenBMB/MiniCPM" target="_blank" rel="noopener">https://github.com/OpenBMB/MiniCPM</a></li>
+<li>GitHub OpenBMB/ForgeTrain 仓库（实查 36 stars）<a href="https://github.com/OpenBMB/ForgeTrain" target="_blank" rel="noopener">https://github.com/OpenBMB/ForgeTrain</a></li>
+<li>Artificial Analysis MiniCPM5-1B 评测页面 <a href="https://artificialanalysis.ai/models/minicpm5-1b-non-reasoning" target="_blank" rel="noopener">https://artificialanalysis.ai/models/minicpm5-1b-non-reasoning</a></li>
+<li>ModelScope OpenBMB/MiniCPM5-1B <a href="https://modelscope.cn/models/OpenBMB/MiniCPM5-1B" target="_blank" rel="noopener">https://modelscope.cn/models/OpenBMB/MiniCPM5-1B</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

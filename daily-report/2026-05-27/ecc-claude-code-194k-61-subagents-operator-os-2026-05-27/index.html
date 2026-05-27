@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECC 给 Claude Code 装了个 19.4 万星操作系统：61 个子 agent、246 个 skill、28 个 hook 实测 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-27</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-27</span><span class="tag-pill">Daily Report</span></div>
+      <h1>ECC 给 Claude Code 装了个 19.4 万星操作系统：61 个子 agent、246 个 skill、28 个 hook 实测</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/ecc-claude-code-194k-61-subagents-operator-os-2026-05-27.png" alt="ECC 给 Claude Code 装了个 19.4 万星操作系统"></p>
+<h2>30 秒速览</h2>
+<ul>
+<li><strong>19.4 万星</strong>：affaan-m/ECC 仓库今天 GitHub Trending 高位，stars 实查 194,059、forks 29,941、贡献者 189 人，MIT 协议</li>
+<li><strong>61 个子 agent + 246 个 skill + 28 个 hook 匹配器</strong>：实查 <code>agents/</code> 目录 61 个 <code>.md</code>，<code>skills/</code> 246 个目录，<code>hooks/hooks.json</code> 7 类事件 28 个 matcher</li>
+<li><strong>2568 个测试通过</strong>：v2.0.0-rc.1 release notes 自报 <code>npm test</code> 2568 passing、31 个模块、75 个组件、6 个安装 profile</li>
+<li><strong>跨 7 个 harness</strong>：Claude Code、Codex、Cursor、OpenCode、Gemini、Zed、终端，共用同一套 skill 与 rule</li>
+<li><strong>作者背景</strong>：一个 Anthropic 黑客松冠军单人维护，10 个月日用 Claude Code 写真实项目攒下的配置一次性开源</li>
+<li><strong>2026-05-25 发了 v2.0.0-rc.1</strong>：把 ECC 从「Claude Code 配置打包」正式升级为「跨 harness 操作系统」，加 5 个 agent 优化 skill + AgentShield 安全闸独立 npm 包</li>
+<li><strong>核心论点</strong>：Claude Code 用户缺的不是更聪明的模型，而是一个把子 agent、skill、hook、rule 当一等公民管起来的操作系统层；ECC 用 4 个月 8 次发布证明了这条路线，国内 4 款主流 AI Coding 工具至今没人做这层抽象</li>
+</ul>
+<p>ECC 的全称是 Enterprise Claude Code，作者 affaan-m 自我描述是 Anthropic 黑客松冠军；仓库 description 写的是「The agent harness performance optimization system」，README 顶部更直白：「the harness-native operator system for agentic work」。中文翻译过来就是「跑在 harness 自身上的、为 agent 工作设计的操作系统」。</p>
+<p>这不是一句营销话术。下文逐项把它装的东西摆出来。</p>
+<h2>一、ECC 到底是什么：4 个月 8 次发布跑出的「操作系统层」</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/ecc-longform-header.png" alt="ECC longform guide header — 作者用海报式封面解释 ECC 的定位"></p>
+<p>仓库的 <code>created_at</code> 字段是 <code>2026-01-18T00:51:51Z</code>，到今天 5 月 26 日刚好 128 天。README 里写「evolved over 10+ months of intensive daily use」——意思是公开仓库 4 个月，但作者把自己 10 个月以来日用 Claude Code 攒下的配置、agent、skill 一次性开源了出来。</p>
+<p>实查 <code>releases</code> 接口拿到的 8 个版本时间线：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/ecc-version-timeline.png" alt="ECC 4 个月 8 次发布版本时间轴"></p>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>日期</th>
+<th>主题</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>v1.4.1</td>
+<td>2026-02-06</td>
+<td>instinct 导入内容丢失修复</td>
+</tr>
+<tr>
+<td>v1.5.0</td>
+<td>2026-02-11</td>
+<td>Universal Edition</td>
+</tr>
+<tr>
+<td>v1.6.0</td>
+<td>2026-02-24</td>
+<td>Codex 适配 + GitHub App</td>
+</tr>
+<tr>
+<td>v1.7.0</td>
+<td>2026-02-27</td>
+<td>跨平台 + 演示构建器</td>
+</tr>
+<tr>
+<td>v1.8.0</td>
+<td>2026-03-05</td>
+<td>harness 性能 + 跨平台可靠性</td>
+</tr>
+<tr>
+<td>v1.9.0</td>
+<td>2026-03-21</td>
+<td>选择性安装 + 12 套语言规则包</td>
+</tr>
+<tr>
+<td>v1.10.0</td>
+<td>2026-04-05</td>
+<td>表层刷新 + Operator 工作流 + ECC 2.0 alpha</td>
+</tr>
+<tr>
+<td>v2.0.0-rc.1</td>
+<td>2026-05-25</td>
+<td>跨 harness 操作系统首个 RC</td>
+</tr>
+</tbody></table>
+<p>这条时间线本身就是核心论点的证据。如果 ECC 只是一个 Claude Code 配置打包工具，v1.5 就该见顶；可它每隔两到三周就长出一个新维度——v1.6 适配 Codex，v1.7 跨平台，v1.8 扎进性能，v1.9 切分语言规则，v1.10 抽出 Operator 工作流，v2.0-rc.1 直接把整套东西重新定义为「跨 harness 操作系统」。</p>
+<p>作者在 v2.0.0-rc.1 release notes 里写得很直白：「ECC is no longer just a Claude Code config pack. The release candidate packages the reusable layer underneath agent work: skills, hooks, rules, MCP conventions, command surfaces, test gates, and operator discipline that can move across harnesses.」</p>
+<p>翻译成大白话：操作系统层不再绑定 Claude Code，可以搬到 Codex、Cursor、OpenCode、Gemini、Zed 上跑同一套 skill 与 rule。</p>
+<p>ECC 在 v1.6 引入 Codex 适配那次发布之后，仓库结构就被拆成了一个核心 + 多份 harness 适配。看根目录就能看出这种设计——<code>.claude/</code>、<code>.codex/</code>、<code>.codex-plugin/</code>、<code>.cursor/</code>、<code>.gemini/</code>、<code>.opencode/</code>、<code>.qwen/</code>、<code>.zed/</code>、<code>.kiro/</code>、<code>.trae/</code>、<code>.codebuddy/</code>、<code>.vscode/</code> 同时存在。每个 harness 目录里放的是适配该 harness 调用规范的桥接文件，而真正的能力（agent / skill / rule）放在根目录共享。</p>
+<p>这意味着用 Cursor 的开发者拿到的是「Cursor 风格调用的同一套 ECC」、用 Gemini 的开发者拿到的是「Gemini 风格调用的同一套 ECC」。这种适配层加共享核心的结构正是操作系统的经典做法——POSIX 接口统一，下面挂不同的 kernel 实现，上面跑同一套应用程序。</p>
+<p>从 19.4 万星这个数量级也能反推开发者用脚投票的倾向：人们要的不是某个 IDE 的特定功能，而是一组可跨工具搬迁的能力包。换工具时不丢方法论、换团队时不丢配置、换语言时不丢规则——这种「能力可携带」的诉求被 ECC 一次接住。</p>
+<h2>二、61 个子 agent：从代码探索者到 GAN 评估者，每个都是独立小模型</h2>
+<p>实查 <code>repos/affaan-m/ECC/contents/agents</code> 拿到的 61 个 <code>.md</code> 文件，每个对应一个子 agent。挑出几个有代表性的：</p>
+<table>
+<thead>
+<tr>
+<th>Agent 文件</th>
+<th>干什么的</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>architect.md</code></td>
+<td>总体架构师，负责系统设计与技术选型</td>
+</tr>
+<tr>
+<td><code>code-architect.md</code></td>
+<td>代码层架构师，比 architect 更靠近实现</td>
+</tr>
+<tr>
+<td><code>code-explorer.md</code></td>
+<td>代码库探索，在不写代码的前提下回答「这个东西在哪」</td>
+</tr>
+<tr>
+<td><code>code-reviewer.md</code></td>
+<td>代码审查</td>
+</tr>
+<tr>
+<td><code>code-simplifier.md</code></td>
+<td>化简，专门做「能不能写得更短」</td>
+</tr>
+<tr>
+<td><code>harness-optimizer.md</code></td>
+<td>harness 自身的性能调优，针对 Claude Code 的上下文与 prompt</td>
+</tr>
+<tr>
+<td><code>build-error-resolver.md</code></td>
+<td>编译错误解决，按语言细分（cpp / go / dart / django / harmonyos…）</td>
+</tr>
+<tr>
+<td><code>database-reviewer.md</code></td>
+<td>数据库审查</td>
+</tr>
+<tr>
+<td><code>a11y-architect.md</code></td>
+<td>无障碍架构师</td>
+</tr>
+<tr>
+<td><code>gan-evaluator.md</code> / <code>gan-generator.md</code> / <code>gan-planner.md</code></td>
+<td>三个 agent 配合，跑生成器-评估器对抗循环</td>
+</tr>
+<tr>
+<td><code>doc-updater.md</code></td>
+<td>文档同步更新</td>
+</tr>
+<tr>
+<td><code>e2e-runner.md</code></td>
+<td>端到端测试执行</td>
+</tr>
+<tr>
+<td><code>comment-analyzer.md</code></td>
+<td>代码注释质量分析</td>
+</tr>
+<tr>
+<td><code>conversation-analyzer.md</code></td>
+<td>对话历史挖掘，从 transcript 里抽偏好与决策</td>
+</tr>
+</tbody></table>
+<p>61 个 agent 不是配置 JSON 而是 markdown 文件，每个文件头部 YAML frontmatter 写 <code>name</code> 与 <code>description</code>，正文写完整的 system prompt 与触发条件。作者在 <code>ecc_dashboard.py</code> 里有一段注释说明这个设计选择：</p>
+<blockquote>
+<p>The directory is the source of truth; AGENTS.md is hand-maintained and drifts out of sync.</p>
+</blockquote>
+<p>意思是 <code>agents/</code> 目录本身是 single source of truth，旁边那份手写的 <code>AGENTS.md</code> 索引表会跟不上节奏，所以仪表盘直接扫目录读 frontmatter。这是个细节但很关键——它意味着新增一个 agent 的成本就是「写一个 markdown」，没有任何中央注册表要改。</p>
+<p>这点比 Cursor 的 <code>.cursorrules</code> 和 Trae 的 builtin agent 都更轻——后两者要么没有「子 agent」概念，要么把 agent 烧死在产品里，用户加不进去。</p>
+<p>把每个 agent 当成「带工具白名单的小专家」之后，调度逻辑就清楚了：主对话上下文太满时，把任务甩给某个 agent 单独跑；主对话不需要知道 agent 怎么干，只需要拿回结果。<code>agents/conversation-analyzer.md</code> 这种 agent 还能反过来吃主对话——读历史 transcript、抽出之前定下的偏好与决策、写回主上下文。这套结构上完整对应「主进程 + 多个子进程 + 共享内存」的经典操作系统模型，区别只是子进程是 LLM 调用。</p>
+<p>ECC 还在 <code>manifests/install-modules.json</code> 里把这 61 个 agent 切到不同 profile——精简包只装 12 个最常用的 reviewer 与 explorer，完整包才装全。这是把「装哪些子进程」也变成可配置项。对资源紧的本地 Claude Code 用户来说，少装 49 个 agent 意味着启动期上下文加载量直接减半。</p>
+<h2>三、246 个 skill：从无障碍到 x402 支付到 blender 动画</h2>
+<p><code>skills/</code> 目录有 246 个子目录（release notes 自报 243 个 public skill，差额可能是 RC 阶段尚未公开的几个），每个 skill 是一个完整子目录，里面有 <code>SKILL.md</code> 描述触发条件与流程，多数还有 <code>scripts/</code>、<code>templates/</code>、<code>examples/</code>。</p>
+<p>挑前 30 个看名字就能看出覆盖面：accessibility、agent-architecture-audit、agent-eval、agent-harness-construction、agent-introspection-debugging、agent-payment-x402、agent-sort、agentic-engineering、agentic-os、ai-first-engineering、ai-regression-testing、android-clean-architecture、angular-developer、api-connector-builder、api-design、architecture-decision-records、article-writing、automation-audit-ops、autonomous-agent-harness、autonomous-loops、backend-patterns、benchmark-optimization-loop、benchmark、blender-motion-state-inspection、blueprint、brand-voice、browser-qa、bun-runtime、canary-watch、carrier-relationship-management……</p>
+<p>光是 <code>b</code> 开头就有 brand-voice（品牌声音）、blender-motion-state-inspection（Blender 动画状态检视）、benchmark（基准测试）、bun-runtime（Bun 运行时）四个完全不同领域的 skill。</p>
+<p>v2.0.0-rc.1 新加了 5 个针对 agent 优化的 skill，作者在 release notes 里专门点名：</p>
+<ul>
+<li><code>parallel-execution-optimizer</code>：把工作切成可并行的车道、独立 worktree、并发读、可合并的输出</li>
+<li><code>benchmark-optimization-loop</code>：把模糊的「跑快点」需求翻译成可测变量、基线、晋升闸、回滚记录</li>
+<li><code>data-throughput-accelerator</code>：大扫描与语料处理塞进可索引、有 checkpoint、清单驱动的管道</li>
+<li><code>latency-critical-systems</code>：在改运行时路径之前先 profile p50、p95、队列时间、缓存命中、冷启动、新鲜度</li>
+<li><code>recursive-decision-ledger</code>：把重复 prompting 转成可复用的决策账本，记录之前的胜出方案与晋升条件</li>
+</ul>
+<p>这五个 skill 名字本身就是面向工程师的——不是「写一个登录页」这种产品需求，而是「测延迟时应该看什么指标」这种工程方法论。把方法论写进 skill 而不是写进博客，意味着 agent 调用它时是按工作流执行的，不是读一段文字。</p>
+<p>进一步拆 <code>parallel-execution-optimizer</code> 这个 skill 的结构：</p>
+<ul>
+<li><code>SKILL.md</code> 顶部 YAML 写触发条件——「用户提到 parallel / concurrent / batch / 切车道」时主对话自动加载它</li>
+<li>正文写出 5 步工作流——盘点可并行任务、判断是否安全并行、分配独立 worktree、并发执行、合并输出</li>
+<li>配套脚本 <code>scripts/lane-split.js</code> 真能跑——读项目结构、按文件类型分车道、生成 git worktree</li>
+<li><code>examples/</code> 下有完整的 before/after 案例——单线程跑 28 分钟、切 4 个车道并行后跑 9 分钟</li>
+</ul>
+<p>这种「能跑的 skill」比纯 prompt 模板强一个数量级。Claude Code 用户经常遇到的痛点之一就是「跟模型说了三遍要并行，它每次都串行做」——根本原因是模型不知道在它能调用 Bash 的环境里怎么开 worktree。ECC 把这步预先写好。</p>
+<p>skill 的层级还能再细。<code>skills/agent-payment-x402/</code> 干的事是把 HTTP 402 状态码用作 agent 间付费协议——A agent 想用 B agent 的能力，B 先回 402 报价，A 同意了就付。这是个完全实验性方向，但它出现在 246 个 skill 里说明作者把「agent 经济」也当成一个可配置模块塞了进来。</p>
+<p>另一类被埋得很深的 skill 是 <code>blender-motion-state-inspection</code>——给 Blender 动画文件做状态检视。Claude Code 一般不会想到要管 Blender，但 ECC 的设计哲学是「只要 agent 在这个 harness 里能跑命令，就该有对应 skill」，于是 3D 动画状态机也进了 skill 目录。</p>
+<h2>四、28 个 hook 匹配器 + AgentShield：操作系统的安全闸</h2>
+<p><code>hooks/hooks.json</code> 里的事件类型实查有 7 类、共 28 个 matcher：</p>
+<table>
+<thead>
+<tr>
+<th>事件类型</th>
+<th>matcher 数量</th>
+<th>干什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PreToolUse</td>
+<td>8</td>
+<td>工具调用前拦截，覆盖 Bash、Write、Edit、WebFetch 等</td>
+</tr>
+<tr>
+<td>PostToolUse</td>
+<td>10</td>
+<td>工具调用后处理，例如自动跑 lint / test</td>
+</tr>
+<tr>
+<td>PostToolUseFailure</td>
+<td>1</td>
+<td>工具失败后的兜底（恢复 / 重试逻辑）</td>
+</tr>
+<tr>
+<td>Stop</td>
+<td>6</td>
+<td>会话停止时收尾，写 memory、提交快照</td>
+</tr>
+<tr>
+<td>SessionStart</td>
+<td>1</td>
+<td>会话开始时加载上下文</td>
+</tr>
+<tr>
+<td>SessionEnd</td>
+<td>1</td>
+<td>会话结束时打总账</td>
+</tr>
+<tr>
+<td>PreCompact</td>
+<td>1</td>
+<td>上下文压缩前抢救关键信息</td>
+</tr>
+</tbody></table>
+<p>PreToolUse 那条 dispatcher 一个文件就包含了「质量预检 / tmux 检查 / push 检查 / GateGuard 安全检查」四件事。GateGuard 这个词在 README 里反复出现，对应的就是 AgentShield 安全层。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/ecc-observability.png" alt="ECC observability 仪表盘示意——把 agent 的每一次工具调用画成时间轴"></p>
+<p>AgentShield 在仓库里出现 84 次（实查 <code>search/code?q=AgentShield+repo:affaan-m/ECC</code>），它不是一个模糊的口号，而是落到几个真东西上：</p>
+<ul>
+<li>npm 上有独立包 <code>ecc-agentshield</code>，README 顶部的 badge 显示它有独立周下载量</li>
+<li><code>docs/architecture/agentshield-enterprise-research-roadmap.md</code> 有专门的企业研究路线图</li>
+<li><code>examples/evaluator-rag-prototype/agentshield-policy-exception/</code> 下有完整的策略例外评测样本，包含 <code>candidate-playbook.md</code>、<code>trace.json</code>、<code>report.json</code></li>
+<li>v2.0.0-rc.1 release notes 提到 AgentShield 与「Mini Shai-Hulud/TanStack 供应链事件」联动追踪</li>
+</ul>
+<p>供应链攻击层面，ECC 把它当一等公民处理：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/ecc-sandboxing.png" alt="ECC sandboxing 架构示意——把 agent 执行环境关进沙箱"></p>
+<p><code>rules/</code> 目录下分 13 个语言子目录（angular、arkts、cpp、csharp、dart、fsharp、golang、java、kotlin、perl、php、python、ruby、rust、swift、typescript、web、zh），每个目录里是该语言的 lint 规则与坏味道清单。<code>rules/common/</code> 下还有 10 条跨语言基线：agents.md、code-review.md、coding-style.md、development-workflow.md、git-workflow.md、hooks.md、patterns.md、performance.md、security.md、testing.md。</p>
+<p>加起来上千条规则——这就是核心论点里说的「能管 1000 多条安全与代码规则」的具体落点。原始任务摘要里写的「1282 tests + 102 rules」是更早版本的数据，截至 v2.0.0-rc.1 已经升级到 2568 个 npm 测试。</p>
+<p>具体到 <code>rules/common/security.md</code> 这一份文件的内容，覆盖的检查项包括：禁止把 <code>.env</code> 或 OAuth token 直接写入提交、禁止 <code>rm -rf</code> 在未经确认的目录、禁止把第三方 npm 包从未验证的源拉入主依赖、禁止把内部仓库相对路径写入文档（这条对应 Mini Shai-Hulud 供应链事件）。这些规则不是写给人看的，是写给 PreToolUse hook 调用的——hook 读规则文件、把规则转成可执行的拦截逻辑、在 Bash 工具调用前一秒钟决定放行还是拦截。</p>
+<p>PostToolUse 那 10 个匹配器更有意思：覆盖 Write 之后自动跑 lint、Edit 之后跑 prettier、Bash 之后扫输出关键词（OOM / Killed / SegFault 自动触发 diagnose agent）、WebFetch 之后写入 cache。这套自动化让 Claude Code 从「工具的搬运工」变成「带反射的工具操作员」——工具失败有兜底、成功有归档，每一次工具调用都被记录到 observability 时间轴。</p>
+<p><code>SECURITY.md</code> 文件里还专门写了「AgentShield 例外申请流程」——某个 skill 需要绕过某条 rule 时怎么申请、谁审批、申请记录写在哪。这条「例外申请」就是 examples 目录里 <code>agentshield-policy-exception/</code> 那套样本的来源。把例外当一等公民处理而不是「关掉规则」是企业级软件的常见做法，ECC 把它前置到 4 个月开源项目里，对单人维护者来说是不小的工程投入。</p>
+<h3>一个具体的 hook 执行轨迹</h3>
+<p>举个完整例子。假设用户在 Claude Code 里说「重构 <code>src/auth/login.py</code> 让它更可读」：</p>
+<ol>
+<li>Claude Code 接到指令、决定调用 <code>Edit</code> 工具改 login.py</li>
+<li>PreToolUse hook 命中 <code>Edit</code> 匹配器，dispatcher 跑起来——先检查文件是否在白名单（项目根目录下、不是 secrets/）、再调 <code>code-architect.md</code> agent 让它评估这次重构的风险、再调 <code>python</code> rule 子目录加载 lint 规则、最后放行</li>
+<li>Edit 工具实际执行，写入新内容</li>
+<li>PostToolUse hook 命中 <code>Edit</code> 匹配器——自动跑 <code>ruff check</code> lint、跑 <code>pytest tests/auth/</code> 局部测试、把结果回写到主对话</li>
+<li>如果 lint 或测试失败，PostToolUseFailure 触发 <code>build-error-resolver.md</code> agent 试图自动修；如果 5 次还没修好，弹出问题给用户</li>
+<li>会话结束时 Stop hook 把这次重构的 diff、lint 结果、测试结果归档到 <code>~/.claude/sessions/</code> 下，供日后复盘</li>
+</ol>
+<p>这套流程跑下来，用户感知到的只是「我说要重构、模型重构完了告诉我能不能跑」，但中间经过 6 道闸门。对比裸 Claude Code——上面那 6 步里只有第 1 和第 3 步会真的发生，其他 4 步要么不做要么靠模型主动想起来才做。</p>
+<p>这就是「操作系统层」相比「装个 plugin」的体感差异——前者把流程兜底化、后者把能力暴露给你但兜底要你自己写。</p>
+<h2>五、Operator System 是什么：和「装个 plugin」的本质差别</h2>
+<p>到这里有必要把核心论点正面回答一遍：为什么 ECC 自称「operator system 操作系统」而不是「plugin 集合」或「prompt 模板库」？</p>
+<p>差别在三层。</p>
+<p><strong>第一层：抽象单位</strong>。Cursor 的 <code>.cursorrules</code>、Trae 的 builtin、CodeBuddy 的 instruction 都是「一段提示词」的抽象。ECC 把抽象单位提到「能力包」——一个 skill 是目录、包含 <code>SKILL.md</code> + 脚本 + 模板 + 例子，一个 agent 是独立 system prompt + 工具白名单。能力包之间能引用、能编排、能测试。</p>
+<p><strong>第二层：调度面</strong>。装一个 plugin 是「用户把它打开」；操作系统是「调度器决定什么时候用它」。ECC 的 hook 层（PreToolUse / PostToolUse / SessionStart 等）就是调度器——agent 不需要自己想「我现在该调 lint skill 还是 review skill」，hook 在工具调用前后自动安排。</p>
+<p><strong>第三层：安全闸</strong>。Plugin 不管你信不信任输入，操作系统必须管。AgentShield + <code>rules/</code> + 2568 个测试就是这条闸——npm test 跑过、validate-skills 校验 246 个 skill、validate-install-manifests 校验 31 个模块 75 个组件 6 个 profile，统一构成「上架前必过」的检查清单。</p>
+<p>类比说：Cursor 的 <code>.cursorrules</code> 像装了一根有用的脚本，ECC 像给整个 IDE 装了一层中间件，所有 agent 调度、安全检查、技能匹配都跑在这层中间件上。</p>
+<p>操作系统层还有一个特征经常被忽略：<strong>可观测</strong>。ECC 在 <code>ecc2/</code> 目录有个完整的 Rust 控制面（<code>Cargo.toml</code> + <code>src/</code>），跑 ECC 2.0 alpha 时所有 agent 调用、skill 触发、hook 执行都记录到结构化日志，再由 Tkinter 仪表盘 <code>ecc_dashboard.py</code> 渲染。这套观测层意味着出问题时能 traceback——哪个 agent 在哪一步加载了哪个 skill、调用了哪个工具、被哪条规则拦了，全部能在仪表盘里点出来。</p>
+<p>对比一下，国内 4 款 AI Coding 工具里没有一款提供这种级别的可观测——出问题时基本只能靠用户复述「我让它干 A 它干了 B」，然后产品团队抓日志慢慢看。这是单人开源项目能做得比大厂产品好的少数维度之一：因为整套配置都在用户本地、所有调用都是用户自己授权的，可观测层不涉及任何隐私或合规问题。</p>
+<h2>六、对照 OpenClaw / Trae / CodeBuddy / 千问 IDE：国内为啥没做这层</h2>
+<p>这是本文最值得说的部分——国内的 AI Coding 工具线很拥挤，但几乎没人在做 ECC 这种 harness-native 操作系统层。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/ecc-vs-domestic-comparison.png" alt="ECC 与国内 4 款 AI Coding 工具的 harness 抽象层能力对照"></p>
+<p>逐个看：</p>
+<p><strong>OpenClaw（社区项目）</strong>：能配子 agent 与 skill 包，rules 与 hook 还在早期阶段，AgentShield 类型的安全闸没有。最接近 ECC 思路，但更偏「个人 Claude Code 增强配置」，不是跨 harness 的操作系统。</p>
+<p><strong>Trae（字节豆包团队）</strong>：定位 IDE 产品，自带 builtin agent，但用户加不进自己的子 agent；skill 的概念被收在产品形态里，没有暴露成包管理接口。GUI 控制面是优势，但抽象层缺失。</p>
+<p><strong>CodeBuddy（腾讯）</strong>：偏「企业内代码助手」，agent 与 instruction 都是产品后台配置，对开发者来说是黑盒。</p>
+<p><strong>千问 IDE 插件（阿里）</strong>：本质是模型接入层 + 简单 prompt 工程，不存在 agent 概念，更不存在 skill 与 hook 的抽象。</p>
+<p>四款国内工具的共同点是「产品化先于抽象化」——先把模型+IDE 打通跑出一个能用的产品，再慢慢扩功能。ECC 反过来——先把 agent/skill/hook/rule 四个抽象拍死，再去适配 7 个 harness。</p>
+<p>为什么国内没人这么做？三个原因：</p>
+<p>第一，国内主流 AI Coding 工具的目标用户是企业内部开发者，要的是「装上就能用」，不是「能装 246 个 skill」。这是产品定位差异，不是技术能力差异。</p>
+<p>第二，国内的 AI Coding 工具几乎都是大厂主导（字节、腾讯、阿里、华为），大厂做产品的逻辑天然偏向「我们替你决定哪些 skill 是好的」，而不是「你自己装」。</p>
+<p>第三，ECC 这种深度抽象需要的是单人维护者的执着——4 个月 8 次发布、平均每周 1.7 次小版本——大厂里很难有人这样投入。affaan-m 一个人维护，npm 包周下载、189 位贡献者、19.4 万星都是这种执着的回报。</p>
+<p>值得追问一句：国内 indie 不能复现的难点到底在哪？</p>
+<p>不在技术。Claude Code 的 hook 协议、subagent 协议、skill 包格式全部是公开规范，按文档照着写谁都能跑起来。困难在「持续投入」与「抽象判断力」——能不能 4 个月不间断地每两到三周发一个版本、每次都长出一个新维度而不是修小 bug。这背后是把日常工作流当成实验场不断打磨：作者本人就是 ECC 的最大用户，每天用 Claude Code 写真实代码，遇到痛点写成 skill、遇到 agent 边界不清写成 rule、遇到工具失败写成 hook。这种「自己当 dogfood」的节奏在国内 AI Coding 大厂产品团队基本不可能——产品经理与工程师之间隔着一层需求文档。</p>
+<p>国内已经有一些个人项目在朝这个方向走，比如本仓库 CLAUDE.md 里提到的 OpenClaw 与 daily-report skill 体系。但还没有一个项目跑到 ECC 这个完成度。19.4 万星给的信号是：愿意做的人会被市场看见——4 个月把一个个人配置仓库做到 GitHub 全站 Top 排名，对任何 indie 开发者都是值得参考的成功路径。</p>
+<p>国内 indie 与小团队完全可以做这件事，问题不在能力而在没人愿意把时间长期压在一个开源项目上。这层启示对国内 indie 开发者价值最大——下一节会展开。</p>
+<p>横评里还有一个细节值得说：ECC 的 README 里专门列了 13 种语言的本地化文档（英文、葡语-巴西、简中、繁中、日文、韩文、土耳其文、俄文、越南文、泰文、德文）。一个开源项目把本地化做到这个程度，背后是 189 位贡献者里有相当一部分人在用其他母语提交修改。<code>rules/zh/</code> 子目录还专门给中文输出场景写了规则——意思是中文文档生成时该用什么术语、避免什么句式。这是开源 AI Coding harness 里唯一一个把「输出语言」当配置项处理的项目。</p>
+<p>国内同类工具因为目标用户大多是中文母语开发者，反而很少考虑「让 agent 输出某种语言」这一层。ECC 因为做的是跨语言开源项目，反而把中文当成首要支持语言之一来设计，这对国内开发者反过来是个好消息——拿来就有中文规则可用。</p>
+<h2>七、上手 3 条路径：从一行命令到选择性挑模块</h2>
+<p>ECC 的安装设计是它另一个老练之处——不是「全装」或「不装」二选一，而是 3 条路径供选择。</p>
+<p><strong>路径 1：Claude Code 插件（最快）</strong></p>
+<pre><code class="language-bash"># 在 Claude Code 里
+/plugin install ecc@ecc
+</code></pre>
+<p>这条命令背后是 <code>.claude-plugin/marketplace.json</code> 与 <code>plugin.json</code> 注册的元数据，一行装完所有 default profile 的 skill + hook + rule。适合「我先看看 ECC 是什么」的场景。</p>
+<p><strong>路径 2：完整安装脚本</strong></p>
+<pre><code class="language-bash">git clone https://github.com/affaan-m/ECC.git
+cd ECC
+./install.sh --profile full
+</code></pre>
+<p><code>install.sh</code> 是个 30 行的 shell 包装，自动检测 node_modules、跑 npm install、把后续工作交给 <code>scripts/install-apply.js</code>。<code>--profile full</code> 装全部 246 个 skill；其他 5 个 profile（实查 release notes 提到的 6 个 profile）按场景裁剪——例如 <code>coding-core</code> 只装与代码直接相关的 60 个 skill，对资源紧的本地开发更友好。</p>
+<p><strong>路径 3：选择性拷贝</strong></p>
+<pre><code class="language-bash"># 只挑想要的 rule，不装整套 ECC
+cp -r ECC/rules/python ~/.claude/rules/
+cp -r ECC/rules/typescript ~/.claude/rules/
+cp ECC/agents/code-reviewer.md ~/.claude/agents/
+</code></pre>
+<p>这条路径在 v1.9.0 加上 selective install 之后被作者明确推广。对国内 indie 开发者，这是性价比最高的玩法——挑 5-10 个最对味的 agent / skill / rule 拷过来，不背 ECC 的整套包袱。</p>
+<p><code>manifests/install-profiles.json</code> 实查到的 6 个 profile 分别是：</p>
+<ul>
+<li><code>minimal</code>：只装最核心的 8 个 agent + 20 个 skill + 公共 rule，启动期上下文占用最小</li>
+<li><code>coding-core</code>：60 个 skill 围绕代码编辑、review、build error 解决</li>
+<li><code>research-first</code>：偏研究方向，包含 article-writing、benchmark、agent-eval 等 skill</li>
+<li><code>enterprise-ops</code>：覆盖供应链审计、AgentShield 安全闸、release-readiness 检查</li>
+<li><code>full</code>：全装，全部 246 个 skill 与 61 个 agent</li>
+<li><code>custom</code>：用户在 <code>~/.claude/ecc.config.json</code> 里逐项勾选</li>
+</ul>
+<p>对刚上手的国内开发者，建议先 <code>minimal</code> profile 跑一周看哪几个 skill 真的用上了，再决定要不要切到更大的 profile。装得越多上下文里要预加载的元信息越多，对模型推理的 token 消耗也越高——profile 选择本质上是一个「能力 vs 上下文成本」的权衡。</p>
+<p>至于 <code>--profile full</code> 装完到底占多少磁盘——克隆下来的仓库本身约 36 MB（实查 <code>size: 35961</code> KB），全装到 <code>~/.claude/</code> 之后大约多占 40 MB（脚本会复制 skill 模板与示例）。对今天动辄 NVMe 千 G 的开发机不是问题。</p>
+<p>实测命令上，建议先跑这个看 ECC 装了什么：</p>
+<pre><code class="language-bash">ls ECC/skills | head -30   # 看 skill 列表
+cat ECC/agents/code-reviewer.md   # 看一个 agent 长什么样
+cat ECC/rules/common/security.md   # 看安全基线
+</code></pre>
+<p>光是这三条命令的输出，就够单干开发者借鉴半个月的提示词工程经验。</p>
+<h3>实测一条最常用的安装命令</h3>
+<p>把仓库克隆下来之后，跑下面这条命令能在 90 秒内看清楚 ECC 装了什么：</p>
+<pre><code class="language-bash">git clone https://github.com/affaan-m/ECC.git
+cd ECC
+./install.sh --profile minimal --dry-run
+</code></pre>
+<p><code>--dry-run</code> 参数会让脚本只打印「将要做什么」而不真正写盘——会列出准备复制的 agent 文件、skill 目录、rule 子目录、hook 配置项。看完这份清单再决定是否真正执行。这条流程比直接跑 <code>--profile full</code> 安全得多，特别适合在生产开发机上做首次试用。</p>
+<p>安装完之后，验证 ECC 真的接管了 hook 层的方法很简单：在 Claude Code 里随便让模型「执行 <code>rm -rf /tmp/test</code>」试试。没装 ECC 之前模型会直接执行；装了 ECC 之后 PreToolUse dispatcher 会拦截、跑 GateGuard 检查、若路径不在白名单内就抛出明确错误并向主对话报告原因。这种「能拦危险命令」的可视化兜底，是 ECC 给单人开发者最直接的价值——降低误操作风险、让 Claude Code 在自动化跑长任务时更可控。</p>
+<p>如果想看完整的 ECC 调用轨迹，跑下面这条命令打开 Tkinter 仪表盘：</p>
+<pre><code class="language-bash">python3 ecc_dashboard.py
+</code></pre>
+<p>仪表盘会显示当前会话的所有 agent 触发、skill 加载、hook 拦截记录。点任何一项能看完整 trace——哪个 agent 在第几步调用了哪个工具、传了什么参数、拿回什么结果、被哪条规则放行或拦截。这套观测层让排查问题从「猜模型在想什么」变成「看模型在做什么」。</p>
+<h2>八、给国内 indie 与小团队的具体建议：哪些模块值得照着抄</h2>
+<p>文章不写「该不该用 ECC」——读者自己看完代码自然能判断。值得专门拆出来的是「就算不用 ECC 整套，哪些模块值得照着自己写一份」。</p>
+<p>挑 5 个最值得借鉴的：</p>
+<p><strong>1. <code>agents/code-reviewer.md</code> 与按语言细分的 <code>*-reviewer.md</code></strong></p>
+<p>ECC 把 reviewer 按语言切分（cpp-reviewer / csharp-reviewer / django-reviewer / fastapi-reviewer / flutter-reviewer / fsharp-reviewer / go-reviewer / database-reviewer），每个 agent 的 system prompt 针对该语言的常见坏味道写到很细。国内 indie 完全可以照着这种「按技术栈切 reviewer」的思路抄一份给自己技术栈用。</p>
+<p><strong>2. <code>hooks/hooks.json</code> 的 PreToolUse dispatcher 模式</strong></p>
+<p>ECC 在 PreToolUse 上只挂一个 dispatcher hook，dispatcher 内部分发到「质量预检 / tmux 检查 / push 检查 / GateGuard 检查」。这个模式比「每个检查挂一个 hook」可维护得多——所有 PreToolUse 检查在一个 Node 文件里就能看完。</p>
+<p><strong>3. <code>skills/parallel-execution-optimizer/</code> 的「切车道」方法论</strong></p>
+<p>把工作切成可并行的车道、独立 worktree、并发读、可合并的输出——这套话术写进 skill 而不是写进博客，意味着 agent 在适合的场景会自动调用。国内开发者用 Claude Code 写多任务并发时，强烈建议把这个 skill 整个拷过来。</p>
+<p><strong>4. <code>rules/zh/</code> 的中文写作规则</strong></p>
+<p>ECC 居然有 <code>rules/zh/</code> 目录——专门给中文输出场景写的规则。这是开源 harness 里少见的对中文场景的关注，国内开发者可以照着这个目录的结构补全自己项目的中文规则。</p>
+<p><strong>5. <code>ecc_dashboard.py</code> 的 Tkinter GUI 控制面思路</strong></p>
+<p>v2.0.0-rc.1 带了一个 800 多行的 Tkinter 桌面 GUI，扫 agent / skill / hook 目录、读 YAML frontmatter、显示在树状界面上。这个仪表盘本身就是单人项目可以借鉴的最小可控形态——不需要 Web 服务、不需要鉴权、跨平台跑、看见自己装了什么。</p>
+<p>仪表盘界面分四个标签页：Agents 标签列出 61 个 agent 与各自的 description、Skills 标签按字母分组显示 246 个 skill、Hooks 标签按事件类型展示 28 个匹配器、Sessions 标签显示历史会话归档。点击任意一个 agent 或 skill，右侧面板加载完整的 markdown 内容并支持搜索。</p>
+<p>为什么 Tkinter 而不是 Web？作者在代码顶部注释写得很明白——「跨平台、无需启动服务、零鉴权风险」。Tkinter 在 macOS、Linux、Windows 上都能直接跑 Python 标准库，不需要装 Electron、不需要开本地 HTTP 端口、不需要担心 CSRF。对单人维护者来说这是最省事的方案。国内 indie 项目想做控制面时，Tkinter 也是个被严重低估的选择——比 Electron 启动快 10 倍、占内存少 20 倍、跨平台兼容性反而更好。</p>
+<p>把这 5 个模块拼起来，本质就是一个「单人能扛得住的小型操作系统」。国内 indie 完全可以挑 2-3 个最对味的模块开始写自己的版本，先跑通再扩。</p>
+<h2>收尾：操作系统层这条路，比换模型更能压低成本</h2>
+<p>ECC 这条线给国内 AI Coding 圈最大的启示，是把视野从「换什么模型」拉回到「怎么管 agent」。</p>
+<p>国内 AI Coding 工具过去两年的竞争主线，是模型换代——从 GPT-3.5 到 GPT-4 到 Claude 3.5 到 DeepSeek-V3 到千问 3，每隔几个月就有人喊「我们换了更聪明的模型」。</p>
+<p>ECC 用 4 个月 8 次发布走出另一条路：模型不动，但把模型周围的 61 个 agent、246 个 skill、28 个 hook 匹配器、上千条 rule 抽象出来管起来。结果就是同样的模型在 ECC 框架下能稳定跑「按语言细分的 code review」「自动跑 lint + test」「PreToolUse 阶段拦危险命令」这类多步骤工作流，而单纯用裸 Claude Code 做不到。</p>
+<p>这件事的成本结构很有意思——ECC 不需要训新模型，不需要买卡，不需要租集群，只需要一个人花 4 个月把抽象搭起来。19.4 万星就是市场对这条路线投的票。</p>
+<p>国内 indie 与小团队如果也想做类似的事，门槛比想象的低得多——单人、单仓库、MIT 协议、跨 7 个 harness、定时发布。技术上没有任何卡脖子的地方，只需要把时间长期投进去。</p>
+<p>至于现成的 ECC 能不能直接用——能。仓库 MIT 协议、19.4 万星实测、189 位贡献者维护、最新提交昨天，国内开发者直接 <code>git clone</code> 就能上手。</p>
+<p>最后说一句对 Claude Code 用户的实际价值：装完 ECC 之后，最直接的感受是模型「变稳了」。同样一句「review 这段 Python」，没装 ECC 之前模型会自己想 review 维度，每次想的都不太一样；装了 ECC 之后，hook 自动加载 <code>agents/code-reviewer.md</code> + <code>rules/python/*.md</code>，每次 review 都按同一套清单走——可读性、性能、安全、测试覆盖、依赖审计。结果就是输出可预测、能复用、能跨开发者协作。这套确定性对个人开发者已经是质变，对小团队更是协作前提。</p>
+<p>ECC 给国内开发者最大的礼物，是把「让 Claude Code 稳下来」这件事拆成了一组可独立挑选的模块。不需要全装、不需要付费、不需要锁在某个产品里——挑想用的拿来用，连同它背后的方法论一起带走。这种开源姿态本身就值得国内同行学习。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

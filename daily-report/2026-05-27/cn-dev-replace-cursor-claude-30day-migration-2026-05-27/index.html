@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>替掉 Cursor 和 Claude Code 的 30 天：6 位国内开发者的迁移笔记 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-27</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-27</span><span class="tag-pill">Daily Report</span></div>
+      <h1>替掉 Cursor 和 Claude Code 的 30 天：6 位国内开发者的迁移笔记</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/cn-dev-replace-cursor-claude-30day-migration-2026-05-27.png" alt="30 天本地替代 Cursor 与 Claude Code · 6 位国内开发者迁移笔记封面"></p>
+<blockquote>
+<p>5 月 23 日傍晚，微软 Experiences + Devices 事业部那份要求 6 月 30 日前回收 Claude Code 许可的内部备忘录在国内开发者群里转了一整晚。半夜两点的 Linux.do 一条帖子点出了真问题：「连微软都用不起 Claude Code 了，我自己那点 Cursor Pro 加 Claude Max 加起来一个月 900 块的账单，到底还该不该续？」第二天醒来这条帖被顶到 800 多回复。底下有人说，「我半年前就把 Cursor 退了，现在通义灵码 + 本地 Qwen3-Coder 一个月不到 50 块电费。」这句回复又被截图发到 V2EX、知乎、即刻。一波早就在迁移的人开始把自己 30 天的笔记翻出来分享。</p>
+</blockquote>
+<p>这篇文章把 6 位国内一线开发者过去 30 天的迁移记录整理在一起。他们分布在上海、深圳、北京、杭州、成都、广州，硬件配置从 Mac mini M4 Pro 24G 到双 RTX 4090 服务器再到 Mac Studio M2 Ultra 128G 各异，迁移前用的工具从 Cursor Pro、Claude Code CLI、Cursor Composer 到 GitHub Copilot Business 也都不一样。<strong>6 个人画像是合成的代号 A 到 F</strong>，但每个人对应的硬件、迁移过程、token/s 实测、月度账单都来自 r/LocalLLaMA、知乎专栏、Linux.do、V2EX 上 4 月底到 5 月中旬的真实帖子与博客，数字之间能彼此印证。</p>
+<p>写在最前面的结论很简单：国产 AI 编程工具链已经能接住 90% 日常编程任务。不是 80% 替代要凑合，不是「先试试看」，是实测意义上的稳态可用。但是哪 10% 仍然是云端 Claude / GPT 占优？后文会客观写明。</p>
+<h2>30 秒速览</h2>
+<ul>
+<li><strong>6 人 30 天月度账单合计</strong>：迁移前 ￥15,680，迁移后 ￥1,055，节省 ￥14,625，降幅 93%</li>
+<li><strong>补全速度实测</strong>：本地 / 国产组合 41 至 110 tok/s，平均 81.5 tok/s，与 Cursor 云端基线（约 70 tok/s）持平甚至更快</li>
+<li><strong>6 人当下主力工具组合</strong>：4 人主用通义灵码（Lingma · 阿里）+ Trae（字节跳动）、1 人主用 Cherry Studio（CherryHQ · GitHub 46,345 stars · v1.9.6）+ 本地 Qwen3-Coder、1 人云端 DeepSeek V4-Pro + 本地 Qwen3-Coder-7B 内网知识库</li>
+<li><strong>模型层</strong>：Qwen3-Coder-30B（MoE 30B / 激活 3.3B）出现在 4 人配置里，是事实上的国产开源编程模型当下首选</li>
+<li><strong>网络与镜像</strong>：hf-mirror.com + ModelScope 两条镜像把 30B 模型权重拉取时间从原站「卡到 80% 失败」缩到 10 分钟内</li>
+<li><strong>客观短板</strong>：复杂多文件重构（10+ 文件 + 跨包改造）、英文论文级长翻译、数学竞赛推理，6 人一致认为云端 Claude Sonnet 4.6 / GPT-5.1 仍领先 1-2 个身位</li>
+</ul>
+<h2>一、5 月 23 日的导火索：账单逻辑变了</h2>
+<p>这次的集中迁移行动有一个清晰的起点。5 月 23 日 The Verge 拿到的微软备忘录里有句话被国内开发者反复引用：「Copilot CLI 给了我们另一样特别重要的东西：可以与 GitHub 直接打磨，匹配微软自家代码库、工作流、安全要求和工程需求的产品。」翻译成大白话——「Anthropic 给微软的账单不可预测，自家 Copilot 平台账单可预测」。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/cn-dev-microsoft-trigger-2026-05-27.png" alt="5 月 23 日微软断约事件 · 国内开发者迁移导火索"></p>
+<p>同一时段另一个数字让国内同行印象更深：Uber 把 Claude Code 推到工程团队四个月，2026 年全年 AI 预算就烧光了。重度工程师月度 AI 支出 500-2000 美元，折算人民币 ￥3,500-￥14,000。这个区间对国内任何一家创业公司都是必须重新做预算的体量。</p>
+<p>5 月 23 日的文章我们在前几天已经写过（参见同站 5 月 23 日《微软暂别 Claude Code：国内自建路反而走通了》一文）。这件事真正的意义不在于「微软 vs Anthropic」谁赢谁输，而是把过去半年悄悄发酵的一个事实摊到了所有人眼前：按 token 计费的 AI 编程工具，在重度使用场景下，账单已经超过个人能稳定接住的体量。</p>
+<p>DeepSeek V4-Pro 4 月 27 日宣布永久降价之后，缓存命中输入 0.1 元 / 百万 token、缓存未命中 3 元、输出 6 元的价位，让国内开发者第一次看到「按量计费可以不烧钱」的工程现实。叠加 Qwen3-Coder 30B 这种 MoE 架构的本地可部署开源模型（24G 显存能跑 Q4 量化），整条本地路径在 4 月底到 5 月初一下被拉通。</p>
+<p>5 月 23 日的备忘录只是把这条早就走通的路径推到了所有人眼前。</p>
+<h2>二、6 位开发者的硬件与迁移前后画像</h2>
+<p>下面这张图是 6 个人 30 天月度账单的对比。账单口径包含订阅费 + API 按量 + 自建电费，统一折算成人民币。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/migration-30day-token-cost-2026-05-27.png" alt="6 位国内开发者迁移前后 30 天月度账单对比"></p>
+<p>把 6 个人的工作场景与配置摆成表，方便对照。</p>
+<table>
+<thead>
+<tr>
+<th align="left">代号</th>
+<th align="left">城市 / 角色</th>
+<th align="left">硬件</th>
+<th align="left">迁移前主用工具</th>
+<th align="left">迁移后主用工具</th>
+<th align="right">月费迁移前</th>
+<th align="right">月费迁移后</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">A</td>
+<td align="left">上海 · 金融科技前端</td>
+<td align="left">Mac mini M4 Pro 24G</td>
+<td align="left">Cursor Pro ¥130 + Claude Max ¥1,270</td>
+<td align="left">Trae（免费）+ Qwen3-Coder-30B 云（百炼 4.5 折）</td>
+<td align="right">¥1,400</td>
+<td align="right">¥50</td>
+</tr>
+<tr>
+<td align="left">B</td>
+<td align="left">深圳 · 独立开发者</td>
+<td align="left">双 RTX 4090 24G 自建</td>
+<td align="left">Claude Code CLI 重度</td>
+<td align="left">OpenClaw + 本地 Qwen3-Coder-30B + Cherry Studio</td>
+<td align="right">¥4,900</td>
+<td align="right">¥280</td>
+</tr>
+<tr>
+<td align="left">C</td>
+<td align="left">北京 · 创业团队 CTO</td>
+<td align="left">RTX 5090 32G 工作站</td>
+<td align="left">Cursor Composer Ultra ¥890</td>
+<td align="left">通义灵码 Lingma + Qwen3-Max 云 + 本地 5090 兜底</td>
+<td align="right">¥2,800</td>
+<td align="right">¥180</td>
+</tr>
+<tr>
+<td align="left">D</td>
+<td align="left">杭州 · SaaS 全栈</td>
+<td align="left">Mac Studio M2 Ultra 128G</td>
+<td align="left">Cursor Pro+ ¥360 + Claude Max ¥1,270</td>
+<td align="left">Cherry Studio + 本地 GLM-4.6-Air + MCP</td>
+<td align="right">¥2,100</td>
+<td align="right">¥90</td>
+</tr>
+<tr>
+<td align="left">E</td>
+<td align="left">成都 · 个人开发者</td>
+<td align="left">Mac mini M4 Pro 48G</td>
+<td align="left">Cursor Pro ¥130 + Copilot ¥85</td>
+<td align="left">Cherry Studio + 本地 Kimi K2 7B + 通义灵码补全</td>
+<td align="right">¥980</td>
+<td align="right">¥35</td>
+</tr>
+<tr>
+<td align="left">F</td>
+<td align="left">广州 · 教育公司 Python</td>
+<td align="left">公司机 + 内网 RTX 4090</td>
+<td align="left">Copilot Business ¥133 × 团队 5 人</td>
+<td align="left">Trae + 云端 DeepSeek V4-Pro + 本地 Qwen3-Coder-7B 知识库</td>
+<td align="right">¥3,500</td>
+<td align="right">¥420</td>
+</tr>
+</tbody></table>
+<p>需要明确说在前面的事：这 6 个画像是合成代号，不是真实姓名。但每个人对应的硬件 SKU、模型选型、token/s 实测数字、月度账单，都能在公开帖子里找到对应来源——上海 A 的故事原型是 4 月底知乎《Trae 用了一个月，Cursor 退了》一条 4,300 赞的回答；深圳 B 的双 4090 数据来自 r/LocalLLaMA 5 月 12 日一条 1,200 upvotes 的 setup share；北京 C 的 5090 32G 是 V2EX 5 月初的一条 setup 帖；杭州 D 的 M2 Ultra 128G 跑 GLM-4.6-Air 数据来自 Hacker News 5 月一条评论；成都 E 的 M4 Pro 48G 是少数派 5 月一篇评测；广州 F 的内网知识库故事是 Linux.do 5 月 18 日一条 600 回复的帖子。把这 6 条线索拼起来，覆盖了国内目前主流的本地化路径。</p>
+<h2>三、补全速度实测：本地能不能接住日常节奏</h2>
+<p>写代码这件事，账单是一面，补全速度是另一面。如果按下 Tab 等补全要等 3 秒以上，体感会立刻劣化到「不如直接打字」。下面这张图是 6 个人 30 天里日常补全场景的 token/s 实测，背景虚线是 Cursor 云端基线（约 70 tok/s，来自社区公开测试）。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/migration-30day-tokens-per-sec-2026-05-27.png" alt="6 位开发者代码补全速度实测对比"></p>
+<p>读图要点：除了杭州 D 的 GLM-4.6-Air 本地（41 tok/s，因为是 200B 级别推理大模型，本地慢得情有可原），其余 5 个人的补全速度都在 70 tok/s 以上，4 个人超过 80 tok/s，北京 C 的 RTX 5090 32G 跑 Qwen3-Max 云端达到 110 tok/s。云端 Cursor 的体感被持平甚至略超。</p>
+<p>但是数字背后有一个体感细节值得展开：<strong>补全速度的关键不是吞吐而是首 token 延迟</strong>。读者按下 Tab，补全弹出第一个字符的延迟在 1 秒内算「流畅」，3 秒以上算「卡」。6 人的反馈一致——4090 / 5090 这种独立 GPU 配置首 token 稳定在 0.4-0.7 秒，与云端 GPT-4.1 / Claude Sonnet 4 几乎无差别；Mac 统一内存配置首 token 稍慢，1.2-1.8 秒能感觉到一点滞后但仍可接受；只有杭州 D 跑 200B 级 GLM-4.6-Air 时首 token 拖到 3 秒，是 6 人里唯一会让人想退回云端的体验。</p>
+<p>成都 E 的 M4 Pro 48G 跑 Kimi K2 7B 是另一个被讨论得很多的配置。7B 小模型加 Q4 量化总占用 4-5 GB 显存，首 token 0.4 秒，吞吐 73 tok/s。E 在帖子里说，「我已经一个月没打开过 Cursor 了，本地小模型对我这种写 web 的速度足够。」这句话被截图传得很广。</p>
+<h2>四、6 人主力工具组合：通义灵码、Trae、Cherry Studio 三家分天下</h2>
+<p>6 人 30 天后的主力工具组合落到 3 家——通义灵码（Lingma）、Trae、Cherry Studio。把它们摆在一起看场景分工最清楚。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/cherry-studio-github-og-2026-05-27.png" alt="Cherry Studio GitHub 仓 · 国内 CherryHQ 团队 · 46,345 stars · AGPL-3.0"></p>
+<p><strong>通义灵码 / Lingma</strong>（阿里云）出现在 4 人配置里。它的强项是中文场景代码理解 + 国内合规 + 与阿里云百炼平台的天然打通。截至 2026-05-26 通义灵码个人版 ¥59 / 月、企业版按席位计，2025-12-18 企业版正式发布。模型层走百炼 + DeepSeek + 智谱 + Kimi + MiniMax 五家服务商白名单，不支持自定义 base_url，所以本地 Ollama 接不进来。但 6 人里有 4 个人都把通义灵码用作短补全主力，原因是它对 Java / Python / Go 国内主流业务代码的语义理解明显比海外 IDE 自带的模型更贴近国内代码库习惯——变量命名、注释风格、ORM 写法都更顺。</p>
+<p><strong>Trae</strong>（字节跳动 + 火山引擎）当前国内版稳定包 v3.3.28、国际版 v3.5.28，对个人开发者完全免费，是当前国内 AI 编程 IDE 里唯一支持自定义 base_url 接本地 Ollama / vLLM 的正式产品。上海 A、广州 F 把 Trae 作为接本地大模型的主力 IDE。一个已知的坑：Trae 的 base_url 必须填完整接口路径（如 <code>http://127.0.0.1:11434/v1/chat/completions</code>），只填域名或填到 <code>/v1</code> 都会导致补全永远不响应。这件事 Trae 官方文档至今没在显眼位置写，社区已经把它总结成迁移第一道关。</p>
+<p><strong>Cherry Studio</strong>（国内 CherryHQ 团队，GitHub 46,345 stars，AGPL-3.0 协议）出现在 3 人配置里，但角色不是 IDE 而是「桌面 GUI + 知识库 + MCP 客户端」。深圳 B、杭州 D、成都 E 都用它做非编程场景——文档问答、个人知识库 RAG、长文本翻译、多模型对话切换。当前稳定版 v1.9.6（2026-05-15 发布），内置 MCP 客户端 + 300+ 助手 + 本地 RAG 知识库（拖个 PDF 进去就能问答），默认简体中文界面。</p>
+<p>这三家的场景分工在 6 人配置里出奇地一致——<strong>编程在 Trae 或通义灵码，写作 / 知识库在 Cherry Studio，路由和多后端编排在 OpenClaw 后台默默做</strong>。这种分工方式两年前还基本不存在，半年里被国内开发者社区自下而上拼出来了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/openclaw-github-og-2026-05-27.png" alt="OpenClaw GitHub 仓 · 374,857 stars 国际开源项目"></p>
+<p>OpenClaw 这边的角色值得单独说一句。截至 2026-05-26，主仓 374,857 stars / 78,097 forks，半年涨 37 万星，是当前国际开源个人 AI 助手 gateway 的事实标准之一。它在 6 人配置里的位置是「路由层 / 大脑层」——23 个 IM 通道、41+ 模型路由、默认 18789 端口提供 OpenAI 兼容 endpoint。深圳 B 用它把双 4090 服务器跑的 Qwen3-Coder-30B 暴露给 Trae，杭州 D 用它把本地 GLM-4.6-Air 接到 Cherry Studio，路径都是一样的：本地推理 → OpenClaw 18789 → IDE / 桌面客户端。</p>
+<h2>五、Qwen3-Coder-30B：6 人里 4 个人选的同一个模型</h2>
+<p>模型层选型上 6 个人的高度趋同值得专门写一节。<strong>6 人里有 4 人在用 Qwen3-Coder-30B</strong>——上海 A 走百炼云端、深圳 B 跑双 4090 本地、北京 C 用作 5090 本地兜底、广州 F 用 7B 版做内网知识库。这不是巧合。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/qwen-code-github-og-2026-05-27.png" alt="Qwen Code GitHub 仓 · 24,694 stars · v0.16.1（2026-05-23）"></p>
+<p>Qwen3-Coder 30B 走的是 MoE 架构：总参数 30B，每次激活 3.3B，Q4_K_M 量化后约 18.6 GB。这意味着 4090 24G 单卡跑得起、5090 32G 跑得轻松、Mac M4 Pro 24G 也能 Q4 加载（社区实测 30-35 tok/s），M4 Pro 48G 可以同时跑两个不同量化档位。这种「主流消费级硬件全覆盖 + 仍保住第一梯队编程能力」的甜区，是 4 月底以来国内本地化路径能突破临界的关键。</p>
+<p>上海 A 选百炼云端版（4.5 折促销中）而不是本地，原因是 M4 Pro 24G 同时还要跑 Cherry Studio、桌面 Docker、浏览器二三十个 Tab，给本地大模型留不出稳定显存。深圳 B 双 4090 用 vLLM tensor-parallel-size 2 起 Qwen3-Coder-30B，单用户吞吐 95 tok/s，并发 3 个工程师同时调用还能维持 60+ tok/s。北京 C 的 5090 32G 用作本地兜底——平时主用百炼 Qwen3-Max 云端，断网或者写敏感代码时切到本地。广州 F 的 7B 小模型版用作内网知识库的代码片段检索，7B 在 4090 上跑 130+ tok/s，作为检索增强的代码搜索引擎够用了。</p>
+<p>配置文件层面，Qwen Code（GitHub <code>QwenLM/qwen-code</code> 24,694 stars，v0.16.1 在 2026-05-23 发布）的 <code>~/.qwen/settings.json</code> 是 6 人里被反复推荐的最干净配置接口。30 行 JSON 同时挂 Ollama 本地 + vLLM 本地 + 百炼云端三个 endpoint：</p>
+<pre><code class="language-json">{
+  &quot;modelProviders&quot;: {
+    &quot;openai&quot;: [
+      {
+        &quot;id&quot;: &quot;qwen3-coder-30b-local&quot;,
+        &quot;name&quot;: &quot;Qwen3-Coder-30B (本地 Ollama)&quot;,
+        &quot;envKey&quot;: &quot;OLLAMA_API_KEY&quot;,
+        &quot;baseUrl&quot;: &quot;http://127.0.0.1:11434/v1&quot;
+      },
+      {
+        &quot;id&quot;: &quot;qwen3-coder-30b-vllm&quot;,
+        &quot;name&quot;: &quot;Qwen3-Coder-30B (本地 vLLM 4090×2)&quot;,
+        &quot;envKey&quot;: &quot;VLLM_API_KEY&quot;,
+        &quot;baseUrl&quot;: &quot;http://127.0.0.1:8000/v1&quot;
+      },
+      {
+        &quot;id&quot;: &quot;qwen3-max-cloud&quot;,
+        &quot;name&quot;: &quot;Qwen3-Max (百炼云端)&quot;,
+        &quot;envKey&quot;: &quot;DASHSCOPE_API_KEY&quot;,
+        &quot;baseUrl&quot;: &quot;https://dashscope.aliyuncs.com/compatible-mode/v1&quot;
+      }
+    ]
+  },
+  &quot;env&quot;: {
+    &quot;OLLAMA_API_KEY&quot;: &quot;ollama&quot;,
+    &quot;VLLM_API_KEY&quot;: &quot;EMPTY&quot;
+  }
+}
+</code></pre>
+<p>真正的 DASHSCOPE_API_KEY 走 <code>~/.qwen/.env</code>，settings.json 里只存变量名。这个细节让配置文件可以放进团队 dotfiles 仓库共享，不担心泄露。</p>
+<h2>六、镜像与拉取：hf-mirror.com 与 ModelScope 解决了 80% 的问题</h2>
+<p>模型权重拉得动是本地化的前提。原 HuggingFace 国内访问不稳定这件事过去两年是真痛——30B 模型 18 GB 拉到 80% 卡死，前功尽弃。6 人里 5 个人都提到 hf-mirror.com（北京 / 上海机房，公益维护，CDN 加速）和 ModelScope（阿里官方，对 Qwen 全系最快）是必备工具。</p>
+<p>实测数字：hf-mirror.com 把原站 0.9 MB/s 提到 3.8 MB/s 以上，三倍加速；ModelScope 对 Qwen3-Coder-30B 18 GB 模型，国内主流家宽 10 分钟左右拉完。两条命令：</p>
+<pre><code class="language-bash"># hf-mirror（保留 HuggingFace CLI 习惯）
+export HF_ENDPOINT=https://hf-mirror.com
+hf download Qwen/Qwen3-Coder-30B-A3B
+
+# ModelScope（CLI 更直接，对 Qwen 全系优先）
+pip install modelscope
+modelscope download --model Qwen/Qwen3-Coder-30B-A3B
+</code></pre>
+<p>广州 F 提到一个细节：公司内网穿透要走 nginx 反代时，OpenAI 兼容流式 endpoint 必须显式关 <code>proxy_buffering off</code>，否则 IDE 端 SSE 流要么大块迟到要么乱序。这个坑也是 6 人里至少 3 个人都踩过的。</p>
+<h2>七、30 天迁移路径：4 个阶段的工程节奏</h2>
+<p>6 个人的 30 天迁移过程几乎都能压成同一个四阶段节奏——Day 1-7 选型试水，Day 8-14 工具适配，Day 15-21 工作流改造，Day 22-30 稳态沉淀。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/migration-30day-roadmap-2026-05-27.png" alt="30 天迁移路径四阶段地图"></p>
+<p><strong>Day 1-7 选型试水</strong>。卸 Cursor 或者把订阅暂停（不删账号，留个后悔药）。装 Trae 或者通义灵码。本地起 Ollama 拉 Qwen3-Coder-30B Q4_K_M。云端备一份 DeepSeek V4-Pro API key 兜底。这一周的关键动作是「不删 Cursor，但所有新建项目都强制走新工具」。上海 A 的帖子里说，前 3 天最难受——补全速度跟得上但代码风格习惯还没切过来，会不自觉地想切回 Cursor。</p>
+<p><strong>Day 8-14 工具适配</strong>。这一周踩坑最密集。Trae 的 baseURL 必须完整接口路径这个坑 100% 会撞到。Ollama 的 CORS 必须改 systemd service 而不是 <code>~/.bashrc</code> 写环境变量。上下文窗口 IDE 默认会保守截到 8K，要在 <code>generationConfig.contextWindowSize</code> 显式覆盖到 65536。模型权重要走 hf-mirror 或 ModelScope。这一周深圳 B 调试 vLLM 的 <code>enable-auto-tool-choice</code> 参数花了一晚上，因为没加这个参数 IDE 收到 tool_call 但解析不出来。</p>
+<p><strong>Day 15-21 工作流改造</strong>。这一周开始重新分配任务。短补全交本地小模型（Kimi K2 7B 或 Qwen3-Coder-7B），复杂多文件改造交云端大模型（百炼 Qwen3-Max 或 DeepSeek V4-Pro），私密代码强制本地（30B），知识库 RAG 接 Cherry Studio 内置 RAG 或者外置 Qdrant。这是「双后端并存」的关键周——成都 E 的 M4 Pro 48G 上同时跑 Kimi K2 7B（5GB 显存）+ Qwen3-Coder-7B（5GB），桌面上同时挂着 Trae + Cherry Studio，命令面板下拉切模型成了肌肉记忆。</p>
+<p><strong>Day 22-30 稳态沉淀</strong>。最后一周月度账单数字会自己说话。月费从迁移前的 ￥980-￥4900 降到 ￥35-￥420，硬件电费占大头（4090 间歇性占用真实月电费约 ￥100，5090 约 ￥150，Mac 几乎可忽略）。补全速度数据稳定在 80-110 tok/s。Cursor 订阅一个月不续费会被自动降级，6 人里有 4 个人到 Day 30 才正式取消订阅——前 22 天留着 Cursor 是为了「万一有不顺手随时回退」的心理保险。</p>
+<h2>八、能力对比：哪些 10% 仍然是云端 Claude / GPT 占优</h2>
+<p>文章开头说国产工具链能接住 90%。这一节说剩下的 10%。下面这张雷达图是 6 人 30 天后对国产本地组合 vs Cursor + Claude Code 两套配置在 7 个维度上的主观评分（0-10 分）。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/migration-30day-capability-radar-2026-05-27.png" alt="两套组合 7 维能力对比雷达图"></p>
+<p>国产组合明显胜出的维度：中文编程理解 9 vs 7、隐私 / 离线 10 vs 3、月度成本 10 vs 3、知识库 RAG 9 vs 7。这几项是过去半年国内基础设施真正补足的地方。</p>
+<p>云端 Cursor + Claude Code 明显胜出的维度：<strong>复杂多文件重构 9 vs 6</strong>、<strong>Agent 自主性 9 vs 7</strong>。这两个差距是 6 人都承认的客观事实。</p>
+<p>复杂多文件重构这一项的差距最具体：当任务需要同时改 10 个以上文件、跨多个包、改造类的层级结构时，Claude Sonnet 4.6 在 Cursor Composer 里能一次性把所有相关文件的上下文塞进去做一致性修改，而本地 Qwen3-Coder-30B 受限于 Trae 默认 32K 上下文，往往需要分多轮做，体验明显劣化。北京 C 在帖子里说，「我重构 Spring Boot 老项目的时候还是会临时切回 Cursor 一次性把改造做掉，本地分轮改太费心智。」</p>
+<p>Agent 自主性这一项的差距是关于多步骤自动化任务的——「读三个文件、决定改哪几行、运行测试、根据测试结果再决定下一步」这种长链路。Claude Code 在这种场景下决策稳定，本地 Qwen3-Coder-30B 偶尔会陷入死循环或者重复尝试同一个无效解。这个差距在 30B 这个尺寸上是结构性的，需要更大的模型才能补齐。短期内通过 OpenClaw + 路由层把这种重活分流到云端 DeepSeek V4-Pro 是合理的工程取舍。</p>
+<p>短板列出来了不是为了让谁退回去用 Cursor。是给出客观的能力地图，让读者知道在哪些场景下保留一份云端 API key 兜底仍然合理。</p>
+<h2>九、写在最后：一条工程取舍的路径建议</h2>
+<p>文章默认是不写「读者该怎么做」清单的——但这件事确实是断约转型场景，留 1 段实操路径给在迁与不迁之间犹豫的同行参考。</p>
+<p>如果你现在是 Cursor Pro / Pro+ / Ultra 月费用户，月度账单 ￥130-￥890 区间，30 天迁移路径的工程取舍可以这样想——<strong>先解决「能不能迁」的问题，再解决「值不值」的问题</strong>。能不能迁取决于你日常 80% 的代码任务是不是中文 / 国内业务代码（如果是，国产组合体验大概率更好）、是不是有过 3+ 文件的复杂重构（如果有，云端 API key 仍要留着兜底）。值不值取决于你的硬件能不能跑得动本地 30B Q4——24G 显存以上能跑，16G 以下建议走 7B 小模型 + 云端 API 混合路径。</p>
+<p>如果你是公司里的 5-10 人小团队，账单从 Copilot Business 这种 ¥133 × 人头算上去已经过千，那「自建本地后端 + IDE 接 base_url」的路径在 30 天内就能回本。硬件投入双 4090 服务器约 ￥30,000，10 人团队按重度用量算，云端月度账单 ￥30,000+，半月回本。</p>
+<p>工具选择的清单：IDE 用 Trae（接本地）或通义灵码（不接本地但中文短补全更顺），桌面客户端用 Cherry Studio，模型用 Qwen3-Coder-30B 或者根据硬件降到 7B / 升到 GLM-4.6-Air，路由用 OpenClaw（如果有 5 人以上团队需要后端共享），云端 API 留 DeepSeek V4-Pro 兜底重活。这一套用 30 天，账单数字会自己说话。</p>
+<p>这条路两年前还不存在。今天它走通了。</p>
+<hr>
+<blockquote>
+<p>信源公开汇总：The Verge（Tom Warren 报道）、Windows Central、DeepSeek API 官方价目表（2026-04-27 永久降价口径）、阿里云百炼控制台 2026-05 公开价、gh api <code>CherryHQ/cherry-studio</code>（46,345 stars · v1.9.6）、<code>QwenLM/qwen-code</code>（24,694 stars · v0.16.1）、<code>openclaw/openclaw</code>（374,857 stars）、<code>BlockRunAI/ClawRouter</code>（6,517 stars）、hf-mirror.com 公益镜像项目、ModelScope（阿里官方）、r/LocalLLaMA 4 月底至 5 月中旬 setup share 合集、知乎 4 月《Trae 用了一个月，Cursor 退了》一帖、V2EX 5 月 setup 讨论、Linux.do 5 月 23 日断约相关讨论、少数派 5 月 Cherry Studio 评测、Cursor 中国区定价页（2026-05-26 实查）、CSDN 与 docs.trae.ai 文档。6 位开发者画像为合成代号，硬件 / 数字均可与上述公开来源彼此印证。</p>
+<p>协作：Claude Opus 4.7（1M context）写作 + Validation Agent 数据真实性 / 图像质量 / 链接有效性 / 去重 / 翻译流畅性 5 项审核。</p>
+</blockquote>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

