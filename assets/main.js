@@ -1,53 +1,103 @@
 /* ============================================================
-   main.js — render product grid + scroll-driven UI
+   main.js
+   Architecture adapted from davidhckh/portfolio-2025
+   (https://github.com/davidhckh/portfolio-2025) - attribution preserved.
    ============================================================ */
 (() => {
-  // Guard against double execution (e.g. ViewTransitions, bfcache)
-  if (window.__portfolio_main_loaded) {
-    console.log('[main.js] already loaded — skipping');
-    return;
-  }
+  if (window.__portfolio_main_loaded) return;
   window.__portfolio_main_loaded = true;
 
   const root = document.documentElement;
-  root.classList.add('js');
 
-  // -------- Scroll → CSS vars + topbar state --------
-  const topbar = document.querySelector('.topbar');
-  let ticking = false;
-  function onScroll() {
-    if (ticking) return;
-    ticking = true;
-    requestAnimationFrame(() => {
-      const y = window.scrollY;
-      const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      root.style.setProperty('--scroll-y', y);
-      root.style.setProperty('--scroll-progress', Math.min(1, y / max).toFixed(4));
-      if (topbar) topbar.classList.toggle('scrolled', y > 16);
-      ticking = false;
+  // ---------- 1) Lenis smooth scroll ----------
+  let lenis;
+  if (typeof Lenis !== 'undefined') {
+    lenis = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      smoothTouch: false,
+      wheelMultiplier: 1,
+    });
+
+    function raf(time) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+    requestAnimationFrame(raf);
+
+    // Update GSAP ScrollTrigger
+    if (window.gsap && window.ScrollTrigger) {
+      lenis.on('scroll', ScrollTrigger.update);
+      gsap.ticker.add((time) => lenis.raf(time * 1000));
+      gsap.ticker.lagSmoothing(0);
+    }
+  }
+
+  // ---------- 2) Anchor link smooth-scroll via Lenis ----------
+  document.querySelectorAll('[data-scroll-link]').forEach((a) => {
+    a.addEventListener('click', (e) => {
+      const href = a.getAttribute('href');
+      if (!href || !href.startsWith('#')) return;
+      const target = document.querySelector(href);
+      if (!target) return;
+      e.preventDefault();
+      if (lenis) {
+        lenis.scrollTo(target, { offset: -64, duration: 1.4 });
+      } else {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+
+  // ---------- 3) Preloader → reveal text ----------
+  const preloader = document.getElementById('preloader');
+  const progressEl = document.getElementById('preloader-progress');
+
+  function hidePreloader() {
+    if (!preloader) return;
+    preloader.classList.add('is-hidden');
+    root.classList.add('is-ready');
+    // Trigger fade-up reveals after preloader hides
+    document.querySelectorAll('.fade-up').forEach((el, i) => {
+      const inViewport = el.getBoundingClientRect().top < window.innerHeight;
+      if (inViewport) {
+        setTimeout(() => el.classList.add('in-view'), 200 + i * 80);
+      }
     });
   }
-  window.addEventListener('scroll', onScroll, { passive: true });
-  onScroll();
 
-  // -------- Reveal engine (with per-batch safety net) --------
-  const SAFETY_MS = 1500;
-  const io = ('IntersectionObserver' in window)
-    ? new IntersectionObserver(
-        (entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in-view'); io.unobserve(e.target); } }),
-        { rootMargin: '0px 0px 20% 0px', threshold: 0 }
-      )
-    : null;
+  // Animate progress 0 → 100
+  let prog = 0;
+  const progressTimer = setInterval(() => {
+    prog = Math.min(100, prog + Math.random() * 12 + 4);
+    if (progressEl) progressEl.textContent = String(Math.floor(prog)).padStart(2, '0');
+    if (prog >= 100) {
+      clearInterval(progressTimer);
+      setTimeout(hidePreloader, 200);
+    }
+  }, 90);
 
-  function observeReveal(els) {
-    const list = Array.from(els);
-    if (!io) { list.forEach((el) => el.classList.add('in-view')); return; }
-    list.forEach((el) => { if (!el.classList.contains('in-view')) io.observe(el); });
-    setTimeout(() => list.forEach((el) => { if (!el.classList.contains('in-view')) { el.classList.add('in-view'); io.unobserve(el); } }), SAFETY_MS);
+  // ---------- 4) Reveal on scroll ----------
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) {
+          e.target.classList.add('in-view');
+          io.unobserve(e.target);
+        }
+      });
+    }, { rootMargin: '0px 0px -10% 0px', threshold: 0 });
+    document.querySelectorAll('.fade-up').forEach((el) => io.observe(el));
+    // Safety net
+    setTimeout(() => {
+      document.querySelectorAll('.fade-up:not(.in-view)').forEach((el) => el.classList.add('in-view'));
+    }, 4000);
+  } else {
+    document.querySelectorAll('.fade-up').forEach((el) => el.classList.add('in-view'));
   }
-  observeReveal(document.querySelectorAll('.reveal'));
 
-  // -------- Render products from JSON --------
+  // ---------- 5) Render products ----------
   (async () => {
     const grid = document.getElementById('product-grid');
     if (!grid) return;
@@ -57,51 +107,102 @@
       const res = await fetch('/products.json', { cache: 'no-store' });
       products = (await res.json()).products;
     } catch (e) {
-      grid.innerHTML = '<p style="color:var(--ink-subtle);font-size:0.875rem;">无法加载 products.json</p>';
+      grid.innerHTML = '<p style="color: var(--color-text-300);">Failed to load products.json</p>';
       return;
     }
 
     const statusLabel = {
-      live:    'LIVE',
-      public:  'PUBLIC',
-      private: 'PRIVATE',
-      soon:    'COMING SOON',
+      live: 'Live',
+      public: 'Public',
+      private: 'Private',
+      soon: 'Coming Soon',
     };
 
-    // Render fresh — clear any prior content first
+    // Render as case-study rows (davidhckh "preview card" style)
     grid.replaceChildren();
     grid.innerHTML = products.map((p, i) => `
-      <a class="product reveal d${(i % 4) + 1}"
+      <a class="project-card fade-up"
          href="${p.disabled ? '#' : p.href}"
          ${p.disabled ? 'data-disabled="true"' : ''}
-         ${p.external ? 'target="_blank" rel="noopener"' : ''}>
-        <span class="status ${p.status}">${statusLabel[p.status] ?? ''}</span>
-        <div class="head">
-          <div class="icon">${escapeHtml(p.icon)}</div>
+         ${p.external ? 'target="_blank" rel="noopener"' : ''}
+         data-card-index="${i}">
+        <div class="project-card-inner">
+          <div class="project-num">${String(i + 1).padStart(2, '0')}</div>
+          <div class="project-title">
+            <span class="project-status-dot ${p.status}"></span>${escapeHtml(p.title)}
+          </div>
+          <div class="project-meta">
+            <div style="color: var(--color-text-400); margin-bottom: 4px; max-width: 32ch;">${escapeHtml(p.description.length > 80 ? p.description.slice(0, 80) + '…' : p.description)}</div>
+            <div class="project-meta-row">
+              <span class="project-tag">${escapeHtml(statusLabel[p.status] ?? '')}</span>
+              ${(p.tags || []).slice(0, 2).map((t) => `<span class="project-tag">${escapeHtml(t)}</span>`).join('')}
+            </div>
+          </div>
+          <div class="project-arrow">
+            <svg fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </div>
         </div>
-        <h3>${escapeHtml(p.title)}</h3>
-        <p class="desc">${escapeHtml(p.description)}</p>
-        ${(p.tags || []).length ? `<div class="tags">${p.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
-        ${p.repo ? `<div class="footer"><span class="repo" data-repo="${escapeAttr(p.repo)}"><svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .5C5.6.5.5 5.6.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.4-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2 1-.3 2-.4 3-.4s2 .1 3 .4c2.3-1.6 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.6 18.4.5 12 .5z"/></svg><span>${escapeHtml(p.repoLabel ?? p.repo.replace(/^https?:\/\/github\.com\//, ''))}</span></span></div>` : ''}
       </a>
     `).join('');
 
-    observeReveal(grid.querySelectorAll('.reveal'));
-
-    // Delegate repo chip clicks → open in new tab, stop card navigation
-    grid.addEventListener('click', (ev) => {
-      const chip = ev.target.closest('.repo');
-      if (chip && chip.dataset.repo) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        window.open(chip.dataset.repo, '_blank', 'noopener');
-      }
-    });
+    // Re-observe new fade-up nodes
+    if ('IntersectionObserver' in window) {
+      const io2 = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) { e.target.classList.add('in-view'); io2.unobserve(e.target); }
+        });
+      }, { rootMargin: '0px 0px -10% 0px', threshold: 0 });
+      grid.querySelectorAll('.fade-up').forEach((el) => io2.observe(el));
+      setTimeout(() => grid.querySelectorAll('.fade-up:not(.in-view)').forEach((el) => el.classList.add('in-view')), 4000);
+    }
   })();
 
-  function escapeAttr(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  // ---------- 6) Hero canvas — soft parallax circle pattern ----------
+  const canvas = document.getElementById('hero-canvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+    function resize() {
+      canvas.width = innerWidth * DPR;
+      canvas.height = innerHeight * DPR;
+      canvas.style.width = innerWidth + 'px';
+      canvas.style.height = innerHeight + 'px';
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Animated dot grid that gently floats
+    const cols = 18, rows = 10;
+    const dots = [];
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        dots.push({
+          xRel: x / (cols - 1),
+          yRel: y / (rows - 1),
+          phase: Math.random() * Math.PI * 2,
+        });
+      }
+    }
+    let t0 = performance.now();
+    function frame(now) {
+      const t = (now - t0) / 1000;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const w = canvas.width, h = canvas.height;
+      for (const d of dots) {
+        const x = d.xRel * w + Math.sin(t * 0.6 + d.phase) * 8 * DPR;
+        const y = d.yRel * h + Math.cos(t * 0.5 + d.phase) * 8 * DPR;
+        const a = 0.35 + Math.sin(t + d.phase) * 0.2;
+        ctx.fillStyle = `rgba(45, 42, 36, ${a * 0.18})`;
+        ctx.beginPath();
+        ctx.arc(x, y, 1.6 * DPR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
   }
+
+  // ---------- helpers ----------
   function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }

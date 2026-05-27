@@ -2,6 +2,12 @@
 
 我的个人 product portfolio，部署在 [wangcansunking.github.io](https://wangcansunking.github.io)。
 
+> **Attribution**: design language and architecture adapted from
+> [davidhckh/portfolio-2025](https://github.com/davidhckh/portfolio-2025)
+> ([david-hckh.com](https://david-hckh.com)) — per the author's request,
+> attribution is preserved in source-code comments, README, and the
+> footer of the live site. Original portfolio design © David Heckhoff.
+
 ## 技术栈
 
 - **纯静态 HTML/CSS/JS** — 不用任何前端框架，0 构建步骤
