@@ -100,7 +100,7 @@ const showAttribution = import.meta.env.VITE_SHOW_ATTRIBUTION !== "false";
             >
           </Clickable>
         </div>
-        <p>© {{ new Date().getFullYear() }} wangcansunking · Built on davidhckh's portfolio template</p>
+        <p>© {{ new Date().getFullYear() }} Sunky Wang · Built on davidhckh's portfolio template</p>
       </div>
     </div>
   </footer>
