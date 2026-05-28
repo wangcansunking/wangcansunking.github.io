@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS、NVIDIA联手：三步搭建高性能生成式AI生产系统 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-27</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-27</span><span class="tag-pill">AI Daily</span></div>
+      <h1>AWS、NVIDIA联手：三步搭建高性能生成式AI生产系统</h1>
+<blockquote>
+<p>ai-daily · 2026 年 5 月 27 日 08:55 · 来源：AWS ML Blog</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-27/build-high-performance-generative-ai-systems-with-strands-ag-micro/head.png" alt=""></p>
+<p>2026 年 5 月 26 日，AWS 机器学习博客上悄然更新了一篇技术文章。两位作者 Kanishk Mahajan 和 Akshay Parkhi 端出了一份“全家桶”架构方案：用 Strands Agents 做多智能体编排，NVIDIA NIM 提供 GPU 加速推理，Amazon Bedrock AgentCore 负责运行时管理和可观测性。</p>
+<p>他们选了一个看起来很日常的场景——营销内容审核。三个智能体并行工作：一个从不同受众视角评估内容共鸣度，一个检查法律合规和品牌规范，最后一个汇总输出建议。前端用 React 写，后端打包成 Docker 容器扔进 AgentCore Runtime。整套东西用 AWS SAM 模板一键部署，连 DynamoDB 表创建和 CloudFront 分发都写进了脚本里。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-27/build-high-performance-generative-ai-systems-with-strands-ag-micro/content-1.png" alt="architecture diagram describing the multi agent strands and agentcore deployment"></p>
+<p><strong>这哪是在教人搭系统，这是在给企业画一张“多智能体上生产”的标准蓝图。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-27/build-high-performance-generative-ai-systems-with-strands-ag-micro/content-2.png" alt="campaign upload user interface with a left panel to upload a campaign brief and the right panel to view the agent genera"></p>
+<h2>三个玩家的分工，藏着 AWS 的算盘</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-27/build-high-performance-generative-ai-systems-with-strands-ag-micro/schematic-1.png" alt="NVIDIA NIM、Strands Agents、Amazon Bedrock AgentCore 三者协同架构图，标注推理层、编排层、运行时层"></p>
+<p>这篇博客最有趣的地方，不是它介绍的技术本身，而是它把三个不同公司的产品拧成了一根绳。</p>
+<p>NVIDIA 的角色很清晰——提供 GPU 加速推理。文章里用了“hosted NVIDIA NIM APIs available via build.nvidia.com”这个表述，意味着模型推理完全跑在 NVIDIA 托管的 GPU 后端上，用 CUDA 和 TensorRT-LLM 做优化。对外暴露的是 OpenAI 兼容的 Chat Completion API，所以 Strands Agents 不需要做任何模型适配，直接调就行。NVIDIA 在这里扮演的是“算力提供商 + 推理优化引擎”，不碰编排层，不碰运行时管理，安安静静待在底层。</p>
+<p>Strands Agents 是 AWS 自家的多智能体框架。它的定位很明确：负责协调工具调用、管理并行执行、控制流程、聚合结果。博客里提到它可以“model agent interactions explicitly”，这意味着开发者能显式定义智能体之间的交互逻辑，而不是靠 prompt engineering 隐式地“祈祷”模型自己搞清楚什么时候该跟谁说话。这个能力在三个智能体并行跑的场景里是刚需——谁先跑完？谁等谁的结果？中间出错了怎么重试？Strands 在编排层把这些事揽了。</p>
+<p>Amazon Bedrock AgentCore 则扮演了“生产环境保姆”的角色。它提供三样东西：共享内存（AgentCore Memory）、可观测性（AgentCore Observability）、以及带检查点和恢复能力的托管运行时（AgentCore Runtime）。文章特别强调了一点：“These features help your agents recover gracefully from interruptions and scale to thousands of concurrent invocations without manual infrastructure management.” 翻译成人话就是——你只管写智能体逻辑，挂了我会帮你重启，扩容不用你操心，每一步执行路径我都能给你画出来。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-27/build-high-performance-generative-ai-systems-with-strands-ag-micro/schematic-2.png" alt="AgentCore Observability 控制台界面示意，展示智能体工作流每一步的执行路径和耗时"></p>
+<p>我读到这一段的时候，脑子里冒出一个画面：AWS 正在把“企业级智能体平台”这件事，像乐高一样一块一块拼起来。NVIDIA 出算力积木，Strands 出编排积木，AgentCore 出运行时积木。这三块拼在一起，企业客户拿着 Dockerfile 和 SAM 模板就能把多智能体系统怼上生产。</p>
+<p>而这个“拼积木”的动作，恰恰是 AWS 最擅长的事。</p>
+<h2>从“跑通 Demo”到“跑稳生产”，中间隔着什么</h2>
+<p>文章花了大量篇幅讲部署流程。十个步骤，从 git clone 到 npm run build 到 sam deploy --guided，详细到连“API Gateway 会超时但 Lambda 继续跑”这种坑都提前标了注释。这种写法在技术博客里不算罕见，但放在“多智能体系统”这个语境下，就透出一股强烈的信号——</p>
+<p><strong>原型和生产的距离，不是代码量，是基础设施的成熟度。</strong></p>
+<p>做过智能体开发的人都知道，在本地跑通一个 LangChain demo 跟把它部署成能扛并发、能恢复状态、能排查问题的生产服务，中间隔着一整个 DevOps 团队的工作量。状态丢了怎么办？两个智能体同时调同一个 API 会不会冲突？某个步骤耗时突然从 2 秒涨到 20 秒怎么定位？这些问题在 Demo 阶段根本不会出现，但上了生产就是日常。</p>
+<p>AWS 这套方案试图把这些“日常”提前消化掉。AgentCore Memory 解决状态丢失问题，AgentCore Runtime 的检查点机制处理中断恢复，AgentCore Observability 用 CloudWatch 暴露延迟、token 消耗、错误率等指标，让开发者能直接看到每一步的执行轨迹。博客里甚至配了一张 Observability 控制台的截图——虽然我们看不到原图，但从描述来看，它能“provide detailed visualizations of each step in the agent workflow”。</p>
+<p>（值得一提的是，这篇文章选择的示例场景——营销内容审核——本身就是一个对“可追溯性”要求极高的领域。法律合规检查这一步如果出了问题，企业需要能回溯到具体是哪个智能体、在哪个时间点、基于哪条规则做出的判断。AgentCore Observability 的审计能力在这里不是锦上添花，是刚需。）</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-27/build-high-performance-generative-ai-systems-with-strands-ag-micro/schematic-3.png" alt="三个智能体并行执行流程图，Persona Reviewer、Validator、Finalizer 各自输入输出及聚合路径"></p>
+<p>另一个值得注意的细节是 NVIDIA NIM 的接入方式。它用的是“hosted APIs”，不是“在 AWS 上部署 NVIDIA GPU 集群”。这意味着推理负载实际上跑在 NVIDIA 自己的基础设施上，用 build.nvidia.com 暴露 API。对于企业客户来说，这省掉了 GPU 集群管理和模型优化的运维负担，但也意味着推理延迟会受到跨云网络的影响。文章没有给出具体的延迟数据，只用了“low-latency, high-throughput responses”这种定性描述。实际效果如何，可能取决于工作负载类型和调用频率。</p>
+<p>不过，从架构设计的角度看，这种“推理与编排分离”的思路是对的。NVIDIA 专注把模型跑快，Strands 专注把智能体协调好，AgentCore 专注把运维兜住。每一层独立扩缩容，出问题也容易定位。比起把所有逻辑塞进一个巨型 prompt 然后祈祷模型自己搞定一切的“单体智能体”思路，这种分层架构显然更适合生产环境。</p>
+<p>这场“多智能体上生产”的竞赛，AWS 已经摆好了棋盘。NVIDIA 出算力，Strands 出编排，AgentCore 出运维——三家凑一桌，留给开发者的事只剩下写业务逻辑和跑 sam deploy。至于这个“全家桶”在真实并发下的表现如何，以及企业客户愿不愿意把推理负载交给 build.nvidia.com 而不是自家 VPC 里的 GPU 集群，那就是另一个故事了。</p>
+<h2>参考来源</h2>
+<ul>
+<li>AWS ML Blog 原文：<a href="https://aws.amazon.com/blogs/machine-learning/build-high-performance-generative-ai-systems-with-strands-agents-nvidia-nim-and-amazon-bedrock-agentcore/" target="_blank" rel="noopener">https://aws.amazon.com/blogs/machine-learning/build-high-performance-generative-ai-systems-with-strands-agents-nvidia-nim-and-amazon-bedrock-agentcore/</a></li>
+<li>配套 GitHub 仓库（部署脚本及前端代码）：文中提及的 aws-genai-campaign-review-strands-agentcore 仓库</li>
+</ul>
+<p>#Build #AI #Strands #Agents #NVIDIA</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-27/build-high-performance-generative-ai-systems-with-strands-ag-micro/content-3.png" alt="agentcore observability dashboard describing the spans, traces and sessions for the agent invocations"></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw 接千问 + GLM：英文论文翻译 + 私人知识库 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-28</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-28</span><span class="tag-pill">Daily Report</span></div>
+      <h1>OpenClaw 接千问 + GLM：英文论文翻译 + 私人知识库</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/28/openclaw-qwen3-glm45-translate-rag-2026-05-28.png" alt="OpenClaw 接千问 + 智谱 GLM 翻译 + 私人知识库封面"></p>
+<blockquote>
+<p>我们每天打开 arxiv、GitHub README、Hacker News、Stratechery，读到的几乎全是英文一手材料；读完之后留下的只有几个标签页、几个 Pocket 收藏，三个月后翻回去常常一脸茫然，连&quot;当时看到的那个数字到底是什么&quot;都想不起来。这一篇要做的事很具体——把&quot;翻译&quot;和&quot;知识库&quot;两个最高频的日常场景，串成一条全本地的小流水线，让英文资料 24 小时内中文化、月度沉淀成个人 wiki，全程不挂云 API。</p>
+</blockquote>
+<h2>三十秒速览：这条本地小流水线长什么样</h2>
+<ul>
+<li>主项目：开源 AI 桌面助手 OpenClaw（375,079 star 的本地 AI Skill 框架，TypeScript 写就，2026-05-27 上午推送 v2026.5.26 stable）</li>
+<li>翻译端：千问 Qwen3-32B（阿里云通义千问开源，2025-04-29 首发，dense 架构，128K 上下文，Apache-2.0），在 RTX 4090 24GB 上 Q4_K_M 量化跑 24.9 tok/s decode；翻译专精版 Qwen3-MT 中英 BLEU 高于 GPT-4.1-mini 与 Gemini 2.5 Flash</li>
+<li>检索端：智谱 GLM-4.5-Air（智谱 AI 消费级首选，AWQ 4-bit 权重 &lt; 64GB，bartowski / unsloth 两路 GGUF 都在 HuggingFace 上挂着）；旗舰 GLM-4.6（355B MoE，200K 上下文，MIT 协议）作为对照，家用硬件需 Q4 + 多卡才能跑动</li>
+<li>Embedding：Qwen3-Embedding-8B（MTEB 综合榜 70.58 分，开源榜首）+ BGE-M3（综合榜 63.0 分，568M 参数，100+ 语言，8192 chunk）</li>
+<li>知识库：腾讯 WeKnora（微信团队开源，15,604 star，2026 年上线 ReAct Agent + Wiki Mode）+ Cherry Studio v1.9.3（CherryHQ 桌面客户端，46k star，内置 BGE-M3）双路可选</li>
+<li>接入点：通义灵码 / 字节 Trae IDE / Cherry Studio 桌面端，都能通过 OpenClaw 的 Skill + MCP 把这条小流水线挂上去</li>
+<li>国内中转：hf-mirror.com、ModelScope CLI、Xinference 自动切 <code>XINFERENCE_MODEL_SRC=modelscope</code>，权重下载基本不掉链子</li>
+<li>月度 5 万 token 翻译需求场景：纯云端 API 月度账单 200-400 元；本地双后端电费 + 一次性硬件折旧月均 150-180 元，三个月回本之后基本就是白用</li>
+</ul>
+<p>这一周的 OpenClaw 文章我们已经连续覆盖了四块：5/19 个人代码工作流、5/23 财务法务私有 RAG、5/25 hybrid 本地云端路由、5/26 桌面端三层堆栈。今天这一篇专注的是另一组场景——&quot;英文一手材料的中文化&quot;和&quot;长期沉淀私人 wiki&quot;。这两件事是个人开发者和独立研究员每天都在做、但 90% 的 OpenClaw 教学还停在&quot;换个 chat UI&quot;演示上。我们不重复已有角度，只把&quot;读英文 → 翻译 → 切块 → 入库 → 检索&quot;这条链路用真名实姓的模型和真实可跑的配置写一遍。</p>
+<h2>OpenClaw 不是一个 chat 客户端，它已经长成桌面 OS 形态</h2>
+<p>先把 OpenClaw 这个主项目的现状摆清楚。截止到 2026-05-27，OpenClaw 主仓 star 数 375,079，距离 38 万只差三千多；fork 78,212，open issues 6,910；watcher 数和 star 数几乎齐平。仓库自我介绍只有一行话：&quot;Your own personal AI assistant. Any OS. Any Platform. The lobster way.&quot; 这一行话背后是一个从 2025 年 11 月 24 日开始的项目，半年多累积到这个量级。</p>
+<p>近两周 OpenClaw 主仓的 commit 主题不是新功能，而是稳态运维：retry / timeout 兜底（compaction wake、steer retry、delivery window 三块都在改）、sub-agent 的 cwd / workspace 隔离（#87218）、plugin approval action metadata 的回滚（#87419）、agent-job grace 处理。换句话说，OpenClaw 已经过了&quot;加功能比稳态重要&quot;的阶段，进入了&quot;个人 AI 桌面 OS&quot;的成熟期。一个 TypeScript 项目能把 retry / 超时 / 子进程隔离这几件事写得这么细，对个人开发者来说是个好兆头——意味着我们把翻译和知识库挂上去之后，半夜跑批不容易出现&quot;翻到一半进程死了&quot;这种事。</p>
+<p>围绕主仓还有三条社区资源链：VoltAgent 维护的 awesome-openclaw-skills 收录了 5400+ skill，按类别分得很细；mergisi 的 awesome-openclaw-agents 提供了 162 个 SOUL.md 模板、19 大类；mengjian-github 的 openclaw101 是中文社区做的 7 天上手教程。这三条社区资源加起来，意味着我们今天要做的&quot;翻译 skill + RAG skill&quot;大概率不需要从零写，能直接找到可借鉴的模板。</p>
+<p>OpenClaw 的核心抽象有三层：Skill（用户自定义的工作流，写在 <code>~/.config/openclaw/skills/&lt;name&gt;/SKILL.md</code>）、MCP（Model Context Protocol，桥接外部工具和模型）、Sub-agent（独立 cwd 的子进程，跑长链路任务时用）。我们这条翻译 + 知识库小流水线，刚好把这三层都用上：翻译用 Skill 定义流程，调外部 vLLM / Ollama 用 MCP，长批量任务跑 sub-agent 隔离。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/28/openclaw-three-layer-2026-05-28.png" alt="OpenClaw 三层抽象在翻译 + 知识库小流水线里的映射示意"></p>
+<h2>翻译端为什么选千问 Qwen3-32B，不选 GLM-4.6 旗舰</h2>
+<p>翻译这件事的核心矛盾很简单：我们既要中英方向上的质量接近云端 GPT-4.1-mini / Gemini 2.5 Flash，又要在 24GB 单卡或 32GB 单卡上能跑动，还要尽量长上下文（一篇 arxiv 论文 PDF 提取出来动辄三四万字符）。把 2026 年春天家用硬件能跑的开源模型摆一摆，翻译端基本只剩四个候选：千问 Qwen3-32B、千问 Qwen3-MT（翻译专精版）、深度求索 DeepSeek-V3.x 蒸馏版、Mistral Large 系列。</p>
+<p>智谱的 GLM-4.6 旗舰是 355B 参数的 MoE 模型，200K 上下文，MIT 协议，release notes 里明确写着&quot;advanced coding ability, extended context length, improved multilingual translation&quot;——翻译能力是它的官方主打卖点之一。问题是 355B MoE 即便 Q4 量化也需要多卡组合才能跑动，对手里只有一张 4090 / 5090 / Mac Studio M4 Max 的个人开发者不友好。所以 GLM-4.6 在这条流水线里我们当作对照，不当主力。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/28/qwen-glm-dual-backend-2026-05-28.png" alt="千问 Qwen3-32B 与智谱 GLM-4.5-Air 双本地后端分工对比图"></p>
+<p>千问 Qwen3-32B 是 dense 架构，128K 上下文，2025-04-29 首发到 HuggingFace 和 ModelScope；同月晚些时候放出的还有 Qwen3-VL-32B-Instruct（多模态版，可以直接读 PDF 截图）和社区 QuantTrio 维护的 Qwen3-VL-32B-Instruct-AWQ 4-bit 量化版。Q4_K_M 量化下显存占用大约 18-20 GB，4090 24GB 标准 context 跑得动（需要 <code>--max-model-len 2048</code> 控制 KV cache），5090 32GB 直接拉满 8K 上下文无忧。社区实测数字：4090 24GB 上 vLLM 后端 decode 速度 24.9 tok/s，5090 比 4090 高 35-46%（spheron 与 willitrunai 两家独立测试一致）。</p>
+<p>但 Qwen3-32B 通用版终归是个通用模型，翻译只是它能力的一部分。如果手里硬件够（5090 32GB 或 Mac Studio M4 Max 64GB），更值得装的是千问的翻译专精版 Qwen3-MT。这个版本是阿里云在通用 Qwen3 系列基础上做翻译专项后训练的产物，官方 blog 里给的 benchmark 显示：中英方向 BLEU 强于 GPT-4.1-mini 与 Gemini 2.5 Flash，亚洲语言方向（中日韩泰越）强于 DeepSeek-V3 和上一代 Qwen2.5。Qwen 官方原话是 &quot;delivers the strongest performance on Asian languages&quot;。这个声明在 2026 年春天的开源翻译模型里是有分量的——意味着对个人开发者读 arxiv、读日韩技术博客、读阿拉伯语 / 印地语内容，开源翻译已经不再是&quot;勉强能看&quot;的水准。</p>
+<p>需要诚实承认的是，Qwen3-MT 接近 GPT-4.1-mini 不等于完美替代云端。具体到细分场景：法律文书的术语精确度、医疗领域的实体识别、长篇文学的语感保留，开源翻译和云端旗舰之间还有可感知的差距。我们这条流水线的目标读者是读技术论文、读 GitHub README、读海外博客的个人开发者和独立研究员，这是 Qwen3-MT 的甜点场景；要把它推给法务团队或医院翻译病历，就属于用错地方了。</p>
+<h2>检索端为什么选 GLM-4.5-Air，不选 GLM-4.5 标准版或 4.7-Flash</h2>
+<p>检索这一端的需求和翻译完全不一样：上下文要长（要塞进若干段 chunk）、回答要快（用户问的时候不能等十秒）、模型要在显存里能和翻译模型共存（最好别再多占一张卡）。智谱的 GLM 系列在 2025-2026 年这一年里推出了三个版本线，每条的定位都不一样：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>定位</th>
+<th>参数规模</th>
+<th>上下文</th>
+<th>消费卡可跑</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>GLM-4.5-Air</td>
+<td>消费级首选</td>
+<td>Air 优化版（AWQ 4-bit &lt; 64GB）</td>
+<td>标准长度</td>
+<td>可，单卡 32GB / 48GB</td>
+</tr>
+<tr>
+<td>GLM-4.6</td>
+<td>旗舰</td>
+<td>355B MoE</td>
+<td>200K</td>
+<td>多卡或顶配 Mac Studio</td>
+</tr>
+<tr>
+<td>GLM-4.7-Flash</td>
+<td>2026-01 发，30B MoE / 3B 激活</td>
+<td>中等</td>
+<td>标准</td>
+<td>可，24GB GPU 60-80+ tok/s</td>
+</tr>
+</tbody></table>
+<p>GLM-4.5-Air 的好处是它是智谱在 2025 年专门为消费卡用户优化的版本，bartowski 维护的 GGUF 仓 <code>bartowski/zai-org_GLM-4.5-Air-GGUF</code> 和 unsloth 的 <code>unsloth/GLM-4.5-Air-GGUF</code> 都覆盖了 IQ2 到 Q8 的所有量化档；AWQ 4-bit 整体权重控制在 64GB 以内，单卡 32GB 上 Q4 大约 22-26GB 显存。坏处是它毕竟是 2025 年中的产物，2026 年春天看就略显老旧。</p>
+<p>如果手里只有 24GB 单卡（4090 / 5090 都算），其实更应该试 2026 年 1 月发的 GLM-4.7-Flash。30B 总参数 + 3B 激活的 MoE 设计，在 24GB GPU 上能跑出 60-80+ tok/s，比 Qwen3-32B dense 翻倍。我们这条流水线的推荐组合：</p>
+<ul>
+<li>硬件 A 档（5090 32GB 单卡 / Mac Studio M4 Max 64GB）：翻译端 Qwen3-MT，检索端 GLM-4.5-Air</li>
+<li>硬件 B 档（4090 24GB 单卡 / Mac mini M4 Pro 24GB）：翻译端 Qwen3-32B Q4，检索端 GLM-4.7-Flash</li>
+<li>硬件 C 档（5090 32GB + 4090 24GB 双卡）：翻译端 Qwen3-MT 跑 5090，检索端 GLM-4.6 Q4 跑 4090（接近旗舰体验）</li>
+</ul>
+<p>embedding 这一端不用犹豫，2026 年春天 MTEB 综合榜的开源前两名是 Qwen3-Embedding-8B（70.58 分）和 BGE-M3（63.0 分）。Qwen3-Embedding-8B 适合预算允许（独立 1-2GB 显存）的用户；BGE-M3 568M 小巧，跑在 CPU 上都能用，对硬件不挑剔。如果未来想接火山方舟的 doubao-embedding（2560 维），属于云端服务，那就出了本地话题。我们这条流水线推荐 BGE-M3，理由是国内开发者的实际场景里，文档体量没那么大，BGE-M3 的精度足够，且节约的显存可以让翻译模型跑更长 context。</p>
+<h2>端到端工作流：6 步把英文论文变成可检索 wiki 条目</h2>
+<p>把上面这些模型组装起来的工作流并不复杂，6 步就够：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/28/translate-rag-flow-2026-05-28.png" alt="OpenClaw 接千问 + GLM 翻译 + RAG 6 步工作流图"></p>
+<p>第一步，抓取。OpenClaw skill 接 arxiv API 或 GitHub raw README URL，拿到 PDF / Markdown 原文。这一步可以做得很轻，也可以做得很重——轻量做法是直接 fetch + 保存到 <code>~/Documents/openclaw-corpus/raw/2026-05-28/</code>；重量做法是用 arxiv-sanity-style 的脚本按关键词每天自动抓 10-30 篇。这一步不挑模型，是纯 I/O。</p>
+<p>第二步，翻译。OpenClaw skill 调本地 vLLM 后端跑 Qwen3-32B 或 Qwen3-MT。关键的 prompt 工程是：把整段（不是整页 PDF）作为单次翻译输入，每段限制在 2000 字符以内，保留段落结构（用 <code>\n\n</code> 分隔）。如果输入是 PDF，先用 marker 或 nougat 做 OCR + 结构化提取，输出 markdown；如果输入已经是 markdown（GitHub README），直接进翻译。Qwen3-32B 在这个粒度下质量稳定，几乎不会出现段落丢失。</p>
+<p>第三步，切块。翻译完的中文 markdown 按段落 + 章节切块，每块 800-1500 字。这一步用 LangChain 的 RecursiveCharacterTextSplitter 或 LlamaIndex 的 SemanticSplitter 都行，参数固定（chunk_size=1200, chunk_overlap=200）。切块的关键不是算法多花哨，而是保留 chunk 的 source 元数据（原 arxiv ID、原段落序号、翻译时间），后期检索回来要能溯源。</p>
+<p>第四步，embed。BGE-M3 跑每个 chunk 生成 1024 维向量。BGE-M3 的好处是支持密集 + 稀疏 + 多向量三种 embedding，但个人场景只用密集就够，复杂度别加自己头上。embed 速度方面，BGE-M3 在 4090 上每秒能跑 200-300 个 chunk，5 万字符的 arxiv 论文几秒钟搞定。</p>
+<p>第五步，入库。两路选：腾讯 WeKnora 适合&quot;我想要一个完整的开源 RAG 系统、有 web UI、有 ReAct Agent、有 Wiki Mode、能接 20+ LLM provider&quot;的用户；Cherry Studio v1.9.3 适合&quot;我只想要一个桌面客户端、内置 BGE-M3、点几下就能用&quot;的最简栈。WeKnora 在 2026 年陆续上线了 ReAct Agent、Wiki Mode、4 层 RBAC，并且支持从飞书、Notion、Yuque 多源摄入——对小团队（3-5 人）的私有知识库特别合适。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/28/cn-rag-stack-bakeoff-2026-05-28.png" alt="国内私人知识库 / RAG 四家栈横评"></p>
+<p>第六步，检索 + 回答。OpenClaw skill 接 WeKnora 的 search API（或 Cherry Studio 的本地 vector DB），拿到 top-K chunk 之后丢给 GLM-4.5-Air / GLM-4.7-Flash 做 RAG 回答。这一步的 prompt 工程是：明确告诉 GLM 它收到的 chunk 是&quot;用户的私人 wiki 检索结果&quot;，回答时要标注来源 chunk（用 <code>[1] [2]</code> 索引）。GLM-4.5-Air 在这个角色上的表现稳定，不容易出现&quot;自信地编造&quot;的幻觉。</p>
+<p>整条工作流跑通之后的实际体验：早上读到一篇感兴趣的 arxiv，复制 URL 到 OpenClaw 命令行，30 分钟后中文版进了私人 wiki；下午想起来&quot;上周读到的那个关于 KV cache 压缩的论文里说省了多少显存来着&quot;，直接问 OpenClaw，GLM 给出带溯源标记的回答。这种体验过去三年是云端 RAG 服务（Mem.ai / Reflect / Mymind）的核心卖点，现在用 OpenClaw + 千问 + 智谱完全能在本地复刻。</p>
+<h2>OpenClaw 怎么挂这条流水线：Skill + MCP 两个文件</h2>
+<p>具体配置上，OpenClaw 这边只需要两个文件。第一个是翻译 skill：</p>
+<pre><code class="language-markdown"># ~/.config/openclaw/skills/translate-arxiv/SKILL.md
+---
+name: translate-arxiv
+description: 抓 arxiv PDF，调本地千问 Qwen3-32B 翻译，落到 ~/Documents/openclaw-corpus/zh/
+---
+
+## 工作流
+
+1. 入参：arxiv URL 或本地 PDF 路径
+2. 用 marker 或 nougat 做 OCR + 结构化提取，输出 markdown
+3. 按段落切分（每段 ≤ 2000 字符），保留章节标题
+4. 逐段调本地 vLLM 翻译（base_url=http://localhost:8000/v1, model=Qwen/Qwen3-32B-AWQ）
+5. 拼回中文 markdown，落到 ~/Documents/openclaw-corpus/zh/&lt;arxiv-id&gt;-zh.md
+6. 触发 wiki-ingest skill 把翻译后的文件入库
+
+## prompt 模板（翻译每段时用）
+
+你是技术论文专业译者。把下面这段英文翻译成符合中国大陆主流报道风格的中文，保留所有数字、公式、专有名词（首次出现时附英文）。禁港台用法（影片→视频、程式→程序）。只输出译文，不解释。
+
+&lt;原文&gt;
+{paragraph}
+&lt;/原文&gt;
+</code></pre>
+<p>第二个是 MCP 配置：</p>
+<pre><code class="language-jsonc">// ~/.config/openclaw/mcp.json
+{
+  &quot;mcpServers&quot;: {
+    &quot;qwen3-translate&quot;: {
+      &quot;type&quot;: &quot;openai-compatible&quot;,
+      &quot;baseURL&quot;: &quot;http://localhost:8000/v1&quot;,
+      &quot;model&quot;: &quot;Qwen/Qwen3-32B-AWQ&quot;,
+      &quot;apiKey&quot;: &quot;EMPTY&quot;
+    },
+    &quot;glm45-air-rag&quot;: {
+      &quot;type&quot;: &quot;openai-compatible&quot;,
+      &quot;baseURL&quot;: &quot;http://localhost:11434/v1&quot;,
+      &quot;model&quot;: &quot;glm-4.5-air-q4_k_m&quot;,
+      &quot;apiKey&quot;: &quot;EMPTY&quot;
+    },
+    &quot;weknora&quot;: {
+      &quot;type&quot;: &quot;stdio&quot;,
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [&quot;-y&quot;, &quot;@weknora/mcp-server&quot;, &quot;--api&quot;, &quot;http://localhost:7001&quot;]
+    }
+  }
+}
+</code></pre>
+<p>两个本地后端的启动命令：</p>
+<pre><code class="language-bash"># 翻译端：vLLM 跑 Qwen3-32B AWQ
+vllm serve Qwen/Qwen3-32B-AWQ \
+  --gpu-memory-utilization 0.85 \
+  --max-model-len 8192 \
+  --port 8000
+
+# 检索端：Ollama 跑 GLM-4.5-Air
+ollama pull glm-4.5-air:q4_k_m
+ollama serve  # 默认 11434
+</code></pre>
+<p>国内网络下载权重的两条命令：</p>
+<pre><code class="language-bash"># 路径一：hf-mirror
+export HF_ENDPOINT=https://hf-mirror.com
+huggingface-cli download Qwen/Qwen3-32B --local-dir ./qwen3-32b
+
+# 路径二：ModelScope（国内首选）
+modelscope download --model Qwen/Qwen3-32B --local_dir ./qwen3-32b
+modelscope download --model ZhipuAI/GLM-4.5-Air --local_dir ./glm45-air
+</code></pre>
+<p>这一套配置完整跑通后，通义灵码、字节 Trae、Cherry Studio 这三个国产 IDE / 桌面端都能通过 OpenClaw 的 MCP 调到这条流水线。通义灵码作为阿里出品，对千问后端的兼容性最好；Trae 在 v3.3 之后对 OpenAI-compatible 接口的支持已经稳定；Cherry Studio 本身就内置了对 Ollama 和 vLLM 的一键接入。</p>
+<h2>沉浸式翻译这一类社区工具，和这条流水线怎么互补</h2>
+<p>讲到翻译就绕不开 immersive-translate（沉浸式翻译），社区开源的&quot;双语对照网页 / PDF 翻译&quot;项目，17,761 star，是国内 indie 圈最常用的浏览器翻译插件。和我们这条本地流水线的关系不是替代，而是互补。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/28/immersive-translate-og-2026-05-28.png" alt="沉浸式翻译开源仓 README 截图"></p>
+<p>沉浸式翻译的官方文档（immersivetranslate.com/en/docs/services/ollama/）明确支持 Ollama 本地后端，配置只要在选项里填 <code>http://localhost:11434/v1</code> 和模型名（比如 <code>qwen3:32b</code>）。它还在&quot;Temporary Integration of Other AI Models&quot;里支持 OpenAI-compatible 接口，意味着可以直接接我们前面起的 vLLM 后端。沉浸式翻译的好处是浏览器场景下零负担：刷 Twitter、刷 Hacker News 时随手把整页双语化。开源版本叫 read-frog（mengxi-ream/read-frog），Mac 用户喜欢的 Bob 划词翻译也有 bob-plugin-ollama-translator 这样的本地后端桥接。</p>
+<p>我们这条 OpenClaw 流水线和这些社区翻译工具的分工：</p>
+<ul>
+<li>沉浸式翻译 / read-frog / Bob：日常浏览场景的&quot;即看即译&quot;，不留存</li>
+<li>OpenClaw + Qwen3-32B：批量翻译 + 落盘 + 入库，留存为知识库素材</li>
+<li>两者共享同一个本地 Ollama / vLLM 后端，权重下一次能让两边都用</li>
+</ul>
+<p>这种&quot;一份本地模型权重，多个客户端复用&quot;的玩法，过去在云端时代意味着同时给 OpenAI 付两份钱；本地化之后，硬件成本一次性投入，软件复用零成本。</p>
+<h2>性能 / 成本 / 隐私三维度对比：本地双后端 vs 纯云端</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/28/local-vs-cloud-cost-2026-05-28.png" alt="本地双后端 vs 云 API 月度账单对比"></p>
+<p>把这条流水线和&quot;纯云端方案&quot;（翻译用 GPT-4.1-mini，RAG 用 Claude 3.7 Sonnet）摊开对比，是个人开发者做决策最关心的事。</p>
+<p>性能维度：</p>
+<ul>
+<li>翻译质量：Qwen3-MT 中英 BLEU 接近 GPT-4.1-mini，落后但能用；细分专业领域（法律 / 医疗 / 文学）仍有差距</li>
+<li>翻译速度：本地 4090 上 Qwen3-32B 24.9 tok/s decode；云端 GPT-4.1-mini API 调用受网络抖动影响，国内 RTT 经常 800ms-2s</li>
+<li>检索质量：BGE-M3 在中文场景上不弱于 OpenAI text-embedding-3-large；GLM-4.5-Air 做 RAG 回答的事实准确度接近 Claude Haiku 级别</li>
+<li>检索延迟：本地端到端 1-3 秒；云端 RAG 服务（Reflect / Mem.ai）端到端 3-8 秒</li>
+</ul>
+<p>成本维度（以个人开发者月均 5 万 token 翻译 + 2000 次 RAG 检索为基准）：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>纯云端方案</th>
+<th>本地双后端</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>月度 API 费用</td>
+<td>200-400 元</td>
+<td>0</td>
+</tr>
+<tr>
+<td>月度电费（按 0.617 元/度估算）</td>
+<td>0</td>
+<td>60-100 元</td>
+</tr>
+<tr>
+<td>硬件折旧（5090 单卡按 4 年摊销）</td>
+<td>0</td>
+<td>月均 90-120 元</td>
+</tr>
+<tr>
+<td>月度总成本</td>
+<td>200-400 元</td>
+<td>150-220 元</td>
+</tr>
+<tr>
+<td>三个月累计</td>
+<td>600-1200 元</td>
+<td>450-660 元</td>
+</tr>
+</tbody></table>
+<p>3 个月之后本地方案的累计成本基本和云端持平；之后每个月就是 150-220 元的纯电费 + 折旧，相比云端 200-400 元有 25-50% 的优势。如果手里已经有显卡（不是为了 AI 专门新买），本地方案在第一天就比云端便宜。</p>
+<p>隐私维度：</p>
+<ul>
+<li>纯云端方案：所有论文原文、个人笔记、检索查询都经过云端 API；OpenAI / Anthropic 的数据政策虽然写了&quot;不用于训练&quot;，但传输和暂存这一段在国内合规视角下仍属于跨境数据传输</li>
+<li>本地双后端：全部数据留在本地硬盘；网络流量为零；如果用 WeKnora + 4 层 RBAC，还能给小团队做基于角色的隔离访问</li>
+</ul>
+<p>隐私这一维度对个人开发者来说体感最强：读一篇关于&quot;竞品分析&quot;的论文时，那一连串提问本身就泄露了我们关心什么；本地化之后这种&quot;提问指纹&quot;完全留在自家硬盘里。</p>
+<h2>和 Claude Code / Cursor / Continue 海外同类的差异化</h2>
+<p>OpenClaw 经常被拿来和海外的 Claude Code、Cursor、Continue 做对比，但摆在&quot;翻译 + 知识库&quot;这条具体小流水线上，差异化非常清楚：</p>
+<ul>
+<li>Claude Code（Anthropic 出品）：核心场景是代码生成 + agent；翻译能力依赖云端 Claude 3.7 Sonnet API，国内调用受网络抖动影响大；不支持本地后端切换；私人知识库需要靠第三方 MCP 服务器拼装，没有原生 wiki 形态</li>
+<li>Cursor（Anysphere 出品）：IDE 内一切优先，主打 AI 编辑器体验；翻译 / 知识库不是它的产品定位，社区扩展也少；不支持纯本地后端（虽然有&quot;自定义 API endpoint&quot;但模型策略路由仍走云端）</li>
+<li>Continue（开源 IDE 插件）：定位类似 Cursor 但开源；支持本地 Ollama 后端，但翻译 + 知识库依赖用户自己拼 prompt，没有现成 skill 模板</li>
+<li>OpenClaw：核心抽象是 Skill + MCP + Sub-agent，天然适合&quot;长链路、多步骤、多模型组合&quot;的工作流；社区已经有 5400+ skill 模板，翻译和 RAG 是其中两个常见类别；原生支持本地后端，配置就两个文件</li>
+</ul>
+<p>差异化的本质不是&quot;OpenClaw 比 Cursor 好&quot;，而是产品定位不同。Cursor / Claude Code 解决的是&quot;我在 IDE 里写代码时怎么让 AI 帮我&quot;；OpenClaw 解决的是&quot;我作为一个个人开发者，怎么把 AI 装进我的桌面工作流&quot;。这两条产品线注定会长期并存，对个人开发者来说也是好事——IDE 里用 Cursor，桌面整体工作流用 OpenClaw，互不冲突。</p>
+<h2>国内合规边界 + 个人 / 团队差异</h2>
+<p>本地化方案对国内合规视角的友好程度天然高于云端，但也不是零顾虑。三个常见问题需要心里有数：</p>
+<p>第一是模型权重的来源。从 HuggingFace 直接下载 GLM-4.6 / Qwen3-32B 没有合规问题，因为这些模型的发布主体（智谱 AI / 阿里云）都是国内公司，开源协议明确。但如果团队场景下需要&quot;全公司可追溯下载&quot;，更稳妥的路径是走 ModelScope（魔搭社区，阿里云出品）。</p>
+<p>第二是个人 vs 团队场景的差异。个人开发者用 Cherry Studio 桌面客户端 + 本地 BGE-M3 + 本地 GLM，所有数据在本地硬盘，无任何对外传输——这种场景不涉及合规问题。团队场景（3-50 人）走 WeKnora 自托管时，需要注意：WeKnora 的 4 层 RBAC 适合做内部隔离，但如果把外部用户接入，按国内规则就属于&quot;对外提供 AI 服务&quot;，可能需要额外备案。这个边界对纯内部使用的团队不影响，但要做产品对外就要查清楚。</p>
+<p>第三是翻译内容本身。我们这条流水线主要场景是英文技术论文翻译，内容性质中性，不涉及合规敏感话题。如果有人想用这套系统翻译境外政治评论或敏感新闻，那是用错了工具——不是因为 Qwen3-MT 翻不出来，而是因为知识库存这种内容本身就给个人带来不必要的风险。</p>
+<p>团队场景下还有一点值得说：WeKnora 在 2026 年陆续上线的 ReAct Agent 让 RAG 从&quot;问一答&quot;升级到&quot;问一思考一查一答&quot;，对小团队的&quot;老员工经验沉淀&quot;特别有用。一个 5 人开发团队把过去三年的技术决策记录、code review 评论、postmortem 文档全部喂进 WeKnora，新人入职第一天就能用自然语言查&quot;为什么我们当时选了 Redis 不选 Memcached&quot;，这种体验过去要靠老员工口述，现在能复刻一份给 AI。</p>
+<h2>写到这里：本地小流水线的真正价值</h2>
+<p>我们手里这条&quot;OpenClaw + 千问 + 智谱 + WeKnora&quot;的小流水线，它的真正价值不是&quot;省了多少云端 API 费用&quot;——虽然算下来确实省了。真正的价值是它把&quot;读英文一手材料&quot;和&quot;沉淀私人 wiki&quot;这两件长期被云端 SaaS 主导的事，搬回了个人开发者自己的硬盘和工作流里。</p>
+<p>过去三年，云端 RAG 服务（Mem.ai、Reflect、Mymind）和云端翻译 API（DeepL Pro、Google Cloud Translation）让我们习惯了&quot;每月付一笔订阅费就能用上当时最好的能力&quot;。但订阅模式下我们也付出了代价：数据沉淀在别人的数据库里、个性化训练记忆 mode 被 SaaS 公司决定能不能开、产品下架时三年笔记一夜归零（Mymind 2024 年砍掉部分核心功能时多少老用户骂街）。</p>
+<p>OpenClaw 这个 37.5 万 star 的本地 AI Skill 框架，加上千问和智谱这两条国产开源模型线，本质上提供了一个 alternative：用一次性的硬件投入 + 持续的电费，换来&quot;我自己掌控的 AI 工作流&quot;。这条 alternative 不会对所有人都有吸引力——大多数普通用户仍然会选择云端 SaaS 的便利；但对每天读英文一手材料、需要长期沉淀知识、对数据隐私有真实顾虑的个人开发者和独立研究员，这条路径正在 2026 年春天成熟。</p>
+<p>写完这条小流水线之后，下一步要做的事其实不多——找一个周末下午，把权重下下来，把两个 OpenClaw 配置文件写好，跑一篇感兴趣的 arxiv 走一遍流程。第一天的体验可能略糙（vLLM 启动参数总要调几次、WeKnora 的 web UI 配置要点几下），但当第一篇英文论文在 30 分钟后变成可检索的中文 wiki 条目，那种&quot;哦原来我手里这台机器能做这么多事&quot;的感觉，是云端 SaaS 时代很久没有过的体验。</p>
+<p>这一周的 OpenClaw 主题写到这里告一段落。下周我们换一组场景——把 OpenClaw 的 Skill + MCP 用到&quot;多源信息聚合&quot;和&quot;日报自动生成&quot;上，那是另一条值得展开的小流水线。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

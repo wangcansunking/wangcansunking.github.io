@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LMDeploy 0.13 跑 5090：千问 Coder 30B 实战 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-28</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-28</span><span class="tag-pill">Daily Report</span></div>
+      <h1>LMDeploy 0.13 跑 5090：千问 Coder 30B 实战</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/28/lmdeploy-trtllm-cn-5090-bakeoff-2026-05-28.png" alt="上海人工智能实验室 LMDeploy 与英伟达 TensorRT-LLM 在 RTX 5090 上跑千问 Coder 的本周横评"></p>
+<h2>30 秒速览：本周两件事把 5090 这条路重画了</h2>
+<p>本周两件事压在一起。一是 5 月 12 日上海人工智能实验室（中 · 书生·浦语团队）发布 LMDeploy v0.13.0，默认带 CUDA 12.8 wheel，<code>pip install lmdeploy</code> 在 RTX 50 系列即装即用，并首次给 Qwen3.5 35B-A3B 和 Blackwell GPU 上的 Qwen3.5 MoE 推理加了专用 cublasGemmGroupedBatchedEx 算子。二是 5 月 26 日英伟达（美 · NVIDIA）发布 TensorRT-LLM v1.3.0rc16，把 Qwen3.5 MTP、Qwen3.6-27B-FP8 模型支持合入主线。两件事中间还夹着 5 月 13 日英伟达对 AIC 合作伙伴执行的约 300 美元涨价，国行 RTX 5090 价位从 3.1 万跳向 3.4 万。</p>
+<p>我们手里如果有一张 5090、想接千问 Qwen3-Coder-30B-A3B-Instruct 当本地 AI Coding 后端，今天可选的引擎从五家变成了七家：vLLM、SGLang、Ollama、llama.cpp、MLX（5 月 25 日横评已覆盖）外加 LMDeploy 和 TensorRT-LLM。本篇专门补齐后两家。</p>
+<p>核心论点放最前面：<strong>LMDeploy 0.13 + TensorRT-LLM 1.3rc16 同周落地之后，国产开发者用国产工具栈（上海 AI Lab + 阿里千问 + ModelScope）端到端跑 5090 这条路，第一次和英伟达官方工具栈进入「同档报价」</strong>——但社区独立复测还差一拍，5090 涨价压力下，「自己跑一周对比」是这一周最该做的小工程。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>LMDeploy v0.13.0</th>
+<th>TensorRT-LLM v1.3rc16</th>
+<th>参考：vLLM（5/25 横评）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>发布日</td>
+<td>2026-05-12</td>
+<td>2026-05-26</td>
+<td>0.12 已发</td>
+</tr>
+<tr>
+<td>主体</td>
+<td>上海人工智能实验室（中）</td>
+<td>英伟达（美）</td>
+<td>海外社区</td>
+</tr>
+<tr>
+<td>GitHub star</td>
+<td>7,871</td>
+<td>13,742</td>
+<td>5/25 已统计</td>
+</tr>
+<tr>
+<td>5090 (sm_120) 原生支持</td>
+<td>★ CUDA 12.8 wheel 即装即用</td>
+<td>★ PyTorch backend + FlashInfer NVFP4</td>
+<td>★ NVFP4 已稳定</td>
+</tr>
+<tr>
+<td>Qwen3-Coder 30B-A3B 实测</td>
+<td>× 公开第三方实测为 0</td>
+<td>× 公开第三方实测为 0</td>
+<td>√ 1,157 tok/s（114K context 调优后）</td>
+</tr>
+<tr>
+<td>官方主张</td>
+<td>TurboMind 是 vLLM 的 1.36~1.85 倍</td>
+<td>主目标硬件仍是 B200/H100/H200</td>
+<td>5/25 横评胜出</td>
+</tr>
+</tbody></table>
+<p>后面五个段落把上面这张表一个一个展开。</p>
+<h2>一、LMDeploy v0.13 这一版在 Blackwell 上动了哪些算子</h2>
+<p>LMDeploy v0.13.0 在 5 月 12 日发版，到 5 月 27 日仓库还在动，三周内合了 60 多个 PR；这一版最值得国内开发者关注的不是版本号大跳，而是它把上海人工智能实验室自研的 TurboMind 后端在 Blackwell（5090 所属架构）上的算子做了重写。</p>
+<p>最关键的一条改动 verbatim 写在 changelog 里：&quot;cublasGemmGroupedBatchedEx for Qwen3.5 MoE inference on Blackwell GPUs&quot;。这是给 MoE 模型在 Blackwell 上跑 grouped batched GEMM 的专用接口，对 Qwen3-Coder-30B-A3B 这种 128 专家 8 激活的结构是直接命中：3.3B 激活参数下，专家路由产生的稀疏 GEMM 用通用接口跑会浪费大量算力，专用算子能把这部分压实。</p>
+<p>另外两条改动：一是 Anthropic 兼容 serving endpoint 进了官方仓，意思是 Cline（美 · 开源 IDE 扩展）、RooCode（美 · 开源 IDE 扩展）这类按 Anthropic 协议走的客户端可以直连 LMDeploy 起的本地服务；二是 Ascend NPU 那边加了 qwen3.5 35BA3B 支持，对手里有华为昇腾卡的团队是另一条路。LMDeploy 在 GitHub 上目前 7,871 star、698 fork，Apache-2.0 协议，到 5 月 27 日仍有日均提交，仓库本身的活跃度不输任何海外同类项目。</p>
+<p>稳定 PyPI 版本目前是 v0.12.3（5 月 7 日），v0.13.0 还在 release candidate 阶段，对生产环境保守的团队可以先用 0.12.3，v0.13.0 的几个 Blackwell 改动想吃就得装 nightly。Qwen3 / Qwen3-MoE 在 TurboMind 后端目前支持 FP16、BF16、W4A16 三档；KV cache INT4 量化只在 head_dim=128 时可用——Qwen3-Coder-30B-A3B 的 head_dim 正好是 128，这一档可以省一半 KV 显存。</p>
+<h2>二、TensorRT-LLM 1.3rc16 在 5090 上的真实定位</h2>
+<p>TensorRT-LLM v1.3.0rc16 在 5 月 26 日（昨天）发版，是英伟达官方推理引擎本周最新的快照。仓库 star 13,742、fork 2,411，比 LMDeploy 大 1.7 倍但更新节奏类似——主线 release 节奏每两到三周一个 rc 版本。</p>
+<p>这一版最值得关注的两条改动 verbatim 是：&quot;Add Gemma4 multimodal support with native vision and audio towers (#14300)&quot; 和 &quot;Add Qwen3.5 MTP and Qwen3.6-27B-FP8 model support (#12646, #14359)&quot;。Qwen3.5 MTP（Multi-Token Prediction）是千问家投机解码路径的官方支持；Qwen3.6-27B-FP8 是千问最新一代 27B 在 FP8 精度下的部署支持。这两条都直接利好国产开发者跑国产模型。</p>
+<p>5090 在 TensorRT-LLM 里走的是 PyTorch backend + FlashInfer NVFP4 路径，sm_120（Blackwell 5090）属于 day-1 支持范围。但要诚实摆桌：TensorRT-LLM 这个项目的主要目标硬件仍是 B200/H100/H200，5090 是被覆盖到、不是被主推；稳定版 1.2 的 release notes 里专门点名 &quot;beta support for single-node DGX Spark&quot;，DGX Spark 才是 Blackwell 家族里被官方点过名的小型工作站机型。</p>
+<p>更关键的一手参考是 arXiv 2601.09527v1 这篇 2026 年 1 月的论文，作者在写自己生产部署选择 vLLM 而不是 TensorRT-LLM、SGLang、llama.cpp 的理由时，verbatim 写道：&quot;We selected vLLM over alternatives (TensorRT-LLM, SGLang, llama.cpp) for its combination of production maturity, early Blackwell/NVFP4 support, and native multi-LoRA serving.&quot;。这是同一支队伍在同样硬件下做的横评结论，跟我们 5 月 25 日横评里 vLLM 拿下 5090 + Qwen3-Coder 第一名的结果是同向的。</p>
+<h2>三、Qwen3-Coder 30B-A3B 在 5090 上的显存账</h2>
+<p>我们先把模型自身的硬数据摆清楚再谈引擎。Qwen3-Coder-30B-A3B-Instruct 总参 30.5B、激活参数 3.3B，是 MoE 架构 128 专家激活 8 个；48 层 transformer，Q heads 32、KV heads 4，标准 GQA 结构；原生 context 262,144（256K），Yarn 外推可上到 1M。</p>
+<table>
+<thead>
+<tr>
+<th>量化档</th>
+<th>权重大小</th>
+<th>5090 32GB 显存余量（含 KV）</th>
+<th>适配引擎</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>BF16</td>
+<td>约 61 GB</td>
+<td>× 装不下</td>
+<td>任何引擎</td>
+</tr>
+<tr>
+<td>FP8</td>
+<td>约 30.5 GB</td>
+<td>△ 极限 / 留不出 KV</td>
+<td>TRT-LLM、vLLM、LMDeploy（W8A8）</td>
+</tr>
+<tr>
+<td>AWQ 4-bit</td>
+<td>约 16-18 GB</td>
+<td>√ 留出 14 GB 跑 100K context</td>
+<td>vLLM、SGLang、LMDeploy（W4A16）</td>
+</tr>
+<tr>
+<td>GGUF Q4_K_M</td>
+<td>约 17-18 GB</td>
+<td>√ 留出 14 GB</td>
+<td>Ollama / llama.cpp</td>
+</tr>
+</tbody></table>
+<p>对 5090 的 32GB 显存来说，FP8 是极限档、AWQ 4-bit 才是甜点档。ModelScope（中 · 阿里云）上 Qwen 官方挂了 Qwen/Qwen3-Coder-30B-A3B-Instruct 原版与 Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8 两份；社区开发者 tclf90 挂了 tclf90/Qwen3-Coder-30B-A3B-Instruct-AWQ 的 4-bit 版本，AWQ 这一档在 5090 上是吞吐与上下文长度最平衡的选择。</p>
+<p>下载这一步国内开发者有两条稳定路径：一是 hf-mirror.com 镜像，配 <code>export HF_ENDPOINT=https://hf-mirror.com</code> 再用 <code>huggingface-cli download Qwen/Qwen3-Coder-30B-A3B-Instruct</code>，3-5 倍提速实测稳定；加 <code>HF_HUB_ENABLE_HF_TRANSFER=1</code> 能再压一档时间。二是直接走 ModelScope CLI：<code>modelscope download --model Qwen/Qwen3-Coder-30B-A3B-Instruct</code>，国内带宽下走阿里云 CDN 比 HF 镜像还快一些。</p>
+<h2>四、官方主张的吞吐数字 vs 独立第三方复测的缺口</h2>
+<p>LMDeploy 官方在 README 与文档里反复提三组吞吐数字，都来自上海人工智能实验室官方自测，没有匿名同行评议、也没有公开的复测脚本和 benchmark dataset：</p>
+<ul>
+<li>&quot;TurboMind 每秒处理的请求数是 vLLM 的 1.36 ~ 1.85 倍&quot;</li>
+<li>&quot;H800 上 1.5 倍 vLLM&quot;</li>
+<li>&quot;4bit 模型推理效率是 FP16 下的 2.4 倍&quot;</li>
+</ul>
+<p>更直接的问题：<strong>搜遍 5 月 27 日为止的公开网络，LMDeploy v0.13 + RTX 5090 + Qwen3-Coder-30B-A3B 三件套放一起的独立第三方实测公开为 0</strong>。这是事实，我们不绕。</p>
+<p>对照之下，5 月 25 日横评里我们引用的 Cloudrift（5090 + Qwen3-Coder-30B-A3B AWQ + vLLM/SGLang，2026-03-05）拿到的硬数字是：vLLM 默认 8K context 555.82 tok/s、调优 MCR=16 + 114K context 拉到 1,157 tok/s、峰值 MCR=24 1,186 tok/s；SGLang 默认 207.93 tok/s（需 <code>--quantization moe_wna16</code>）。原文 verbatim：&quot;vLLM wins by 2.7x. SGLang requires <code>--quantization moe_wna16</code> for AWQ MoE models and currently underperforms on this architecture.&quot;</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/28/engine-throughput-5090-chart-2026-05-28.png" alt="RTX 5090 跑千问 Coder 30B 四引擎吞吐对照图"></p>
+<p>LMDeploy 在这张对照图上的位置，<strong>只能基于官方 H800 1.5 倍 vLLM 主张做线性推断</strong>：如果 5090 上的相对优势能维持，LMDeploy 在 8K context 默认配置下理论吞吐约 833 tok/s、调优后理论上限约 1,735 tok/s。但 5090 的 sm_120 跟 H800 的 sm_90 是不同架构、TurboMind 的算子优化曲线在两块卡上不可能简单线性套用——这个推断只能当作社区复测前的占位，不是结论。</p>
+<p>TensorRT-LLM 的情况类似：v1.3rc16 把 Qwen3.5 MTP 投机解码合进主线，理论上 5090 + Qwen3-Coder AWQ 跑投机解码能比 vLLM 默认配置吃到 1.3 到 1.7 倍 token/s 增益，但同样没有公开的独立 benchmark。等待 5 月底到 6 月初社区复测，是我们目前能做的最诚实的判断。</p>
+<p>参考真实硬数据，Runyard 5 月 13 日发的 5090 vs 4090 对照里：Qwen3 8B Q4_K_M 5090 跑 186 tok/s、4090 跑 126 tok/s（5090 是 4090 的 1.48 倍）；Qwen3 32B Q4_K_M 5090 跑 61 tok/s、4090 跑 44 tok/s（5090 是 4090 的 1.39 倍）。devnen 在 GitHub README 里给的 5090 vs 3090 同模型基线：Qwen3.6-27B NVFP4 vLLM 后端 5090 跑 158 tok/s、3090 跑 72 tok/s；同卡 200K context 解码约 92 tok/s、功耗 575W。这几组数字是我们在等 LMDeploy / TRT-LLM 5090 复测时可以拿来对账的基线。</p>
+<h2>五、5090 这一周从 3.1 万跳向 3.4 万的价格信号</h2>
+<p>5 月 13 日英伟达对 AIC 合作伙伴执行涨价，约 300 美元一张。新浪科技 5 月 15 日报道：「中国特供版 RTX 5090 又要涨价，涨幅超 2000 元，售价逼近 3.4 万」。</p>
+<table>
+<thead>
+<tr>
+<th>时间锚</th>
+<th>渠道</th>
+<th>价位</th>
+<th>来源</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>2026-05 上旬</td>
+<td>京东活动价</td>
+<td>30,999 元（5090/5090D 32G）</td>
+<td>中关村在线</td>
+</tr>
+<tr>
+<td>2026-05 上旬</td>
+<td>京东原价</td>
+<td>41,999 元</td>
+<td>中关村在线</td>
+</tr>
+<tr>
+<td>2026-05-07</td>
+<td>非公版</td>
+<td>2.8 万–3.2 万元</td>
+<td>CSDN 同袍存储</td>
+</tr>
+<tr>
+<td>2026-05-07</td>
+<td>公版及旗舰</td>
+<td>3.5 万–4 万元</td>
+<td>CSDN 同袍存储</td>
+</tr>
+<tr>
+<td>2026-05-13</td>
+<td>英伟达对 AIC 执行涨价</td>
+<td>约 +300 美元（≈ +2100 元）</td>
+<td>新浪科技</td>
+</tr>
+<tr>
+<td>2026-05-15</td>
+<td>中国特供版渠道价</td>
+<td>逼近 3.4 万元</td>
+<td>新浪科技</td>
+</tr>
+<tr>
+<td>2026-05 在售</td>
+<td>微星泰坦 16 MAX 整机</td>
+<td>35,999 元首销</td>
+<td>IT 之家</td>
+</tr>
+</tbody></table>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/28/5090-cn-price-trend-2026-05-28.png" alt="RTX 5090 国行价格 2026 年 5 月走势"></p>
+<p>这一波涨价的直接结果是：5090 整机方案与 Mac Studio M4 Max 64GB 的价差进一步缩窄；之前 5090 整机 1.6 万 vs Mac Studio M4 Max 64GB 1.65 万的紧贴关系，本周变成 5090 整机 1.8 万开外、Mac Studio M4 Max 64GB 反而成了便宜选项。对正在选硬件的小团队 CTO，这一信号比任何引擎吞吐数字都更直接。</p>
+<h2>六、上海 AI Lab + 千问 + ModelScope 端到端跑通：本周的 90 分钟验证流程</h2>
+<p>我们手里如果是 5090，把上海 AI Lab + 阿里千问 + ModelScope 这条本地链路端到端串一遍，本周可以这样跑。</p>
+<p>第一步装 LMDeploy v0.13.0。新建 conda 环境、Python 3.11、CUDA 12.8 driver 装好，然后 <code>pip install lmdeploy==0.13.0</code>；如果想吃 v0.13 的 Blackwell 算子优化，需要从源码装 nightly：<code>pip install --pre lmdeploy --extra-index-url https://github.com/InternLM/lmdeploy/releases</code>。</p>
+<p>第二步下载 Qwen3-Coder-30B-A3B AWQ。<code>modelscope download --model tclf90/Qwen3-Coder-30B-A3B-Instruct-AWQ --local_dir ./qwen3-coder-awq</code>，国内带宽下 5-10 分钟下完 16-18 GB。</p>
+<p>第三步起 OpenAI 兼容 server。LMDeploy 默认端口 23333：</p>
+<pre><code class="language-bash">lmdeploy serve api_server ./qwen3-coder-awq \
+  --backend turbomind \
+  --model-format awq \
+  --quant-policy 4 \
+  --server-port 23333 \
+  --tp 1
+</code></pre>
+<p><code>--quant-policy 4</code> 开 KV cache INT4 量化，能省一半 KV 显存——前提是模型 head_dim=128，Qwen3-Coder-30B-A3B 满足这条。</p>
+<p>第四步把国内 IDE 接上去。通义灵码（中 · 阿里云）在 2026 年 5 月 20 日改名 Qoder CN 之后正式支持 OpenAI 兼容自定义后端，走 <code>/auth</code> 配置项；Cline 原生支持 OpenAI 兼容，填 <code>http://localhost:23333/v1</code> 即可；RooCode 同 Cline，文档原文 verbatim：&quot;works with any OpenAI-compatible API provider&quot;。Qwen Code（中 · 阿里云百炼）官方 CLI 也支持本地 base_url 切换。</p>
+<p>第五步做最基础的 token/s 对比。同一段「写一个 React Server Component 处理用户登录」的提示词跑 LMDeploy、vLLM、SGLang、Ollama 四家，记录 TTFT 和 decode tok/s。这一步是这一周国内开发者社区最值得做的小工程——花 90 分钟、产出一份独立第三方数据，比等谁来发 benchmark 更靠谱。</p>
+<table>
+<thead>
+<tr>
+<th>引擎</th>
+<th>启动命令片段</th>
+<th>默认端口</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>LMDeploy</td>
+<td><code>lmdeploy serve api_server ./awq --backend turbomind</code></td>
+<td>23333</td>
+<td>TurboMind 后端 + KV INT4</td>
+</tr>
+<tr>
+<td>vLLM</td>
+<td><code>vllm serve ./awq --quantization awq_marlin</code></td>
+<td>8000</td>
+<td>5/25 横评第一名</td>
+</tr>
+<tr>
+<td>SGLang</td>
+<td><code>python -m sglang.launch_server --model ./awq --quantization moe_wna16</code></td>
+<td>30000</td>
+<td>AWQ MoE 需指定 quantization</td>
+</tr>
+<tr>
+<td>Ollama</td>
+<td><code>ollama run qwen3-coder:30b</code></td>
+<td>11434</td>
+<td>GGUF Q4_K_M 自动拉取</td>
+</tr>
+</tbody></table>
+<h2>七、本周值得国内开发者注意的两个信号</h2>
+<p>写到最后，把两件事在结尾连起来。</p>
+<p><strong>信号一：国产工具栈在 5090 上的可行性首次和英伟达官方工具栈进入「同档报价」</strong>。5 月 12 日 LMDeploy 0.13 上 Blackwell 算子、5 月 26 日 TRT-LLM 1.3rc16 上千问 MTP，国内开发者跑 5090 不再只能选海外开源（vLLM / SGLang / Ollama）这一条路；上海人工智能实验室自己的 TurboMind 后端摆到桌面上，官方 H800 1.5 倍 vLLM 的主张落到 5090 上能不能复现，是这一周社区最值得做的事。</p>
+<p><strong>信号二：5090 涨价 300 美元这件事把硬件选型决策窗口压短了</strong>。5 月 13 日英伟达对 AIC 涨价、5 月 15 日国行 5090 价位逼近 3.4 万，对 1-3 人小团队 CTO 来说，这两条放一起意味着 6 月之后再观望、机会成本会越来越高。两个信号叠起来看：</p>
+<table>
+<thead>
+<tr>
+<th>信号</th>
+<th>时间</th>
+<th>直接影响</th>
+<th>本周决策窗口</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>国产引擎补齐 5090 工具栈</td>
+<td>5/12 LMDeploy v0.13、5/26 TRT-LLM v1.3rc16</td>
+<td>引擎选项从 5 家变 7 家</td>
+<td>90 分钟验证流程值得跑</td>
+</tr>
+<tr>
+<td>国行 5090 涨价 300 美元</td>
+<td>5/13 英伟达对 AIC 调价、5/15 价位逼近 3.4 万</td>
+<td>5090 整机价 1.6 万 → 1.8 万开外</td>
+<td>Mac Studio M4 Max 64GB 1.65 万成同档比价对象</td>
+</tr>
+</tbody></table>
+<p>本周可以做的两个动作（仅此两条）：</p>
+<ul>
+<li>已经手里有 5090 的，把上面那条 90 分钟验证流程跑一遍，自己出一份 LMDeploy / vLLM 对比数据，发到 r/LocalLLaMA 或 知乎专栏，社区会感谢你。</li>
+<li>还在 5090 vs Mac Studio M4 Max 64GB 之间犹豫的，留意本周到下周的国行渠道价；如果 5090 整机价稳定在 1.8 万以上，Mac Studio M4 Max 64GB 1.65 万会成为同档更经济的选项。</li>
+</ul>
+<p>LMDeploy 7,871 star 接近 8,000、TensorRT-LLM 13,742 star 突破 1.3 万；千问 Qwen3-Coder-30B-A3B 在 ModelScope 上同时挂着官方 BF16、官方 FP8、社区 AWQ 三档量化；hf-mirror 与 ModelScope CLI 两条镜像稳定。国产开发者跑 5090 这条路，本周第一次把国产引擎 + 国产模型 + 国内镜像三件事完整凑齐——剩下的就是社区自己跑一周对比，把官方主张换成第三方实测。这是好消息。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
