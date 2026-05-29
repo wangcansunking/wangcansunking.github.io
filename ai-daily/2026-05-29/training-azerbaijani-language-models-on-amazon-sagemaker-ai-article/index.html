@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>巴库团队破解低资源语言难题：Llama 3.2如何理解阿塞拜疆语？ — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-29</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-29</span><span class="tag-pill">AI Daily</span></div>
+      <h1>巴库团队破解低资源语言难题：Llama 3.2如何理解阿塞拜疆语？</h1>
+<blockquote>
+<p>ai-daily · 2026 年 5 月 29 日 02:41 · 来源：AWS ML Blog</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-29/training-azerbaijani-language-models-on-amazon-sagemaker-ai-article/head.png" alt=""></p>
+<p>巴库时间凌晨两点，Sabir Mardanov 的 Slack 频道还在跳动。屏幕上是一串阿塞拜疆语测试 prompt，对应的英文翻译在旁边标注着——“学习一门新语言不仅扩展了沟通机会”。这条看似无害的句子，在原始 Llama 3.2 1B 模型手里变成了一场灾难：模型开始循环输出“学习一门新语言不仅扩展了沟通机会……语言学习也贡献了方向和经验的扩展……在扩展了这些方向和经验之后，方向和经验的扩展继续发展……”就像一台卡带的录音机，在同一个语义轨道上无限打滑。</p>
+<p>这不是什么罕见的 edge case。这是阿塞拜疆语 NLP 从业者每天面对的现实：你把一句完整的人话喂给英文优化的模型，它还给你的是一段语法正确但语义空洞的废话循环。Azercell Telecom LLC——阿塞拜疆最大的电信运营商——的 AI 团队对此再熟悉不过。他们想做一个能真正理解阿塞拜疆语的 LLM，用于电信场景和客户 chatbot。问题在于，阿塞拜疆语是那种语言学教科书里典型的“形态丰富语言”：一个单词用后缀叠加可以塞进英文需要三四个词才能表达的语法信息。比如“kitablardan”——意思是“从那些书里”，在英文优化的 tokenizer 眼里，这不是一个词，而是需要拆成多个碎片来理解的一串子词单元。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-29/training-azerbaijani-language-models-on-amazon-sagemaker-ai-article/content-1.png" alt="AWS Cloud architecture diagram showing a machine learning training pipeline with Amazon S3 storage, SageMaker AI Trainin"></p>
+<p>而这只是噩梦的开始。没有现成的阿塞拜疆语 LLM 训练蓝图，没有充足的训练语料，甚至没有一个能高效编码这种语言的 tokenizer。Azercell 的团队在 2026 年春天找了 AWS Generative AI Innovation Center，说我们要在 Amazon SageMaker AI 上搞这件事。六周。一个概念验证。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-29/training-azerbaijani-language-models-on-amazon-sagemaker-ai-article/content-2.jpg" alt="Side-by-side comparison of an English-optimized tokenizer producing 4 incorrect tokens versus a custom Azerbaijani token"></p>
+<p><strong>六周时间，把一门“低资源语言”塞进一个英文原生模型的大脑里，还要求它说人话。</strong></p>
+<h2>一个 tokenizer 引发的“容量翻倍”效应</h2>
+<p>要理解这个项目的核心突破，得先明白 tokenizer 对低资源语言到底意味着什么。Tokenizer 的工作是把原始文本切成模型能消化的最小单元——token。英文优化 tokenizer 在处理“kitablardan”这种词时，会把它当成一串陌生的字符组合来暴力拆分。结果是，一个在人类认知里是一个完整语义单元的词，在模型眼里变成了三四个碎片。Azercell 和 AWS 团队给出的数字很直观：原生 Llama 3.2 tokenizer 处理阿塞拜疆语时，平均每个词被拆成 3.22 个 token。这是什么概念？Llama 3.2 的上下文窗口是 128k token，换算下来，模型一次最多只能“看到”大约 4 万个阿塞拜疆语单词。4 万字是什么体量？一篇中等深度的技术文档可能就爆了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-29/training-azerbaijani-language-models-on-amazon-sagemaker-ai-article/schematic-1.png" alt="原生 tokenizer vs 自定义 tokenizer 对阿塞拜疆语单词的分割对比，“kitablardan”被拆成 3 块 vs 1 块的视觉化展示"></p>
+<p>团队决定从根源解决问题。他们用 Hugging Face 的 tokenizers 库，基于 Byte-Level Byte-Pair Encoding（BBPE）算法，从头训练了一个阿塞拜疆语专属 tokenizer。BBPE 从原始字节开始迭代合并高频字节对，不需要预设字符集——这对包含特殊字符的阿塞拜疆语至关重要，避免了手工定义字母表的麻烦。他们试了 50k 到 100k 多种词汇量配置，最终选定了 100k token 的版本。结果呢？“生育率分数”（fertility score，每词平均 token 数）从 3.22 直接砍到 1.59——<strong>编码效率翻倍</strong>。同样的 128k 上下文窗口，现在能塞进约 8 万个词。</p>
+<p><strong>一个 tokenizer 的替换，相当于把模型的“工作记忆”扩容了一倍，而一行模型权重都没动。</strong></p>
+<p>但效率提升只是故事的一半。团队必须验证这个新 tokenizer 没有牺牲建模质量。这里用了一个关键指标：Bits-Per-Byte（BPB），而不是常规的困惑度（perplexity）。为什么？因为困惑度跟词汇表大小强相关——词汇表越大，困惑度天然越低，这会让对比失真。BPB 在字节层面衡量预测质量，统一了比较基准。自定义 tokenizer 在验证集上跑出 0.5795 BPB，对比原生的 0.6830——数字越低越好，这说明编码效率的提升不是靠“偷工减料”换来的。（值得一提的是，BPB 这个指标在低资源语言场景下是个相当聪明的选择，但很多团队压根想不到用它来做 tokenizer 选型的最终裁判。）</p>
+<h2>当 GPU 内存成为唯一硬通货</h2>
+<p>tokenizer 只是 Stage 1。真正烧钱的部分在 Stage 2：持续预训练（Continued Pre-training，CPT）。这一步要把 Llama 3.2 1B 这个英文原生模型的大脑“掰弯”，让它学会理解阿塞拜疆语的语法结构和语义模式。</p>
+<p>问题的本质是 GPU 内存墙。一个模型的训练内存占用不只是权重本身——还有梯度、优化器状态、激活值。这些东西堆在一起，对于稍大一点的模型（比如 Llama 3.1 8B），混合精度下轻松突破 100 GB。单卡根本装不下，必须上分布式训练。但传统的 Distributed Data Parallel（DDP）策略是每张 GPU 上复制一份完整模型，batch size 和模型规模双双受限。</p>
+<p>团队在两个实例规格上做了基准测试：ml.p4d.24xlarge（8× NVIDIA A100）和 ml.p5.48xlarge（8× NVIDIA H100）。他们先用 PyTorch 的 Fully Sharded Data Parallel（FSDP）替换 DDP。FSDP 的策略是把参数、梯度、优化器状态分片到所有 GPU 上，计算时动态收集需要的那部分。效果立竿见影：在 A100 集群上，单 GPU 模型状态内存从 9.23 GB 压缩到 1.17 GB。释放出来的空间直接转化为更大的 batch size——从 DDP 的每 GPU 2 个样本，跳到 FSDP 的 4 个。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-29/training-azerbaijani-language-models-on-amazon-sagemaker-ai-article/schematic-2.png" alt="DDP vs FSDP 的内存分片逻辑对比图，展示模型状态如何在 GPU 间分布"></p>
+<p>但这还不够。团队引入第二个优化层：Liger Kernels。这是一套基于 Triton 的内存高效 kernel 做到，核心思路是把 LLM 常见的多个操作融合成单次 GPU kernel 启动，减少中间结果的显存分配。对 Llama 架构来说，Liger Kernels 支持直接用一个函数调用 patch 模型，且与 FSDP 兼容——不需要修改分布式训练代码。团队用 PyTorch Profiler 验证了融合操作确实在计算图中生效。</p>
+<p>三层优化叠加后的数据，我觉得值得全文背诵：</p>
+<blockquote>
+<p>在 ml.p5.48xlarge 上，FSDP + Liger Kernels 将峰值 GPU 内存从 64 GB 降至 27 GB，降幅 58%；每 GPU 训练吞吐量从 63,771 tokens/s 提升至 78,319 tokens/s，增幅 23%。</p>
+</blockquote>
+<p>在 A100 集群上，最大 batch size 从 DDP 的 2 飙升到 14——<strong>7 倍提升</strong>。在 H100 上，batch size 从 4 跳到 18，4.5 倍。这些数字翻译成人话就是：同样的硬件投入，你现在能塞进 7 倍的训练数据量，或者用更少的卡跑同样规模的任务。对 Azercell 这种不是 hyperscaler 的公司来说，GPU 利用率就是钱。</p>
+<p><strong>GPU 内存不是技术问题，是商业问题。每省下 1 GB，省下的都是美元。</strong></p>
+<h2>分阶段“喂食”：先学字母，再学说话</h2>
+<p>tokenizer 和分布式训练是基础设施层面的优化。真正决定模型质量的，是训练策略的设计。Azercell 的 CPT 阶段用了一个两阶段方案，这个设计思路值得所有做低资源语言适配的团队参考。</p>
+<p>当你在 Llama 的词汇表里塞进新的阿塞拜疆语 token 时，模型的 embedding 层和 lm_head 层对应新增 token 的权重是随机初始化的。如果直接全参数训练，这些随机向量会被反向传播的梯度信号“暴力拉扯”，同时还会扰动模型原有的英文知识空间。团队的做法很精细：Phase 1 冻结模型 backbone，只训练 embedding 层。这相当于给新 token 一段“适应期”，让它们的向量表示慢慢对齐到模型已有的内部表示空间，而不会把预训练知识搅成一锅粥。Phase 2 才解冻全部参数，让模型深入学习阿塞拜疆语的语言模式。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-29/training-azerbaijani-language-models-on-amazon-sagemaker-ai-article/schematic-3.png" alt="两阶段 CPT 训练流程图，Phase 1 冻结 backbone 仅训练 embedding，Phase 2 全参数训练"></p>
+<p>具体配置如下：</p>
+<blockquote>
+<p>Phase 1（Embedding 适应）：学习率 0.0032，batch size 每 GPU 14，5,000 步，训练时间约 3.2 小时。Phase 2（全参数训练）：学习率 0.0024，batch size 每 GPU 14，15,000 步，训练时间约 11.9 小时。</p>
+</blockquote>
+<p>两个 ml.p4d.24xlarge 实例，16 张 A100，总计约 15 小时完成 CPT。训练语料约 25 亿 token，上下文窗口设为 2,048 token——因为超过 90% 的训练样本在 tokenization 后落在这个长度以内。（当然，配置上支持原生 128k，只是当前阶段没必要。）有效 batch size 是 224（14 × 16 GPU），每个训练步处理约 45 万 token，估算每 epoch 约 4.3 小时。</p>
+<p>Phase 2 的学习率比 Phase 1 低，这个细节很重要。embedding 适应阶段可以用较高的学习率快速对齐新 token 表示，但全参数训练阶段必须“温柔”——学习率太高会洗掉 Phase 1 刚建立的对齐成果。这是一种知识蒸馏意义上的“温度控制”，只不过控制的是训练动态而非推理时的 softmax 温度。</p>
+<h2>LoRA：用 2,000 条对话把“语言模型”变成“聊天助手”</h2>
+<p>CPT 结束后，模型能流畅地预测下一个阿塞拜疆语 token 了。但“预测下一个 token”和“回答问题”是两码事。你问它“新语言学习的好处是什么？”，它不会给你一个简洁的答案，而是顺着 prompt 的语义惯性继续“续写”——可能是在重复问题本身，可能是循环生成相似句式，就是不会停下来给出一个人类期望的对话回应。</p>
+<p>这里需要用监督微调（SFT）来教模型“对话格式”。但全参数微调 1B 模型对于 Azercell 这种需要快速迭代的场景来说太重了。团队选了 LoRA（Low-Rank Adaptation），这是一种参数高效微调方法：冻结原始权重，只在模型的 attention 层和 feed-forward 层的特定投影矩阵中注入低秩分解矩阵训练。具体配置是 rank=64，alpha=28，dropout=0.05，目标模块包括 q、k、v、o 投影以及 gate、up、down 投影。</p>
+<blockquote>
+<p>LoRA 微调仅使用约 2,000 条阿塞拜疆语单轮问答对，在单张 ml.g5.8xlarge 实例（1× NVIDIA A10G GPU）上几分钟内完成。</p>
+</blockquote>
+<p><strong>2,000 条对话，一张 A10G，几分钟。这就是 LoRA 在低资源语言场景下的暴力美学。</strong></p>
+<p>训练细节有几个点值得注意。学习率设为 1e-4，比 CPT 阶段高——因为 LoRA adapter 是随机初始化的，需要更强的梯度信号来快速收敛。损失函数用 assistant-only masking：只计算助手回复部分的 token 预测损失（包括 end-of-turn token <code>&lt;|eot_id|&gt;</code>），用户 prompt 和模板分隔符不计入损失。这个设计强迫模型把所有学习容量聚焦在“如何生成合适的回复”上，而不是浪费在记忆用户输入模式上。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-29/training-azerbaijani-language-models-on-amazon-sagemaker-ai-article/schematic-4.png" alt="LoRA 注入 attention 层的架构示意，展示原始权重冻结 + 低秩矩阵乘积的旁路结构"></p>
+<p>最终的输出对比让人印象深刻。同一个 prompt——“Yeni bir dil öyrənmək yalnız ünsiyyət imkanlarını genişləndirmir…”（学习一门新语言不仅扩展了沟通机会…）——原生 Llama 3.2 1B 的输出是一段不断自我重复的文本，语义上在原地打转。而经过 CPT + LoRA 微调的模型给出的回答是：“…həm də yeni dostlar və əlaqələr yaradır”（…还创造了新的友谊和联系）。简洁、连贯、语义完整。这不是一个“更强模型”的效果，而是同一个 1B 参数规模的模型，在正确的适配流程下，从“胡言乱语”变成了“说人话”。</p>
+<h2>这套框架的真正价值不在 1B</h2>
+<p>如果只看表面——一个 1B 模型，2.5B token 训练数据，2,000 条微调样本——你可能会觉得这只是又一个“低资源语言 LLM 概念验证”的案例研究。但 Azercell 和 AWS GenAIIC 团队在这六周里搭建的，远不止一个能说阿塞拜疆语的 chatbot。</p>
+<p>他们交付的是一套模块化、可独立优化的三阶段流水线。Stage 1 的 tokenizer 改进会正向传递到所有后续训练阶段——编码效率翻倍意味着同样的算力预算下，模型的有效“阅读量”翻倍。Stage 2 的 FSDP + Liger Kernels 配置在 1B 模型上验证用，但分布式训练架构的设计初衷就是让扩展到 Llama 3.1 8B 或更大模型时只需要改配置，不需要重写流水线。Stage 3 的 LoRA 微调在单卡上几分钟完成，意味着 Azercell 可以对不同业务场景（客服、网络运维、营销文案）快速训练多个 adapter，共享同一个基座模型。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-29/training-azerbaijani-language-models-on-amazon-sagemaker-ai-article/schematic-5.png" alt="三阶段流水线全景图，展示 tokenizer → CPT → LoRA 各阶段产物如何流转，以及不同业务场景可以分支训练独立 adapter"></p>
+<p>而且这套东西是跑在 Amazon SageMaker AI 的托管训练任务上的——每个训练任务从 SageMaker Unified Studio 启动，自动分配 EC2 实例，训练结束自动释放。没有闲置集群成本，只为实际计算时间付费。对于 Azercell 这种不想养 GPU 集群的电信公司来说，这是把 CapEx 转成了 OpEx，而且不需要招一支 Infra 团队来维护 Kubernetes 集群和分布式训练框架。</p>
+<p>（说到这，我突然想到一个细节：团队特意在两个实例规格上都做了基准测试——A100 的 p4d 和 H100 的 p5。这种“跨代验证”在实际项目中很少见，大多数团队会直接上最新硬件然后只报最优数字。但 Azercell 的做法更务实——他们需要知道在不同成本/性能档位上框架的表现，这样后续扩展时可以根据预算灵活选型。这是一种把 ML 工程当成工程来做的态度，而不是当成论文 benchmark 来刷。）</p>
+<p>Azercell 现在独立运营这套框架，方法论已经验证，接下来就是堆数据和扩规模。Mardanov 在 Azercell 负责 Data &amp; AI 的战略转型——从传统电信运营商变成 tech-centric 企业。这个阿塞拜疆语 LLM 不只是个 chatbot 项目，它是 Azercell 整个 AI 战略的技术底座验证。tokenizer 可以复用，分布式训练配置可以复用，LoRA adapter 可以批量生产。六周时间搭建的不是一个模型，是一条产线。</p>
+<p>回到开头那个凌晨两点的 Slack 频道。Sabir Mardanov 和他的团队在六周里做的事情，本质上是在一个英文 AI 主导的世界里，给一门只有不到 1,000 万使用者的语言打了一个技术楔子。23% 的吞吐量提升、58% 的显存压缩、2 倍的编码效率——这些数字背后，是一套可以被任何低资源语言团队复用的工程范式。阿塞拜疆语只是第一个 test case。下一次可能是乌兹别克语、哈萨克语、或者任何一种在英文 tokenizer 眼里被拆得支离破碎的语言。AWS 的博客文章末尾写得很直白：如果你在训练低资源语言的 LLM，或者优化 SageMaker AI 上的 GPU 利用率，他们想听听你的故事。这不是客套话，这是一条正在被验证的商业路径。</p>
+<p><strong>六周，1B 参数，2.5B token，2,000 条对话——数字不大，但模式足够锋利。</strong></p>
+<h2>参考来源</h2>
+<ul>
+<li><a href="https://aws.amazon.com/blogs/machine-learning/training-azerbaijani-language-models-on-amazon-sagemaker-ai/" target="_blank" rel="noopener">https://aws.amazon.com/blogs/machine-learning/training-azerbaijani-language-models-on-amazon-sagemaker-ai/</a></li>
+<li><a href="https://huggingface.co/docs/transformers/main/en/model_doc/llama3" target="_blank" rel="noopener">https://huggingface.co/docs/transformers/main/en/model_doc/llama3</a></li>
+<li><a href="https://github.com/linkedin/Liger-Kernel" target="_blank" rel="noopener">https://github.com/linkedin/Liger-Kernel</a></li>
+<li><a href="https://huggingface.co/docs/tokenizers/index" target="_blank" rel="noopener">https://huggingface.co/docs/tokenizers/index</a></li>
+<li><a href="https://pytorch.org/docs/stable/fsdp.html" target="_blank" rel="noopener">https://pytorch.org/docs/stable/fsdp.html</a></li>
+<li><a href="https://aws.amazon.com/sagemaker-ai/" target="_blank" rel="noopener">https://aws.amazon.com/sagemaker-ai/</a></li>
+<li><a href="https://aws.amazon.com/generative-ai/innovation-center/" target="_blank" rel="noopener">https://aws.amazon.com/generative-ai/innovation-center/</a></li>
+</ul>
+<p>#Training #Azerbaijani #Amazon #SageMaker #AI</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-29/training-azerbaijani-language-models-on-amazon-sagemaker-ai-article/content-3.png" alt="Training Azerbaijani language models on Amazon SageMaker AI"></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

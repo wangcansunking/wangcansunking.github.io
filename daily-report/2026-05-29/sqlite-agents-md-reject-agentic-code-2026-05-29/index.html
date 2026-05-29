@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQLite 给 AI 划红线：AGENTS.md 明文不收 AI 写的代码，只收 AI 写的可复现 bug 报告 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-29</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-29</span><span class="tag-pill">Daily Report</span></div>
+      <h1>SQLite 给 AI 划红线：AGENTS.md 明文不收 AI 写的代码，只收 AI 写的可复现 bug 报告</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/29/sqlite-agents-md-reject-agentic-code-2026-05-29.png" alt="SQLite AGENTS.md 划红线封面"></p>
+<h2>30 秒速览</h2>
+<ul>
+<li><strong>事件</strong>：SQLite 项目在仓库根目录新增 <code>AGENTS.md</code>，2026-05-22 提交，明文写「SQLite does not accept agentic code. However the project will accept agentic bug reports that include a reproducible test case.」</li>
+<li><strong>强化动作</strong>：5/27 之前文件里还有一个「(currently)」（暂时）括号，5/27 之后这个限定词被显式删掉，commit message 写「强化关于不接受 agentic 代码的表述」（原文 Strengthen the statement about not accepting agentic code）——从「暂时不收」变成「不收」</li>
+<li><strong>首发解读</strong>：Simon Willison 在 5/27 写了一篇短评 <code>sqlite AGENTS.md</code>，把 SQLite 这条政策称为「为人写代码、不为 agent 写代码」的一个明确表态</li>
+<li><strong>工程根基</strong>：SQLite 用 TH3 + TCL + SQLLogic 三套测试合计约 9200 万行代码、对约 15.6 万行 C 核心做到 100% 分支覆盖与 100% MC/DC 覆盖——测试代码量是本体的约 590 倍，工程文化对随手生成的代码本质上零容忍</li>
+<li><strong>横评</strong>：cURL 项目维护者 Daniel Stenberg 因为「2025 年 20 个安全报告里 19 个是 AI 幻觉」在 2026-01 直接砍掉 bounty 计划；PostgreSQL 邮件列表对 AI 写的补丁个案审核；Linux 内核没有明文政策但维护者多次在 LKML 拒绝看不到原始思路的 AI 补丁；CPython 与 Node.js 至今未在协议层划线</li>
+<li><strong>国内对位</strong>：OpenHarmony、RT-Thread、Apache 系（DolphinScheduler / ShardingSphere / SkyWalking 等）目前都没有 AGENTS.md 这种协议级政策；个人维护者大多倾向「PR 里写清楚是不是 AI 协作」的轻度披露规则</li>
+<li><strong>本文要点</strong>：AGENTS.md 这套格式是 OpenAI 2025 年 8 月发起、随后被并入 Linux 基金会下的 Agentic AI Foundation，定位是「给 AI agent 看的 README」。SQLite 是第一个把「红线」也写进 AGENTS.md 的基础设施项目，等于把一份原本服务于 AI 协作的文件，反向用来约束 AI 协作</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/29/source-sqlite-hero.png" alt="SQLite hero · 部署最广的嵌入式数据库 · AGENTS.md 红线"></p>
+<h2>一、Simon Willison 5/27 那篇短评的真实位置</h2>
+<p>事情的引爆点是 Simon Willison 在 2026-05-27 发的一篇短评，标题就一句话：<code>sqlite AGENTS.md</code>。这位写 Django ORM、做 Datasette、过去两年专做大模型与开源生态结合点的独立开发者，每天会在自己博客上记一两条值得开发者关注的事——这条记的是 SQLite 这份文件五天前刚加上去的事实。</p>
+<p>帖子主体不长，三段话加上两段从 AGENTS.md 里直接引出来的关键句。开头他写「SQLite project added an AGENTS.md five days ago, giving instructions to coding agents working with that codebase」——直接定义这份文件的位置：是写给 AI 编码 agent 看的指令文件，不是面向人类开发者的贡献者指南。</p>
+<p>引文部分他挑了两段。第一段是「SQLite does not accept pull requests without prior agreement and/or accompanying legal paperwork that places the pull request in the public domain」——SQLite 是公共领域（public domain）项目，所有代码都要明确放弃版权，这条不是新政策，已经存在二十年。第二段才是新的，也是后来在 HN 与 r/programming 上引爆讨论的那句：「SQLite does not accept agentic code. However the project will accept agentic bug reports that include a reproducible test case」。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/29/source-simonw-sqlite-agents-post.png" alt="Simon Willison 5/27 短评 sqlite AGENTS.md · 截图渲染"></p>
+<p>帖子最后他补了一条关键信息：SQLite 在更早一两天把「(currently)」这个括号从原句里删了。原文是「SQLite does not accept agentic code (currently)」（SQLite 暂时不接受 agentic 代码），删之后是「SQLite does not accept agentic code」（SQLite 不接受 agentic 代码）。这个删除的 commit message 写得很直白：「强化关于不接受 agentic 代码的表述」（原文 Strengthen the statement about not accepting agentic code）。Simon 把这条改动单独拎出来强调，是因为「currently」三个字母的去留，等于把这份政策从「暂时性的、回头会改的」变成「就是这个立场、不打算改」。</p>
+<p>这条短评在 HN 上当天就排进前 30，到次日凌晨 HN 上有 600+ 评论。讨论的方向分两派：一派是 SQLite 长期工程文化的认同者，认为这是对滥用 AI 提交劣质 PR 的合理防线；另一派是 AI 工具用户，质疑「我用 AI 辅助写的代码，自己读过、自己测试过、自己理解每一行，为什么不能提」。这两派争论本身就值得记录，但更值得记录的是：这是基础设施级 OSS 项目第一次把「AI 红线」写进协议层的文件，而不是停留在维护者个人 Twitter。</p>
+<h2>二、AGENTS.md 原文逐段解析</h2>
+<p>要看懂 SQLite 这份文件的真实意思，得把 AGENTS.md 七个章节一段一段过。这里引的所有原文都来自 <code>sqlite/sqlite</code> 仓库 trunk 分支 2026-05-27 当时的版本。</p>
+<p><strong>开篇定位句</strong></p>
+<p>文件第一句话是「Guidance for AI coding agents working in this repository」（给在这个仓库里干活的 AI 编码 agent 的指引）。注意主语：不是「contribution guide」（贡献者指南），不是「style guide」（风格指南），是 guidance for AI coding agents。这个标题方式直接呼应 AGENTS.md 这个格式本身的定位——OpenAI 在 2025 年 8 月提出这个格式时就说它是「README the AI coding agent actually reads」（AI 编码 agent 真的会读的 README）。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/29/source-sqlite-agents-md-raw.png" alt="SQLite AGENTS.md 原文渲染 · 红线段高亮"></p>
+<p><strong>Project nature 章节：三段连起来才能看懂</strong></p>
+<p>第一段是版权声明：SQLite 是 self-contained, serverless 的 SQL 数据库引擎，C 写的，源码是 public domain（公共领域）——所有源文件顶部都不应该出现 copyright 或 license 头。这条是老政策。</p>
+<p>第二段：「SQLite does not accept pull requests without prior agreement and/or accompanying legal paperwork that places the pull request in the public domain. However, the human SQLite developers will review a concise and well-written pull request as a proof-of-concept prior to reimplementing the changes themselves.」翻译过来是——SQLite 不接受没有事先同意或没有法律文书把 PR 放进公共领域的拉取请求。但是，SQLite 的人类开发者会把一份简洁、写得好的 PR 当作概念验证来审阅，然后由自己重新实现这些改动。</p>
+<p>这一段是关键。SQLite 二十年来本来就不直接接受 PR——所有外部代码必须签 CLA 或类似文书才能合并；即便签了，SQLite 团队通常的做法是「把你的 PR 当成原型读懂，然后自己重写一遍合进去」。这套政策原因是 SQLite 要保证整个代码库在协议、风格、测试三个层面完全自有可控。</p>
+<p>第三段就是引爆点：「SQLite does not accept agentic code. However the project will accept agentic bug reports that include a reproducible test case. Patches or pull requests demonstrating a possible fix, for documentation purposes, are welcomed.」三句话拆开看：</p>
+<ul>
+<li>第一句「不接受 agentic 代码」——直接划线</li>
+<li>第二句「但是接受附带可复现测试样例的 agentic bug 报告」——指明可以做什么</li>
+<li>第三句「为说明问题而附上的修补 PR，作为文档目的，是欢迎的」——给了一个非常窄的例外：你可以附 PR，但 PR 的角色是「文档说明」，不是「让我们合进去的提案」</li>
+</ul>
+<p>这三句话连起来看，SQLite 的判断标准不是「禁止 AI 工具」，而是「AI 产出可以作为 bug 报告与文档示例进入项目，但不会作为代码进入主分支」。</p>
+<p><strong>版本控制段落</strong></p>
+<p>「SQLite uses the Fossil for version control, not Git. The canonical repository is at sqlite.org/src.」这一段也值得拎出来。SQLite 的真正主仓库不在 GitHub，而是用 D. Richard Hipp 自己写的 Fossil 系统托管在 sqlite.org/src，GitHub 上的 <code>sqlite/sqlite</code> 只是镜像（official Git mirror）。这意味着 SQLite 团队不直接面对 GitHub PR 流——任何想绕过 AGENTS.md 这条政策、靠 GitHub PR 强推的尝试，从根上就是无效的。</p>
+<p><strong>Build / Testing 段落</strong></p>
+<p>文件后半段讲构建脚本（用 autosetup 不用 GNU Autoconf）、测试运行（TCL 脚本通过 testfixture 解释器跑、<code>make devtest</code> 是任何 src/ 改动之后的最低要求）、架构总览（tokenize → parse → codegen → optimize → VDBE → B-Tree → Pager → WAL → VFS）、不要手改生成文件的列表（sqlite3.h / parse.c / opcodes.h 等）、编码规则（C89/C99 兼容、所有内存走 sqlite3Malloc、错误码用 SQLITE_OK/SQLITE_*）。</p>
+<p>这部分内容才是 AGENTS.md 这个格式原本设计的用途——给 AI agent 提供「在这个仓库里干活需要知道的工程上下文」。SQLite 的有意思之处是：它在同一份文件里既写了「AI 你要在这干活就得知道这些」，又写了「但你的代码不会被合进来」。把这两件事写在同一份文件里，等于把 AI 协作的边界做了一次精确划定。</p>
+<h2>三、为什么是 SQLite：100% MC/DC 测试文化无法容忍幻觉代码</h2>
+<p>SQLite 划这条红线在工程逻辑上跟它的测试文化是连贯的。要看懂这条政策为什么对 SQLite 不是激进而是必然，得把 SQLite 的测试规模摆出来。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/29/sqlite-test-vs-prod-ratio-2026-05-29.png" alt="SQLite 测试代码量 / 本体代码量历史 5 个版本"></p>
+<p>SQLite 官方 testing.html 给出的数字是这样的：核心 C 代码约 15.6 万行（截至 3.46 版本左右），三套测试加在一起约 9200 万行——也就是测试代码量是本体的约 590 倍。这三套测试分别是：</p>
+<ul>
+<li><strong>TH3</strong>：约 7690 万行 C 测试代码，5 万多个测试用例，参数化展开后约 240 万个测试实例。TH3 是闭源的，是 SQLite 用来做航空级（DO-178B）认证的核心，从 2009 年 3.6.17 版本开始保证 100% 分支覆盖率与 100% MC/DC（Modified Condition/Decision Coverage，修改条件 / 判定覆盖率）</li>
+<li><strong>TCL 测试套件</strong>：开源、跟 SQLite 一起分发的传统测试，约 1100 万行</li>
+<li><strong>SQLLogic 测试</strong>：从 PostgreSQL、MySQL 等其他数据库镜像移植过来的 SQL 行为对照测试，约 7000 万条 SQL 语句</li>
+</ul>
+<p>100% MC/DC 是什么概念？分支覆盖率（branch coverage）只要求每条 if-else 的 true 和 false 分支都被测过；MC/DC 进一步要求：每个布尔条件的每个原子表达式，都要被独立验证过它对最终决策的影响。航空软件（FAA DO-178B）的 Level A 强制要求 MC/DC。SQLite 是少数把这个标准做到 100% 的开源数据库——这意味着他们对「每一行代码改动是否影响某条已有判定」这件事是有完全可追溯的工程档案的。</p>
+<p>在这种测试文化下接受 AI 写的代码意味着什么？意味着每一行新代码都要带着「为什么是这一行、它替换了哪个分支、覆盖了哪个 MC/DC 条件」的解释一起来。一个 AI 工具生成的「看起来能跑」的补丁，如果作者本人不能说清楚它为什么是这样而不是那样、它会不会动到某个已有的 MC/DC 条件，对 SQLite 团队来说审阅成本远高于自己重写。</p>
+<p>这里就能理解 AGENTS.md 那个例外条款为什么定得那么窄：「为说明问题而附上的 PR，作为文档目的，是欢迎的」。这条不是开后门，是说——你可以把 AI 跑出来的修复方案附上去帮我们理解这个 bug 该怎么修，但我们会自己重写、自己证明它满足 MC/DC、自己加 TH3 测试用例，然后合自己的版本进去。</p>
+<p>SQLite 团队对自己工程标准的护城河意识，和「不接受 AI 代码」这条政策是同一件事的两个侧面。</p>
+<h2>四、其他基础设施 OSS 项目当前的 AI 政策横评</h2>
+<p>把视角拉远看一圈，AGENTS.md 这种协议层划线在基础设施圈是稀有动作。下面这张雷达把六个项目摆在一张坐标系里。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/29/oss-ai-acceptance-radar-2026-05-29.png" alt="六大基础 OSS 项目对 AI 贡献的接受度对照"></p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>当前 AI 政策</th>
+<th>形式</th>
+<th>触发事件</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>SQLite</strong></td>
+<td>协议级明文拒收 AI 代码、收 AI bug 报告</td>
+<td>AGENTS.md</td>
+<td>2026-05-22 文件落地，5/27 强化</td>
+</tr>
+<tr>
+<td><strong>cURL</strong></td>
+<td>拒收疑似 AI 安全报告 / 已关闭 bounty</td>
+<td>HackerOne 政策 + 维护者公开发言</td>
+<td>2025 年内安全报告 20:1 假阳性，2026-01 关 bounty</td>
+</tr>
+<tr>
+<td><strong>PostgreSQL</strong></td>
+<td>邮件列表个案审核，倾向拒收看不到推理过程的补丁</td>
+<td>维护者个人立场</td>
+<td>-hackers 列表多次拒绝 AI 补丁</td>
+</tr>
+<tr>
+<td><strong>Linux 内核</strong></td>
+<td>邮件列表个案处理，多次拒绝纯 AI 改动</td>
+<td>维护者个人立场</td>
+<td>LKML 多次记录</td>
+</tr>
+<tr>
+<td><strong>CPython</strong></td>
+<td>无明文政策，PEP 内部讨论中</td>
+<td>暂无</td>
+<td>-</td>
+</tr>
+<tr>
+<td><strong>Node.js</strong></td>
+<td>无明文政策，大量 AI 协作的 PR 被合</td>
+<td>暂无</td>
+<td>-</td>
+</tr>
+</tbody></table>
+<p><strong>cURL：从安全报告卷死到关 bounty</strong></p>
+<p>cURL 是这场对峙里冲在最前面的项目。维护者 Daniel Stenberg 在 2024 年 12 月就在博客和 Mastodon 上反复说「我们正在被 AI 生成的安全报告淹没」。当时数据是约六分之一的报告还是真的；到 2025 年中变成约二十到三十分之一才是真的；到 2025 年下半年大约 20% 的所有报告都是「AI slop」（AI 生成的低质内容）。最戏剧化的例子是 2025 年 5 月那份被 The Register 报道的报告——号称发现了 cURL 在 HTTP/3 流依赖处理上的漏洞，带 GDB session 日志、寄存器 dump、函数名调用栈，看起来非常专业，但 Daniel 一翻代码发现：那个被指控的函数在 cURL 整个代码库里根本不存在，是 AI 凭空编出来的。</p>
+<p>cURL 的应对路径是：先在 HackerOne 提交表单里加了一道勾选框「Did you use AI to find this problem or generate this submission?」，要求每个报告主动声明；然后在 2026 年 1 月直接关掉 bounty 计划，理由是「奖金的存在本身就是在激励人提交垃圾」。</p>
+<p>cURL 的政策跟 SQLite 不一样——它针对的是 AI 写的「bug / 安全报告」，反方向；SQLite 是针对 AI 写的「代码」。两者合起来看，反映的是同一个底层事实：维护者的时间是稀缺资源，AI 在两个方向上都在生产「看起来像但其实不靠谱的内容」，OSS 维护者需要在自己的工程标准与公关期待之间做权衡。</p>
+<p><strong>PostgreSQL：邮件列表里的隐性政策</strong></p>
+<p>PostgreSQL 没有 AGENTS.md，也没有公开的 AI 政策声明。但 <code>-hackers</code> 邮件列表上能看到，最近一年里多次有维护者（Tom Lane、Robert Haas 等）在 review 阶段直接问 PR 提交者「这段代码是怎么想到的、为什么这样写」，遇到答不上推理过程的提交，倾向拒收。这是「隐性政策」——没明说不收 AI 代码，但实操中要求作者本人能完整解释每一行的设计理由，AI 协作可以但人在闭环。</p>
+<p><strong>Linux 内核：LKML 上的个案处理</strong></p>
+<p>Linux 内核也没有明文 AI 政策。维护者群体里有人公开欢迎 AI 工具（用作静态分析、补丁生成参考），也有维护者（如 Greg Kroah-Hartman 在多个公开访谈中）表达过对「成批量、无人工 review」的 AI 补丁的警惕。LKML 上能找到几次记录在案的拒绝事件：有人用 AI 工具批量给驱动加 <code>if (x == NULL) return -EINVAL</code> 这种「看着对但实际多余」的检查，被 maintainer 当面 NACK 并要求把整批撤回。</p>
+<p><strong>CPython 与 Node.js：还没有明文政策</strong></p>
+<p>CPython 项目目前还没有 AI 政策。Python 核心团队内部 2025 年下半年有过几轮讨论，倾向是「让 PR 作者声明 AI 参与程度」而不是禁止；具体形式还在 PEP 草案阶段。</p>
+<p>Node.js 的情况最宽松。Node.js 生态里 AGENTS.md 文件普及率较高（npm 包仓库里超过 6 万个项目有 AGENTS.md），大量 PR 已经显式带「Generated with Claude Code / Cursor」标签合进主仓库。Node.js 内部对 AI 协作的接受度是六个项目里最高的。</p>
+<h2>五、SQLite 的判断标准：代码 vs bug 报告的分界线</h2>
+<p>AGENTS.md 那条窄缝其实给出了 SQLite 自己的判断标准。把这条标准用工程语言重述一遍：<strong>AI 可以参与「发现问题、复现问题、说明问题」的环节，不可以参与「向主分支贡献解决方案」的环节</strong>。</p>
+<p>为什么这两件事在 SQLite 团队眼里是质上不同的事？</p>
+<p><strong>bug 报告与可复现测试样例的价值在「能不能跑」</strong></p>
+<p>一份带可复现测试样例的 bug 报告，价值在于它能在 SQLite 团队自家的 testfixture 上稳定复现一个错误状态。这种价值是可机器验证的——把测试样例跑一遍，要么出错，要么不出错。AI 工具能不能写出准确的测试样例？能，而且通常表现不错——AI 擅长根据已知接口写边界条件、生成多组输入组合、把异常路径补全。只要团队能复现，bug 报告的来源是不是 AI 就不影响它的工程价值。</p>
+<p><strong>代码补丁的价值在「能不能保住所有不变量」</strong></p>
+<p>一份代码补丁的价值不止「能跑」——SQLite 的标准是「不能动到任何一条已经通过 MC/DC 验证的判定逻辑」。这意味着审阅一份补丁需要确认：</p>
+<ul>
+<li>它修改的分支是否还在 TH3 的 100% 覆盖之内</li>
+<li>它新增的 if 条件是否引入了新的 MC/DC 子条件、需要补几个测试用例覆盖</li>
+<li>它涉及的并发路径在 WAL 模式下的行为是否还满足 atomicity / consistency</li>
+<li>它使用的内存分配模式是否正确接住了 OOM 情况</li>
+</ul>
+<p>这些验证需要作者本人对 SQLite 内部架构有深入理解。AI 工具今天能否做到？答案是——AI 可以生成补丁，但补丁背后的「为什么是这一行、它和已有不变量的关系是什么」这套推理不能被 AI 替代——至少 SQLite 团队是这么判断的。换句话说，AI 补丁让审阅者承担了 100% 的「证明这个改动安全」的工作量，相比之下他们自己写一遍反而更轻。</p>
+<p><strong>那条「演示型 PR」的例外</strong></p>
+<p>AGENTS.md 留的那道窄缝是：「为说明问题而附上的 PR，作为文档目的，是欢迎的」。这条意思是——你报 bug 时附一个尝试性的修复方案，帮我们理解你认为问题出在哪、修复应该走哪条思路，这是欢迎的；但这份 PR 不会被合并，SQLite 团队会读懂它的思路然后自己重写。</p>
+<p>这个分界线的核心不是「人类好 vs AI 坏」，而是「谁承担最终的工程责任」。SQLite 把代码补丁的责任完全留在自己团队手里——不接受外部代码贡献是二十年的传统，AI 时代只是把这条传统用 AGENTS.md 重新陈述了一遍。</p>
+<h2>六、D. Richard Hipp 个人立场与 SQLite 的治理结构</h2>
+<p>理解 SQLite 这条政策还得理解它特殊的治理结构。</p>
+<p>SQLite 不是基金会项目，不是社区驱动项目，是 <strong>Hwaci 公司</strong>（D. Richard Hipp 创办的小公司）维护的开源项目。代码完全 public domain（没有 GPL / MIT 协议——真的是公共领域，任何人可以无任何条件使用），但开发权完全集中在一个小团队手里——D. Richard Hipp 加几位长期合作的核心开发者。Hwaci 的商业模式是 SQLite 商业支持合约（航空、医疗、金融行业用户付费购买 SLA + 自定义功能），这撑起了 SQLite 团队的全职开发。</p>
+<p>这种治理结构让 SQLite 跟其他基础设施项目在「政策制定权」上有质的区别：</p>
+<ul>
+<li><strong>PostgreSQL 是社区项目</strong>：政策需要 -hackers 邮件列表共识，没法一夜之间发明一份 AGENTS.md</li>
+<li><strong>Linux 内核分散治理</strong>：每个子系统 maintainer 自己拍板，全内核统一政策不现实</li>
+<li><strong>CPython 是 PSF 治理</strong>：政策走 PEP 流程，慢</li>
+<li><strong>SQLite 是小团队私有治理</strong>：政策由 D. Richard Hipp + 核心开发者拍板，落地速度快</li>
+</ul>
+<p>这就是为什么 SQLite 能在五月份的一周内把这条政策落到协议文件里、还能再过几天把「(currently)」删掉强化立场。其他项目即便有相同想法也很难走得这么快。</p>
+<p>D. Richard Hipp 个人的工程哲学也值得一提。SQLite 整个项目以「unreasonable」（不合常理）的工程标准著称——MC/DC 100% 覆盖、所有 commit 在合并前手动 review、Fossil 自托管而非 GitHub、不接受外部 PR、不使用 issue tracker（只用论坛）。这种风格在过去二十年让 SQLite 成为了「每一台 iPhone、每一个 Android 应用、每一个浏览器、几乎每一个嵌入式系统」都依赖的基础组件。AGENTS.md 这条政策是这套风格的自然延伸——不是激进，是把已有立场用 AI 时代的语言重新说一遍。</p>
+<p>值得提的是，SQLite 的论坛上 D. Richard Hipp 亲自答用户问题、回复 bug 报告、解释设计决策。AGENTS.md 也提到他们专门开了一个 <strong>SQLite Bug Forum</strong>，原因是主论坛被 AI 生成的疑似 bug 报告淹了，需要把这些跟人类提的报告分开处理。这跟 cURL 的「AI slop 淹没 bounty」是同一种压力的不同应对。</p>
+<h2>七、国内基础设施 OSS 项目的当前接受度横评</h2>
+<p>国内基础设施圈对 AI 协作的态度是更分散的。把几个主要项目梳一遍：</p>
+<p><strong>OpenHarmony / HarmonyOS 开源版</strong></p>
+<p>华为牵头、开放原子开源基金会托管的 OpenHarmony 是国内基础设施圈影响力最大的项目之一。代码接受 PR，gitee 上有完整的 CI / review 流程。OpenHarmony 目前没有 AGENTS.md，也没有明文 AI 政策。实操中，OpenHarmony 的 review 对补丁的设计理由要求很严——华为自己的代码风格规范（编程规范）就要求每个改动有完整的设计说明，AI 协作的 PR 如果做不到这一点，自然过不了 review。这是一种「靠流程刚性自然过滤掉低质量 AI 提交」的模式。</p>
+<p><strong>RT-Thread</strong></p>
+<p>国产实时操作系统 RT-Thread 的治理比 OpenHarmony 更分散——核心团队加大量社区维护者。RT-Thread 的 GitHub 仓库目前没有 AGENTS.md，也没有 AI 政策声明。社区文化对 AI 协作偏开放——不少 PR 作者会在描述里主动写「使用 Claude / GPT 辅助生成、已自行测试」，core maintainer 一般正常 review 不做特殊处理。</p>
+<p><strong>Apache 系（DolphinScheduler / ShardingSphere / SkyWalking 等中国发起的 Apache 顶级项目）</strong></p>
+<p>Apache 基金会层面目前没有 AI 政策，全部交由项目自定。具体到 DolphinScheduler、ShardingSphere、SkyWalking 这类中国发起的顶级项目，仓库里也都没有 AGENTS.md。这些项目的 contributing guide 都要求 PR 走完整 review 流程，对 AI 协作没有专门限制。</p>
+<p><strong>TiDB / TDengine / DolphinDB 等数据库开源版</strong></p>
+<p>PingCAP 的 TiDB 是国内数据库圈最活跃的开源项目，仓库治理流程成熟。TiDB 没有 AGENTS.md，PR 接收度跟 review 严格度都比较高。TDengine 与 DolphinDB 都是「公司主导 + 社区贡献」模式，治理结构跟 SQLite 比较像（一家公司是主导力量），但目前都没有效仿 SQLite 这种协议级 AI 政策。</p>
+<p><strong>蚂蚁 / 腾讯 / 字节系开源项目</strong></p>
+<p>国内大厂开源项目（OceanBase、Tencent Cloud Edge 等）目前都没有 AGENTS.md。这部分项目的特征是「公司内部代码先成型、然后向社区开放」，外部 PR 量本身就不大，AI 协作的影响相对小。</p>
+<p>总体看，国内基础设施 OSS 圈对 AGENTS.md 这种协议级 AI 政策<strong>几乎没有先例</strong>。原因可能有几个：</p>
+<ul>
+<li>AGENTS.md 这个文件格式的中文普及度还不高，知道这格式的国内项目维护者还在少数</li>
+<li>国内项目对外部代码贡献的依赖度普遍不如海外项目（社区贡献占比相对低）</li>
+<li>国内 PR 流程刚性强（华为 / 阿里 / 腾讯系都有内部规范），AI 协作的低质量提交在到达 review 阶段前就被 CI 卡掉</li>
+</ul>
+<h2>八、国内独立 OSS 维护者：三档可借鉴方案</h2>
+<p>如果你是国内一个有一定使用量的开源项目（GitHub stars 几千到几万、有外部贡献者），SQLite 这套思路值不值得借鉴？三档建议：</p>
+<p><strong>A 档：保持现状，不做协议级声明（适用：项目接受度高、社区贡献活跃、AI 协作 PR 质量目前没有出问题）</strong></p>
+<p>如果项目目前 PR 量稳定、review 流程能正常过滤掉低质量提交、社区对 AI 协作整体感觉自然，那不用动。AGENTS.md 这种协议级声明的副作用是会给社区贡献者一种「这里不欢迎 AI 协作」的过强信号，可能让一些真心想贡献的开发者望而却步。</p>
+<p>A 档的核心是：靠 contributing guide 里「请在 PR 描述里说明你的设计思路与测试验证」这种隐性要求，自然过滤掉「跑出来就提交」的 AI 协作 PR。</p>
+<p><strong>B 档：在 contributing guide 里加 AI 协作披露要求（适用：PR 量大、AI 协作占比上升、维护者审阅压力增大）</strong></p>
+<p>这一档是大多数国内项目的合理起点。不需要 AGENTS.md，只在 CONTRIBUTING.md 或 PR 模板里加几条：</p>
+<ul>
+<li>请说明你的提交是否使用了 AI 编码工具（如 Claude Code、Cursor、GitHub Copilot、千问代码模型）辅助</li>
+<li>如果使用了 AI 工具，请确认你已经独立读过、理解每一行代码，并且能解释其设计理由</li>
+<li>请附上你为此改动新增或修改的测试用例</li>
+</ul>
+<p>这套规则的作用不是禁止 AI，是把「AI 协作 PR」与「人类完整理解的 PR」放在同一个责任标准上。CPython 内部当前正在讨论的 PEP 草案方向也接近这一档。</p>
+<p><strong>C 档：直接采用 SQLite 路线，发布 AGENTS.md 明文红线（适用：项目对工程标准的护城河意识强、维护团队人数小、补丁质量损失零容忍）</strong></p>
+<p>这一档适合的项目类型很窄：项目本身是基础设施（操作系统、数据库、编译器、加解密库等高敏感领域）、维护团队是个位数（决策链短）、对补丁工程标准的护城河意识非常强（类似 SQLite 的 MC/DC 文化）。</p>
+<p>如果项目符合这三条，那 AGENTS.md 这套做法可以学：</p>
+<ul>
+<li>在仓库根目录创建 <code>AGENTS.md</code>，写明对 AI agent 的整体工程上下文</li>
+<li>在文件里明确写出对 AI 生成代码的接受边界——可以拒（SQLite 路线），可以收（Node.js 路线），可以让作者承担额外说明义务（中间路线）</li>
+<li>把删 「(currently)」这种小动作作为政策升级信号 —— 比直接修订协议正文成本低，比微博 / 推文公告更有约束力</li>
+</ul>
+<p>C 档的本质是把项目工程文化的硬约束写进文件，而不是停留在维护者个人立场。这对小团队治理项目（SQLite、curl、Fossil 等）特别合适，对大社区项目（PostgreSQL、Linux 内核）反而不适合——因为协议级声明需要全员共识。</p>
+<p>最后说一句这件事的更长尺度判断。AGENTS.md 这个文件格式刚满九个月，已经从「OpenAI 一家提出」演化成「Linux 基金会托管、60000+ 项目采用」的事实标准。SQLite 这次的动作给了这个文件格式一个新维度——它不只是 AI agent 的工程上下文文件，也可以是 OSS 项目对 AI 协作划线的协议层文件。今年下半年到明年，会有更多基础设施项目跟进——cURL 已经在 HackerOne 政策上走了一半（不是 AGENTS.md 但同样思路），PostgreSQL 与 Linux 内核都有可能正式化目前的隐性政策。SQLite 这条线只是开始，不是结束。</p>
+<p>国内 OSS 维护者跟海外同行在面对 AI 协作的压力上是同一个层面——补丁质量、审阅成本、社区生态。SQLite 这套思路不必照搬，但它把「OSS 协议层面对 AI 协作划线」这件事拍在桌上，让所有维护者必须正面回答「我的项目在这件事上的立场是什么」。这个问题问对了，答案是什么反而是次要的。</p>
+<hr>
+<p><strong>参考资料</strong>：</p>
+<ul>
+<li>Simon Willison <code>sqlite AGENTS.md</code>（2026-05-27）— simonwillison.net/2026/May/27/sqlite-agents/</li>
+<li>SQLite 官方 AGENTS.md — raw.githubusercontent.com/sqlite/sqlite/master/AGENTS.md</li>
+<li>SQLite 测试方法论 — sqlite.org/testing.html（TH3 / TCL / SQLLogic 三套测试 + 100% MC/DC 描述）</li>
+<li>cURL AI 安全报告事件 — The Register（2025-05-07）/ heise online / The New Stack 三方报道</li>
+<li>AGENTS.md 文件格式与治理 — agents.md/ 与 Linux Foundation Agentic AI Foundation 公告</li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

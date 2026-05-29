@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>微软开源 AGT 工具包：让 AI Agent 删库在结构上不再可能 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-28</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-28</span><span class="tag-pill">AI Daily</span></div>
+      <h1>微软开源 AGT 工具包：让 AI Agent 删库在结构上不再可能</h1>
+<blockquote>
+<p>ai-daily · 2026 年 5 月 28 日 11:46 · 来源：GitHub Trending python</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-28/microsoft-agent-governance-toolkit-micro/head.png" alt=""></p>
+<p>凌晨三点，一位 SRE 工程师被 PagerDuty 叫醒。告警信息只有一行：“生产数据库被 agent 删除了。”他第一反应不是查日志，而是想：我们不是给 agent 配了“请勿执行危险操作”的 system prompt 吗？</p>
+<p>结果当然是没用的。GPT-4 不会拒绝一个精心构造的越狱指令，Claude 3 也不会。Andriushchenko 等人在 2024 年的研究里，用纯 prompt 攻击就把 GPT-4、GPT-3.5、Claude 3、Llama-3 的攻击成功率打到了 100%。这不是某个模型的偶然失败，是概率系统的结构性缺陷。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-28/microsoft-agent-governance-toolkit-micro/content-1.png" alt="microsoft/agent-governance-toolkit — AI Agent Governance Toolkit — Policy enforc"></p>
+<p><strong>在 prompt 里写“请遵守规则”，本质上是对一个随机系统发出一条礼貌的请求。</strong></p>
+<p>微软显然不想再陪着客户半夜救火了。2025 年年中，他们悄悄在 GitHub 上放出了一个叫 <strong>Agent Governance Toolkit（AGT）</strong> 的项目——不是论文，不是白皮书，是一个可以直接 <code>pip install</code> 的生产级工具包。它做的事情很直接：在 agent 的工具调用到达执行层之前，用<strong>确定性代码</strong>拦截并裁决每一次操作。不是“大概率安全”，是“结构上不可能越权”。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-28/microsoft-agent-governance-toolkit-micro/schematic-1.png" alt="AGT 架构流程，Agent → Policy Engine → Identity → Audit Log，三条分支：Allowed 执行工具 / Denied 抛出 GovernanceDenied / 所有决策写入防篡改日志"></p>
+<h2>“把安全从 prompt 层抽出来，塞进中间件”</h2>
+<p>AGT 的设计哲学可以用一句话概括：<strong>别在模型脑子里打安全补丁，在它伸手的时候拦住它。</strong></p>
+<p>这个思路其实不新。OAuth scope、IAM role、Kubernetes RBAC——整个云原生安全栈都是基于“身份+策略”的确定性执行。但到了 AI agent 时代，行业突然集体倒退回“请友善地告诉模型不要删库”的阶段。OWASP 在 2025 年的 LLM01 条目里写得很坦白：“目前尚不清楚是否存在万无一失的 prompt 注入防御方法。”微软自己的《AI Red Teaming Agent》项目也把 Attack Success Rate（ASR）作为核心指标，他们红队测试了 100 个生成式 AI 产品后的结论是——“AI 红队测试永远做不完”，因为模型层的防御本身就是概率性的。</p>
+<p>AGT 的解法是把安全控制面从 prompt 层上移到应用中间件层。你用 <code>govern()</code> 装饰器包住任何工具函数，传入一个 YAML 策略文件，每次调用都会经过策略引擎评估。评估逻辑是确定性的：检查 <code>action.type</code> 是否匹配 <code>[&#39;drop&#39;, &#39;delete&#39;, &#39;truncate&#39;]</code>，匹配就拒绝，不匹配就放行。没有“模型可能被说服”的灰色地带——<code>GovernanceDenied</code> 异常直接抛出，工具函数根本不会被调用。</p>
+<pre><code>safe_tool = govern(my_tool, policy=&quot;policy.yaml&quot;)
+safe_tool(action=&quot;read&quot;, table=&quot;users&quot;)  # 42 rows returned
+safe_tool(action=&quot;drop&quot;, table=&quot;users&quot;)  # GovernanceDenied
+</code></pre>
+<p>这两行代码背后是一整套策略引擎。AGT 支持 YAML、OPA、Cedar 三种策略语言，Python、TypeScript、.NET、Rust、Go 五种语言 SDK 全部做到核心治理能力（策略、身份、信任、审计）。Python 版本是功能最全的“满血版”，包含 Agent OS 内核、AgentMesh 零信任身份网格、Agent Runtime 沙箱、Agent SRE 可靠性工程等九个独立包。整个项目有 10 份 RFC 2119 格式的正式规范文档、992 个一致性测试、25 份架构决策记录（ADR）——这不是一个周末 hackathon 项目，是一个有明确行为契约的治理基础设施。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-28/microsoft-agent-governance-toolkit-micro/schematic-2.png" alt="AGT 九大组件生态图，Agent OS / AgentMesh / Agent Runtime / Agent SRE / Agent Compliance / Agent Marketplace / Agent Lightning / Agent Hypervisor / Agent Discovery，标注各组件职责"></p>
+<h2>不止是策略引擎，是 agent 生产的全栈治理</h2>
+<p>如果你以为 AGT 只是个“agent 防火墙”，那就低估微软的野心了。这个工具包覆盖的治理维度比想象中多得多。</p>
+<p><strong>身份问题。</strong> 在多 agent 系统里，五个 agent 可能共享同一个 API key。当某个 agent 做了不该做的事，日志里只显示“来自 agent 系统的调用”——这不是事故响应，这是甩锅。AgentMesh 组件引入了 SPIFFE/DID/mTLS 的零信任身份体系，每个 agent 都有可验证的加密身份，每次调用都能追溯到具体是哪个 agent。</p>
+<p><strong>审计问题。</strong> 监管机构和审计师要的不是“我们相信 agent 是安全的”，而是防篡改的决策记录：当时执行了什么策略、agent 请求了什么操作、为什么允许或拒绝。AGT 的审计日志做到 Merkle 树结构，每一笔决策都可以被独立验证完整性。</p>
+<p><strong>沙箱问题。</strong> Agent Runtime 提供了四级特权环（privilege rings），从最内层的完全隔离到外层的受限工具访问，可以按 agent 的风险等级分配执行环境。Agent SRE 组件更进一步，提供了熔断器（circuit breaker）、SLO 监控、混沌工程测试——把 agent 当成分布式服务来运维，而不是当成“聪明的聊天机器人”来哄着。</p>
+<p><strong>合规映射。</strong> Agent Compliance 包直接把 OWASP Agentic AI Top 10 的十个风险类别全部映射到了确定性控制措施上。NIST AI RMF 1.0 的 GOVERN / MAP / MEASURE / MANAGE 四个阶段、EU AI Act 的合规要求、SOC 2 的控制映射——都有自动化证据生成。<code>agt verify</code> 命令可以在 CI 管道里直接跑，证据不足就 <code>--strict</code> 失败，不让不合规的 agent 上线。</p>
+<p><strong>影子 agent 发现。</strong> 这个功能让我愣神了一下——Agent Discovery 会扫描进程、配置文件、代码仓库，找出那些“没人知道在跑但确实在跑”的未注册 agent。在 2025 年的企业环境里，这可能是比 prompt 注入更现实的威胁：你不知道有多少 agent 已经在生产环境里自主决策了。</p>
+<p>还有 Agent Marketplace 的插件信任评分、Agent Lightning 的强化学习训练治理（对违规行为施加惩罚）、Agent Hypervisor 的执行计划验证和可逆性校验——微软几乎把 agent 生命周期里所有可能出问题的地方都铺上了治理层。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-28/microsoft-agent-governance-toolkit-micro/schematic-3.png" alt="AGT 安全控制层级对比，左侧“prompt 层防御：ASR 100% 被攻破”，右侧“中间件层拦截：确定性拒绝，结构上不可能绕过”"></p>
+<p>有意思的是，AGT 并不要求你一次性部署全套。文档里明确说：“每一层都是可选的。从 <code>govern()</code> 开始，随着风险等级提升逐步叠加。”大多数团队跑策略引擎+审计日志就够了。但如果你在跑一个能执行 shell 命令、发邮件、删数据库的 agent 系统，微软的建议是把每个 agent 放在独立容器里，配合 AGT 的中间件治理形成纵深防御。</p>
+<p>这个项目用 MIT 协议开源，官方源只有 GitHub 仓库、microsoft.github.io 文档站、PyPI/npm/NuGet/crates.io 上的签名包。他们甚至专门辟了一节提醒用户注意假冒网站和包——看来微软对“开源项目被供应链攻击”这件事已经有肌肉记忆了。</p>
+<p>说实话，看到 AGT 的完整功能列表时，我第一反应是：这哪是工具包，这分明是微软在告诉整个行业——“你们在 prompt 里写安全规则的日子该结束了。”他们没说出来，但 992 个一致性测试和 25 份 ADR 已经把态度写得很清楚：agent 治理不是一个 prompt engineering 问题，是一个分布式系统工程问题。</p>
+<p>而那个半夜三点被叫醒的 SRE，大概只想要一行 <code>GovernanceDenied</code>。</p>
+<h2>参考来源</h2>
+<ul>
+<li><a href="https://github.com/microsoft/agent-governance-toolkit" target="_blank" rel="noopener">https://github.com/microsoft/agent-governance-toolkit</a></li>
+<li><a href="https://microsoft.github.io/agent-governance-toolkit" target="_blank" rel="noopener">https://microsoft.github.io/agent-governance-toolkit</a></li>
+<li>Andriushchenko et al., 2024 — 100% ASR on GPT-4, GPT-3.5, Claude 3, Llama-3（原文 README 引用）</li>
+<li>JailbreakBench (Chao et al., NeurIPS 2024) — near-100% attack success rates（原文 README 引用）</li>
+<li>Microsoft AI Red Teaming Agent — Attack Success Rate (ASR) 定义（原文 README 引用）</li>
+<li>Microsoft “Lessons from Red Teaming 100 Generative AI Products” — “AI red teaming is never complete”（原文 README 引用）</li>
+<li>OWASP LLM01:2025 — “it is unclear if there are fool-proof methods of prevention for prompt injection”（原文 README 引用）</li>
+</ul>
+<p>#AI #Agent #Governance #Toolkit #Policy</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

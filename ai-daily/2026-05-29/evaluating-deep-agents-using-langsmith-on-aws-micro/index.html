@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LangChain与Anthropic联手：如何阻止AI Agent误删20万行数据？ — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-29</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-29</span><span class="tag-pill">AI Daily</span></div>
+      <h1>LangChain与Anthropic联手：如何阻止AI Agent误删20万行数据？</h1>
+<blockquote>
+<p>ai-daily · 2026 年 5 月 29 日 02:54 · 来源：AWS ML Blog</p>
+</blockquote>
+<!-- head fallback: head.html -->
+
+<p>凌晨两点，一个 text-to-SQL agent 在生产环境里悄悄执行了一条 DELETE 语句。</p>
+<p>没有告警，没有回滚，数据库里二十万行客户记录在 0.3 秒内蒸发。值班工程师第二天早上打开 LangSmith 的 trace 面板，发现那个 agent 在规划阶段写下的 TODO 里赫然列着：「Step 3: 清理无效数据」。它&quot;认为&quot;自己在做正确的事。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-29/evaluating-deep-agents-using-langsmith-on-aws-micro/content-1.png" alt="Evaluating Deep Agents using LangSmith on AWS"></p>
+<p>这不是恐怖故事。这是 AWS 机器学习博客在 2026 年 5 月 28 日发表的一篇技术长文中，LangChain 和 Anthropic 联手试图阻止的那种灾难。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-29/evaluating-deep-agents-using-langsmith-on-aws-micro/content-2.png" alt="原文配图"></p>
+<p><strong>Agent 评测不是&quot;打分&quot;，是给一个不听话的系统装刹车。</strong></p>
+<h2>五个 eval 模式，每一个都在说同一件事：别信 agent 的嘴</h2>
+<p>LangChain 的 Karan Singh（合伙人主管）和 AWS 的三位解决方案架构师在这篇文章里摊开了一整套方法论，核心论点极其朴素——评测 AI agent 跟评测 LLM 单次输出是两码事。LLM 你给一个 prompt，它回一段文本，你拿参考答案比对一下，及格不及格一目了然。Agent 不是这样玩的。</p>
+<p>文章用了一个 text-to-SQL deep agent 跑在 Amazon Bedrock 上做全程演示。模型选的是 Amazon Nova 2 Lite，一个支持 extended thinking、100 万 token 上下文窗口、能处理文本/图片/视频/文档的多模态推理模型（值得一提的是，Nova 2 Lite 的推理预算分 low/medium/high 三档可调，这个设计本身就暗示了 agent 任务的不确定性——你永远不知道一个查询需要几步才能得到正确答案）。数据库是 Chinook，一个模拟数字媒体商店的 SQLite 样本库，结构简单但足够制造歧义。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-29/evaluating-deep-agents-using-langsmith-on-aws-micro/schematic-1.png" alt="Text-to-SQL Deep Agent 架构图，从用户自然语言输入到 DeepAgents 框架规划层、工具调用层、LangGraph 执行引擎、Amazon Bedrock 推理层、SQLite 数据库的完整链路"></p>
+<p>文章把 agent 评测的难度归因为三个属性：非确定性（non-determinism）、错误传播（error propagation）、创造性解法（creative solutions）。前两个好理解——同一个问题跑 10 次，agent 可能 9 次对 1 次错，而第三步的一个错误 JOIN 会污染后续所有步骤。第三个属性最微妙：前沿模型有时会找到评测设计者没想到的合法路径。你写了一条测试断言 agent 必须先调用 sql_db_list_tables 再调用 sql_db_schema，但 agent 直接跳到了 sql_db_schema，结果也对。你的测试该红还是绿？</p>
+<p>LangChain 的答案是：<strong>评测&quot;agent 产生了什么&quot;，而不是&quot;agent 走哪条路产生的&quot;</strong>。这个区分贯穿了全文给出的五个 eval 模式。</p>
+<p>模式一是&quot;每个数据点有自己的测试逻辑&quot;。传统 LLM 评测假设所有测试用例跑同一套打分器，但 deep agent 不适用。一个查询&quot;加拿大有多少客户&quot;可以用字符串匹配直接检查答案里有没有&quot;8&quot;，另一个查询&quot;哪个员工贡献了最多收入，来自哪些国家&quot;就必须上 LLM-as-judge 打分——因为正确答案的表述形式太多了。文章给出的代码示例里，前者用 assert &quot;8&quot; in answer，后者用了一个 rubric 驱动的 LLM judge，从正确性（correctness）、完整性（completeness）、清晰度（clarity）三个维度打分，阈值设在 0.5。</p>
+<p>模式二是单步评测（single-step evaluation），LangChain 称之为&quot;单元测试&quot;。只检查 agent 在收到特定输入后的第一个动作：它有没有调用 SQL 工具而不是凭空猜测？它有没有先探索 schema 而不是上来就写查询？文章透露了一个数据点：LangChain 为 deep agent 写的测试用例里，大约一半是单步评测。这类测试跑得快、省 token，而且能精准抓到回归——大多数退化不是整个流程崩了，而是某个决策点悄悄变了行为。</p>
+<p>模式三是全流程评测（full agent turns），从头跑到尾，检查轨迹（trajectory）和最终答案。关键洞察是：不要求工具调用的精确顺序，只要求某些工具出现在轨迹里。模式四是多轮对话评测，用条件逻辑处理对话分支——如果第一轮 agent 就崩了，直接 fail early，不要硬着头皮跑第二轮制造一堆无效 trace。模式五藏在安全评测那一段里：检查 agent 有没有执行 DML 语句（INSERT、UPDATE、DELETE、DROP、ALTER、TRUNCATE），这是 text-to-SQL 场景下的硬性安全红线。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-29/evaluating-deep-agents-using-langsmith-on-aws-micro/schematic-2.png" alt="五种 eval 模式对照表，横轴为评测粒度（单步/全流程/多轮），纵轴为打分方式（代码级/LLM judge/人工），每个交叉点标注适用场景"></p>
+<h2>从离线到在线：评测不是一次性工程，是永续循环</h2>
+<p>文章花了大量篇幅讲 LangSmith 的在线评测器（online evaluators），这部分值得展开。</p>
+<p>离线评测跑在部署前，你有精心策划的数据集和参考答案。在线评测跑在生产环境里，你没有参考答案——真实用户问的问题你可能从未见过，数据库可能变了，边缘案例会自动涌现。LangSmith 支持三种在线评测器：代码评测器（code evaluator）、LLM-as-judge 评测器、以及组合评测器（composite evaluator）。</p>
+<p>代码评测器最直接。文章给出的 SQL 安全检查函数只有 15 行 Python，粘贴进 LangSmith UI 就能跑，对每一条生产 trace 做 DML 关键词扫描。发现违规直接返回 score=0。这是纯确定性逻辑，不花钱，不延迟，适合做安全护栏。</p>
+<p>LLM-as-judge 在线评测器更有意思。因为是生产环境没有参考答案，所以用的是&quot;无参考评测&quot;（reference-free evaluation）——让另一个模型（文章建议用 Nova 2 Lite 这类成本效率高的模型）对 agent 的回答做内部一致性、清晰度和表面完整性打分。采样率设 50%，控制成本。评测 prompt 里有一句值得注意的设计：&quot;如果你没有足够信息，返回 Unknown&quot;——这是防止 LLM judge 自己产生幻觉评分的关键约束。</p>
+<p>组合评测器把多个评分加权合并成一个 overall-quality 指标。文章给了一个权重分配：sql_safety 占 0.4（安全最高优先级），correctness_confidence 占 0.3，clarity 和 completeness 各占 0.15。这个单一指标可以直接对接告警系统——overall_quality 低于 0.7 就触发通知。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-29/evaluating-deep-agents-using-langsmith-on-aws-micro/schematic-3.png" alt="离线评测→生产监控→失败 trace 转化为新测试用例的闭环流程图，标注 LangSmith 在每个环节的角色"></p>
+<p>这里有一个被读者可能略过但极其重要的设计：<strong>生产环境里的失败 trace，应该反向回流到离线评测数据集里，成为新的测试用例</strong>。文章明确提到了这个循环——&quot;failures in production become test cases, test cases help prevent future failures, and metrics replace guesswork&quot;。这不是&quot;评测完了就完了&quot;的一次性工程，而是一个持续收紧的反馈环。每次生产事故都会让离线测试集更健壮，每次离线测试的改进都会减少下一次生产事故的概率。</p>
+<p>我看到这个循环的时候第一反应是：这才是评测体系真正值钱的地方。单独一个 pytest 文件谁都能写，单独一个 LangSmith dashboard 谁都能搭。但把生产环境的真实失败自动转化为可复现的回归测试，这件事需要工具链的深度整合。LangSmith 的 Pytest 集成 + 在线评测器 + trace 回溯，恰好把这三件事串在了一条线上。</p>
+<p>文章还提到了一个容易被忽视的指标设计：pass@k 和 pass^k。前者衡量&quot;跑 k 次至少成功一次的概率&quot;，适用于&quot;成功一次就够了&quot;的场景；后者衡量&quot;跑 k 次全部成功的概率&quot;，适用于&quot;一致性很重要&quot;的场景。对于 text-to-SQL agent，如果你在做一个内部数据分析工具，pass@k 可能就够了——用户问三次对一次就能接受。但如果你在做面向客户的财务报告 agent，pass^k 才是你应该盯着的数字——你承受不起任何一次错误。</p>
+<p>最后说一句题外话。整篇文章的合著者阵容很有意思：LangChain 的合伙人主管 Karan Singh，加上 AWS 三位解决方案架构师（分别来自荷兰、印度和美国的团队）。这是典型的云厂商 + 工具链公司的联合出品，技术深度够，工程实操性也够。但读完我有一个感觉：这套方法论落地的前提是团队已经有相当成熟的 ML infra 能力。对于还在纠结&quot;要不要给 agent 加一个 system prompt&quot;的团队来说，五层 eval 模式 + 在线监控 + 人工校准的组合拳，可能还需要先补几堂基础课。</p>
+<p><strong>不过话说回来——如果你连评测都没做就把 agent 部署到了生产环境，那凌晨两点删库的，可能不只是 Chinook 样本数据库。</strong></p>
+<p>#Evaluating #Deep #Agents #LangSmith #AWS</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-29/evaluating-deep-agents-using-langsmith-on-aws-micro/content-3.png" alt="原文配图"></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

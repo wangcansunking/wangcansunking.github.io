@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NVIDIA Polar 开源：把 Claude Code 当训练环境，Codex 在 SWE-Bench 上 pass@1 提升 22.6 个百分点 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-29</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-29</span><span class="tag-pill">Daily Report</span></div>
+      <h1>NVIDIA Polar 开源：把 Claude Code 当训练环境，Codex 在 SWE-Bench 上 pass@1 提升 22.6 个百分点</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/29/nvidia-polar-grpo-codex-claude-code-rl-594pct-2026-05-29.png" alt="NVIDIA Polar 开源：Codex / Claude Code / Qwen Code 三个智能代理框架共用一套强化学习训练管线"></p>
+<blockquote>
+<p>5 月 27 日凌晨，NVIDIA 在 GitHub 上以 Apache-2.0 协议开源 Polar——一个让 Codex CLI、Claude Code、Qwen Code 等智能代理框架不改一行代码、直接被当成强化学习训练环境的代理网关。配套论文当天上 arXiv（编号 2605.24220），第一作者 Binfeng Xu，作者列表里挂着 NVIDIA 首席科学家 Jan Kautz。同底座 Qwen3.5-4B，只用 GRPO（组相对策略优化）训练，SWE-Bench Verified 上 Codex 框架的 pass@1 从 3.8% 涨到 26.4%——也就是新浪科技、凤凰网、ITBear 三家国内媒体头条里那个「暴涨 594.74%」的数字。但这个百分比只对 Codex 这一栏成立。其他三个代理框架的涨幅分别是 Claude Code +4.8 个百分点、Qwen Code +0.6 个百分点、Pi +6.2 个百分点。本文把这件事的技术真相、媒体口径与对国内同行的实际意义一次摊开。</p>
+</blockquote>
+<h2>30 秒速览</h2>
+<p>把今天最关键的几个数字一次摆清楚——</p>
+<ul>
+<li><strong>开源协议与位置</strong>：NVIDIA 把 Polar 放在 <code>NVIDIA-NeMo/ProRL-Agent-Server</code>，Apache-2.0 协议、397 颗 star、40 个 fork，作为 NeMo Gym 的环境模块注册</li>
+<li><strong>核心机制</strong>：在智能代理与模型 API 之间塞一个网关，所有 token、提示、终止原因、log 概率全程记录；代理框架本身一行代码不改，只把模型基地址改成网关地址</li>
+<li><strong>训练算法</strong>：GRPO（组相对策略优化），DeepSeek 2024 年发表 DeepSeekMath 时提的方法，特点是丢掉 critic 网络、只算同一题多次采样之间的相对优势</li>
+<li><strong>SWE-Bench Verified pass@1（Qwen3.5-4B 同底座）</strong>：Codex CLI <strong>3.8% → 26.4%</strong>（+22.6 个百分点）、Claude Code <strong>29.8% → 34.6%</strong>（+4.8）、Qwen Code <strong>34.6% → 35.2%</strong>（+0.6）、Pi <strong>34.2% → 40.4%</strong>（+6.2）</li>
+<li><strong>训练效率</strong>：前缀合并策略把训练更新次数从 1185 次压到 218 次，墙钟时间从 189.5 分钟降到 35.2 分钟（约 5.39 倍提速），GPU 利用率从 20.4% 提到 87.7%</li>
+<li><strong>训练数据</strong>：NovaSky-AI 团队的 SkyRL-v0-293 数据集，训练集只有 293 条软件工程任务，评测集就是 SWE-Bench Verified</li>
+<li><strong>国内媒体口径</strong>：新浪、凤凰、ITBear、中文科技资讯、AIbase 五家覆盖，其中四家把头条数字写成「暴涨 594.74%」——只对 Codex 这一栏成立，看 Claude Code / Qwen Code / Pi 三栏就明显不是这个量级</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/29/polar-arxiv-title.png" alt="NVIDIA Polar 论文 arXiv:2605.24220 标题页与摘要"></p>
+<p>数字摆完之后，这篇文章的核心论点其实就一句话——<strong>Polar 真正的工程价值不是 Codex 那一栏夸张的提升幅度，而是它把『智能代理在哪里跑、就在哪里训』这条路用一份开源代码确认了下来。对国内已经把后训练当主力路线的千问 Coder、Qoder 这类工具，Polar 提供了一个可以直接套用的网关型工程模板；对暂时还在用监督微调或通用底座的工具，Polar 标出了一条需要补齐的链路。</strong> 国内研究团队不需要等谁授权——清华、北大、智源、阿里达摩这些团队拿到自家代理框架后，按 Polar 的方式接上就能开始 GRPO 训练，对算力的需求被压到了 4B 这一档。下面分八节拆开看。</p>
+<h2>一、NVIDIA Polar 这次开源出什么了</h2>
+<p>先把这次发布的具体东西说清楚。仓库地址 <code>NVIDIA-NeMo/ProRL-Agent-Server</code>，名字里挂的是 ProRL，作为 NeMo Gym 体系下的智能代理服务器组件。论文标题 <em>Polar: Agentic RL on Any Harness at Scale</em>，5 月 22 日提交 arXiv，5 月 27 日仓库与论文同时公开。截至 5 月 28 日晚，star 数 397、fork 数 40，仓库 9 月就建好了但代码到 5 月 26 日才大规模 push——说明这是一次按节奏发布的研究产出，不是临时仓促开源。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/29/polar-repo-og.png" alt="NVIDIA-NeMo / ProRL-Agent-Server GitHub 仓库概览：397 颗 star、40 个 fork、Apache-2.0 协议"></p>
+<p>Polar 的对外形态非常简单：它是一个跑在模型 API 入口前的代理网关。任意一个智能代理框架（论文里给了 Codex CLI、Claude Code、Qwen Code、Pi、Gemini CLI、OpenCode 六个内置适配），只要把模型基地址从原来的 OpenAI / Anthropic 改成 Polar 网关的地址，就能进入训练流程。代理本身的工具调用逻辑、上下文管理、补丁提交方式——全部保留原样。</p>
+<p>网关在中间做的事大致分三步：第一步拦截模型调用、原样转发，第二步在转发前后记录完整的 token 信息（提示 token ID、采样响应 token ID、log 概率、终止原因），第三步把多轮对话的多次模型调用拼成一条 token 级轨迹送给训练器。论文里给训练器选了 GRPO，但论文明确说算法与训练器框架无关——把 GRPO 换成 PPO、DPO，把训练器从 Slime 换成 OpenRLHF，工程上都能跑。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/29/polar-grpo-flowchart-2026-05-29.png" alt="Polar 工作流：智能代理框架不改，仅把模型 API 地址指向网关"></p>
+<p>Polar 仓库里还附带了一套运行时调度系统——前文提到的 5.39 倍加速主要来自这里。它把每个智能代理任务的生命周期切成 INIT、READY、RUNNING、POSTRUN 四档，用工人池异步调度，让 GPU 不在等代理跑评测脚本时空转。GPU 利用率从 20.4% 提到 87.7%，说明这一块的工程化做得相当扎实。</p>
+<h2>二、国内五家媒体覆盖对比技术真相</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/29/polar-cn-news-header.png" alt="新浪科技 5-28 头版报道截图：「英伟达推出 AI 框架 Polar，让 Codex 跑分暴涨 594.74%」"></p>
+<p>5 月 28 日国内主流科技媒体的覆盖情况大致是这样的：</p>
+<table>
+<thead>
+<tr>
+<th>媒体</th>
+<th>头条数字</th>
+<th>报道侧重</th>
+<th>是否提到其他三栏</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>新浪科技</td>
+<td>「暴涨 594.74%」</td>
+<td>训练效率 5.39 倍</td>
+<td>提到 Claude Code 34.6%、Qwen Code 35.2%、Pi 40.4%</td>
+</tr>
+<tr>
+<td>凤凰网科技</td>
+<td>「pass@1 涨 594.74%」</td>
+<td>网关在代理与推理之间的位置</td>
+<td>提到</td>
+</tr>
+<tr>
+<td>ITBear</td>
+<td>「暴涨 594.74%」</td>
+<td>强化学习链路</td>
+<td>简单提到</td>
+</tr>
+<tr>
+<td>中文科技资讯</td>
+<td>「Codex 跑分翻数倍」</td>
+<td>工程意义</td>
+<td>未细分</td>
+</tr>
+<tr>
+<td>AIbase</td>
+<td>「Polar 开源、Codex 提升 595%」</td>
+<td>GRPO 概念引入</td>
+<td>提到其他三个框架</td>
+</tr>
+</tbody></table>
+<p>国内五家媒体覆盖密度足够，但有两个细节几乎所有报道都没展开。</p>
+<p><strong>第一个被略过的细节是「token-faithful rollout」具体是什么意思。</strong> 国内媒体大多写成「重建训练轨迹」或者「保留 token 级别信息」就过去了。但论文 4.2 节其实给出了非常具体的两套策略：一种叫<strong>单请求模式</strong>，每次模型调用算一条独立训练样本；另一种叫<strong>前缀合并</strong>，专门处理代理框架那种「多轮对话每轮都把历史塞回去」的场景——它检测连续两次调用是否满足严格的 token 前缀关系，如果是，就把它们合并成一条多轮轨迹。前缀合并就是 5.39 倍提速的真正来源——把 1185 次 GPU 更新压到 218 次。</p>
+<p><strong>第二个被略过的细节是 594.74% 这个数字其实只能用在 Codex 这一栏。</strong> 用 3.8% 当分母算出来的「595%」，看起来惊人，但它的物理意义是「从『几乎完全跑不出来』到『跑出四分之一题』」。其他三个代理框架本身基础就高（Pi 是 34.2%、Qwen Code 是 34.6%、Claude Code 是 29.8%），同样的训练数据、同样的 GRPO、同样的步数下来，涨幅分别是 6.2、0.6、4.8 个百分点。如果按相对涨幅算，Pi 涨了 18%、Claude Code 涨了 16%、Qwen Code 涨了不到 2%。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/29/polar-swebench-bar-2026-05-29.png" alt="Polar GRPO 训练在四个代理框架上的 SWE-Bench Verified pass@1 提升"></p>
+<p>这不是说媒体说错了——3.8% 到 26.4% 是真的，提升 22.6 个百分点也是真的。但用 594.74% 当唯一头条数字，会让读者误以为 Polar 在所有智能代理框架上都能复制这个倍数。论文表 1 写得清清楚楚：Codex 那一栏之所以涨幅这么夸张，是因为原始 Qwen3.5-4B 默认的输出格式跟 Codex 的解析器对不上，导致没训练前几乎每题都因为格式错误判负，分数才会低到 3.8% 这种「几乎全错」的水平。训练做的事更接近「教会模型适配 Codex 的输出格式」，而不是「让模型本身写代码能力翻 6 倍」。这也是为什么 Qwen Code 那一栏只涨了 0.6——它本身就是阿里千问家的代理框架，输出格式天然匹配，已经接近这个底座的能力上限。</p>
+<p>把这个观察再细化一点。SWE-Bench Verified 的评估流程是这样的：把模型放进代理框架里跑，代理生成补丁，把补丁应用到原仓库后跑测试用例，全部通过算 1 分。这中间任何一步失败——补丁格式不对、文件路径解析错、测试找不到、超出 token 上限——都直接判 0。Qwen3.5-4B 默认输出风格里有很多 markdown 包裹、思考过程留痕、文件路径模糊指代，跟 Codex CLI 的纯 diff 解析器对不上，导致几乎每题都在「补丁解析」这一步就死掉。训练后模型学会输出干净的 diff 块、明确的文件路径、最小化的思考留痕，分数才能真正爬上去。</p>
+<p>也正因为这样，国内媒体把头条数字写成「Codex 暴涨 594.74%」其实有点抢戏——它把读者注意力锁在「6 倍提升」这种容易上头条但不准确的叙事上，而 Polar 工程上真正值得国内开发者关注的点（token 级保真度、网关式架构、跨代理迁移性）反而被遮了一层。新浪科技在文章后半段确实补全了 GPU 利用率从 20.4% 到 87.7% 这种细节，凤凰网也提了前缀合并降低更新次数的工程贡献——但这些都被埋在头条数字下面，普通读者看完只剩下「Polar 让 Codex 涨了 6 倍」这一个印象。对国内同行来说，本文这次把媒体头条与论文表 1 逐条对照，目的就是把工程细节从头条数字背后拉到台面上。</p>
+<h2>三、GRPO 算法简史与 token 级轨迹重建的实质</h2>
+<p>GRPO 全称 Group Relative Policy Optimization，DeepSeek 团队 2024 年 4 月发表 DeepSeekMath 论文时提出，今年年初 DeepSeek R1 之后在 RL 圈被广泛采纳。它和 PPO（近端策略优化）最大的区别在于丢掉了价值网络（critic）——传统 PPO 训练需要同时跑一个策略网络和一个价值网络估算每一步的优势，GRPO 直接对同一道题采样 N 次答案，用这 N 个答案得分的均值做基线，每个答案相对均值的差就是优势信号。</p>
+<p>这套方法之所以在过去一年成为大模型 RL 的主流，原因有三条：一是省一半显存，不用同时维护价值网络；二是训练曲线更稳，因为基线是统计量而不是预测值；三是天然适合「同一道题多种解法」这种代码 / 数学场景。DeepSeek、阿里 Qwen、智谱 GLM、Meta Llama 3.x 后续的 RL 实验里都不同程度用了 GRPO 变体。</p>
+<p>那 Polar 把 GRPO 用到「智能代理 + 真实工具调用」场景上，新东西在哪里？关键在「token 级轨迹重建」这个词的实质。</p>
+<p>传统大模型 RL 训练有一个隐性假设：模型产生的每一个 token 都直接接受梯度回传。但当模型被包在一个智能代理框架里跑时，事情变复杂了——代理框架会在模型输出和最终评估之间插入大量「中间 token」：工具调用结果、文件路径整理、对话历史压缩、上下文重排。这些中间 token 不是模型自己生成的，但它们会出现在下一轮的输入里。如果训练时把这些中间 token 当成模型自己生成的（错误地分配梯度），就会污染训练信号；如果完全砍掉它们，又会丢掉重要的上下文，模型学到的策略会跟评测时的真实行为偏离。</p>
+<p>Polar 解决这件事的方式是：网关在拦截 API 调用时，明确区分「这一段是模型刚刚采样出的、可训练 token」与「这一段是代理框架插入的、需要 mask 的 token」。论文里把可训练 token 叫 trainable token，需要 mask 的叫 canonical interstitial token，训练时只对前者算梯度。这一刀切得准不准，直接决定了训练出来的策略能不能在评测时复现——这就是论文反复强调的 behavior policy fidelity（行为策略保真度）。</p>
+<p>简单说，Polar 做的事相当于：让模型在 Claude Code 里实际跑出来的每一个 token 都被精确记录，然后只对真正出自模型自己的那部分 token 训练。代理框架插进来的工具结果、上下文重排，全部当成环境观测来对待。</p>
+<p>再往下还有一层细节值得展开——为什么是 token 级别、不是消息级别。当前主流的 RL 实现，绝大多数是在 OpenAI 风格的 chat completion 接口上做的，训练单位是「一条助手消息」。这种粒度对短回答场景够用，但智能代理的实际工作流里，单条助手消息往往要分好几次工具调用、好几轮内部思考，每次都跟模型 API 来回一次。如果训练只看「这条消息得分多少」，丢掉的信号量非常大——同样一条助手消息，模型可能是「一次到位算对」，也可能是「思考三轮才算对」，对 GRPO 算法来说这两种情况应该给的优势信号完全不同。</p>
+<p>Polar 的 token 级记录把这层粒度补齐了。论文 4.3 节专门提了一个细节：每条轨迹除了记 token，还记一个 finish reason（终止原因，例如 stop / length / tool_call）。这个字段告诉训练器「这一段输出是模型主动停的，还是上下文窗口截断的、还是工具调用打断的」——这对 GRPO 计算优势信号至关重要，因为长度截断的样本不能跟正常完成的样本放一起算基线。</p>
+<p>这种工程细节才是 Polar 真正的技术贡献——不是发明一个新 RL 算法，而是把代理训练的轨迹采集这件事做扎实了。</p>
+<h2>四、把 Codex CLI / Claude Code / Qwen Code 当训练环境意味着什么</h2>
+<p>这一节是 Polar 真正引人注目的地方。</p>
+<p>过去一年里，AI 编程工具的发展大致沿两条路走：一条是 OpenAI、Anthropic、Google 这种「自训底座 + 自建代理框架 + 自建工具回路」的全栈路线，比如 Claude Code 就是 Anthropic 自家的 Claude 系列模型加上自家的代理框架 + 工具调用约定；另一条是 Cursor、Codex CLI 这类「不自训底座、深度后训练 + 工程化代理框架」的轻量路线，Cursor Composer 2.5 用 Kimi K2.5 做底座就是典型例子。</p>
+<p>Polar 出现之前，第二条路线想做强化学习训练有个明显瓶颈：代理框架是别人家的（或者自家的但代码结构不适合改），模型生成的 token 跟最终代码评测之间隔着一层代理逻辑，做 RL 要么把代理逻辑重写成 RL 友好的 env.step() 接口（工程量巨大、容易失真），要么完全不做 RL、只做监督微调（上限明显较低）。</p>
+<p>Polar 直接给出第三条路：代理框架一行代码不改、模型 API 地址改一下、剩下交给网关。意味着——</p>
+<ul>
+<li><strong>任何手里有代理框架的团队都能立刻开始做 RL 训练</strong>——不用自训底座，不用重写代理，不用对齐评估管线</li>
+<li><strong>代理框架本身从「产品交付物」升级为「训练资产」</strong>——代理设计得越好，模型在它身上能学到的信号就越精确</li>
+<li><strong>跨代理迁移变得可能</strong>——同一个底座配 Codex 涨 22.6 个百分点、配 Pi 涨 6.2、配 Claude Code 涨 4.8、配 Qwen Code 涨 0.6，意味着代理框架本身的设计差异会被训练信号放大或抑制</li>
+</ul>
+<p>最后一条尤其值得国内同行注意。它指向一个反直觉的结论：<strong>对于已经接近底座上限的代理框架（比如 Qwen Code 配 Qwen3.5-4B 这种天作之合）来说，强化学习的边际收益反而小</strong>。Pi 这个代理框架涨了 6.2 个百分点，原因是它的代理设计比较通用、底座尚未充分适配，训练能补的空间还在；而 Codex 涨 22.6 个百分点的真实原因之一，是它的解析格式跟 Qwen3.5-4B 默认输出严重不匹配，训练在补一个对齐窗口。</p>
+<p>换个说法：Polar 把代理框架对训练效果的贡献度量化了。代理设计好不好、跟底座匹配度高不高，从过去靠工程师感觉判断，变成了 SWE-Bench Verified 上 22.6 vs 0.6 这种可以直接读数的差距。</p>
+<p>这件事还有一个延伸结论值得多说一句。论文里附了一张关于「同一底座配不同代理框架，训练前的分数差」的对比图：Qwen3.5-4B 不训练直接跑，Codex 3.8%、Claude Code 29.8%、Qwen Code 34.6%、Pi 34.2%——同一个模型，仅仅换了代理框架，分数能差到 30 个百分点。这个差距以前在英文社区里被反复讨论，但鲜有人能给出系统性的解释。Polar 论文的数据补全了一块拼图：训练前的差距大部分来自「代理框架对模型输出格式的容错度」，而训练能补上的部分主要是「让模型学会代理框架偏好的格式与回路」。</p>
+<p>对国内做大模型推理服务的同行（百度智能云、阿里云百炼、字节火山方舟、月之暗面 API、深度求索 API）来说，这条结论指向一个商业角度的判断——同样一个开源模型挂在不同平台上，最终在 SWE-Bench Verified 上能跑多少分，跟平台是不是配套了一个好用的代理框架直接相关。光卖 token 不卖代理框架，模型的能力释放不出来；同时卖好代理框架的平台，能从「同一底座、同一定价」里挤出十几个百分点的实测分差。这是 Polar 论文之外的一条产品启示。</p>
+<h2>五、SWE-Bench Verified 的真实位置：3.8% 与 26.4% 在排行榜上排第几</h2>
+<p>SWE-Bench Verified 是 SWE-Bench 系列里 OpenAI 团队 2024 年人工筛选过的子集，500 道真实 GitHub issue，每道题包含一个明确的 bug 复现、一个修复目标、一组自动化测试用例。判分方式是单次提交、跑完测试通过算 1 分，pass@1 就是单次尝试的通过率。</p>
+<p>为了让国内开发者对 3.8% 和 26.4% 这两个数字有概念，把当前公开榜上几档排位放一起看——</p>
+<table>
+<thead>
+<tr>
+<th>模型与代理</th>
+<th>SWE-Bench Verified pass@1</th>
+<th>类别</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Claude Opus 4.7 + Claude Code</td>
+<td>约 80%</td>
+<td>当前榜首水平</td>
+</tr>
+<tr>
+<td>Cursor Composer 2.5 + Cursor 内部代理</td>
+<td>约 79.8%</td>
+<td>与榜首基本持平</td>
+</tr>
+<tr>
+<td>Claude Sonnet 4 + 多种代理</td>
+<td>约 65–70%</td>
+<td>主力商业档</td>
+</tr>
+<tr>
+<td>Qwen3-Coder-480B + 自家代理</td>
+<td>约 50–55%</td>
+<td>国产开源最强档</td>
+</tr>
+<tr>
+<td>Qwen3.5-4B + Pi + Polar GRPO</td>
+<td><strong>40.4%</strong></td>
+<td>本文重点·小底座 + 强化学习后</td>
+</tr>
+<tr>
+<td>Qwen3.5-4B + Qwen Code + Polar GRPO</td>
+<td><strong>35.2%</strong></td>
+<td>同上</td>
+</tr>
+<tr>
+<td>Qwen3.5-4B + Claude Code + Polar GRPO</td>
+<td><strong>34.6%</strong></td>
+<td>同上</td>
+</tr>
+<tr>
+<td>Qwen3.5-4B + Codex + Polar GRPO</td>
+<td><strong>26.4%</strong></td>
+<td>同上</td>
+</tr>
+<tr>
+<td>Qwen3.5-4B + Codex（无训练）</td>
+<td><strong>3.8%</strong></td>
+<td>训练前</td>
+</tr>
+<tr>
+<td>GPT-3.5 时代水平</td>
+<td>约 1–3%</td>
+<td>历史档</td>
+</tr>
+</tbody></table>
+<p>读这张表的关键不是「Polar 让 4B 干掉 Opus」——根本没干掉，Opus 还在 80% 这一档稳坐榜首。读这张表的关键是另一件事：<strong>一个 4B 的小模型，靠 Polar GRPO 训练之后，在最好的代理框架（Pi）上能跑到 40.4%——这已经超过了一年前所有 70B 量级模型的水平</strong>。</p>
+<p>这个意义对国内开发者特别直接：以前想跑 SWE-Bench Verified 上 40% 这条线，至少要一张 H100 推 70B 模型，单次推理成本几块钱；现在 4B 的小模型用一张消费级 RTX 5090 就能跑，单次推理成本几分钱。当代理框架本身做得够好、训练做得够透，模型规模不再是决定性瓶颈——这条结论被 Polar 的实验数据直接确认了。</p>
+<p>把视角再拉远一点，SWE-Bench Verified 这条评测线还在持续演进。今年年初 Princeton 团队发布了 SWE-Bench Live 版本，每周更新真实 GitHub issue，避免训练数据污染；五月还出了 SWE-Bench Mobile，把场景扩展到 Android 应用开发。这意味着「在 SWE-Bench Verified 上跑到 26.4%」这个数字不会永远是 26.4%——当评测集每周更新、更多代理框架接入，分数曲线本身就是个动态变量。Polar 把训练管线开源，等于把整个曲线的下半段（如何用小底座 + 强化学习把分数推到 40% 这条线）变成了一份可复现的工程参考。这对国内研究团队的实际意义比媒体头条数字大得多——不是看 NVIDIA 又涨了多少，而是知道用什么算力、什么数据集、什么代理框架配置，可以自己稳定复现到哪一档。</p>
+<h2>六、国内 AI 编程工具五家训练方式横评</h2>
+<p>把 Polar 这条路线对照国内现有 AI 编程工具看一遍，能看出每家训练方式的强项和短板。我把当前国内五家主力工具的训练方式放在同一个表格里——</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/29/cn-aicoding-rl-training-matrix-2026-05-29.png" alt="国内 5 家 AI 编程工具训练方式横评（底座 / 强化学习 / 工具回路 / 评测 / Polar 适配难度）"></p>
+<p>逐条说明——</p>
+<p><strong>阿里千问 Coder</strong>。底座是阿里自研 Qwen3-Coder，强化学习用的是 GRPO 加阿里自家的变体，工具回路是阿里自家的代理框架，自家有 QwenBench 评测。Polar 的工程范式跟阿里现有路线高度重合，适配几乎是「直接套用」级别——把网关塞在自家代理框架前面就能跑。</p>
+<p><strong>字节 Trae</strong>。Trae 2025 年公开的资料里强调用了豆包和 Claude 双底座，强化学习公开材料较少。Trae 的代理框架是 IDE + 命令行双形态自研，工程链路完整。Polar 适配需要做一些代理回路改造——尤其是双底座路由这一层，需要在网关层面分别记录两套 token 轨迹。</p>
+<p><strong>阿里 Qoder</strong>。这是阿里去年新出的海外向 AI 编程产品，公开材料明确写了用 Qwen-Coder 底座做大规模强化学习训练，目标对齐 Qoder 代理框架、自家工具、自家场景。Qoder 自带 Eval 评测，工程链路最接近 Polar 设想——基本可以直接对接。</p>
+<p><strong>智谱 SkyClaw（暂用项目名）</strong>。GLM-4.5 / 4.6 底座，公开材料里以监督微调为主，代理框架兼容多种第三方。Polar 适配需要补一段——智谱团队需要先把现有代理回路接入 token 级记录，再接 GRPO 训练器。这一步工程量在中等档。</p>
+<p><strong>阿里灵码</strong>。Qwen 系列底座，公开 changelog 里强调的是增量微调和工程化，IDE 内置智能代理，暂时用通用评测榜（HumanEval、MBPP）。如果灵码团队想跟进 Polar 路线，需要把内置代理的工具调用结果记录精度提到 token 级。</p>
+<p>横评下来，能看到一个有意思的分布：阿里系（千问 Coder、Qoder、灵码）的代理回路工程化做得最深，对 Polar 范式的适配成本最低；字节 Trae 工程链路完整但路由层需要改；智谱 SkyClaw 是几家里需要补最多链路的。这跟各家公开材料里描述的训练投入比例基本对得上——阿里在后训练上的投入明显高于平均，路线选择上跟 NVIDIA 这次 Polar 走的方向是一致的。</p>
+<p>横评里还能读出一个被忽视的细节：国内五家工具里只有 Qoder 在公开材料里直接提了「大规模强化学习训练」这条线，其他四家要么强调底座、要么强调监督微调、要么不细说训练方式。这跟海外市场的披露习惯有差——Anthropic Claude Code 团队在多次技术分享里强调 RLHF 加 RLAIF 的细节，OpenAI Codex CLI 团队也公开过自家的强化学习训练栈。国内同行的训练细节披露偏保守，一方面是商业考虑，另一方面也跟评测榜的选择有关——自家评测榜不像 SWE-Bench Verified 那么标准化，公开数据时容易遭遇「评测可比性」的质疑。Polar 这次把训练数据集 SkyRL-v0-293、评测集 SWE-Bench Verified 都用业界标准件，反而给了国内团队一个新的披露方式：跑同一份数据、报同一份评测，谁的代理框架做得更好、谁的训练效率更高，直接可比。</p>
+<p>再延伸一层——Polar 的开源不只对国内 AI 编程工具厂商有价值，对独立开发者和小团队的意义也很直接。独立开发者过去几乎没法做智能代理的强化学习训练，因为缺三样东西：完整的代理框架（自己写工程量大）、对齐的训练管线（自己接 GRPO 容易踩坑）、可复现的实验基线（论文很少给出能直接跑的代码）。Polar 一次性把这三样都填了——内置六个主流代理框架的适配、训练管线开箱即用、SkyRL-v0-293 数据集和 arXiv 表 1 数字都可复现。独立开发者拿一张 A100 / H100 就能跟着论文跑出 Pi 框架 +6.2 个百分点的复现实验，这个起点比一年前低了一档以上。</p>
+<h2>七、国内研究团队能不能用 Polar 训自己的模型——可行性对比</h2>
+<p>清华、北大、中科院计算所、阿里达摩院、智源研究院——这五个团队里任何一个，理论上从今天开始就能用 Polar 训自己的智能代理模型。门槛在哪里？分三档说。</p>
+<p><strong>算力门槛</strong>。论文用的是 Qwen3.5-4B 底座，单机 8 卡 H800 训练。完整训练时间论文没公开总小时数，但从 1185 次更新降到 218 次、墙钟时间从 189.5 分钟降到 35.2 分钟这两个数推断，单轮训练的算力需求在 4 卡到 8 卡 H800 这一档。对于已经有 GPU 集群的国内 985 高校实验室和头部 AI 公司，这个量级完全可承受。</p>
+<p><strong>数据门槛</strong>。训练数据用的是 NovaSky-AI 团队的 SkyRL-v0-293，开源且数据量很小——训练集只有 293 条软件工程任务。如果国内团队想做的是自家代码风格、自家文档结构的训练，需要自己整理一份类似规模的真实 GitHub issue 数据集。这件事工程量不大，国内大厂的代码仓库本身就是富矿。</p>
+<p><strong>代理框架门槛</strong>。Polar 内置了 Codex、Claude Code、Qwen Code、Pi、Gemini CLI、OpenCode 六个适配。如果国内团队用的代理框架不在这六个里——比如 Cursor 内部代理、字节 Trae、智谱内置代理——需要自己写一个 Polar 适配层。论文里给的是「指针式适配」——只要代理把所有模型调用走 HTTP 转出去，适配层基本就是几十行 Python。</p>
+<p>把这三档放一起看，结论是：<strong>对国内有完整代理框架 + 4B 起底座 + 单机 8 卡 H800 的团队来说，Polar 是一个可以「下周就开始用」的工具</strong>。不是「等等看英文社区怎么用」，不是「等阿里 / 字节先跑通再说」。论文、代码、训练数据集三件套全部开源在公开渠道，国内团队的起跑线跟 NVIDIA 自家研究组没有时间差。</p>
+<p>值得国内研究团队再多想一层的，是 Polar 给出的「代理框架可比性」这件事。过去做 AI 编程方向的论文，最大的痛点之一就是「不同团队的代理框架不一样、训练数据不一样、评测口径不一样，论文报的分数横向不可比」。Polar 把代理框架、训练算法、数据集、评测集这四个变量全部解耦——拿同一个底座、同一份训练数据、同一个评测集，跑四个不同的代理框架，分数差直接读出来。这种实验设计在国内做强化学习方向博士论文时非常稀缺，能直接套用 Polar 的实验范式，就省掉了大量重新搭实验框架的工作。</p>
+<p>具体可以怎么做？建议路径是：第一阶段拿现成的 Codex CLI 适配，复现论文 +22.6 那一栏（最容易跑通，因为基线 3.8% 几乎是地板）；第二阶段把底座从 Qwen3.5-4B 换成自家关心的底座（比如 GLM-4.5、Qwen3-Coder-30B、DeepSeek-V3.5），看看同一份 SWE-Gym-293 训练数据在不同底座上的迁移性；第三阶段把训练数据换成自家整理的代码场景（比如内部代码风格的真实 issue），训练一个对自家代码库特别理解的代理模型。这条三阶段路径前两步可以完全套用 Polar 仓库给的 README 流程，第三阶段才需要自己写代码——对一个博士生而言，这是一个三个月内能跑完一篇会议论文的实验设计。</p>
+<h2>八、国内开发者三档参与路径——按身份适配</h2>
+<p>最后把视角拉到不同身份的国内开发者，看看怎么参与 Polar 这件事。</p>
+<p><strong>个人开发者档</strong>。如果你在用 Codex CLI、Claude Code、Qwen Code、Cursor 这些 AI 编程工具，短期不需要做什么——Polar 是给训练侧用的，对终端用户日常体验没有直接影响。但有一件事值得做：去 GitHub 仓库的 examples 目录看一下 Polar 的代理适配代码（大约几百行 Python），理解一下「模型 API 拦截 + token 级记录 + 多轮轨迹合并」这套工程范式。这种代理网关思路对个人项目里做 LLM 应用监控、记录调试也用得上——把它当成一个「智能代理可观测性 + 训练数据采集」的开源参考实现读，价值不止训练。</p>
+<p><strong>研究 / 实验室档</strong>。如果你在高校实验室或研究院做 AI 编程方向，Polar 提供了一个可以立刻接手的起点：开源代码 + 开源数据集 + 论文表 1 的完整可复现实验。建议的入手路径是先用 SkyRL-v0-293 数据集复现论文里 Pi 那一栏的 +6.2 个百分点（最容易复现的一栏，因为 Pi 设计相对通用），然后再换自己关心的代理框架试 GRPO 训练。这条路适合做 AI 代理训练方向论文，也适合做强化学习算法对比研究——Polar 把环境层和算法层解耦得很彻底，换算法是直接换的事。</p>
+<p><strong>企业档</strong>。如果你在国内一家正在做 AI 编程产品的公司——字节、智谱、月之暗面、深度求索、零一万物、阶跃星辰、面壁智能这些——Polar 给的工程模板可以直接对照评估。优先评估三件事：自家代理框架的工具调用回路有没有完整记录、自家底座的输出格式跟主流代理（Codex / Claude Code）的兼容度、自家训练管线能不能接入 GRPO。这三件事评估完，能给出一个明确的工程时间表——是「下个月就能跑」还是「需要三个月补齐链路」。</p>
+<p>Polar 给国内 AI 编程同行的最重要信号其实就一句话：<strong>不需要自训底座到 70B 这一档、不需要自建代理框架那套完整工程，只要把代理回路记录做透、把 token 级轨迹保真度做高、再上 GRPO，4B 的小模型在最好的代理框架上也能跑到 SWE-Bench Verified 40% 这条线</strong>。这是一条对资源紧、节奏快、走开源路线的国内团队特别友好的路。</p>
+<p>最后回到媒体头条那个 594.74% 的数字上做个收束。这个数字本身没错，它来自 Codex 那一栏从 3.8% 涨到 26.4% 的相对计算。但用它当头条会让读者错失更重要的一句话——Polar 真正的工程贡献，不是把哪一栏分数推高，而是把「代理框架在哪里跑、就在哪里训」这件事的工程模板用一份开源代码确认了下来。新浪、凤凰、ITBear 三家国内媒体的覆盖密度足够，但深度上还差一档；本文逐条对照论文表 1 与官方仓库元数据（397 star、40 fork、Apache-2.0 协议、5 月 22 日提交 arXiv、5 月 27 日代码大规模发布），把媒体口径和技术真相的差距一次摆清，希望能给国内 AI 编程同行一份比头条数字更耐读的参考。</p>
+<hr>
+<hr>
+<blockquote>
+<p>数字来源：NVIDIA Polar 论文 arXiv:2605.24220 表 1；GitHub 仓库 NVIDIA-NeMo/ProRL-Agent-Server 元数据（397 star / 40 fork / Apache-2.0）；新浪科技 / 凤凰网科技 / ITBear / 中文科技资讯 / AIbase 五家 5-28 报道；MarkTechPost 5-27 技术深度报道。配图均托管在公开 GitHub 图片仓库 daily-report-images。Claude Code 协作（Claude Opus 4.7，1M context）写作，人类编辑 Can Wang 终审。如果你按本文路径在自家代理框架上跑通 Polar GRPO 训练，欢迎把训练曲线和适配踩坑写出来——这条路上越多人走，国内 AI 编程的训练侧基础设施就越扎实。</p>
+</blockquote>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
