@@ -3,7 +3,7 @@ import Link from "../../../components/Link.vue";
 import Notch from "../../../components/Notch.vue";
 import ArrowRightLong from "../../../components/icons/ArrowRightLong.vue";
 import gsap from "gsap";
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import ButtonRound from "../../../components/ButtonRound.vue";
 import { t } from "../../../i18n/utils/translate";
@@ -19,6 +19,19 @@ const imageRef = ref<HTMLImageElement | null>(null);
 const props = defineProps<{
   preview?: ProjectPreview;
 }>();
+
+// Map preview slug → live subpath under wangcansunking.github.io.
+// Click takes the user straight to the live product page instead of
+// the internal /project/<slug> detail (which we never built out).
+const SLUG_TO_LIVE: Record<string, string> = {
+  "agent-learning": "/agent-learning/",
+  "ai-daily": "/ai-daily/",
+  "daily-report": "/daily-report/",
+  "claude-plugins": "/can-claude-plugins/",
+};
+const liveHref = computed(() =>
+  props.preview ? SLUG_TO_LIVE[props.preview.slug] : undefined
+);
 
 onMounted(async () => {
   if (!wrapperRef.value || ScrollTrigger.isInViewport(wrapperRef.value)) {
@@ -46,9 +59,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Link
+  <a
     class="preview-card children-unclickable"
-    :to="`/project/${props.preview.slug}`"
+    :href="liveHref"
     :aria-label="t('switch-to-project', { project: props.preview.title })"
     data-cursor="arrow"
     data-sound="click"
@@ -77,7 +90,7 @@ onUnmounted(() => {
         <p class="preview-card-description">{{ props.preview.description }}</p>
       </div>
     </div>
-  </Link>
+  </a>
 
   <Link
     v-else
