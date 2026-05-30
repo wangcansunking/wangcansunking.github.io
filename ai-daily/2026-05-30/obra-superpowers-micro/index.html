@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>兼容Claude Code与Cursor等8大代理：Superpowers如何强制执行TDD开发？ — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-30</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-30</span><span class="tag-pill">AI Daily</span></div>
+      <h1>兼容Claude Code与Cursor等8大代理：Superpowers如何强制执行TDD开发？</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/obra-superpowers-micro/head.png" alt=""></p>
+<p>“先写测试，再写代码”这句话，过去二十年里被无数技术博主写烂了。但 2026 年的开发者打开 Claude Code 或 Cursor，面对一个空项目时，99% 的人依然选择从 <code>main.py</code> 开始敲，而不是从 <code>test_main.py</code>。</p>
+<p>Jesse Vincent 显然被这 99% 气得不轻。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/obra-superpowers-micro/content-1.png" alt="obra/superpowers — An agentic skills framework & software development methodolog"></p>
+<p>他放出的 <strong>Superpowers</strong>，表面上是个给 coding agent 用的技能框架，骨子里是一套强制执行 TDD 的软件方法论——而且它的目标用户不是人，是 AI。你不需要自己记住“先写测试”，你的 agent 会自己查 skill 列表，然后拒绝在测试失败之前写任何一行做到代码。</p>
+<p><strong>这不是建议，是硬约束。agent 如果不照做，skill 会直接把它拉回正轨。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/obra-superpowers-micro/schematic-1.png" alt="Superpowers 核心循环——brainstorming → design → plan → subagent-task → TDD-red-green-refactor → review → finish，每一环都标注了对应的 skill 名称"></p>
+<hr>
+<h2>一个 200 行 README，凭什么同时兼容 8 个 coding agent？</h2>
+<p>先看一组数字：Superpowers 的 Quickstart 章节列出了 8 个受支持的 harness——<strong>Claude Code、Codex CLI、Codex App、Factory Droid、Gemini CLI、OpenCode、Cursor、GitHub Copilot CLI</strong>。从 Anthropic 旗舰到 OpenAI 新贵，从 Google 实验品到微软老牌工具，一网打尽。</p>
+<p>但更有意思的是安装方式的高度碎片化。Claude Code 走的是 Anthropic 官方插件市场，一条 <code>/plugin install superpowers@claude-plugins-official</code> 就完事。OpenCode 用户却得手动 fetch 一个 raw GitHub URL 里的 INSTALL.md。Gemini CLI 用 <code>gemini extensions install</code>，Cursor 用 <code>/add-plugin</code>，GitHub Copilot CLI 用 <code>copilot plugin</code> 前缀。每一套 CLI 的工具链哲学都不一样，Superpowers 硬是给每一条都写了一份安装指南。</p>
+<p>这暴露了一个尴尬的现实：<strong>2026 年的 coding agent 生态，比 2016 年的 JavaScript 框架战国时代还混乱。</strong> 每个 agent 都有自己的插件系统、自己的 marketplace 规则、自己的 CLI 动词。Superpowers 与其说是一个“跨平台框架”，不如说是一次对产业碎片化的无声抗议——Jesse 得为 8 个不同的入口维护同一套 skill 定义，而社区贡献的新 skill 还必须“在所有支持的 coding agent 上都能跑”（原文说的很直白：<code>any updates to skills must work across all of the coding agents we support</code>）。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/obra-superpowers-micro/schematic-2.png" alt="8 个 coding agent 的安装命令对照表，突出每个工具的 CLI 动词差异——/plugin install / gemini extensions install / copilot plugin / droid plugin / fetch raw URL"></p>
+<hr>
+<h2>TDD 执行到什么程度？连“看到测试失败”都是强制步骤</h2>
+<p>Superpowers 里最让我愣神的是 <code>test-driven-development</code> 这个 skill 的描述。它不是泛泛地说“请使用 TDD”，而是把 RED-GREEN-REFACTOR 拆成了<strong>可验证的动作序列</strong>：</p>
+<ol>
+<li>写一个会失败的测试</li>
+<li><strong>亲眼看着它失败</strong>（原文：watch it fail）</li>
+<li>写刚好够用的最小代码</li>
+<li><strong>亲眼看着它用</strong>（watch it pass）</li>
+<li>commit</li>
+</ol>
+<p>第五条是真正的杀招——<strong>“删除在测试之前写的任何代码”</strong>。这不是建议，这是 agent 执行计划时会主动执行的清理动作。如果你让 agent 先写了做到再补测试，它会在 review 阶段被 <code>requesting-code-review</code> skill 标记为 critical issue，然后阻塞进度。</p>
+<p>Vincent 在设计这套系统时显然对人性（或者说 AI 的“惰性”）有极深的认知。agent 跟人一样，面对模糊指令时会走捷径。Superpowers 的对策是把捷径全部堵死：<code>systematic-debugging</code> 要求四阶段根因分析（root-cause-tracing → defense-in-depth → condition-based-waiting → verification-before-completion），<code>finishing-a-development-branch</code> 要求在合并前验证所有测试用，<code>subagent-driven-development</code> 甚至给每个子任务分配了<strong>两阶段 review</strong>——先检查 spec 合规性，再检查代码质量。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/obra-superpowers-micro/schematic-3.png" alt="subagent-driven-development 的两阶段 review 流程——spec compliance check → code quality check，critical issue 会 block 进度"></p>
+<p>值得一提的是，<code>subagent-driven-development</code> 和 <code>executing-plans</code> 是两个并列的选项。前者是“每个任务派一个全新子 agent，独立 review”，后者是“批量执行，人工 checkpoint”。这说明 Vincent 很清楚不同场景下的取舍——子 agent 模式隔离性好但 token 消耗大，批量模式快但需要人盯着。这个设计细节让我觉得 Superpowers 不是实验室里的白皮书，是真有人在生产环境里踩过坑之后才打磨出来的。</p>
+<p>至于 <code>using-git-worktrees</code>，它会在 design 批准后自动创建隔离工作区、切新分支、跑项目初始化、验证测试基线。这一步看起来像基础设施，但放在 Superpowers 的流程里意义重大：<strong>它确保了每个 feature 的起点是干净的。</strong> 没有什么比 agent 在前一个 feature 留下的全局状态污染更让人头疼了。</p>
+<hr>
+<p>Jesse Vincent 是谁？Prime Radiant 这家公司又是什么来头？GitHub 上的信息很有限——我们知道 Vincent 是 Superpowers 的主要作者，Prime Radiant 是他和团队所在的组织，项目以 MIT 协议开源，Discord 社区已经建立起来了。但更让我好奇的是这个项目的商业逻辑：README 里只有一段赞助请求（“如果 Superpowers 帮你赚了钱，考虑赞助我的开源工作”），没有任何 SaaS 定价页或 enterprise tier 的暗示。</p>
+<p>一个覆盖 8 个主流 coding agent、强制执行 TDD 和结构化开发流程的框架，居然是完全免费的。这要么是纯粹的理想主义，要么是 Prime Radiant 在用 Superpowers 当某种更大战略的入口——比如卖咨询服务，或者为后续的付费 skill marketplace 铺路。目前没有任何证据指向后者，但我会持续盯着他们的 Discord 公告。</p>
+<p><strong>对了，如果你准备让 Claude 自己装 Superpowers，记得先确认它能不能看到插件市场——别像某个 Reddit 用户那样，折腾了一下午才发现用的是企业版，插件市场被 IT 关了。</strong></p>
+<hr>
+<h2>参考来源</h2>
+<ul>
+<li><a href="https://github.com/obra/superpowers" target="_blank" rel="noopener">https://github.com/obra/superpowers</a></li>
+<li><a href="https://github.com/obra/superpowers#quickstart" target="_blank" rel="noopener">https://github.com/obra/superpowers#quickstart</a></li>
+<li><a href="https://github.com/obra/superpowers#installation" target="_blank" rel="noopener">https://github.com/obra/superpowers#installation</a></li>
+<li><a href="https://github.com/obra/superpowers#how-it-works" target="_blank" rel="noopener">https://github.com/obra/superpowers#how-it-works</a></li>
+<li><a href="https://github.com/obra/superpowers#the-basic-workflow" target="_blank" rel="noopener">https://github.com/obra/superpowers#the-basic-workflow</a></li>
+<li><a href="https://github.com/obra/superpowers#whats-inside" target="_blank" rel="noopener">https://github.com/obra/superpowers#whats-inside</a></li>
+</ul>
+<p>#An #AI #科技</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

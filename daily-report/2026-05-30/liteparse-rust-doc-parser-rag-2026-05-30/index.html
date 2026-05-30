@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>liteparse：给 RAG 配个快的本地文档解析器 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-30</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-30</span><span class="tag-pill">Daily Report</span></div>
+      <h1>liteparse：给 RAG 配个快的本地文档解析器</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/liteparse-rust-doc-parser-rag-2026-05-30.png" alt="liteparse：LlamaIndex 团队开源的 Rust 文档解析器，登上 GitHub Trending"></p>
+<p>做 RAG（检索增强生成）和知识库的人都懂一件事：<strong>真正天天折磨人的，不是检索算法，也不是用哪个大模型，而是第一步——把一份 PDF、Word、PPT 干净地变成文字。</strong> 这一步做不好，后面切片再精、向量再准、模型再强，都救不回来。</p>
+<p>这个月，做 LlamaIndex 的那个团队把他们的文档解析器 liteparse 用 Rust 完全重写后开源，5 月 29 日当天涨了约 680 颗 star，总数到约 7100，冲上了 GitHub Trending。它的定位很克制：<strong>纯本地跑、不依赖大模型、不要 API key、把&quot;快&quot;做到极致。</strong> 这正好补上了国内做 RAG 的人一直缺的一档选项——既不想把文档传到云端，又不想为了解析一份合同去开一块 GPU。</p>
+<p>本文想把一件事讲清楚：<strong>liteparse 到底解决了什么痛点，它和微软的 markitdown、国内的 MinerU、以及 LlamaIndex 自家的云端版 LlamaParse 各占什么位置，国内开发者在什么场景下值得换过去。</strong> 结论先放这儿——如果你要的是&quot;在自己机器上、几百页文档零点几秒出文字、喂给 Agent 就走&quot;，liteparse 现在是最顺手的那一个；如果你要啃的是密密麻麻的表格、扫描件、手写体，那还得另请高明。</p>
+<h2>liteparse 到底是什么：一个只干一件事的解析器</h2>
+<p>一句话：<strong>liteparse 是一个开源的文档解析库，把 PDF、Office 文档、图片里的文字连同版式一起抽出来，全程在你自己机器上跑，不连云、不调大模型、不要 API key。</strong></p>
+<p>它的几个事实，先摆清楚：</p>
+<ul>
+<li><strong>作者</strong>是 run-llama，也就是 LlamaIndex 团队——RAG 框架里名气最大的那一个，所以它对&quot;解析完之后要喂给检索和 Agent&quot;这件事理解得很到位</li>
+<li><strong>语言</strong>是 Rust，仓库里 Rust 代码占了大头，外面包了 Python、Node.js、WASM 三层调用接口</li>
+<li><strong>许可证</strong>是 Apache 2.0，商用友好，国内公司可以放心集成</li>
+<li><strong>仓库</strong>2026 年 2 月初建立，到 5 月底约 7100 star、440 fork，5 月 29 日单日涨约 680 star</li>
+<li><strong>当前版本</strong>是 v2.0 系列，5 月底连发了 Python、Node、Crates、Docker、WASM 多个平台的 2.0.3</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/source-liteparse-readme-demo.png" alt="liteparse 仓库 README 里的解析演示">
+<small>来源：run-llama/liteparse 仓库 README 配图</small></p>
+<p>它支持的格式不止 PDF。官方说覆盖 50 多种文档类型，常见的有这几大类：</p>
+<ul>
+<li><strong>PDF</strong>：主战场</li>
+<li><strong>Office 文档</strong>：Word（.doc / .docx / .docm / .odt / .rtf）、PowerPoint（.ppt / .pptx / .odp）、表格（.xls / .xlsx / .ods / .csv / .tsv），非 PDF 格式会先自动转成 PDF 再解析</li>
+<li><strong>图片</strong>：.jpg / .png / .gif / .bmp / .tiff / .webp / .svg，靠内置 OCR 认字</li>
+</ul>
+<p>值得专门说一句它的 OCR：<strong>liteparse 把 Tesseract 直接打包进去了，装好即用、零配置</strong>，这对国内开发者省事不少——不用单独折腾 OCR 环境。如果你嫌 Tesseract 认中文一般，它也留了口子，可以接一个 HTTP 服务换成 EasyOCR、PaddleOCR 或你自己的识别后端。</p>
+<blockquote>
+<p>一个反差值得记住：名字叫 liteparse、README 开头自称&quot;专注 PDF 的轻量解析&quot;，但实际支持 50 多种格式。它的&quot;轻&quot;不是指功能少，而是指<strong>不背大模型、不连云、跑得轻快</strong>。</p>
+</blockquote>
+<h2>它解决的真痛点：RAG 第一步，过去只能在&quot;快&quot;和&quot;准&quot;里二选一</h2>
+<p>这一节的核心判断：<strong>过去做文档解析，开发者被逼着在&quot;快但糙&quot;和&quot;准但重&quot;之间二选一，liteparse 想在中间补一档&quot;又快又全本地&quot;。</strong></p>
+<p>LlamaIndex 团队自己的说法很直白：传统工具逼着 Agent 做选择——</p>
+<ul>
+<li>要<strong>快</strong>，就用 pypdf 这类纯文本抽取库，结果版式经常乱、表格散架</li>
+<li>要<strong>准</strong>，就上云端服务、GPU 或视觉大模型（VLM），代价是延迟高、可能超时、还得把文档传出去</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/liteparse-rag-flow-2026-05-30.png" alt="文档解析是 RAG / Agent 读文档的第一步，也是最容易出错的一步"></p>
+<p>对一个要实时响应的 Agent 来说，这两条路都别扭。让用户上传一份 PDF 等十几秒、或者动不动超时，体验直接崩。liteparse 的取舍是：<strong>牺牲掉&quot;啃最难版式&quot;的那部分能力，换来又快、又能本地跑、又不依赖大模型的确定性。</strong> 它把抽文字这件事做得快且稳，对 Agent 来说，确定性往往比&quot;偶尔能解析出超复杂表格&quot;更重要。</p>
+<p>它给出的输出也是奔着 Agent 设计的，一共三种：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/liteparse-output-modes-2026-05-30.png" alt="liteparse 给 Agent 三种"看文档"的方式"></p>
+<ol>
+<li><strong>保留版式的文字</strong>：按空间网格还原排版，多栏、缩进不会串行，方便大模型理解文档结构</li>
+<li><strong>JSON + 边界框</strong>：给出每段文字的坐标，方便精确定位某个元素在原文哪个位置</li>
+<li><strong>PNG 页面截图</strong>：直接渲染成图，交给多模态大模型做更深的视觉推理</li>
+</ol>
+<p>这第三种很有意思——<strong>当文字抽取搞不定的时候，liteparse 不硬扛，而是把整页截成图，丢给多模态模型去看。</strong> 这其实是给 Agent 留了条后路：能用文字就用文字（快），文字不够再上视觉（准）。</p>
+<h2>为什么&quot;保留版式的文字&quot;这件事对大模型这么重要</h2>
+<p>这一节单独拎出来讲，是因为它是 liteparse 和最朴素的&quot;抽文字&quot;工具拉开差距的地方：<strong>同样是把 PDF 变成文字，留不留版式，喂给大模型的效果差很远。</strong></p>
+<p>举个最常见的例子。一份合同、一张报价单、一份带多栏排版的报告，如果用最朴素的抽取方式，文字会被&quot;摊平&quot;——左右两栏的内容交错串到一起，表格的行列错位，大模型读到的就是一团语序混乱的文字。检索的时候，明明相关的两句话被拆散了；生成的时候，模型把隔壁栏的数字张冠李戴。<strong>这类错误最隐蔽，因为它不报错，只是悄悄把答案带偏。</strong></p>
+<p>liteparse 的做法是按<strong>空间网格</strong>还原版式：</p>
+<ul>
+<li>多栏排版按列读，不会把左右两栏串成一行</li>
+<li>缩进、段落层级尽量保留，文档结构对大模型可见</li>
+<li>配合 JSON 里的边界框坐标，能精确知道某段文字原本在页面的哪个位置</li>
+</ul>
+<p>对 RAG 来说，这意味着切分（chunking）这一步能切得更干净——按真实的段落和结构切，而不是按一团乱码硬切。<strong>解析阶段多保住的那点结构，会在后面检索和生成的每一步连本带利地还回来。</strong> 这也是为什么 LlamaIndex 团队做 RAG 框架出身，会特别在意&quot;版式&quot;这件别的解析器容易忽略的事。</p>
+<h2>为什么要用 Rust 重写：v2.0 的提速来自哪里</h2>
+<p>核心判断：<strong>v2.0 改用 Rust，不是为了赶时髦，而是为了把&quot;快&quot;和&quot;到处都能跑&quot;这两件事一次性解决。</strong></p>
+<p>liteparse v1 是 TypeScript 写的，团队发现两个绕不过去的问题：一是想把它编译成一个独立二进制，TypeScript 的系统依赖太复杂、根本做不到；二是 Node 进程光是启动就占掉了大半运行时间，解析小文档时启动开销甚至盖过了解析本身。</p>
+<p>换成 Rust 之后，这两件事都顺了：</p>
+<ul>
+<li><strong>一处改、处处通</strong>：Rust 核心改一次，Python、Node、WASM 三个语言接口同步生效，不用各写一遍</li>
+<li><strong>能塞进浏览器和边缘</strong>：靠一个定制的 WASM 包，liteparse 能在浏览器里、在边缘运行时里直接跑——文档不用离开用户的浏览器</li>
+<li><strong>速度肉眼可见地提上来</strong></li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/liteparse-speedup-2026-05-30.png" alt="liteparse v2.0 改用 Rust 重写后的提速"></p>
+<p>官方给的提速数字是这样的（口径是相对自家 v1）：</p>
+<ul>
+<li><strong>小文档</strong>（几页 PDF）：提速 5 到 100 倍——因为省掉了 Node 启动那一大块开销</li>
+<li><strong>大文档</strong>（数百页）：提速约 3 倍</li>
+<li><strong>一个实测点</strong>：一份 457 页、100MB 的文档，解析耗时 0.777 秒</li>
+</ul>
+<p>技术上，Rust 核心用了一个<strong>定制 fork 并重新编译的 PDFium</strong>（Chrome 渲染 PDF 用的那个库）做底层，OCR 接的是 tesseract-rs。WASM 版本因为浏览器里没有系统级依赖，OCR 改成以回调函数的方式接入，不再内置。</p>
+<blockquote>
+<p>把这几个数字翻译成一句话：<strong>liteparse v2.0 的本事就是&quot;轻&quot;——启动几乎零开销、几百页文档零点几秒出结果、还能塞进浏览器跑，全程不碰云、不碰大模型。</strong></p>
+</blockquote>
+<h2>横向对比：liteparse、markitdown、unstructured、MinerU、LlamaParse 各占什么位</h2>
+<p>到这一步，国内开发者最想知道的是：<strong>市面上能选的解析方案不少，liteparse 和它们到底差在哪、什么时候该换。</strong> 这是本文的核心对照，先看表。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/liteparse-parser-matrix-2026-05-30.png" alt="五个主流文档解析方案横评"></p>
+<p>逐个说清楚每一个的定位和厂商：</p>
+<ul>
+<li><strong>liteparse（LlamaIndex · 美国）</strong>：开源、纯本地、极快、不依赖大模型，覆盖 50 多种格式含图片 OCR。强项是速度和&quot;装好即用&quot;，弱项是复杂版式</li>
+<li><strong>markitdown（微软 · 美国）</strong>：开源、本地、轻快，把各种格式转成 Markdown，同样不依赖大模型。它和 liteparse 是最像的一对，也是最值得国内开发者放在一起掂量的一对——下面单独展开</li>
+<li><strong>unstructured（美国）</strong>：开源、可本地，主打把文档切成结构化片段，直接对接 RAG 切分这一步，可选接入模型增强；速度中等，工程上偏重</li>
+<li><strong>MinerU（国内 · 上海人工智能实验室）</strong>：开源、本地可跑但偏吃 GPU，走的是<strong>视觉模型 + OCR 双引擎</strong>路线，精度高、支持 100 多种语言，把 PDF 转成 Markdown / JSON 的质量是这几个里第一档；代价是要算力、速度偏慢。许可证已从 AGPLv3 换成基于 Apache 2.0 的自定义协议，商用门槛降了不少</li>
+<li><strong>LlamaParse（LlamaIndex · 美国）</strong>：闭源、仅云端，要免费额度或付费套餐，靠云端模型啃最复杂的版式——密集表格、多栏、图表、手写、扫描件，这些是它的主场</li>
+</ul>
+<p>这里有个关键关系要点明：<strong>liteparse 和 LlamaParse 是同一个团队的两件产品，分工明确，不是竞争关系。</strong></p>
+<ul>
+<li>liteparse = 本地、免费、无大模型的&quot;快解析&quot;，对付实时 Agent、本地工作流</li>
+<li>LlamaParse = 云端、收费、上模型的&quot;重解析&quot;，对付精度要求极高的复杂文档</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/source-liteparse-agents-blog-hero.png" alt="liteparse 主打给 AI Agent 做本地文档解析">
+<small>来源：LlamaIndex 官方博客 liteparse-local-document-parsing-for-ai-agents 配图</small></p>
+<p>换句话说，LlamaIndex 团队自己也承认：<strong>遇到密集表格、多栏排版、图表、手写、扫描 PDF，liteparse 不如 LlamaParse，建议你上云端版。</strong> 这种坦诚反而让人放心——它没把 liteparse 吹成万能解析器。</p>
+<h3>liteparse 和微软 markitdown 怎么选</h3>
+<p>这两个最像：都开源、都纯本地、都不依赖大模型、都对付各种格式。但定位有微妙差别，国内开发者选的时候可以这样想：</p>
+<ul>
+<li><strong>markitdown 主打&quot;转成一份干净的 Markdown&quot;</strong>：它的目标产物是结构清晰、人能直接读的 Markdown，适合把文档喂给大模型当上下文，或者做文档归档、内容迁移</li>
+<li><strong>liteparse 主打&quot;给程序和 Agent 用的结构化结果&quot;</strong>：它给的是保留空间版式的文字 + JSON 边界框 + 页面截图三件套，更偏向被代码消费、被 Agent 调用，而不是给人读</li>
+</ul>
+<p>再加上 liteparse 用 Rust 写、能编译成 WASM 塞进浏览器跑、几百页零点几秒——<strong>纯论速度和&quot;能在哪跑&quot;，liteparse 这一版更激进。</strong> 如果你要的是&quot;转 Markdown 给人看&quot;，markitdown 顺手；如果你要的是&quot;挂给实时 Agent、要快、要能本地甚至浏览器里跑&quot;，liteparse 更对路。两个都开源免费，其实可以都装上，按用途分着用。</p>
+<h2>国内开发者怎么用、什么场景值得换</h2>
+<p>落到实操，liteparse 装起来很轻，四条路任选：</p>
+<ul>
+<li>Python：<code>pip install liteparse</code></li>
+<li>Node.js：<code>npm i @llamaindex/liteparse</code></li>
+<li>Rust：<code>cargo add liteparse</code></li>
+<li>浏览器 / 边缘：<code>npm i @llamaindex/liteparse-wasm</code></li>
+</ul>
+<p>另外它还提供 CLI 命令行工具和一个 MCP Server——也就是说，你可以把它直接挂给 Claude、Cursor 这类支持 MCP 的 Agent，让模型自己调用它去读文档。对做本地 Agent、做隐私优先工具的人，这条路很顺。</p>
+<p>那么什么场景值得换？给几条明确的判断：</p>
+<ul>
+<li><strong>做隐私优先 / 本地知识库的，强烈推荐试一下</strong>：文档不出本机，不用 API key，不用 GPU，合规和成本都省心。这正是国内很多政企、内部资料场景最在意的一点</li>
+<li><strong>给实时 Agent 当读文档的前置环节，值得换</strong>：几百页零点几秒，配合 MCP 直接挂给模型，比起调云端解析少了延迟和超时风险</li>
+<li><strong>要在浏览器 / 边缘里解析文档的，几乎没有替代品</strong>：WASM 版本让文档连用户浏览器都不用离开，这个能力其他几家暂时给不了</li>
+<li><strong>文档以普通版式为主（合同、报告、说明书的常规排版）的 RAG 项目，可以考虑用它替掉 pypdf</strong>，质量和速度都是升级</li>
+</ul>
+<p>什么时候<strong>先别急着换</strong>？也说清楚，免得踩坑：</p>
+<ul>
+<li>你的文档是<strong>密集财报表格、多栏学术论文、扫描件、手写体</strong>——这类复杂版式 liteparse 不是强项，国内场景里 MinerU 的视觉模型路线精度更高，或者直接上 LlamaParse 云端版</li>
+<li>你的核心需求是<strong>把中文 PDF 转成高质量 Markdown 喂给大模型</strong>——MinerU 在中文复杂文档上的成熟度目前更值得托付，liteparse 内置的 Tesseract 认中文一般，要换 PaddleOCR 后端才追得上</li>
+</ul>
+<p>一个务实的组合思路：<strong>普通文档走 liteparse 求快，复杂文档兜底走 MinerU 或 LlamaParse 求准</strong>，按文档难度分流，而不是指望一个工具通吃。</p>
+<h2>写在最后</h2>
+<p>回到开头那句话：<strong>RAG 真正天天折磨人的，是把文档干净地变成文字这第一步。</strong> liteparse 的意义不在于它有多全能——它明明白白告诉你复杂版式打不过云端版——而在于它把&quot;又快、又全本地、又不依赖大模型&quot;这一档补齐了。过去这一档要么没有，要么得自己拿 pypdf 凑合。</p>
+<p>对国内做 RAG、做知识库、做本地 Agent 的人来说，这是一个实打实多出来的好选择：文档不用出本机、不用开 GPU、不用付云端账单，几行命令装好，就能让 Agent 又快又稳地读文档。再叠上国内 MinerU 在中文复杂文档上的深耕，我们手里能用的本地解析工具，比一年前丰富太多了。</p>
+<p>文档解析这件又脏又累的活，正在被一件件趁手的开源工具接管。这是好事——我们终于可以少花点力气在&quot;把 PDF 读干净&quot;上，多花点力气在真正要做的产品上。一起加油。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>本地代码补全：用 Qwen Coder 自建 IDE 后端 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-30</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-30</span><span class="tag-pill">Daily Report</span></div>
+      <h1>本地代码补全：用 Qwen Coder 自建 IDE 后端</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/covers/2026-05/local-fim-code-completion-qwen-coder-2026-05-30.png" alt="本地代码补全 Qwen Coder 接 IDE 封面"></p>
+<p>先把结论摆在最前面：代码补全和聊天、agent 编程是两条完全不同的技术路，别拿对话模型去做补全。聊天追求答案质量，你愿意等它想三五秒；补全追求的是你打字时几乎察觉不到它存在的那种低延迟，必须用 1.5B、3B 这种小模型，再配上专门的 FIM（Fill-In-the-Middle，中间填充）格式，而不是把一个 7B 对话模型塞进编辑器。这篇文章只回答一件事——本地自建 Tab 补全后端到底值不值、用哪个模型、FIM 怎么配、延迟体验真实如何。诚实地说：现在本地自建补全能用，但还不够顺；它的价值在隐私、离线、合规，而不是比通义灵码云端更快。</p>
+<p>这两周本系列写过国内 IDE 接本地大模型的接入配置、4090 上各种 Qwen3-Coder 量化与引擎横评、OpenClaw 的几种工作流。那几篇讲的都是聊天和 agent 编程后端的&quot;接入与选型&quot;——你问一句、它答一段，或者你下一个任务、它跑一串步骤。这篇唯一的新角度是专门讲补全这条低延迟路：你打字、它在光标处即时填后面那几行，对延迟的要求严苛得多，技术路也完全不同。具体回答四件事：为什么不能拿对话模型做补全、FIM 怎么配、延迟预算怎么算、自建到底值不值。读到这里你只要先记住一点——这篇说的是&quot;补全&quot;，不是&quot;对话&quot;。</p>
+<h2>一、补全和聊天为什么是两条路</h2>
+<p>先说一个最容易踩的认知误区：很多人第一次想自建补全，直接把本地跑的 Qwen2.5-Coder-7B-Instruct 接进编辑器的补全栏，然后发现又慢又乱。问题不在模型差，在于路走错了。</p>
+<p>聊天和补全对模型的要求几乎相反。聊天你问一句、它答一段，首字慢一两秒没人在意，重点是答案对不对、完整不完整；补全是你每敲几个字符就要触发一次，模型必须在两三百毫秒内吐出后面那几行，慢一点你的手已经敲到下一行了，补出来反而打断思路。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/fim-vs-chat-path-2026-05-30.png" alt="代码补全路径与对话路径对比：小模型低延迟 FIM vs 大模型 chat"></p>
+<p>两条路的差别可以拆成四点：</p>
+<ul>
+<li>目标不同：聊天要质量、可以等；补全要低延迟、几乎无感</li>
+<li>模型规模不同：聊天后端用 7B 到 30B 甚至更大；补全后端用 1.5B、3B 的小模型，7B 已经偏慢</li>
+<li>输入格式不同：聊天用对话模板（system / user / assistant 角色）；补全用 FIM 格式，把光标前的代码当前缀、光标后的代码当后缀，让模型填中间</li>
+<li>接口端点不同：聊天走 /v1/chat/completions（对话端点），补全走 /v1/completions（续写端点）——这是自建补全最大的坑，下面专门讲</li>
+</ul>
+<p>把这四点记牢，后面所有配置问题都能回到这里找答案。补全做不顺，十有八九是某个环节还按聊天的思路在配。</p>
+<p>再补一个直觉上的对照，帮你彻底分清这两件事。聊天时你是在跟模型对话，它需要理解你的意图、组织语言、给出解释，这套能力越大越强；补全时模型其实不需要&quot;理解&quot;你想干嘛，它只需要根据光标前后已经存在的代码，统计上最可能接的是什么，然后快速吐出来。后者本质上是一个高度局部、高度模式化的预测任务，小模型反而更称职——它不会想太多，也就不会慢。很多人把补全做慢了，根子上是用了一个&quot;想太多&quot;的大模型去干一件本该&quot;少想快答&quot;的活。</p>
+<p>还有一个数字上的直觉。补全是一个高频事件：你写代码时,每分钟可能触发几十次补全请求，每一次都要在你停顿的间隙里完成。假设你能接受的单次延迟上限是三百毫秒,这就意味着模型从收到请求到吐出第一个 token 的时间，加上生成那几行的时间，全部要塞进这个预算里。模型越大，首字延迟越高，这个预算就越容易爆。这也是为什么补全场景对模型规模如此敏感——它不是&quot;大一点慢一点&quot;的线性关系，而是一旦首字延迟超过你的容忍线，整个补全体验就从&quot;帮手&quot;变成&quot;干扰&quot;。</p>
+<h2>二、FIM 是什么，特殊 token 长什么样</h2>
+<p>FIM 全称 Fill-In-the-Middle，中间填充。它解决的是一个对话模型天然不会的能力：补全不是续写到文件末尾，而是要在光标这个位置往中间插，模型必须同时看到光标前和光标后的代码。</p>
+<p>Qwen2.5-Coder 和 Qwen3-Coder 都做过 FIM 训练，用四个特殊 token 标记这件事：</p>
+<ul>
+<li><code>&lt;|fim_prefix|&gt;</code>：标记光标前的代码（前缀）</li>
+<li><code>&lt;|fim_suffix|&gt;</code>：标记光标后的代码（后缀）</li>
+<li><code>&lt;|fim_middle|&gt;</code>：标记要模型填的中间部分</li>
+<li><code>&lt;|fim_pad|&gt;</code>：填充用的占位 token</li>
+</ul>
+<p>一次补全请求拼出来大致是这个结构（PSM 顺序，prefix-suffix-middle）：</p>
+<pre><code>&lt;|fim_prefix|&gt;def add(a, b):
+    return &lt;|fim_suffix|&gt;
+
+print(add(1, 2))&lt;|fim_middle|&gt;
+</code></pre>
+<p>模型看到前缀是 <code>def add(a, b): return</code>、后缀是 <code>print(add(1, 2))</code>，它要填的中间就是 <code>a + b</code>。这个格式只有走续写端点（/v1/completions）才能正确发送——你把这串带特殊 token 的文本当 prompt 直接发过去，模型续写出 middle 部分。如果走对话端点（/v1/chat/completions），框架会把它包进对话模板，特殊 token 的语义就乱了。</p>
+<p>为什么补全非要看光标后面的代码？因为真实写代码很少是从头一路写到尾，更多是在已有代码中间插一段、改一行。比如你已经写好了函数签名和 return 语句，光标停在 return 后面，模型要填的那段表达式必须同时跟前面的参数对得上、跟后面的调用对得上。只看前缀的纯续写模型在这种场景会瞎猜，因为它不知道后面还有什么在等着这段代码去满足。FIM 的全部意义就在于把&quot;后面还有什么&quot;这个信息也喂给模型，让它填出来的中间段前后都能接得住。</p>
+<p>这里也顺带说清 base 版和 instruct 版在 FIM 上的差别。Qwen Coder 的 base 版本是直接在海量代码上做预训练、专门带了 FIM 训练目标的，它对那四个特殊 token 的反应最干净、最听话。instruct 版本是在 base 之上又做了指令对齐，学会了按对话格式回答问题——这套对齐对聊天有用，但有时会让模型在续写场景&quot;不老实&quot;，比如你让它填中间，它却想给你解释一番或者补出多余的内容。所以补全后端优先选 base 版，是有实打实的道理的，不是随口一说。</p>
+<h2>三、续写端点和对话端点，配错就出乱码</h2>
+<p>这一节是全文最关键的工程细节：补全必须走续写端点（/v1/completions），不是对话端点（/v1/chat/completions）。</p>
+<p>社区里有个很典型的例子。开源 AI 编程插件 Continue.dev 的一个公开问题记录（GitHub issue #3372）描述：有人用 Qwen2.5 7B base 配 vLLM 做补全，结果输出全是乱码，prompt 里精心拼的前缀压根没被用上。根因就是 Continue 默认把对话模板发到了续写端点，跟模型官方演示里发对话端点的策略对不上，两边对 FIM token 的处理就错位了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/fim-config-flow-2026-05-30.png" alt="Continue 接本地 FIM 后端的配置要点与常见坑"></p>
+<p>把这件事讲透，配置时盯三个点：</p>
+<ul>
+<li>端点要对：补全后端必须暴露 /v1/completions，编辑器插件的补全配置要指向它，不要复用聊天那个 /v1/chat/completions</li>
+<li>模板要对：FIM 是续写，不该再套对话模板；该让插件用模型自带的 FIM token 直接拼 prompt</li>
+<li>base 还是 instruct：补全建议优先用 base 版（FIM 能力更纯），instruct 版被对齐训练后有时反而不肯老实续写</li>
+</ul>
+<p>还有一个更隐蔽的坑来自真实社区实测。一位作者在博客园记录他的配置经历（NoNoe 的帖子，纯体验向）：他给 Continue 的自动补全配了 <code>autocompleteOptions.template</code> 这个字段，结果反而把补全弄坏了，去掉这个 template 才正常——他自己都说&quot;十分神秘&quot;。但同一个人发现 Qwen2.5-Coder 又必须要这个 template 才行。换句话说，不同 Qwen Coder 版本对 template 字段的需求是相反的，没有一套配置通吃，得按你选的具体模型试。这恰恰说明本地自建补全现在还处在&quot;能跑但不够标准化&quot;的阶段。</p>
+<p>这个 template 字段管的就是 FIM 提示词怎么拼。有的模型自带的对话模板里已经处理好了 FIM token 的拼接，你再额外指定一个 template 反而是画蛇添足，把已经对的东西改错了；有的模型需要你显式告诉插件用哪种 FIM 拼法，不指定它就按默认走，默认又不一定对。所以这个字段不是&quot;配了更好&quot;，而是&quot;配错就坏&quot;。遇到补全输出乱码、或者补出来的内容跟光标位置对不上，第一件事就是回来检查 template 配置和端点配置这两处，八成问题就出在这里。</p>
+<p>总结成一句可操作的排错顺序：补全出问题，先确认端点是不是续写端点，再确认 base 还是 instruct，最后才动 template。把这个顺序记住，能省掉大量&quot;十分神秘&quot;的折腾时间。</p>
+<h2>四、本地补全到底用哪个 Qwen Coder</h2>
+<p>选模型的第一原则上面已经说了：补全要小模型。下面给一张选型矩阵，把显存、延迟、质量三件事摆清楚。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/fim-model-matrix-2026-05-30.png" alt="本地补全模型选型矩阵：不同 Qwen Coder 规格的显存、延迟、质量"></p>
+<p>几款常见 Qwen Coder 用在补全场景的取舍：</p>
+<ul>
+<li>Qwen2.5-Coder-1.5B：首字延迟最低，最适合纯补全；质量够日常 Python、JavaScript 的单行和少行补全，复杂逻辑会力不从心</li>
+<li>Qwen2.5-Coder-3B：延迟和质量的折中点，多数人自建补全的默认起点</li>
+<li>Qwen2.5-Coder-7B：质量更好，但首字延迟已经偏高，补全场景会感到卡顿，更适合聊天</li>
+<li>Qwen3-Coder-REAP-25B-A3B：从 30B 剪枝来的稀疏混合专家（MoE）模型，专家裁剪省了约 20% 内存，激活参数只有 3B，是想兼顾质量和速度的折中路线</li>
+</ul>
+<p>这里要纠正一个常见混淆：补全质量不等于聊天质量。一个模型聊天分数高，不代表它补全就准。补全相关的基准是 HumanEval Infilling——专门测单行填充能力，覆盖 Python、Java、JavaScript，这才是和补全直接相关的指标，而不是大家熟悉的对话评测分。你在排行榜上看到某个模型对话能力很强，不要直接推断它补全也强；反过来，一个对话平平的小模型，FIM 训练扎实，补全体验可能比那个大模型还顺。选补全模型，眼睛要盯填充类的指标，不要被对话榜单带偏。</p>
+<p>关于 REAP 这种剪枝路线再多说两句，因为它很能代表当下本地补全的折中思路。REAP 的全称是专家裁剪，做法是把原本 30B 的稀疏混合专家模型里那些贡献小的专家裁掉，让模型整体内存占用下降约两成，同时尽量保住能力。它是 MoE 架构，意味着虽然总参数看着大，但每次推理只激活其中约 3B 的参数——这正好契合补全要&quot;小而快&quot;的需求：质量上靠总参数撑着，速度上靠激活少省着。</p>
+<p>代价前面也说了，剪枝会损失一些能力，REAP 版最明显的就是中文能力的丧失，但对纯写代码这件事影响有限。对显存吃紧又想要点质量的人，这是一条值得试的路；对显存宽裕的人，老老实实跑 Qwen2.5-Coder-3B 往往更省心。</p>
+<p>顺带说一个反例，帮大家划清边界。Qwen3-Coder-Next 基于 Qwen3-Next-80B-A3B-Base，用了混合注意力加 MoE 的新架构，面向 coding agent 设计。这个方向很好，但 80B 这个体量更适合做聊天和 agent 后端，不是补全。补全你要的是小、快、专，不是大、强、全。</p>
+<h2>五、两档硬件配置 + 起服务的命令骨架</h2>
+<p>讲到落地。给两档真实硬件配置，再给起服务和接 IDE 的命令骨架。</p>
+<p>第一档是 4090 24G 这类比较宽裕的配置。显存足够你跑 Qwen2.5-Coder-3B 甚至带点余量，补全延迟体验相对舒服。第二档是真正的极限配置——12GB 显存加 16GB 内存。这一档有一份很值得参考的社区体验记录。</p>
+<p>前面提到的那位博客园作者，就在 12GB 显存加 16GB 内存的机器上跑了 Qwen3-Coder-REAP-25B-A3B，用 Q4_K_M 的 imatrix 量化、文件约 15.1G。实际运行时他记录的是&quot;内存占用 13G，显存 12G 跑满&quot;——基本是把这台机器榨到极限。代价也很真实：REAP 版剪枝带来了&quot;中文能力的丧失&quot;，即便用中文提问它也默认输出英文，但写代码本身不受影响。他对整套方案的原话评价是：&quot;这个方案虽然能用，但体验说不上好&quot;——延迟偏高，连文件类型过滤配了也不灵。</p>
+<p>把这两档摆成表，方便对号入座：</p>
+<table>
+<thead>
+<tr>
+<th>配置档</th>
+<th>硬件</th>
+<th>适合模型</th>
+<th>真实体验</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>宽裕档</td>
+<td>4090 24G</td>
+<td>Qwen2.5-Coder-3B / 1.5B</td>
+<td>延迟相对舒服，base 版做纯补全</td>
+</tr>
+<tr>
+<td>极限档</td>
+<td>12GB 显存 + 16GB 内存</td>
+<td>Qwen3-Coder-REAP-25B-A3B（Q4_K_M 约 15.1G）</td>
+<td>内存 13G、显存跑满；能用但说不上顺，中文能力丧失</td>
+</tr>
+</tbody></table>
+<p>起服务的命令骨架，用 Ollama 或 vLLM 都行。Ollama 路线最简单：</p>
+<pre><code class="language-bash"># 拉一个适合补全的小模型（base 版优先）
+ollama pull qwen2.5-coder:1.5b-base
+
+# Ollama 默认提供兼容 OpenAI 的接口
+# 补全要的续写端点在 http://localhost:11434/v1/completions
+</code></pre>
+<p>vLLM 路线更适合追求吞吐和前缀缓存的人：</p>
+<pre><code class="language-bash"># 起一个 OpenAI 兼容服务，模型走 base 版
+python -m vllm.entrypoints.openai.api_server \
+  --model Qwen/Qwen2.5-Coder-1.5B \
+  --served-model-name qwen-coder-fim \
+  --max-model-len 8192
+# 服务起来后续写端点在 http://localhost:8000/v1/completions
+</code></pre>
+<p>接进 Continue.dev 时，补全模型配在 <code>tabAutocompleteModel</code> 字段，关键是把它指向续写端点而不是聊天端点。config 的 FIM 配置要点（写思路，不照抄某一版的字段名，因为前面说过不同版本对 template 需求相反）：</p>
+<ul>
+<li><code>tabAutocompleteModel</code> 单独配，和聊天用的 model 分开</li>
+<li>provider 选 openai 兼容类型，apiBase 指向本地服务的根地址</li>
+<li>模型 ID 用你 served 的那个名字</li>
+<li>是否需要显式 template，按你选的 Qwen Coder 版本试：Qwen2.5-Coder 这一支大概率要，REAP 那一支可能要去掉</li>
+</ul>
+<h2>六、延迟预算怎么算，本地和云端差在哪</h2>
+<p>这一节回答最实际的问题：补全到底要多快才算顺，本地能不能做到。</p>
+<p>先给标杆。通义灵码（Lingma）官方云端的行级补全延迟做到了 300 毫秒以内，而且不止补全——它还带 MCP 工具调用、自然语言生成函数、单元测试生成。这是目前&quot;顺&quot;的标杆。代价是代码上云。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/fim-latency-budget-2026-05-30.png" alt="补全延迟预算：通义灵码云端与本地自建实测区间对照"></p>
+<p>本地自建这边，普遍的网络评价相当一致：Continue 自建补全延迟&quot;有点高，能用但体验说不上好，不建议自行部署模型做代码补全&quot;。这句话听着泄气，但它是这篇文章可信度的关键——我不会告诉你本地能轻松追平 300 毫秒，因为那不是事实。本地受限于你这台机器的首字延迟，小模型加优化能压到可用，但要稳定做到云端那种几乎无感，目前还很难。</p>
+<p>那本地这边能做的优化是什么？不是堆更大的模型，恰恰相反，是这几招：</p>
+<ul>
+<li>前缀缓存（prefix caching）：编辑器反复发的上下文高度相似，缓存前缀能省掉大量重复计算，这是补全场景最划算的优化</li>
+<li>小 draft 模型做推测解码：用一个更小的模型先猜，大模型只做校验，能压低延迟</li>
+<li>限制 max tokens：补全只需要几行，把生成上限卡死，别让它一路写下去</li>
+<li>单行或少行触发：不要每个字符都触发，按合适的节奏触发，减少无效请求</li>
+</ul>
+<p>这几招里，前缀缓存对补全场景的收益最值得展开讲。补全请求有个特点：你在同一个文件里连续打字，每一次补全发出去的上下文，前面绝大部分都是上一次发过的，只有光标附近那一小段是新的。如果每次都从头算一遍这些前缀，等于把同样的活反复干。前缀缓存做的就是把已经算过的前缀结果存下来，下一次发现前缀相同就直接复用，只算新增的那部分。vLLM 这类引擎对前缀缓存的支持比较成熟，这也是补全场景选 vLLM 而不是只图省事用 Ollama 的一个理由。</p>
+<p>推测解码的思路也值得理解一下。它用一个非常小的草稿模型先快速猜出后面几个 token，再让正经的模型一次性校验这几个猜测对不对，对的就直接采用、错的才重算。因为校验比逐个生成快，整体延迟能压下来。补全这种&quot;后面接什么&quot;高度可预测的场景，草稿模型的命中率往往不低，推测解码的收益就更明显。</p>
+<p>把这几招归纳成一句话：本地补全提速的方向是&quot;少算、复用、早停&quot;，不是&quot;换更大的模型&quot;。这跟做聊天的优化思路正好相反，新手最容易在这里走错。</p>
+<p>把延迟预算摆成一张对照表：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>行级补全延迟</th>
+<th>附加能力</th>
+<th>代价</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>通义灵码云端</td>
+<td>300 毫秒以内</td>
+<td>MCP 工具调用、自然语言生成函数、单测生成</td>
+<td>代码上云</td>
+</tr>
+<tr>
+<td>本地自建（优化后）</td>
+<td>偏高，需前缀缓存等手段压到可用</td>
+<td>取决于模型，基本只有补全</td>
+<td>隐私、离线、合规自主可控</td>
+</tr>
+</tbody></table>
+<p>这张表就是全文的核心判断：本地补全和云端补全比的不是速度，是数据主权。</p>
+<h2>七、国内能用的捷径，海外没有的组合</h2>
+<p>讲一个国内开发者的天然优势。海外做本地补全，主流路线是 Continue.dev 加 Ollama 加各家 Coder 模型，全套自建，没有一个能直接用的&quot;本国云端补全加本国模型&quot;组合可走捷径。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/fim-cloud-vs-local-2026-05-30.png" alt="FIM 本地自建补全与云端补全的权衡：速度上云端更顺，本地的价值在隐私离线合规"></p>
+<p>国内不一样。你有通义灵码云端这条现成的捷径——国产云端补全服务加国产 Qwen 模型，300 毫秒以内，开箱即用。这是海外没有的等价组合。所以国内开发者的选择其实更宽：在乎延迟体验、代码可以上云，直接用通义灵码云端；在乎隐私、离线、合规，再走本地自建这条路。两条路不是替代关系，是按你最在乎什么来选。</p>
+<p>模型怎么拉到本地，国内也有顺手的中转。GGUF 量化模型走 ModelScope（魔搭）或 hf-mirror.com 拉，速度比直连快很多。命令思路：</p>
+<pre><code class="language-bash"># 走 hf-mirror 镜像拉 GGUF（设置环境变量后照常用 huggingface-cli）
+export HF_ENDPOINT=https://hf-mirror.com
+huggingface-cli download Qwen/Qwen2.5-Coder-1.5B-GGUF \
+  qwen2.5-coder-1.5b-q4_k_m.gguf --local-dir ./models
+
+# 或者从 ModelScope（魔搭）拉，国内带宽更稳
+# modelscope download --model Qwen/Qwen2.5-Coder-1.5B-GGUF
+</code></pre>
+<h2>八、国内主流 IDE 怎么接本地补全后端</h2>
+<p>最后落到工具层面：本地起好了续写端点，国内常用的几个 IDE 和插件怎么把它当补全后端用。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/fim-ide-integration-2026-05-30.png" alt="FIM 本地补全后端在国内编辑器里的接入对照：通义灵码、Continue、Cline、Trae、OpenClaw"></p>
+<p>把本地 /v1/completions 当补全后端，主流的几条接法：</p>
+<ul>
+<li>通义灵码：支持配 custom 自定义后端，可以把补全请求指向你本地的续写端点，享受插件的交互又用自己的模型</li>
+<li>Continue.dev：在 <code>tabAutocompleteModel</code> 配 openai 兼容 provider，apiBase 指向本地服务——前面说的 template 坑就在这一步</li>
+<li>Cline：以 agent 编程为主，补全场景接本地后端时同样要确认走的是续写端点</li>
+<li>Trae：接本地模型时，注意区分它把请求发到聊天端点还是续写端点</li>
+</ul>
+<p>这里有个统一的检查动作，不管你用哪个工具都适用：接好之后，先随便打开一个文件，在已有代码中间停下光标，看补出来的内容能不能跟光标后面的代码接上。如果补出来的东西无视了后面的代码、或者干脆是乱码，那基本就是端点配错了——它走的多半是聊天端点而不是续写端点。这个动作比看任何文档都快，三十秒就能判断你的本地 FIM 后端有没有真正接对。</p>
+<p>如果你的主项目是 OpenClaw，本地补全后端可以作为它的一个能力补充——补全这条低延迟路和 OpenClaw 擅长的 agent 编程是互补的，一个管你打字时的即时提示，一个管多步骤的任务执行。两者用的模型、走的端点、追求的指标都不一样：agent 编程那一端你可以挂一个更大的聊天模型，慢一点没关系，要的是把多步任务做对；补全这一端挂一个 1.5B 或 3B 的小模型，走续写端点，要的是即时。把这两条路在一台机器上分开配，互不干扰，是本地优先工作流里很自然的一种搭法。</p>
+<p>把&quot;什么人选什么&quot;摆成决策表收一下尾：</p>
+<table>
+<thead>
+<tr>
+<th>你最在乎</th>
+<th>推荐路线</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>延迟体验、代码可上云</td>
+<td>通义灵码云端</td>
+<td>300 毫秒以内 + 附加能力，开箱即用</td>
+</tr>
+<tr>
+<td>隐私、离线、合规</td>
+<td>本地自建（4090 跑 3B / 极限机跑 REAP）</td>
+<td>数据不出本机，可控；体验能用但需接受不够顺</td>
+</tr>
+<tr>
+<td>又要本地又怕折腾</td>
+<td>先用 1.5B base + Continue 跑通续写端点</td>
+<td>配置面最小，先体验 FIM 再决定要不要上更大模型</td>
+</tr>
+</tbody></table>
+<p>回到开头那句话：补全和聊天是两条路，本地自建补全现在能用但还不够顺，它的价值不在速度，在数据主权。这一点想清楚，你就不会拿它和通义灵码云端比快，而是问自己——我有多在乎代码不出本机。</p>
+<p>值得高兴的是，这条路正在快速变好。FIM 训练已经是 Qwen Coder 的标配，小模型质量一年比一年扎实，前缀缓存和推测解码这些优化也在各引擎里逐步成熟。今天本地补全的&quot;不够顺&quot;，更像是一条正在铺平的路上的颠簸，而不是死胡同。隐私、离线、合规这三件事的分量只会越来越重，本地补全这条路的人会越来越多。把云端的顺和本地的自主揉在一起看，你会发现国内开发者手里其实握着两套都能打的牌——这是很多地方的同行羡慕不来的底气，一起把这条路走顺。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

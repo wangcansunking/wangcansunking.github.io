@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>手机能跑的推理模型：Liquid 把 8B MoE 的激活压到 1.5B — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-30</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-30</span><span class="tag-pill">Daily Report</span></div>
+      <h1>手机能跑的推理模型：Liquid 把 8B MoE 的激活压到 1.5B</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/liquid-lfm25-mobile-moe-2026-05-30.png" alt="Liquid AI 发布端侧 MoE 推理模型 LFM2.5-8B-A1B 的封面"></p>
+<p>2026-05-28，波士顿的 Liquid AI 放出了 LFM2.5-8B-A1B。一个数字最能说明它想干什么：总参数 8.3B，但每生成一个 token 只激活 1.5B。</p>
+<p>这意味着，它占的显存按一个 8B 模型算，花的算力却只按一个 1.5B 模型算。更关键的是，这一代是会先想后答的推理模型——输出最终答案前先产生一段显式的思维链（chain-of-thought）。在它身上，「手机和 PC 能本地跑的推理模型」这件事，被往前推了一大步。</p>
+<p><strong>这篇文章想说清楚一件事：端侧推理模型不再是「小模型勉强凑合」，Liquid 用 MoE + 推理这套组合给出了一份可以拆开看的工程答卷；而正在做端侧的国内团队，恰好可以拿它当一面镜子。</strong> 下面就从它到底强在哪、和国产端侧模型怎么比、国内开发者怎么上手三条线展开。</p>
+<h2>一个 8.3B 的模型，为什么算力只花 1.5B</h2>
+<p>先把这个模型最核心的一招讲透：MoE（Mixture-of-Experts，混合专家）在端侧的算账方式。</p>
+<p>传统的稠密（dense）模型，每生成一个 token，整张网络的参数都要参与计算。一个 8B 的稠密模型，每个 token 就是实打实的 8B 次运算。而 MoE 把网络拆成很多个「专家」子网络，每个 token 进来，由一个路由（router）决定只点亮其中少数几个专家。LFM2.5-8B-A1B 的总参是 8.3B，但路由每次只激活 1.5B。</p>
+<p>这笔账对端侧设备特别划算：</p>
+<ul>
+<li><strong>显存按总参占</strong>：8.3B 的权重要全部加载进内存或显存，手机 / PC 的内存得放得下；</li>
+<li><strong>算力按激活花</strong>：每个 token 只跑 1.5B，解码（decode）速度因此能逼近一个 1.5B 小模型的速度；</li>
+<li><strong>质量按总参走</strong>：因为参数总量摆在那，模型的知识容量和能力上限远高于一个真正的 1.5B 小模型。</li>
+</ul>
+<p>一句话，MoE 让端侧设备「用小模型的速度，吃大模型的能力」。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/liquid-moe-active-param-2026-05-30.png" alt="端侧 MoE 的算账方式：显存按 8.3B 占，算力按 1.5B 花"></p>
+<p><em>自制示意图：稠密 8B 模型每个 token 全激活 8.3B，LFM2.5-8B-A1B 只激活 1.5B</em></p>
+<p>这套思路本身不新鲜，云端早就用 MoE 把千亿模型的推理成本压下来了。Liquid 的不一样在于，它从一开始就是奔着「装进手机、笔记本、边缘设备」去设计的——总参控制在 8.3B 这个内存装得下的量级，激活压到 1.5B 这个端侧芯片跑得动的量级。<strong>端侧 MoE 这个组合，过去更多停留在论文和云端，现在被做成了一个开放权重、当天就能下载来跑的模型。</strong></p>
+<h2>这一代和上一代的真正区别：学会了先想后答</h2>
+<p>LFM2.5-8B-A1B 不是 Liquid 第一个 8B MoE。上一代叫 LFM2-8B-A1B，参数规模和架构骨架基本一致。这一代最大的升级，是从「直接答」变成了「先想后答」——它是一个 reasoning-only（只做推理）的模型，回答前会先生成一段显式的思维链。</p>
+<p>这个变化值多少分？把四项官方公布的基准放在一起看，差距相当直观：</p>
+<table>
+<thead>
+<tr>
+<th>基准</th>
+<th>考察能力</th>
+<th>上一代 LFM2-8B-A1B（非推理）</th>
+<th>这一代 LFM2.5-8B-A1B（推理）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>AA-Omniscience 非幻觉率</td>
+<td>答错时是否敢说「不知道」</td>
+<td>7.46</td>
+<td>63.47</td>
+</tr>
+<tr>
+<td>IFEval</td>
+<td>指令遵循</td>
+<td>79.44</td>
+<td>91.84</td>
+</tr>
+<tr>
+<td>MATH500</td>
+<td>数学解题</td>
+<td>74.80</td>
+<td>88.76</td>
+</tr>
+<tr>
+<td>Tau² Telecom</td>
+<td>工具调用 / 智能体任务</td>
+<td>13.60</td>
+<td>88.07</td>
+</tr>
+</tbody></table>
+<p>最值得说的是第一行。AA-Omniscience 的非幻觉率衡量的是：当模型其实不知道答案时，它是老老实实承认「我不确定」，还是硬编一个错的出来。上一代是 7.46，几乎是逮着不会的就瞎答；这一代到了 63.47。<strong>对端侧助手来说，「不知道就说不知道」比「多答对几道题」更要命——一个会一本正经胡说的本地助手，比一个偶尔说「这个我不确定」的助手危险得多。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/liquid-benchmark-jump-2026-05-30.png" alt="同样 8.3B 总参 / 1.5B 激活，加上推理后四项指标的变化"></p>
+<p><em>自制对比图，数据取自 Liquid 官方博客与 HuggingFace 模型卡</em></p>
+<p>工具调用那一项也很说明问题。Tau² Telecom 从 13.60 跳到 88.07，意味着这个模型被明确地按「会用工具的智能体」来训练——它能稳定地理解什么时候该调一个函数、按什么格式填参数。Liquid 在博客里把这一代直接定位成「为工具调用而设计」，这个分数是底气所在。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/source-liquid-hf-quality.png" alt="来源：Liquid AI HuggingFace 模型卡，LFM2.5-8B-A1B 综合能力对照图（2026-05-28）"></p>
+<p><em>来源：Liquid AI HuggingFace 模型卡 2026-05-28，与同量级及更大 MoE 模型的综合质量对照</em></p>
+<p>下面是这一代经过官方核实的完整规格：</p>
+<ul>
+<li><strong>参数</strong>：总参 8.3B，每 token 激活 1.5B；24 层（18 层门控短卷积 + 6 层 GQA）；</li>
+<li><strong>上下文</strong>：128K（131,072 tokens），相比上一代的 32,768 翻了两番；</li>
+<li><strong>架构</strong>：MoE + GQA（分组查询注意力）+ 门控短卷积块（gated short convolution）三种结构混搭；</li>
+<li><strong>语言</strong>：官方模型卡列出 9 种——英语、阿拉伯语、中文、法语、德语、日语、韩语、葡萄牙语、西班牙语；</li>
+<li><strong>训练量</strong>：38 万亿 tokens；</li>
+<li><strong>词表</strong>：12.8 万，相比上一代翻倍。</li>
+</ul>
+<p>这里有一个需要复核的小出入：Liquid 博客的标题写的是「8B / A1B」的口径，而 HuggingFace 模型卡明确写到总参 8.3B、激活 1.5B。本文以模型卡的 8.3B / 1.5B 为准，博客的「8B」应理解为型号命名的取整。</p>
+<h2>端侧到底能跑多快：从手机到 H100 的一张速度表</h2>
+<p>光有能力不够，端侧模型的命门是速度。Liquid 公布了一组覆盖手机到数据中心的解码吞吐数据，这也是这次最实在的卖点。</p>
+<table>
+<thead>
+<tr>
+<th>运行环境</th>
+<th>解码吞吐（Liquid 官方口径）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>苹果 M5 Max（CPU）</td>
+<td>约 253 tokens/s</td>
+</tr>
+<tr>
+<td>AMD Ryzen AI Max+ 395（CPU）</td>
+<td>约 146 tokens/s</td>
+</tr>
+<tr>
+<td>手机 CPU</td>
+<td>约 30 tokens/s</td>
+</tr>
+<tr>
+<td>英伟达 H100（高并发）</td>
+<td>约 18,500 tokens/s</td>
+</tr>
+</tbody></table>
+<p>需要说清楚口径：M5 Max 上约 253 tokens/s，是 Liquid 官方在 CPU 上给出的解码速度。这个数字的分量在于，M5 Max 是笔记本里的芯片，CPU 跑、不靠独立显卡，就能到每秒两百多 token——对一个有 8.3B 总参、还会先想后答的推理模型来说，这个本地体验已经足够顺手。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/source-liquid-hf-cpu-speed.png" alt="来源：Liquid AI HuggingFace 模型卡 CPU 推理速度图（2026-05-28）"></p>
+<p><em>来源：Liquid AI HuggingFace 模型卡 2026-05-28 CPU 推理基准</em></p>
+<p>手机 CPU 约 30 tokens/s 这个数字也别小看。推理模型要先生成一段思维链再给答案，会比非推理模型多吐不少 token，30 tokens/s 在手机上做一次带推理的本地问答，等待是可接受的。而 H100 上单卡每天能产出超过 16 亿 token，说明同一个模型既能塞进手机做隐私优先的本地助手，也能上数据中心做高并发服务——一套权重，两头通吃。</p>
+<p><strong>这张速度表是整个发布最硬的部分：它把「端侧推理模型够不够快」这个一直悬着的问题，用从手机到 H100 的连续数据回答了。</strong></p>
+<h2>和国产端侧模型放在一起看</h2>
+<p>国内做端侧大模型的团队不少，各有各的路子。把 LFM2.5-8B-A1B 和几家有代表性的国产端侧模型摆在一起，能看清它的位置。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/liquid-domestic-compare-2026-05-30.png" alt="端侧小模型横评：LFM2.5 与国产三家放在一起看"></p>
+<p><em>自制横评图。各家速度为公开口径，硬件与量化不同不可直接横比</em></p>
+<p>几个对照维度值得展开：</p>
+<ul>
+<li><strong>千问（Qwen）3.5 小尺寸系列</strong>：阿里在 2026-03 放出 0.8B / 2B / 4B / 9B 四个端侧尺寸，社区反馈手机端约 30-50 tokens/s。这一组是稠密模型、以非推理为主，覆盖面广、工具链成熟，是国内端侧用得最多的一档；</li>
+<li><strong>面壁智能 MiniCPM-V 4.6</strong>：1.3B 的多模态端侧模型，2026-05-11 发布，主打手机上跑图片、多图、视频理解，端到端吞吐约为千问 3.5-0.8B 的 1.5 倍。它和 LFM2.5 走的不是一条路——MiniCPM 强在小尺寸多模态，LFM2.5 强在纯文本推理 + 工具调用；</li>
+<li><strong>阶跃星辰 Step-GUI 4B</strong>：端侧 GUI 智能体方向，4B 尺寸，专门做界面理解和操作。</li>
+</ul>
+<p>横向比下来，<strong>LFM2.5-8B-A1B 的差异点很清楚：它是这几家里唯一明确按「推理 + 工具调用」定位、且用 MoE 把激活压到 1.5B 的端侧模型。</strong> 国产这边目前端侧主力仍以稠密小模型为主，多模态和 GUI 智能体方向各有突破，但「端侧 MoE 推理模型」这个具体组合，LFM2.5 给了一个完整样本。</p>
+<p>需要强调的是，这张表不是要分高下。各家硬件口径、量化方式、考察任务都不一样，速度数字不能直接横比。它更像一张地图——告诉正在选型的国内开发者，端侧这条路上现在有哪几种走法，LFM2.5 占的是哪个格子。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/30/source-liquid-blog-benchmarks.png" alt="来源：Liquid AI 官方博客 LFM2.5-8B-A1B 能力对比图（2026-05-28）"></p>
+<p><em>来源：Liquid AI 官方博客 2026-05-28，LFM2.5-8B-A1B 与同量级模型的能力对照</em></p>
+<h2>国内开发者怎么用：下权重、选运行时、看许可证</h2>
+<p>这个模型对国内开发者最友好的一点，是它一发布就铺好了运行时。不用等社区适配，主流推理框架开箱即用。</p>
+<p><strong>第一步，拿权重。</strong> HuggingFace 上有 LiquidAI/LFM2.5-8B-A1B 主仓，还有量化好的 MLX 版本（如 8bit 量化）。国内拉取走 HuggingFace 镜像（设置 <code>HF_ENDPOINT</code> 指向国内镜像）会顺很多。</p>
+<p><strong>第二步，选运行时。</strong> 官方首发就支持一整排框架，按设备对号入座：</p>
+<table>
+<thead>
+<tr>
+<th>设备 / 场景</th>
+<th>推荐运行时</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Mac（Apple Silicon）</td>
+<td>MLX、llama.cpp、LM Studio</td>
+</tr>
+<tr>
+<td>Windows / Linux 个人机</td>
+<td>llama.cpp、Ollama 思路、LM Studio</td>
+</tr>
+<tr>
+<td>服务器 GPU 高并发</td>
+<td>vLLM、SGLang</td>
+</tr>
+<tr>
+<td>嵌入式 / 边缘设备</td>
+<td>ONNX Runtime、Liquid LEAP 平台</td>
+</tr>
+<tr>
+<td>快速试跑</td>
+<td>Transformers、Docker Model Runner</td>
+</tr>
+</tbody></table>
+<p>llama.cpp / MLX / vLLM / SGLang / ONNX 全在首发支持名单里，这点对国内端侧团队很关键——意味着你现有的本地推理工具链基本不用改就能接。</p>
+<p><strong>第三步，看清许可证边界。</strong> 这一点务必算清楚，别等上了生产环境才发现问题。LFM2.5-8B-A1B 用的是 Liquid 自家的 LFM 开放许可证 v1.0（lfm1.0），核心条款如下：</p>
+<ul>
+<li><strong>可商用，但有营收红线</strong>：年营收低于 1000 万美元的主体可免费商用；</li>
+<li><strong>超过红线要付费授权</strong>：一旦年营收达到或超过 1000 万美元，免费商用权终止，需要联系 Liquid 获取付费商业许可；</li>
+<li><strong>科研与非营利无门槛</strong>：合格的非营利组织和研究者不受营收限制，可自由用于研究；</li>
+<li><strong>可保留闭源衍生</strong>：微调出的衍生模型可以不公开、保持私有，没有 copyleft 强制开源要求；</li>
+<li><strong>可转发</strong>：允许在注明许可证、保留署名、标记修改的前提下转发。</li>
+</ul>
+<p>对国内绝大多数独立开发者、中小团队、研究者来说，1000 万美元年营收这条线意味着免费用足够。<strong>但做商业产品的团队一定要把这条线写进合规清单——它不是 Apache 2.0 那种无门槛开放，而是一条带营收门槛的开放许可证。</strong></p>
+<h2>这份答卷，国内团队能照见什么</h2>
+<p>回到开篇那个核心判断：端侧推理模型已经不是「小模型勉强凑合」，而 LFM2.5-8B-A1B 把这件事的工程细节摊开给了所有人看。</p>
+<p>它给出的几个可借鉴的点很具体：</p>
+<ul>
+<li><strong>MoE 下沉端侧是条真路</strong>：用 8.3B 总参换能力、1.5B 激活换速度，这个配比在笔记本 CPU 上能跑到每秒两百多 token，证明端侧 MoE 不只是论文构想；</li>
+<li><strong>推理能力对端侧助手是分水岭</strong>：非幻觉率从 7.46 到 63.47 的跳变说明，让端侧模型「会先想、敢说不知道」，比单纯堆参数更能提升本地助手的可用性；</li>
+<li><strong>首发铺满运行时是诚意</strong>：开箱即用 llama.cpp / MLX / vLLM / SGLang / ONNX，省掉了社区适配的等待，这是面向开发者发模型该有的姿态。</li>
+</ul>
+<p>对正在做端侧大模型的国内团队，这是一份值得对照着读的同行答卷。国产端侧这两年在稠密小模型、多模态、GUI 智能体几个方向都跑出了自己的成果，千问的小尺寸系列、面壁的 MiniCPM、阶跃的 Step-GUI 各有所长。<strong>端侧 MoE 推理模型这个具体格子，Liquid 先填了一个样本进去——这恰恰说明这条路是通的，也留出了国内团队可以接着往前走的空间。</strong> 端侧 AI 正在从「能用」走向「好用」，这一年会很值得期待。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

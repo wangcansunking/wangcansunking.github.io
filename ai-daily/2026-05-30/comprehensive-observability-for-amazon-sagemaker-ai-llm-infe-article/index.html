@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>当 GPU 利用率 100% 不等于答案正确：AWS 如何拆解 LLM 可观测性？ — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-30</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-30</span><span class="tag-pill">AI Daily</span></div>
+      <h1>当 GPU 利用率 100% 不等于答案正确：AWS 如何拆解 LLM 可观测性？</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/comprehensive-observability-for-amazon-sagemaker-ai-llm-infe-article/head.png" alt=""></p>
+<p>“你的模型在完美输出垃圾。”</p>
+<p>这不是一句骂人的话。这是一个 AWS 解决方案架构师在 2026 年 5 月 29 日发博客时，藏在字里行间的警告。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/comprehensive-observability-for-amazon-sagemaker-ai-llm-infe-article/content-1.png" alt="Comprehensive observability for Amazon SageMaker AI LLM inference: From GPU util"></p>
+<p>想象一下这个场景：你的 LLM 推理端点一切正常。GPU 利用率 85%，延迟 200ms，错误率 0.1%。运维大屏一片绿色，SRE 喝着咖啡刷 Twitter。但另一边，用户正在收到答非所问的回复、带着偏见的建议、或者用「专业语气」包装的幻觉——而你对此一无所知。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/comprehensive-observability-for-amazon-sagemaker-ai-llm-infe-article/content-2.png" alt="Architecture diagram showing inference flow from Amazon SageMaker AI endpoints with multiple inference components, throu"></p>
+<p>AWS 这篇博客的开头就把这个矛盾摆到了台面上：传统软件的监控指标对付不了 LLM。传统软件返回的是确定性的 200 OK 或者 500 错误，但 LLM 返回的是自由文本。一个端点可以在基础设施层面「完全健康」的同时，持续输出低质量甚至有害的回复。而你现有的告警系统，对此是瞎的。</p>
+<p><strong>GPU 利用率 100% 不等于你的用户得到了正确答案。</strong></p>
+<hr>
+<h2>一个端点，两套指标——AWS 把 LLM 可观测性拆成了「量」和「质」</h2>
+<p>AWS 这次发布的解决方案，核心思路是把 LLM 推理的可观测性拆成两个维度：Quantity 和 Quality。这不是文字游戏，而是对应了两套完全不同的 CloudWatch 命名空间。</p>
+<p>Quantity 监控的是基础设施层面的指标——GPU 计算利用率、GPU 显存利用率、请求吞吐量、延迟、每个推理组件的调用次数、每个模型副本的请求分布。这些数据来自 SageMaker AI 的增强指标（Enhanced Metrics），当你开启端点配置后会自动发布到 <code>/aws/sagemaker/InferenceComponents/&lt;model-name&gt;</code> 命名空间。</p>
+<p>Quality 监控的是 LLM 输出质量——复合质量分数、安全分数、相关性分数、专业语气分数。这些是自定义指标，发布到 <code>/aws/sagemaker/inference-quality/&lt;model-name&gt;</code> 命名空间，跟基础设施指标完全隔离。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/comprehensive-observability-for-amazon-sagemaker-ai-llm-infe-article/schematic-1.png" alt="两套 CloudWatch 命名空间对照图，左侧是 InferenceComponents 命名空间对应 GPU/CPU/延迟/调用次数，右侧是 inference-quality 命名空间对应安全分数/相关性/语气/复合质量"></p>
+<p>这个设计背后有个很实际的考量：SRE 团队和产品团队看的是不同的东西。SRE 需要知道 GPU 是不是跑满了、哪个模型在吃掉最多的成本、自动扩缩是否及时响应了流量变化。而产品团队和治理团队需要知道的是——模型输出有没有变差、安全护栏有没有被绕过、用户满意度是不是在悄悄下降。</p>
+<p>两套指标分开存储，分开建 Grafana 仪表盘，但最终要在告警层面关联起来。因为一个端点的 GPU 利用率突然从 70% 掉到 30%，可能是因为流量下来了，也可能是因为模型开始疯狂输出超长回复把显存打爆了——你不把量化和质化指标放在一起看，根本判断不了。</p>
+<hr>
+<h2>Grafana 仪表盘里的「量」：三个维度告诉你钱花在哪了</h2>
+<p>AWS 在博客里展示了两个 Grafana 仪表盘的原型截图。先看 Quantity 那个。</p>
+<p>第一组面板是模型调用量和延迟。一个时间序列图展示模型延迟，一个柱状图对比 gpt-oss 和 Qwen 两个模型的总调用次数，还有两个按副本拆分的调用分布图。这组面板回答的问题是：流量打到了哪个模型上？延迟尖刺出现在什么时候？请求在模型副本之间是不是均匀分布的？</p>
+<p>第二组面板是 GPU 计算和显存利用率。两个模型分别展示 GPU Compute % 和 GPU Memory %。AWS 特别点出了一个使用场景：当出现性能问题时，你可以用这组面板快速判断——是计算密集型任务把 GPU 算力吃满了，还是显存不够导致频繁换页。</p>
+<p>第三组面板是集群容量和成本。Used GPUs vs Free GPUs、总实例数、每个模型的每小时成本。这组数据直接告诉你：哪个模型是成本黑洞？GPU 是不是过度配置了？自动扩缩策略是不是在按预期工作？</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/comprehensive-observability-for-amazon-sagemaker-ai-llm-infe-article/schematic-2.png" alt="Grafana Quantity 仪表盘三组面板示意，左侧模型延迟趋势线，中间 GPU 利用率双模型对比，右侧每小时成本柱状图"></p>
+<p>这里有一个值得注意的细节：SageMaker AI 的推理组件（Inference Components）架构允许一个端点托管多个模型，每个模型独立配置扩缩策略、独立归属指标。这意味着你可以在同一块 GPU 上跑 gpt-oss-20b 和 Qwen2.5-7B-Instruct，然后用 Quantity 仪表盘精确算出每个模型每小时烧了你多少钱。</p>
+<p><strong>在共享基础设施上做到单模型级别的成本归属——这一点，大部分自建推理集群做不到。</strong></p>
+<p>我看到这组截图的时候第一反应是：这本质上是一个 FinOps 视角的 LLM 推理监控。不是「系统是否健康」，而是「每一块钱花出去，换回了多少吞吐量和多低的延迟」。</p>
+<hr>
+<h2>「质」的仪表盘：四个分数，一个真相</h2>
+<p>如果说 Quantity 仪表盘是给 SRE 看的，那 Quality 仪表盘就是给产品负责人和治理团队看的。</p>
+<p>AWS 展示的 Quality 仪表盘上有四条时间序列曲线：复合质量分数、安全分数、相关性分数、专业语气分数。每条曲线上都有虚线标注的告警阈值——大概在 85% 和 95% 两个位置。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/comprehensive-observability-for-amazon-sagemaker-ai-llm-infe-article/schematic-3.png" alt="Grafana Quality 仪表盘，四条分数曲线叠加展示，虚线标注阈值，gpt-oss 和 Qwen 两条线颜色不同"></p>
+<p>复合质量分数是一个聚合指标，把所有质量维度揉成一个数字，方便一眼看出整体趋势——是持续下降还是间歇性波动。持续下降可能意味着模型出现了退化（model drift），间歇性波动则更可能跟特定类型的 prompt 有关。</p>
+<p>安全分数监控的是有害内容检测和不合规输出。在 AWS 展示的截图中，安全分数是四条曲线里最稳定的，一直在阈值区间内波动。这说明安全护栏在 gpt-oss 和 Qwen 两个模型上都工作得比较可靠。</p>
+<p>相关性分数衡量的是模型回复是否真正回答了用户意图。这个指标帮助团队发现哪些 prompt 类型会让模型「跑偏」。</p>
+<p>专业语气分数评估输出是否符合部署场景的预期语气。一个客服场景下的 LLM 如果突然开始用学术论文的风格回复用户，这个分数会立刻掉下来。</p>
+<p>这四个分数的计算方式用的是 LLM-as-Judge 模式。AWS 在博客里明确说他们用了 Anthropic Claude Sonnet 4.6，用 Amazon Bedrock 调用，作为评估模型。这里有三条重要的合规提示：第一，你需要确认评估模型的条款允许用它评价其他模型的输出；第二，你需要验证数据驻留要求是否满足；第三，你必须把评估模型固定到特定版本，否则评分基准会漂移，分数本身失去可比性。</p>
+<blockquote>
+<p>You can substitute your own evaluation system, provided you confirm the chosen model&#39;s terms permit evaluating outputs from other models, you verify the data-residency requirements are met, and you pin the evaluator model to a specific version so quality scores remain comparable over time.</p>
+</blockquote>
+<p>这段话其实是在说：用 LLM 评价 LLM，本身就是一个需要治理的工程问题。评估模型的版本一变，评分标准就变了。你没法判断质量分数从 92% 掉到 87%，是因为被评估的模型变差了，还是因为评估模型自己变「严格」了。</p>
+<hr>
+<h2>告警不是终点——Grafana Alerting 把质量退化变成了可行动的事件</h2>
+<p>光有仪表盘不够。AWS 在博客后半段展示了 Grafana Alerting 的截图：基于阈值的告警规则自动部署，按推理组件维度触发，当质量分数跌破阈值时，通知用 Amazon SNS 发出。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/comprehensive-observability-for-amazon-sagemaker-ai-llm-infe-article/schematic-4.png" alt="Grafana Alerting 面板截图，多条告警规则按推理组件维度列出，状态标注为 Firing/Normal，通知渠道指向 SNS"></p>
+<p>这意味着什么？意味着 LLM 质量退化不再是「产品经理某天发现用户投诉变多了」这种事后发现的东西。它变成了一个自动化的事件：质量分数跌破 85%，告警触发，SNS 把通知推到 Slack 或者 PagerDuty，SRE 开始按照既定的 triage 流程处理。</p>
+<p>AWS 的博客里提到，现代 SRE 团队可以把这些告警接入 Slack、PagerDuty 或 OpsGenie，做到自动关联日志、分类告警严重程度、优先处理事故——把响应时间从分钟级压缩到秒级。</p>
+<p>（不过我得说一句，秒级响应 LLM 质量告警听起来很酷，但真到了生产环境，质量分数的抖动可能比基础设施指标频繁得多。阈值怎么设、告警风暴怎么抑制、是自动回滚模型版本还是人工介入——这些才是真正让人头大的地方。AWS 这篇博客给出了骨架，但血肉还得你自己填。）</p>
+<hr>
+<h2>为什么这件事在 2026 年 5 月这个时间点值得关注</h2>
+<p>如果你把时间轴拉长一点看，AWS 这篇博客发在一个微妙的时间点。2026 年上半年，LLM 推理从「能不能跑起来」的阶段彻底进入了「跑起来了然后呢」的阶段。</p>
+<p>一年前，2025 年，行业还在疯狂卷推理性能优化——vLLM、TensorRT-LLM、SGLang 这些框架打得不可开交，大家都在拼吞吐量和延迟。但到了 2026 年，推理性能本身不再是瓶颈了。瓶颈变成了：你怎么知道推理结果是对的？你怎么在用户发现之前就知道模型开始胡说了？</p>
+<p>AWS 的解决方案本质上是在回答这个问题。它没有发明新的推理框架，没有优化 kernel，而是直接把可观测性从基础设施层拉到了应用层——而且是 LLM 特有的应用层。</p>
+<p>另一个值得注意的点是 SageMaker AI 的推理组件架构。一个端点托管多个模型，共享 GPU 但又相互隔离——这种架构在 2024 年还不太常见，当时大家要么一个端点一个模型（浪费 GPU），要么自己在容器里搞多模型加载（运维地狱）。到 2026 年，这成了 AWS 推理服务的默认姿势，而与之配套的可观测性方案才刚跟上。</p>
+<p><strong>基础设施先行，可观测性后补——这是云服务永恒的节奏，但 LLM 时代这个「后补」的代价高得多。</strong></p>
+<p>因为传统应用的可观测性补丁无非是加几个 metrics exporter。但 LLM 的可观测性补丁需要你设计评估 pipeline、选定评估模型、固定版本、设置阈值、处理告警——这本身就是一个小型 ML 系统。</p>
+<hr>
+<h2>两个 GitHub 仓库，一个完整的起点</h2>
+<p>AWS 在博客结尾指向了一个 GitHub 仓库：AWS samples GitHub repository。里面包含了三个 Jupyter Notebook：配置增强指标的、发布自定义质量指标和告警的、搭建 Grafana 仪表盘的。</p>
+<p>这意味着你可以照着 Notebook 一步步把整个方案跑起来。不需要自己写 CloudWatch agent，不需要手动配置 Grafana 数据源，不需要从头设计评估 prompt——AWS 把模板都准备好了。</p>
+<p>（当然，模板的质量取决于你的使用场景。如果你用的是 Llama 而非 Qwen，评估 prompt 可能需要调整；如果你的业务对安全性有特殊要求，安全分数的评估维度需要重新设计。但至少，你不需要从零开始。）</p>
+<blockquote>
+<p>To get started, check out the AWS samples GitHub repository, which includes sample notebooks to configure enhanced metrics, publish custom quality metrics and alerts, and set up the Grafana dashboards shown in this post.</p>
+</blockquote>
+<p>这篇博客的作者是 Sandeep Raveesh-Babu 和 Jonathan Kola。Sandeep 是 GenAI GTM 解决方案架构师，Jonathan 是 GenAI/ML 高级专家解决方案架构师。两人都在 AWS，日常就是帮客户搞 LLM 训练、推理和可观测性。所以这篇博客不是纸上谈兵——它反映的是 AWS 客户在生产环境中真实遇到的需求，只是现在被产品化成了一个可复用的方案。</p>
+<hr>
+<h2>这件事对行业意味着什么</h2>
+<p>把视野拉得更宽一点。AWS 发布这个解决方案，本质上是在补 LLM 基础设施拼图里缺失的一块。</p>
+<p>2023-2024 年，行业拼的是训练——谁有更多的 GPU、更大的集群、更低的训练成本。2024-2025 年，拼的是推理——谁的吞吐量更高、延迟更低、每 token 成本更便宜。到了 2026 年，训练和推理的基础设施都已经相对成熟，下一个战场是运维和治理。</p>
+<p>LLM 运维不是传统 DevOps 的简单延伸。传统 DevOps 监控的是确定性的系统行为——CPU 高了就扩容，内存满了就重启，错误率上去了就回滚。但 LLM 的行为是不确定的——同一个 prompt 两次调用可能返回不同的结果，质量的退化可能是渐进的、细微的、难以用阈值定义的。</p>
+<p>AWS 的 Quantity + Quality 双维度方案，本质上是在说：LLM 运维需要两套完全不同的心智模型。一套管机器，一套管智能。两套都得有，而且得能联动。</p>
+<p>（这让我想起 Google 在 2016 年那篇著名的 ML 系统工程论文《Hidden Technical Debt in Machine Learning Systems》，里面提到 ML 系统只有一小部分代码是真正的 ML，其余全是基础设施、数据管道、监控、配置管理。八年过去了，到了 LLM 时代，这个比例更极端了——可能 5% 是模型推理，95% 是让它稳定、可靠、可控地推理所需的一切。）</p>
+<p><strong>当你的模型开始替你做决策，监控它的人需要比监控服务器的人更懂业务。</strong></p>
+<hr>
+<p>SageMaker AI 的这组仪表盘，说到底是把两条原本分属不同团队的监控流——基础设施和模型质量——塞进了同一个 Grafana 实例里。SRE 看左边，产品经理看右边，告警在中间汇合。这不算什么技术突破，但它是 LLM 推理从「能跑」走向「能管」的一个明确信号。至于你的团队能不能用好它——那取决于你愿不愿意承认一个事实：你的 GPU 利用率面板再绿，也不代表用户得到了他们想要的东西。</p>
+<hr>
+<h2>参考来源</h2>
+<ul>
+<li><a href="https://aws.amazon.com/blogs/machine-learning/comprehensive-observability-for-amazon-sagemaker-ai-llm-inference-from-gpu-utilization-to-llm-quality/" target="_blank" rel="noopener">https://aws.amazon.com/blogs/machine-learning/comprehensive-observability-for-amazon-sagemaker-ai-llm-inference-from-gpu-utilization-to-llm-quality/</a></li>
+<li><a href="https://docs.aws.amazon.com/sagemaker/latest/dg/inference-components.html" target="_blank" rel="noopener">https://docs.aws.amazon.com/sagemaker/latest/dg/inference-components.html</a></li>
+<li><a href="https://docs.aws.amazon.com/sagemaker/latest/dg/monitoring-cloudwatch.html" target="_blank" rel="noopener">https://docs.aws.amazon.com/sagemaker/latest/dg/monitoring-cloudwatch.html</a></li>
+</ul>
+<p>#Comprehensive #Amazon #SageMaker #AI #LLM</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/comprehensive-observability-for-amazon-sagemaker-ai-llm-infe-article/content-3.png" alt="Amazon Managed Grafana Dashboard page snippet showing the list of dashboards available (LLM Quantity monitoring and LLM "></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
