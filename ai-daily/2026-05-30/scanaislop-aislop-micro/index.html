@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>团队用 Claude Code 三月：23% try-catch 为空，AI 代码质量堪忧 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-30</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-30</span><span class="tag-pill">AI Daily</span></div>
+      <h1>团队用 Claude Code 三月：23% try-catch 为空，AI 代码质量堪忧</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/scanaislop-aislop-micro/head.png" alt=""></p>
+<h1>“你的代码跑通了测试，但它在腐烂”</h1>
+<p>上周我在 GitHub 上看到一份真实数据：某团队用 Claude Code 写了三个月代码，CI 全绿，lint 零告警。但他们最近做了一次深度审计——发现 23% 的 try-catch 块是空的，14% 的 import 在代码里从未使用，还有一堆注释在解释“为什么要给 user 对象加一个 name 字段”——但那个字段名本身就叫 <code>userName</code>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/scanaislop-aislop-micro/content-1.png" alt="Show HN: AISlop, a CLI for catching AI generated code smells"></p>
+<p>这不是 bug。测试确实能过。但任何接手这段代码的工程师都会在心里骂一句：<strong>这他妈的谁写的。</strong></p>
+<p>答案往往是：不是人写的。</p>
+<p><strong>AI 生成的代码有一种独特的“味道”——不是语法错误，而是逻辑上你不该这么写。</strong></p>
+<h2>40 条规则，7 种语言，一个 0-100 分</h2>
+<p>Kenny（GitHub ID: heavykenny）给这个现象起了个名字叫“AI slop”，然后写了一个 CLI 工具来抓它。2026 年 5 月，这个项目登上了 Hacker News 首页，叫 <a href="https://github.com/scanaislop/aislop" target="_blank" rel="noopener">aislop</a>。</p>
+<p>它的卖点很直接：<strong>不靠 LLM 检测 LLM 的 slop，靠的是确定性规则。</strong></p>
+<p>aislop 内置了 6 个并行引擎——Formatting、Linting、Code Quality、AI Slop、Security、Architecture——覆盖 40+ 条规则，横跨 TypeScript/JavaScript、Python、Go、Rust、Ruby、PHP、Java 七种语言。它给每次扫描打一个 0-100 的综合分，权重倾斜在“AI 特有的烂模式”上：叙事性注释（narrative comments）、空 catch 块、<code>as any</code> 类型强转、幻觉出来的 import、重复的 helper 函数、TODO 存根、超大函数体。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/scanaislop-aislop-micro/schematic-1.png" alt="6 个并行引擎架构示意，Formatting → Linting → Code Quality → AI Slop → Security → Architecture，每条管线标注底层工具（Biome/ruff/golangci-lint 等）"></p>
+<p>最让我愣神的是“叙事性注释”这个规则。Kenny 在 README 里描述的场景几乎每个用 AI 写代码的人都见过：</p>
+<pre><code class="language-typescript">// We need to check if the user is authenticated before proceeding
+if (user.isAuthenticated) {
+</code></pre>
+<p>代码本身已经自解释了，但 AI 模型倾向于在上方补一句英文句子——因为它被训练成“解释你在做什么”。这种注释在代码审查里一眼就能被人类识别出来：“这不像人写的。”但 lint 工具不会报错，因为它语法上完全合法。</p>
+<p>aislop 会。它用正则 + AST + 标准工具链（Biome、oxlint、ruff、golangci-lint、clippy 等）做静态分析，没有任何 LLM 在运行时路径里。同一个代码库进去，同一个分数出来——完全确定性，零 API 调用。</p>
+<h2>“修不掉的烂摊子，丢回给你的 AI agent”</h2>
+<p>aislop 的另一个设计哲学是：<strong>能机械修的立刻修，修不掉的原封不动还给 AI。</strong></p>
+<p><code>npx aislop fix</code> 会自动清理格式问题、未使用的 import、死代码。加 <code>-f</code> 参数还会激进地干掉未使用的依赖和文件。但对于那些需要上下文判断的问题——比如一个空 catch 块到底该补上错误处理逻辑还是直接删掉——aislop 不会替你决定。它会生成完整的诊断信息，然后用 <code>--claude</code>、<code>--cursor</code>、<code>--gemini</code>、<code>--codex</code> 等参数，把剩余问题连同上下文一起丢回给你正在用的 AI coding agent。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/scanaislop-aislop-micro/schematic-2.png" alt="aislop 工作流——scan → 生成诊断报告 → auto-fix 机械问题 → hand off 语义问题到 Claude/Cursor/Gemini/Codex 等 agent"></p>
+<p>这形成了一个闭环：AI 写代码 → aislop 抓 slop → 机械修复 + 语义问题回传给 AI → AI 重新生成修复 → aislop 再次扫描。Kenny 甚至为这个流程做了 per-edit hook：<code>npx aislop hook install --claude</code> 会在 Claude Code 每次编辑后自动跑一次扫描，反馈直接流回 agent 的上下文窗口。</p>
+<p>对于团队场景，aislop 还提供了质量门（quality gate）模式：如果代码评分低于基线，hook 会直接拦截。<code>npx aislop hook install --claude --quality-gate</code> + <code>npx aislop hook baseline</code> 就能把“AI 写的烂代码”挡在提交之外。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/scanaislop-aislop-micro/schematic-3.png" alt="PR 质量门流程——aislop ci 模式，score < failBelow 阈值时 exit 1，阻断合并"></p>
+<p>值得一提的是，aislop 的底层引擎本身也在开源工具的肩上搭积木：Formatting 靠 Biome、ruff、gofmt、cargo fmt、rubocop、php-cs-fixer；Linting 靠 oxlint、ruff、golangci-lint、clippy；Code Quality 靠 knip 做未使用文件和依赖检测，AST 级别做未使用声明移除。Kenny 在致谢里列了一长串项目名，这其实也是 aislop 能保持“零 LLM、确定性输出”的底气——它不需要推理，只需要执行已知规则。</p>
+<h2>一个 0-100 分的 badge，贴在 README 上</h2>
+<p>aislop 还做了一件很有意思的事：公开 badge。</p>
+<p>你可以在 README 里嵌入一个动态 SVG badge，显示当前仓库的 aislop 评分。<code>npx aislop badge</code> 自动生成 URL，badge 托管在 <code>badges.scanaislop.com</code>。这意味着任何人都可以用一个数字快速判断：这个项目的代码里有多少“AI 味”。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-30/scanaislop-aislop-micro/schematic-4.png" alt="GitHub README 上的 aislop badge 示例，显示 Score: 87/100，旁边有趋势箭头"></p>
+<p>Kenny 在 README 里还提到一个付费团队版叫 scanaislop，提供 PR 门控、标准层级（org → team → project）、仪表盘和 agent 归因功能。但 CLI 本身是 MIT 协议，完全免费。这跟当年 ESLint 和 Prettier 的商业化路径如出一辙：核心工具开源，团队协作层收费。</p>
+<p>Hacker News 上的 Show HN 帖子下面，讨论集中在几个方向：有人质疑“规则是否足够覆盖不同语言里 AI slop 的变体”，有人追问“能不能自定义规则”，也有人直接贴了自己项目跑 <code>npx aislop scan</code> 后的分数。Kenny 在评论区提到，规则集是基于公开扫描和 benchmark 推导出的失败模式设计的，不是靠本地 fixtures 拍脑袋——他们有一个研究项目专门跑可重复的开源扫描，固定队列、存储原始 JSON、分类发现、用回归测试修复误报规则，然后公布局限性。</p>
+<p>这其实点出了一个更深层的问题：<strong>AI coding agent 的普及速度，已经超过了我们审计 AI 代码的能力建设速度。</strong> 2024 年 GitHub Copilot 用户超过 180 万，Cursor 在 2025 年迅速崛起，Claude Code 和 Codex CLI 让“用自然语言写代码”变成常态。但代码审查工具还停留在“检查语法和风格”的阶段。aislop 试图填补的，正是“AI 特有的逻辑烂摊子”这个真空地带。</p>
+<p>最后说一句让我觉得黑色幽默的事：aislop 本身是一个用来抓 AI slop 的工具，但它同时内置了 <code>--claude</code>、<code>--cursor</code>、<code>--gemini</code> 等参数，用来把抓到的 slop 再丢回 AI 去修。这就好比发明了一个专门检测假钞的机器，然后机器上有个按钮叫“送回印钞厂重印”。</p>
+<p><strong>你用 AI 写代码，用 aislop 抓 AI 的烂摊子，再让 AI 去修自己搞出来的烂摊子——这个循环本身，就是 2026 年软件工程的荒诞日常。</strong></p>
+<h2>参考来源</h2>
+<ul>
+<li><a href="https://github.com/scanaislop/aislop" target="_blank" rel="noopener">https://github.com/scanaislop/aislop</a></li>
+<li><a href="https://news.ycombinator.com/item?id=aislop_show_hn（Hacker" target="_blank" rel="noopener">https://news.ycombinator.com/item?id=aislop_show_hn（Hacker</a> News Show 原帖）</li>
+</ul>
+<p>#Show #HN #AISlop #CLI #AI</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
