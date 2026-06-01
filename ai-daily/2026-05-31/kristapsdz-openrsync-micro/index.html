@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>323个赞，OpenBSD如何用安全哲学重构30年老工具rsync？ — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-31</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-31</span><span class="tag-pill">AI Daily</span></div>
+      <h1>323个赞，OpenBSD如何用安全哲学重构30年老工具rsync？</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-31/kristapsdz-openrsync-micro/head.png" alt=""></p>
+<p>有一组数据我想先摆在这里：</p>
+<p>323 个 upvote。141 条评论。一个只有大约 10,000 行 C 代码的项目，在 Hacker News 上炸出了当天最大的水花。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-31/kristapsdz-openrsync-micro/content-1.png" alt="Openrsync: An implementation of rsync, by the OpenBSD team"></p>
+<p>这不是什么新出的多模态大模型，也不是哪家刚融了十亿美金的独角兽。这是 OpenBSD 团队写的 rsync——一个 1996 年就诞生的文件同步工具的重新做到。</p>
+<p>名字叫 openrsync。</p>
+<p><strong>当整个科技圈都在追逐 AGI 的时候，一群做操作系统的人，选择去重写一个 30 年前的工具。</strong></p>
+<h2>这不是“又一个 rsync”，这是 OpenBSD 的安全哲学在代码层面的暴力执行</h2>
+<p>如果你点进 openrsync 的 GitHub 仓库，最先看到的不是 feature list，不是 benchmark，而是一段关于安全的声明——而且语气相当不客气。</p>
+<p>它告诉你，这个项目使用了 OpenBSD 原生的 <code>pledge(2)</code> 和 <code>unveil(2)</code> 系统调用。<code>pledge</code> 用来限制进程在整个生命周期中可以使用的系统资源类别（比如 receiver 模式只有在非 dry-run 时才被允许写磁盘，daemon 客户端只在需要时有 DNS 和网络访问权限）。<code>unveil</code> 则把文件系统的访问范围锁死在目标目录内——一旦目标目录创建完毕，任何试图“越狱”到其他路径的操作都会被内核直接拒绝。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-31/kristapsdz-openrsync-micro/schematic-1.png" alt="pledge 和 unveil 的权限收缩示意，进程从启动到运行逐步缩减可用系统调用和文件路径范围"></p>
+<p>这意味着什么？意味着就算 openrsync 的代码里有漏洞，攻击者能做的事情也极其有限。你连文件系统都逃不出去，谈什么提权？</p>
+<p>更有意思的是 MD4 哈希的种子生成。原版 rsync 用 <code>time(3)</code>，openrsync 用 <code>arc4random(3)</code>——一个密码学强度的随机数生成器。这只有在 server 模式下才相关，因为种子由 server 端生成。但 openrsync 选择在所有模式下都这么干。</p>
+<p><strong>在安全这件事上，OpenBSD 团队从来不相信“够用就好”。</strong></p>
+<p>然后他们还很直白地告诉所有想在 Linux 上运行 openrsync 的人：Linux 的安全设施是一团乱麻（“Linux&#39;s security facilities are a mess”），而且需要一个专家级的人才能正确加固。FreeBSD 的 Capsicum 也许能做到类似的事情，但他们不确定。至于 macOS、NetBSD、OmniOS——能编译，能跑，但没有 pledge 和 unveil 的保护，你就是在“接受来自公共网络的任意数据写到你的文件系统上”。</p>
+<p>最后那句反问几乎是挑衅：“openrsync 大约有 10,000 行 C 代码：你相信我不会犯错吗？”</p>
+<p>这句话的潜台词是：你不该相信我。你应该依赖操作系统级别的强制隔离。</p>
+<h2>架构上的一个“反传统”决定：干掉独立进程，用事件循环</h2>
+<p>原版 rsync 的架构里有一个独立的“generator”进程。它由 receiver fork 出来，负责计算文件的块哈希，然后跟 sender 和 receiver 三方通信。这是 rsync 协议里最核心的流水线设计。</p>
+<p>openrsync 的做法是：把 generator 和 receiver 合并成一个进程。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-31/kristapsdz-openrsync-micro/schematic-2.png" alt="原版 rsync 三进程架构 vs openrsync 单进程事件循环架构对比"></p>
+<p>怎么做到的？用了一个有限状态机驱动的事件循环。receiver 同时承担两个角色：uploader（负责扫描文件列表、异步打开文件、计算块哈希、上传给 sender）和 downloader（等待 sender 发来的数据，异步打开已有文件块拷贝，然后继续读取新数据）。</p>
+<p>关键在这里：uploader 在等待文件打开时不会阻塞。它把控制权交还给事件循环。downloader 同理。当文件就绪时，事件循环再把控制权交回来。</p>
+<p>这不仅仅是代码行数变少了。这是在用单进程的异步模型，去替代多进程的同步模型。</p>
+<p>原版 rsync 依赖 <code>fork(2)</code> 来并行处理。openrsync 依赖的是非阻塞 I/O 和状态机。在 2025 年的语境下看这个选择，你会意识到它跟整个服务端架构的演进方向完全一致——从多进程到多线程到事件驱动，rsync 这个 30 岁的工具也在经历同样的范式迁移。</p>
+<p>而这件事的触发点，甚至不是 rsync 本身。</p>
+<p>openrsync 最初是作为 rpki-client(1) 项目的一部分被写出来的——这是一个 RPKI（Resource Public Key Infrastructure）验证器，用于验证互联网路由来源的合法性。RPKI 需要从多个远端仓库同步大量证书和签名文件。rsync 是 RPKI 依赖的核心传输协议之一。</p>
+<p>所以这根本不是一个“重写经典工具”的业余项目。这是互联网基础设施安全链条上的一环。出资方是 NetNod、IIS.SE、SUNET 和 6connect——全是互联网基础设施运营商。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-31/kristapsdz-openrsync-micro/schematic-3.png" alt="RPKI 验证流程中 rsync 的角色，从远端仓库拉取 ROA 证书到本地验证器"></p>
+<p>现在再看 openrsync 的那些安全设计，就完全说得通了：它处理的不只是你的照片备份，而是决定全球 BGP 路由是否合法的证书数据。如果 rsync 被攻破，攻击者可以伪造路由来源，劫持整个 IP 段。</p>
+<p><strong>这就是为什么一个 10,000 行的 C 项目值得 323 个人在深夜点赞。</strong></p>
+<p>block 大小算法的细节也很值得玩味。openrsync 沿用了 rsync 协议的规则：block 大小取文件总大小的平方根，然后向上取整到最近的 8 的倍数。最小 block 是 700 字节。</p>
+<p>为什么是 8 的倍数？文档里写的是“原因未知”（“For reasons unknown”）。这是一个在 1996 年由 Andrew Tridgell 写进 rsync 的设计选择，然后被 openrsync 原样继承。30 年后，没人记得原因，但所有人都遵守。</p>
+<p>这大概是开源世界里最浪漫的一种考古学。</p>
+<p>openrsync 目前已经被合并进 OpenBSD 的 base 系统。GitHub 上的那个仓库只是 OpenBSD 版本加上一些可移植性的胶水代码。官方支持的操作系统只有 OpenBSD。Linux、FreeBSD、macOS 能编译运行，但那叫“portable”，不叫“supported”。</p>
+<p>文档里还有一句很 OpenBSD 风格的话：“如果你想写自己的 rsync 做到，协议手册应该包含所有需要的信息。”</p>
+<p>没有“欢迎贡献”。没有“社区友好”。就是干巴巴地告诉你，协议文档在 <code>rsync(5)</code> 和 <code>rsyncd(5)</code> 里，代码在 <code>main.c</code>、<code>sender.c</code>、<code>receiver.c</code>、<code>blocks.c</code>、<code>hash.c</code> 里，剩下的你自己看。</p>
+<p><strong>这就是一群把操作系统当信仰的人，在用写内核的态度写一个文件同步工具。</strong></p>
+<hr>
+<h2>参考来源</h2>
+<ul>
+<li><a href="https://github.com/kristapsdz/openrsync" target="_blank" rel="noopener">https://github.com/kristapsdz/openrsync</a></li>
+<li><a href="https://news.ycombinator.com/item?id=48334854" target="_blank" rel="noopener">https://news.ycombinator.com/item?id=48334854</a></li>
+</ul>
+<p>#Openrsync #An #OpenBSD #AI #科技</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

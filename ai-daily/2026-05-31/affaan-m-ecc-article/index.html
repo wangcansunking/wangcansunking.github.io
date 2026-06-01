@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>独立开发者 affaan 的 ECC 系统：一套代码，适配 Claude Code 等 7 个 AI 编码平台 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-31</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-31</span><span class="tag-pill">AI Daily</span></div>
+      <h1>独立开发者 affaan 的 ECC 系统：一套代码，适配 Claude Code 等 7 个 AI 编码平台</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-31/affaan-m-ecc-article/head.png" alt=""></p>
+<p>如果你在 2026 年 5 月打开 GitHub Trending，看到一个仓库挂着 182K+ stars、28K+ forks、170+ 贡献者、12 种语言生态——你的第一反应大概是“又一个前端框架炸了”或者“哪个大厂的 LLM 开源了”。</p>
+<p>但这次不是。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-31/affaan-m-ecc-article/content-1.png" alt="affaan-m/ECC — The agent harness performance optimization system. Skills, instin"></p>
+<p>这次是一个叫 <strong>ECC</strong> 的项目，全称甚至没有在 README 里展开（官方说法是“The harness-native operator system for agentic work”），由一个叫 affaan 的独立维护者单人主理，横跨 Claude Code、Codex、OpenCode、Cursor、Gemini、Zed、GitHub Copilot 七个 AI 编码 harness，扔出了 63 个 agent、249 个 skill、79 个 legacy command shim，外加一个正在 alpha 阶段的 Rust 控制面。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-31/affaan-m-ecc-article/content-2.png" alt="ECC - the harness-native operator system for agentic work"></p>
+<p>更离谱的是——这个项目已经跑了 10 个月以上的密集日常使用，不是 demo，不是论文附录，是“在真实多 harness 工程工作流里磨出来的”。</p>
+<p><strong>一个独立开发者，把 AI 编码 agent 的操作系统做出来了——而且七个平台都能跑。</strong></p>
+<h2>七个 harness 一套系统：这不是 config，这是 agent 的操作系统</h2>
+<p>ECC 的定位从一开始就和市面上所有“Claude Code 配置包”不同。大多数同类项目做的是规则文件集合——告诉你“用这个 prompt，加那个 hook，你的 Claude Code 会变强”。ECC 的做法是反过来：它定义了一个 <strong>harness-native operator system</strong>，然后把 Claude Code、Codex、Cursor 这些当成底层运行时来适配。</p>
+<p>看架构就明白了。ECC 的 repo 根目录下不是散装 markdown，而是四个核心层：</p>
+<ul>
+<li><strong>agents/</strong>：63 个专业化 subagent，从 <code>planner</code>（特性做到规划）到 <code>build-error-resolver</code>（构建错误修复），从 <code>cpp-reviewer</code>（C++ 代码审查）到 <code>pytorch-build-resolver</code>（PyTorch/CUDA 训练错误诊断），每个 agent 是一个独立的 markdown 文件，定义了角色、触发条件、输出格式。</li>
+<li><strong>skills/</strong>：249 个技能定义，覆盖 coding standards、安全审查、TDD 工作流、部署模式、Docker 管理、E2E 测试、数据库迁移、API 设计——甚至包括 <code>article-writing</code>（长文写作）、<code>content-engine</code>（多平台内容分发）、<code>investor-materials</code>（融资材料）这种非编码域。</li>
+<li><strong>commands/</strong>：79 个 slash 命令兼容层（官方已经在引导用户迁移到 skills，commands 是“legacy shim”）。</li>
+<li><strong>rules/</strong>：按语言分目录的多语言规则架构——<code>common/</code> + <code>typescript/</code> + <code>python/</code> + <code>golang/</code> + <code>java/</code> + <code>kotlin/</code> + <code>cpp/</code> + <code>rust/</code> + <code>perl/</code> + <code>php/</code> + <code>swift/</code>——安装时只装你需要的语言包。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-31/affaan-m-ecc-article/schematic-1.png" alt="ECC 四层架构示意，agents/skills/commands/rules 与七个 harness 的映射关系"></p>
+<p>这种分层设计带来的直接效果是：<strong>同一个 skill 在不同 harness 上行为一致</strong>。你在 Claude Code 里用的 <code>security-scan</code>，切到 Codex CLI 后还是同一套逻辑——因为 skill 定义的是工作流和检查点，harness 只是执行载体。</p>
+<p>v1.8.0 开始，ECC 把自己明确定位为“agent harness performance system”，而不是 config pack。这个定位变化背后有一个关键数据点：v1.8.0 用了 997 个内部测试，v1.7.0 是 992 个，v1.6.0 是 978 个——测试套件规模本身就说明这不是一个“调调 prompt”的项目。</p>
+<h2>记忆、本能、持续学习：agent 的“肌肉记忆”是怎么练出来的</h2>
+<p>ECC 最让我愣神的设计不是 agent 数量，而是它那套 <strong>instinct（本能）系统</strong>。</p>
+<p>传统的 AI 编码助手，每次会话都是干净的——上下文从零开始，你昨天调过的 bug 今天还得再描述一遍。ECC 的做法是：用 hooks 在会话边界自动保存和加载上下文（Memory Persistence），然后从会话中自动提取模式，转成可复用的 instinct。</p>
+<p>v1.4.0 引入的 <code>continuous-learning-v2</code> 技能包，用“本能式学习 + 置信度评分”来管理这些提取出来的模式。具体流程是：</p>
+<ol>
+<li>SessionStart hook 加载上次会话的 context；</li>
+<li>Stop-phase hook 生成会话摘要；</li>
+<li><code>/learn</code> 命令从当前会话提取可复用的模式；</li>
+<li><code>/learn-eval</code> 评估提取质量并保存；</li>
+<li>置信度低的 instinct 进入 pending 状态，等下次验证；</li>
+<li>过期的 pending instinct 被 <code>/prune</code> 清理；</li>
+<li>稳定的 instinct 用 <code>/evolve</code> 聚类成完整 skill。</li>
+</ol>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-31/affaan-m-ecc-article/schematic-2.png" alt="ECC 本能学习循环：Session → Extract → Evaluate → Confidence Score → Cluster → Skill"></p>
+<p><strong>这本质上是一个 agent 的“睡眠记忆巩固”机制——白天写代码，晚上做梦整理经验。</strong></p>
+<p>v1.4.1 专门修了一个 bug，叫“instinct import 内容丢失”——<code>parse_instinct_file()</code> 函数在解析 frontmatter 后，把所有 Action、Evidence、Examples 段的内容都丢弃了（#148, #161）。这个 bug 的存在本身说明 instinct 文件是有结构的：frontmatter 存元数据，正文存可执行内容，不是自由文本。</p>
+<p>v2.0.0-rc.1（2026 年 4 月发布）进一步把 operator 工作流推到了前台。新增的 <code>parallel-execution-optimizer</code>、<code>benchmark-optimization-loop</code>、<code>data-throughput-accelerator</code>、<code>latency-critical-systems</code>、<code>recursive-decision-ledger</code> 五个 skill 组成了一套“优化技能包”——把重复性的速度调优、递归决策、吞吐量优化变成了有边界、可度量的 benchmark 循环。</p>
+<p>与此同时，新增的 <code>ito-market-intelligence</code>、<code>ito-basket-compare</code>、<code>ito-trade-planner</code>、<code>prediction-market-oracle-research</code> 等预测市场技能包，则把 ECC 的触角伸向了非编码域——虽然 Itô API 的实时访问权限是 gated 且与 ECC Tools 计费分离的。</p>
+<h2>一个独立维护者，七个 harness，每周发版</h2>
+<p>ECC 的维护模式可能是整个故事里最反常识的部分。</p>
+<p>README 里原话是：</p>
+<blockquote>
+<p>Sponsors and Pro subscribers fund the work — that&#39;s why a single maintainer ships weekly across 7 harnesses.</p>
+</blockquote>
+<p>一个独立维护者，每周横跨七个 AI 编码 harness 发版。从 v1.2.0（2026 年 2 月，统一命令和技能）到 v2.0.0-rc.1（2026 年 4 月），中间经历了至少 8 个正式版本——v1.3.0（OpenCode 插件支持）、v1.4.0（多语言规则 + PM2 编排）、v1.6.0（Codex CLI + AgentShield + GitHub Marketplace 上架）、v1.7.0（跨平台扩展）、v1.8.0（harness 性能系统）、v1.9.0（选择性安装 + 语言扩展）——每个版本都有实质性的架构变化。</p>
+<p>怎么做到的？答案可能藏在 ECC Pro 的商业模式里：<strong>$19/seat/月的 GitHub App，加上 $5/月起的 GitHub Sponsors</strong>。私有仓库用户付费，公开仓库永久 MIT 开源——这是一个经典的 OSS 可持续模型，但规模上通常需要一个小团队。affaan 一个人扛住了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-31/affaan-m-ecc-article/schematic-3.png" alt="ECC 版本演进时间线：v1.2.0 → v2.0.0-rc.1，标注每个版本关键 feature 和测试套件规模"></p>
+<p>v1.9.0 引入的“选择性安装架构”是一个关键转折点。在此之前，安装 ECC 是全量或按 profile（minimal/core/full）来的。v1.9.0 用 <code>install-plan.js</code> 和 <code>install-apply.js</code> 做到 manifest 驱动的组件级安装，state store 记录已安装组件并支持增量更新。这意味着用户不再需要“要么全装要么别装”——你可以只装 Python 规则 + security-scan skill + TypeScript reviewer agent，其他一概不要。</p>
+<p>v2.0.0-rc.1 更进一步：ECC 2.0 alpha 已经在 repo 内的 <code>ecc2/</code> 目录下构建出了 Rust 控制面原型，暴露了 <code>dashboard</code>、<code>start</code>、<code>sessions</code>、<code>status</code>、<code>stop</code>、<code>resume</code>、<code>daemon</code> 七个命令。虽然仍是 alpha 状态“usable but not general release”，但方向很明确——从 CLI 配置工具进化成常驻后台的 agent 控制系统。</p>
+<p><code>ecc status --markdown --write status.md</code> 这个命令尤其有意思：它把本地状态存储转成可移植的 handoff 文件，覆盖 readiness、活跃 session、skill-run 健康度、安装健康度、待处理治理事件、以及来自 Linear/GitHub/handoff 的关联工作项。这是一个为 multi-agent 协作设计的“交接单”——一个 agent 停下来，另一个 agent 读 status.md 就能接上。</p>
+<h2>AgentShield、沙箱、CVE：当 agent 自己变成攻击面</h2>
+<p>ECC 的安全层设计，单独拿出来都够写一篇文章。</p>
+<p>v1.6.0 集成的 AgentShield 是一个安全扫描器，可以直接从 Claude Code 里用 <code>/security-scan</code> skill 调用。官方数据是：1282 个测试，102 条规则。这个规模意味着 AgentShield 不是一个简单的 lint 包装器——它有自己的规则引擎和测试基础设施。</p>
+<p>ECC 的安全指南（Security Guide）覆盖了四个领域：攻击向量、沙箱化、输入净化、CVE 追踪。结合 v1.9.0 的“observer 可靠性”改进——memory explosion fix（节流 + 尾部采样）、sandbox access fix、lazy-start logic、re-entrancy guard（重入防护）——可以看到 ECC 的安全思路是双层的：外层是 AgentShield 对代码的扫描，内层是对 agent 自身运行时的防护。</p>
+<p><strong>当你的 AI agent 能执行 shell 命令、读写文件、发起网络请求时，它自己就是最大的攻击面——ECC 做的就是在 agent 外面再套一层 agent 来盯着它。</strong></p>
+<p>这种“agent 监督 agent”的模式在 v1.8.0 的 observer loop prevention 里体现得更具体：5 层 guard 防止 observer 自己陷入循环。没有具体公开这 5 层是什么，但从命名可以推测——observer 监控 agent 行为，如果 observer 的监控行为又触发了 observer 自己，就得有机制打断这个循环。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-31/affaan-m-ecc-article/schematic-4.png" alt="ECC 安全双层架构：外层 AgentShield 扫描代码，内层 observer 监控 agent 运行时行为"></p>
+<p>v2.0.0-rc.1 的 <code>ecc work-items sync-github --repo owner/repo</code> 则把安全视野扩展到了供应链：它能同步 PR/issue 队列状态到本地状态存储。结合 <code>ecc status --exit-code</code>（当 readiness 需要关注时让自动化失败），这套机制可以在 CI 里做 agent 健康检查——如果某个 skill 运行异常或安装状态损坏，CI 直接挂掉。</p>
+<h2>跨 harness 的野心：不是“配置包”，是“agent 运行时规范”</h2>
+<p>ECC 最值得关注的长期价值，可能不是它现在有多少个 agent 或 skill，而是它正在定义一套 <strong>跨 harness 的 agent 工作流标准</strong>。</p>
+<p>目前的主流 AI 编码工具——Claude Code、Codex CLI、Cursor、GitHub Copilot——各自有自己的配置格式、hook 机制、上下文管理方式。用户在一个平台上积累的工作流，换平台就得重来。ECC 的做法是把“skill”抽象成 harness 无关的工作流定义，然后为每个 harness 写适配层。</p>
+<p>v1.3.0 的 OpenCode 集成是个很好的例子：12 个 agent、24 个 command、16 个 skill，用 OpenCode 的 plugin 系统（20+ 种事件类型）挂载 hook。v1.7.0 的 Codex app + CLI 支持则走的是 <code>AGENTS.md</code> 路线——因为 Codex CLI 的配置入口就是 <code>codex.md</code>，ECC 直接生成这个文件。</p>
+<p>v2.0.0-rc.1 的 <code>cross-harness architecture</code> 文档（README 里提到但没有展开细节）和 expanded cross-harness packaging，说明 ECC 团队（或者说 affaan 一个人）正在系统性地解决“同一套 skill 在不同 harness 上语义一致”的问题。</p>
+<p>v1.8.0 引入的 harness 命令——<code>/harness-audit</code>、<code>/loop-start</code>、<code>/loop-status</code>、<code>/quality-gate</code>、<code>/model-route</code>——进一步把 harness 本身变成了可管理的对象。<code>/model-route</code> 尤其值得注意：它意味着 ECC 可以在运行时根据任务类型切换模型，而不需要用户手动改配置。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-31/affaan-m-ecc-article/schematic-5.png" alt="ECC 跨 harness 架构：skill 定义层 → harness 适配层 → 七个执行环境"></p>
+<p>配合 NanoClaw v2（model routing, skill hot-load, session branch/search/export/compact/metrics），ECC 正在构建的是一套 agent 运行时原语——session 管理、模型路由、skill 热加载、分支/搜索/导出/压缩/指标——这些能力在传统的“配置包”里根本不会出现。</p>
+<blockquote>
+<p>ECC v2.0.0-rc.1 adds the public Hermes operator story on top of that reusable layer.</p>
+</blockquote>
+<p>“Hermes operator story”是什么？README 没有展开，但结合 v2.0.0-rc.1 新增的 operator 工作流——<code>brand-voice</code>、<code>social-graph-ranker</code>、<code>connections-optimizer</code>、<code>customer-billing-ops</code>、<code>google-workspace-ops</code>、<code>project-flow-ops</code>——可以推测，Hermes 是 ECC 面向“运营角色”的 agent 工作流集合，不是给开发者写代码用的，而是给运营人员管理品牌、社交图谱、客户计费、Google Workspace 用的。</p>
+<p>这解释了为什么 ECC 的 skill 列表里有 <code>article-writing</code>、<code>content-engine</code>、<code>market-research</code>、<code>investor-materials</code>、<code>investor-outreach</code>——它不是在做一个“更好的代码助手”，它是在做一个 <strong>agent 操作系统，编码只是其中一个 workload</strong>。</p>
+<h2>182K stars 的隐忧：一个人能撑多久</h2>
+<p>写到这里，我觉得有必要提一个不太好听的问题。</p>
+<p>182K+ stars、28K+ forks、170+ 贡献者——这些数字放在任何项目上都是顶级开源项目的体量。但 ECC 的核心维护者只有一个人。README 里说“a single maintainer ships weekly across 7 harnesses”，这句话听起来很酷，但翻译过来就是：<strong>巴士因子等于 1</strong>。</p>
+<p>v1.9.0 的社区贡献列表里有韩语和中文翻译、biome hook 优化、视频处理技能、PowerShell 安装器、Antigravity IDE 支持——说明社区确实在参与。但核心架构决策、跨 harness 适配、Rust 控制面开发、测试套件维护，这些大概率还是 affaan 一个人在扛。</p>
+<p>ECC Pro 的商业模式（$19/seat/月 + GitHub Sponsors $5/月起）能支撑一个人全职做这件事吗？如果 182K stars 中有 1% 的人每月付 $5，那就是 $91,000/月——但现实是开源项目的付费转化率通常远低于 1%。即使加上 ECC Pro 的企业用户，收入能不能覆盖一个全职开发者 + 基础设施成本 + 时间精力投入，仍然是个问号。</p>
+<p>v2.0.0-rc.1 新增的 <code>ecc-tools-cost-audit</code> skill——用于审计 ECC Tools 的成本——暗示 affaan 自己也在关注这个问题。当你的 agent 系统需要一个专门的 skill 来算账时，说明成本已经不是可以忽略的小数目了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-05-31/affaan-m-ecc-article/schematic-6.png" alt="ECC 可持续性三角：独立维护者 × 七个 harness × 周更节奏 vs. 巴士因子 = 1"></p>
+<p>但换个角度看，ECC 的 MIT 许可证意味着即使有一天 affaan 不再维护，社区也可以 fork 继续。而且 ECC 的架构设计——skill 是独立 markdown 文件，agent 是独立 markdown 文件，rules 是按语言分目录——天然适合社区贡献。你不需要理解整个系统就能加一个 Java review agent 或一个 Perl testing skill。</p>
+<p>这可能是 ECC 最聪明的设计决策：<strong>不是建一座金字塔，而是铺一片能各自生长的草地。</strong></p>
+<p>affaan 一个人能撑多久，取决于这片草地能不能长出足够多的园丁——而 170+ 贡献者这个数字，说明种子已经撒下去了。</p>
+<p>#ECC #The #Skills #Claude #Code</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

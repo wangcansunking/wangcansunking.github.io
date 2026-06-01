@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>1-Bit技术突破：4B参数图像模型压缩14倍，手机9.4秒出图 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-01</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-01</span><span class="tag-pill">AI Daily</span></div>
+      <h1>1-Bit技术突破：4B参数图像模型压缩14倍，手机9.4秒出图</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-01/bonsai-image-4b-micro/head.png" alt=""></p>
+<p>当 FLUX.2 Klein 4B 以 7.75 GB 的扩散 Transformer 权重塞进一台 MacBook 时，它已经够轻量了。但 PrismML 今天扔出来的 Bonsai Image 4B，直接把同一个架构的 Transformer 压到 0.93 GB——8.3 倍的压缩比，而且能在 iPhone 17 Pro Max 上跑全程。</p>
+<p>不是云端推理，不是蒸馏小模型。是原汁原味的 4B 参数扩散 Transformer，量化到二元和三元权重，塞进一台手机里生成 512×512 图像，9.4 秒出图。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-01/bonsai-image-4b-micro/content-1.png" alt="原文配图"></p>
+<p><strong>14 倍的压缩比，保留 95% 的基准分——这不是优化，这是重新定义了“能跑”的硬件边界。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-01/bonsai-image-4b-micro/content-2.png" alt="原文配图"></p>
+<h2>1-bit 不是噱头：0.93 GB 和 1.21 GB 两个版本分别干了什么</h2>
+<p>PrismML 这次放出的 Bonsai Image 4B 有两个变体：1-bit（二元）和 Ternary（三元）。两者共享同一个骨架——来自 FLUX.2 Klein 4B 的扩散 Transformer 架构——但权重表示方式完全不同。</p>
+<p>二元版本把 Transformer 的主体层量化为 1-bit，相对于全精度权重做到约 14 倍的压缩。加上仍然保留 FP16 精度的一小组投影层（约占总参数 5%），最终 Transformer 体积落在 0.93 GB。三元版本多了一个零状态，压缩比略低（约 10 倍），最终 Transformer 体积 1.21 GB，但视觉质量和 prompt 忠实度更好。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-01/bonsai-image-4b-micro/schematic-1.png" alt="二元和三元 Bonsai Image 4B 与原始 FLUX.2 Klein 4B 的 Transformer 体积对比柱状图，标注 7.75 GB → 0.93 GB / 1.21 GB"></p>
+<p>把文本编码器和 VAE 算进去，iPhone 上的完整部署包分别是 3.42 GB（1-bit）和 3.88 GB（Ternary）。原始 FLUX.2 Klein 4B 需要 15.97 GB——iPhone 17 Pro Max 根本塞不进去。运行时更夸张：生成 512×512 图像时，二元模型平均活跃内存 1.5 GB，三元模型 1.96 GB，而原版是 11.74 GB。换到 1024×1024，分别是 1.95 GB、2.38 GB、14.39 GB。</p>
+<p>我看到这组数字的第一反应是：这不是“压缩模型”常见的惨烈质量滑坡。GenEval、HPSv3、DPG-Bench 三个基准上，三元版保留了原模型 95% 的分数，二元版保留了 88%。换句话说，1.21 GB 的三元 Bonsai 在物体组合、属性绑定、人类偏好评分和密集提示遵循上，几乎追平 7.75 GB 的全精度版本。</p>
+<p><strong>压缩比的代价不是质量，是你在哪个设备上等 9 秒还是 6 秒。</strong></p>
+<p>PrismML 的部署栈也值得拆开看。Apple Silicon 端用的是 MLX 的低比特路径，CUDA 端靠 Gemlite 的低比特 GEMM kernel。Mac M4 Pro 上 Bonsai Image 4B 比原版全精度 MFLUX 管线快 5.6 倍。iPhone 17 Pro Max 上 512×512 出图 9.4 秒，Mac M4 Pro 约 6 秒。不是云端 API 的秒级响应，但这是一台手机的本地推理——没有网络延迟，没有按次计费，prompt 和生成图全程留在设备上。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-01/bonsai-image-4b-micro/schematic-2.png" alt="Bonsai Image 4B 在不同硬件上的推理速度对比表，iPhone 17 Pro Max / Mac M4 Pro / 全精度 MFLUX，标注速度倍数和内存占用"></p>
+<h2>本地图像生成不是技术炫技，是产品逻辑的彻底翻转</h2>
+<p>PrismML 在公告里写了一段我认为非常诚实的话：云 API 会继续是很多产品的正确选择，但纯云端的图像生成天然带着一些产品约束——每次 prompt 都是远程请求，每次迭代都有边际服务成本，每次交互都增加往返延迟。</p>
+<p>而图像生成天然就是迭代的。用户几乎不会停在第一张图上。改 prompt、对比输出、生成变体、丢弃失败、再试一次——这是创意工作的常态。如果每一次尝试都是一次服务器任务，这个创意循环就会变成用户需要“计量和等待”的东西。本地推理翻转了这一点：模型一旦装进设备，生成可以直接嵌在产品体验里，跑起来更便宜，迭代更快，而且 prompt 和生成资产全程私密。</p>
+<p>这是我读完整篇公告后觉得最值得琢磨的部分。过去两年，扩散模型的竞争焦点几乎全在质量和分辨率上：SDXL、SD3、FLUX、Midjourney V6/V7，每一代都在推高参数和显存需求。但 PrismML 这条路径走的是另一个方向——不是做最强的模型，而是让“够强”的模型跑在以前根本跑不了的设备上。</p>
+<p>Bonsai Image 4B 的基准分数表明，它跟现代 4B 级图像模型在同一梯队，但扩散 Transformer 的内存占用只有同类的几分之一。同时，它又远超那些内存占用相近的小模型。这就是 PrismML 之前在语言模型上展示过的“帕累托前沿平移”——把现代扩散 Transformer 的行为塞进一个原本只属于低能力小模型的内存区间。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-01/bonsai-image-4b-micro/schematic-3.png" alt="Bonsai Image 4B 在质量-内存占用二维图上的位置，标注与其他 4B 模型和小模型的相对关系，箭头表示帕累托前沿平移"></p>
+<p>有意思的是，PrismML 选择的是量化扩散 Transformer 本身，而不是走蒸馏或剪枝路线。公告里明确说架构没动，只改了权重表示。这意味着这条压缩路径跟模型架构演进是正交的——FLUX 系模型未来再迭代，同样的量化方案理论上可以直接复用。</p>
+<p>PrismML 这支团队的背景也值得提一句。核心成员来自 Caltech，成立时拿了 Khosla Ventures、Cerberus 和 Google 的支持。他们花了几年时间专攻一个方向：在不牺牲推理能力的前提下压缩神经网络。Bonsai 语言模型系列已经验证过这条路，现在轮到图像生成。</p>
+<p>这次一并放出的还有 Bonsai Studio，一个 iOS app，让用户直接在 iPhone 上跑 Bonsai Image 4B。权重和代码都走 Apache 2.0 协议开源。对于想在自己产品里嵌入本地图像生成能力的开发者来说，3.42 GB 的部署包和 1.5 GB 的运行时内存，意味着门槛从“需要一块高端 GPU”降到了“用户口袋里那台手机”。</p>
+<p>不过，9.4 秒出 512×512 图在 2026 年的标准下不算快。云端 API 已经能做到亚秒级响应，Midjourney 和 DALL-E 的迭代速度也在持续压缩。本地推理的优势不在单次速度，而在零边际成本、零网络依赖、零隐私泄漏。对于需要大量试错的创意场景，或者对数据本地化有硬性要求的应用，这个 trade-off 是成立的。</p>
+<p>PrismML 这次把扩散 Transformer 压进 1 GB 以下，等于给“设备端图像生成”这个概念划了一条新的基线。接下来要看的是，开发者社区会不会接过这根接力棒，把 Bonsai Image 塞进更多 app 里——以及，其他模型厂商会不会跟进这条量化路径。</p>
+<p>毕竟，当一台手机能本地跑 4B 扩散模型的时候，“云端生成”就不再是唯一答案了。</p>
+<h2>参考来源</h2>
+<ul>
+<li>PrismML 官方公告：<a href="https://prismml.com/news/bonsai-image-4b" target="_blank" rel="noopener">https://prismml.com/news/bonsai-image-4b</a></li>
+<li>Hacker News 讨论：<a href="https://news.ycombinator.com/item?id=48346257" target="_blank" rel="noopener">https://news.ycombinator.com/item?id=48346257</a></li>
+</ul>
+<p>#Bit #Bonsai #Image #Generation #Local</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-01/bonsai-image-4b-micro/content-3.png" alt="原文配图"></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
