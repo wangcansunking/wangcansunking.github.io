@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloudflare Turnstile 封杀 WebKitGTK：要求 WebGL 指纹引隐私争议 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-02</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-02</span><span class="tag-pill">AI Daily</span></div>
+      <h1>Cloudflare Turnstile 封杀 WebKitGTK：要求 WebGL 指纹引隐私争议</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/cloudflare-turnstile-webgl-fingerprinting-article/head.png" alt=""></p>
+<p>2025 年 11 月，一个 Bugzilla 工单悄悄挂上了 Mozilla 的追踪系统。编号 #1916271。标题很技术化，但内容几乎是在告状：Firefox 的 WebGL 指纹保护有漏洞——WebKit 和 Blink 能对所有用户返回统一的硬编码字符串，让追踪器无从下手；Gecko 却在暴露经过“消毒”的 GPU 特征，等于给每个用户发了张打了马赛克但依然独一无二的身份证。</p>
+<p>工单躺在那里整整七个月，没激起什么水花。直到 2026 年 5 月 30 日。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/cloudflare-turnstile-webgl-fingerprinting-article/content-1.png" alt="原文配图"></p>
+<p>一个开发者发现，自己基于 WebKitGTK 的浏览器突然被半个互联网拒之门外。罪魁祸首是 Cloudflare 的人机验证系统 Turnstile——它开始要求浏览器交出 WebGL 指纹，不交就无限循环，死锁在“正在验证您是人类”的界面上。而 WebKit 早在几年前就把这道门焊死了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/cloudflare-turnstile-webgl-fingerprinting-article/content-2.png" alt="原文配图"></p>
+<p><strong>一个打着“替代 CAPTCHA 保护隐私”旗号的验证系统，现在要求你交出最不可篡改的设备指纹。这剧本，连乔治·奥威尔都不敢这么写。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/cloudflare-turnstile-webgl-fingerprinting-article/schematic-1.png" alt="Turnstile 验证失败的截图，提示 “WebGL renderer info is spoofed”，背景是无限循环的加载动画"></p>
+<h2>一场悄无声息的“互联网驱逐令”</h2>
+<p>事情要从 2026 年 5 月下旬说起。根据作者 hacktivis 的记录，大约在 5 月 23 日前后，他开始注意到自己的 WebKitGTK 浏览器在访问大量网站时，Cloudflare Turnstile 的验证页面会陷入无限循环——点击“验证”按钮，转几圈，回到原点，再点，再转。没有任何错误提示，没有任何“请启用 JavaScript”之类的友好说明，就是一道看不见的墙。</p>
+<p>WebKitGTK 是什么？简单说，它是苹果 WebKit 浏览器引擎在 Linux 桌面环境下的移植版本，被 GNOME Web（Epiphany）等浏览器使用。用户量不大，但代表的是一条重要的技术路线：完全开源、不依赖 Google 的 Blink 引擎（Chromium 系）、也不依赖 Mozilla 的 Gecko 引擎（Firefox 系）。在浏览器引擎多样性这件事上，WebKitGTK 的存在本身就是一种制衡。</p>
+<p>但现在，Cloudflare 用一行指纹检测代码，把这条路封死了。</p>
+<p>hacktivis 做了件每个愤怒的开发者都会做的事：打开 Turnstile 的官方测试页面，看看到底哪里出了问题。测试页面返回的诊断信息只有一句话：“WebGL renderer info is spoofed”——WebGL 渲染器信息被篡改。但真相恰好相反。WebKit 没有篡改任何东西，它只是拒绝提供这些信息。这就像你拒绝向一个陌生人出示身份证，对方却说“你伪造了身份证”——逻辑上完全倒置。</p>
+<p>更大的讽刺在后面。hacktivis 用 Firefox 145.0 打开了同一个测试页面，结果：<strong>直接用</strong>。没有 WebGL 警告，没有指纹检测异常提示。唯一被标记的是一行轻描淡写的“Canvas Randomization Detected”（Canvas 随机化被检测到），但 Turnstile 完全不在意，照样放行。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/cloudflare-turnstile-webgl-fingerprinting-article/schematic-2.png" alt="三款浏览器的 Turnstile 测试结果对比表，WebKitGTK 被拦截，Firefox 畅通，Safari 未提及但推测用"></p>
+<h2>Mozilla 的七个月沉默与一个被撕开的防护缺口</h2>
+<p>让我愣神的是那个时间线。Bugzilla #1916271 提交于 2025 年 11 月。报告者明确指出：Gecko 引擎在 <code>privacy.resistFingerprinting</code>（RFP）模式下，WebGL 会暴露经过“消毒”的 GPU 特征，而不是像 WebKit 和 Blink 那样对所有用户返回完全相同的硬编码字符串。</p>
+<p>这里需要解释一下浏览器指纹防护的基本逻辑。当一个网站用 WebGL 查询你的显卡型号、驱动版本、渲染器字符串时，最彻底的隐私保护是让所有用户都返回同一个答案——比如“Generic GPU”或者一串固定的哈希值。这样追踪器拿到数据后，发现一千个用户里有一千个“Generic GPU”，指纹就失去了区分能力。WebKit 和 Blink（Chromium 系浏览器，包括 Chrome、Edge、Brave 等）就是这么做的。</p>
+<p>但 Firefox 的 RFP 模式走了一条折中路线：它对 GPU 信息做了一定程度的模糊化处理，但没有完全统一化。相当于给每个人的身份证号打上了马赛克——前几位模糊了，后几位还在。在 2025 年的指纹追踪技术面前，这些残留的特征已经足够构建唯一标识。</p>
+<p>工单提交后，Mozilla 没有修复。七个月。直到 Cloudflare Turnstile 把 WebGL 指纹检测推成默认行为，这个漏洞的后果才以一种极其暴烈的方式暴露出来。</p>
+<p>更让人窒息的是另一条发现：Firefox 的“增强隐私保护”设置中，即使选择“严格”模式，<strong>RFP 也不会被自动启用</strong>。hacktivis 在原文中直接用了“great job there Mozilla”这样的嘲讽语气。用户以为自己在用最严格的隐私设置，但实际上最关键的指纹防护开关根本没有被打开。这意味着大量 Firefox 用户可能在毫不知情的情况下，正把可追踪的 WebGL 指纹交给每一个部署了 Turnstile 的网站。</p>
+<p><strong>隐私保护如果默认关闭，那它就只是一行安慰剂代码。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/cloudflare-turnstile-webgl-fingerprinting-article/schematic-3.png" alt="Firefox 隐私设置界面示意，“严格”模式与 RFP 开关之间的断层关系"></p>
+<h2>Turnstile 的“隐私保护”人设是怎么一步步塌掉的</h2>
+<p>Cloudflare 推出 Turnstile 是在 2022 年 9 月。当时的叙事非常漂亮：传统的 CAPTCHA（全自动区分计算机和人类的图灵测试）要求用户识别红绿灯、人行道、公交车，既折磨人类又已被 AI 轻松破解。Turnstile 承诺用“不可见的挑战”替代这一切——不需要点图片，不需要输入扭曲字母，用户在后台被自动验证，隐私友好，零数据收集。</p>
+<p>这个叙事在前两年几乎无懈可击。大量网站从 Google 的 reCAPTCHA 迁移到 Turnstile，因为它确实更快、更无感。Cloudflare 的官方文档中至今写着：“Turnstile 不会使用任何可用于追踪用户跨站行为的指纹信息。”</p>
+<p>但 2026 年 5 月的这次 WebGL 检测升级，让这句承诺变得极其尴尬。</p>
+<p>原文中引用了 Cloudflare 给出的“非理由”：</p>
+<blockquote>
+<p>Turnstile uses browser fingerprinting to verify you&#39;re human. Privacy tools that block or randomize fingerprinting make your browser look like a bot trying to hide its identity. Temporarily allowing fingerprinting for this site will fix the issue.</p>
+</blockquote>
+<p>翻译过来就是：我们确实在用指纹追踪来验证你是人类。如果你用了隐私工具阻止或随机化指纹，你的浏览器看起来就像个试图隐藏身份的机器人。暂时允许本站指纹追踪就能解决问题。</p>
+<p>这段话的逻辑链条值得拆解。第一句话承认了“使用浏览器指纹追踪”。第二句话把使用隐私工具的用户等同于“试图隐藏身份的机器人”——这等于说，保护隐私本身就是可疑行为。第三句话给出的解决方案是“暂时允许指纹追踪”，但 WebGL 指纹一旦交出就无法撤回，它是永久性的硬件标识符。“暂时允许”这个词在这里几乎是欺骗性的。</p>
+<p>而这一切的起因，按照 Cloudflare 的说法，是为了“验证你是人类”。但一个拒绝交出显卡型号的浏览器，与一个伪装成人类的爬虫脚本，在行为特征上有本质区别。WebGL 指纹检测是把所有隐私保护行为一刀切地标记为“可疑”，放弃了更精细的流量分析手段，选择了最简单粗暴的判别逻辑。</p>
+<p><strong>用隐私换安全，从来都是个伪命题——真正的代价是，你既失去了隐私，也没有得到安全。</strong></p>
+<h2>三家浏览器引擎，三种隐私哲学，一场不对等的战争</h2>
+<p>把 WebKit、Blink、Gecko 三家对 WebGL 指纹的态度放在一起看，会发现这根本不是技术路线之争，而是隐私哲学的公开摊牌。</p>
+<p>WebKit（苹果 Safari 的底层引擎）的策略最激进：直接封锁。从几年前开始，WebKit 就拒绝向网页暴露任何可用于指纹追踪的 WebGL 信息。hacktivis 在原文中特别强调：“这种东西在 WebKit 中被封锁了很多年，而且据我所知，这不是那种你可以在设置里轻松关闭的隐私保护。”苹果把这道墙做成了基础设施的一部分，用户甚至不知道它的存在，但追踪器也越不过去。</p>
+<p>Blink（Google Chrome 及所有 Chromium 系浏览器的引擎）的策略与 WebKit 类似：对所有用户返回硬编码的统一字符串。这里有一个巨大的讽刺——Google 是全球最大的广告追踪公司，但它的浏览器引擎在 WebGL 指纹防护上做得比以隐私著称的 Firefox 更彻底。当然，这很可能是因为 Google 有无数其他方式追踪用户（登录 Chrome 同步、Gmail、YouTube、搜索历史），不需要靠 WebGL 这一项。</p>
+<p>Gecko（Firefox 的引擎）的策略最拧巴。它想保护隐私，但又不敢做到 WebKit 和 Blink 那种程度。RFP 模式下 GPU 信息被“消毒”而非统一化；RFP 开关默认关闭，即使在“严格”隐私模式下也不会自动打开；Bugzilla 上挂了七个月的工单无人处理。这三点叠加在一起，让 Firefox 成了三家中对 WebGL 指纹防护最薄弱的那一个——但讽刺的是，Firefox 的用户群体恰恰是隐私意识最强的那批人。</p>
+<p>hacktivis 在测试中发现了一个黑色幽默的细节：Firefox 145.0 在默认设置下（RFP 未开启），Turnstile 测试页面只检测到“Canvas Randomization Detected”，没有触发 WebGL 警告，验证直接用。这意味着 Firefox 那点微不足道的 Canvas 随机化根本挡不住指纹追踪，但也因此不会触发 Turnstile 的拦截——它既保护不了用户，又因为保护得太差而不会被 Cloudflare 当成“可疑”。而 WebKitGTK 因为保护得太好，反而被挡在门外。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/cloudflare-turnstile-webgl-fingerprinting-article/schematic-4.png" alt="WebKit / Blink / Gecko 三家 WebGL 指纹防护策略对照表，包含是否统一化、是否默认启用、Turnstile 是否拦截"></p>
+<h2>互联网基础设施正在建造一座“隐私税”收费站</h2>
+<p>这件事最让人后背发凉的地方，不是 Cloudflare 做了什么，而是 Cloudflare 能做什么。</p>
+<p>截至 2026 年，Cloudflare 承载了全球约 20% 的互联网流量。它的 CDN、DDoS 防护、DNS 服务覆盖了从独立博客到 Fortune 500 企业的海量网站。Turnstile 作为其人机验证产品，被部署在无数网站的登录页、评论区、支付流程前。当 Cloudflare 决定把 WebGL 指纹检测作为 Turnstile 的默认行为时，它实际上是在全球互联网的主干道上设置了一个收费站——不出示指纹，就进不去。</p>
+<p>WebKitGTK 用户是第一批被拦下的。但原文末尾的预测更让人不安：“启用 RFP 后，注重隐私的 Firefox 用户未来可能也无法用 Cloudflare 的设备验证。”hacktivis 手动启用了 <code>privacy.resistFingerprinting</code> 后，虽然没有给出测试结果截图，但语气中透露出明确的担忧——如果 Mozilla 修复了 Bugzilla #1916271，让 Firefox 的 WebGL 指纹保护达到 WebKit 和 Blink 的水平，那么 Firefox 用户很可能会步 WebKitGTK 的后尘，被 Turnstile 集体拦截。</p>
+<p>（这里有一个微妙的政治经济学问题：Cloudflare 敢不敢拦截 Safari 用户？原文中提到“我猜他们给 Safari 加了例外”。如果这个猜测成立，那就是说 Cloudflare 的拦截策略不是基于技术规则，而是基于市场份额——WebKitGTK 用户太少，可以牺牲；Safari 用户太多，不能动。隐私保护成了一场看人下菜的权力游戏。）</p>
+<p>更深远的影响在于浏览器的多样性。WebKitGTK 本来就是一个边缘项目。当主流基础设施开始排斥非主流浏览器时，引擎多样性的生态就会加速萎缩。开发者会告诉用户“换 Chrome 吧，这个网站只有 Chrome 能打开”；用户会逐渐放弃小众浏览器；最终整个互联网只剩下两三个引擎，而它们都受控于少数几家巨头。</p>
+<p><strong>当一个 CDN 巨头可以决定哪些浏览器是“人类”，哪些浏览器是“机器人”，互联网的去中心化就已经名存实亡。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/cloudflare-turnstile-webgl-fingerprinting-article/schematic-5.png" alt="Cloudflare 全球网络节点覆盖图，标注 Turnstile 作为流量闸门的位置，WebKitGTK / Firefox RFP / Safari 三条路径的不同命运"></p>
+<h2>参考来源</h2>
+<ul>
+<li><a href="https://hacktivis.me/articles/cloudflare-turnstile-webgl-fingerprinting" target="_blank" rel="noopener">https://hacktivis.me/articles/cloudflare-turnstile-webgl-fingerprinting</a></li>
+<li><a href="https://news.ycombinator.com/item?id=48345840" target="_blank" rel="noopener">https://news.ycombinator.com/item?id=48345840</a></li>
+<li><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1916271" target="_blank" rel="noopener">https://bugzilla.mozilla.org/show_bug.cgi?id=1916271</a></li>
+</ul>
+<p>#Cloudflare #Turnstile #WebGL #AI #科技</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/cloudflare-turnstile-webgl-fingerprinting-article/content-3.png" alt="原文配图"></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

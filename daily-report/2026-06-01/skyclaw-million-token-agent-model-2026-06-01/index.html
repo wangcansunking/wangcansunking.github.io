@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkyClaw：把百万上下文 Agent 模型的调用价压到一半 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-01</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-01</span><span class="tag-pill">Daily Report</span></div>
+      <h1>SkyClaw：把百万上下文 Agent 模型的调用价压到一半</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/01/skyclaw-million-token-agent-model-2026-06-01.png" alt="SkyClaw-v1.0：昆仑万维天工发布的百万上下文智能体模型，一卷百万词元长卷接到各家智能体客户端"></p>
+<p>输出每百万词元 4 元。这是昆仑万维天工 5 月 26 日发布的 SkyClaw-v1.0 给出的价格——同样跑智能体任务，MiniMax-M2.7 输出价 8.4 元，DeepSeek V4-Pro 是 24 元。也就是说，一个性能在多数智能体基准上稳压 MiniMax 2.7、在 OpenClaw 任务上逼近 DeepSeek V4-Pro 和 Claude Opus 4.6 的国产模型，把调用成本直接打到了竞品的一半甚至更低。</p>
+<p>这件事对正在搭智能体（Agent，能自己规划、调工具、多轮完成任务的 AI 系统）的国内开发者来说，分量不在“又一个新模型”，而在一个具体的算式变了：原来因为单次调用太贵、只能拿来做演示的高频智能体场景，现在的单价低到可以放进真实业务里反复跑。</p>
+<p>本文想讲清楚三件事：<strong>SkyClaw 这个百万上下文的智能体模型到底强在哪、和 DeepSeek V4 / 千问 3.6 / Claude Opus 摆在一起怎么比、以及国内开发者怎么用一个 OpenAI 兼容端点把它接进自己已经在用的 Claude Code、Codex 或自研工作流。</strong> 结论先放这儿：如果你做的是要高频调用、对单价敏感的智能体或 AI 编程类应用，SkyClaw 现在是国产里一个性价比很突出的选项；接入几乎零成本，换个 base_url 和模型名就能试。</p>
+<h2>SkyClaw 是什么：一个为“真实工作流”调出来的智能体底座</h2>
+<p>一句话：<strong>SkyClaw-v1.0 是昆仑万维（300418.SZ）旗下天工团队（Skywork）发布的高性能智能体模型，支持百万词元上下文，专门为复杂工具调用、多轮任务执行、代码生成、文件编辑这类真实智能体场景优化。</strong> 它同时有一个轻量版 SkyClaw-v1.0-lite，主打更快、更省。</p>
+<p>先把几个事实摆清楚：</p>
+<ul>
+<li><strong>发布方</strong>是昆仑万维天工，开源仓库在 <code>SkyworkAI/skyclaw</code>，6 月 1 日凌晨核对约 83 stars、MIT 许可证，仓库 5 月 19 日建立</li>
+<li><strong>上下文长度</strong>是 100 万词元（1M tokens），这是它放进真实工作流的底气——多轮智能体任务里堆积的工具返回、文件内容、对话历史很容易撑爆窗口，百万级别意味着一个复杂任务可以从头跑到尾不丢上下文</li>
+<li><strong>训练路线</strong>官方写得很清楚：先做大规模中期训练（mid-train），再用高质量合成任务做监督微调（SFT），最后端到端强化学习（RL）打磨。其中强化学习直接在 OpenClaw 风格的智能体环境里做，筛选轨迹时既看最终答案对不对，也看中间每一步动作的质量</li>
+<li><strong>接口</strong>走 OpenAI 兼容格式，支持流式输出、工具调用、多轮对话，模型名是 <code>skywork-ai/skyclaw-v1</code>（旗舰）和 <code>skywork-ai/skyclaw-v1-lite</code>（轻量）</li>
+<li><strong>可直接用</strong>：模型 5 月 22 日已接入天工 Skywork，登录 tiangong.cn 打开即用，无需自己配智能体环境；即日起开放 2 至 4 周免费试用</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/01/source-skyclaw-flight-travel-demo-2026-06-01.png" alt="SkyClaw 生成的交互式机票旅行应用界面截图，展示模型一次性产出可运行前端应用的能力">
+<small>来源：天工 SkyClaw 官方发布页交互式应用样例（机票旅行）</small></p>
+<p>官方发布页放了一组它直接生成的可运行界面——机票预订、社交信息流、小游戏（2048、俄罗斯方块、象棋），从产品级前端到交互逻辑一次成型，这正是“交互式应用构建”这项能力的直观样子。</p>
+<p>这里值得点一句它的产品定位。官方原话是，SkyClaw 承担的是底层智能体模型能力升级——通过百万上下文、智能体强化学习（Agentic RL）、复杂工具调用优化和高性价比接口，把智能体从“能演示”推进到“能高频调用、能真实交付”。这句话的潜台词，正是过去一年很多团队的真实痛点：智能体在演示里跑得漂亮，一旦上量，要么贵到用不起，要么长任务跑着跑着上下文崩了。SkyClaw 想解的就是这两个问题。</p>
+<h2>六项基准横评：稳压同价位，逼近大模型</h2>
+<p>光说“强”没意义，看官方放出的基准对位。SkyClaw 选的六项评测都是智能体方向的硬指标，对照组是 DeepSeek V4-Flash、MiniMax-M2.7、千问 3.6 27B（同价位段）以及 DeepSeek V4-Pro（更大规模闭源段）。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/01/source-skyclaw-benchmark-chart-2026-06-01.png" alt="SkyClaw-v1.0 与 lite 版在六项智能体基准上对比 DeepSeek V4-Flash、MiniMax 2.7、千问 3.6 27B、DeepSeek V4-Pro 的官方成绩图">
+<small>来源：天工 SkyClaw 官方发布页基准对比图</small></p>
+<p>把官方图里的关键分数整理成表（分数越高越好）：</p>
+<table>
+<thead>
+<tr>
+<th>基准</th>
+<th>测什么</th>
+<th align="center">SkyClaw-v1.0</th>
+<th align="center">DeepSeek V4-Flash</th>
+<th align="center">MiniMax-M2.7</th>
+<th align="center">千问 3.6 27B</th>
+<th align="center">DeepSeek V4-Pro</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PinchBench-v2</td>
+<td>OpenClaw 智能体任务</td>
+<td align="center"><strong>87.2</strong></td>
+<td align="center">84.6</td>
+<td align="center">85.9</td>
+<td align="center">86.4</td>
+<td align="center">87.7</td>
+</tr>
+<tr>
+<td>Claw-Eval Pass³</td>
+<td>智能体工作流稳定性</td>
+<td align="center"><strong>59.7</strong></td>
+<td align="center">55.6</td>
+<td align="center">48.7</td>
+<td align="center">56.5</td>
+<td align="center">59.8</td>
+</tr>
+<tr>
+<td>Claw-Eval Avg</td>
+<td>智能体工作流均分</td>
+<td align="center"><strong>74.2</strong></td>
+<td align="center">73.2</td>
+<td align="center">72.6</td>
+<td align="center">73.5</td>
+<td align="center">77.2</td>
+</tr>
+<tr>
+<td>Skywork-Claw-Bench</td>
+<td>自建智能体评测</td>
+<td align="center"><strong>62.9</strong></td>
+<td align="center">57.1</td>
+<td align="center">55.6</td>
+<td align="center">60.5</td>
+<td align="center">63.4</td>
+</tr>
+<tr>
+<td>TAU3-Bench</td>
+<td>交互式工具调用</td>
+<td align="center"><strong>71.5</strong></td>
+<td align="center">69.1</td>
+<td align="center">68.1</td>
+<td align="center">69.5</td>
+<td align="center">71.7</td>
+</tr>
+<tr>
+<td>Terminal-Bench 2.0</td>
+<td>终端编程智能体</td>
+<td align="center"><strong>51.7</strong></td>
+<td align="center">36.4</td>
+<td align="center">46.1</td>
+<td align="center">46.5</td>
+<td align="center">56.0</td>
+</tr>
+</tbody></table>
+<p>几个能直接读出来的结论：</p>
+<ul>
+<li><strong>在同价位段（对比 V4-Flash / MiniMax 2.7 / 千问 3.6 27B），SkyClaw-v1.0 六项全部领先</strong>。尤其 Claw-Eval Pass³（连测三次都得过，考的是稳定性，不是侥幸一次过）上 59.7，把 MiniMax 2.7 的 48.7 甩开一大截；Terminal-Bench 2.0（终端里的编程智能体）51.7 对 DeepSeek V4-Flash 的 36.4，差距也很明显</li>
+<li><strong>对比规模更大的 DeepSeek V4-Pro，SkyClaw 不是被碾压，而是贴得很近</strong>。PinchBench 87.2 对 87.7、Claw-Eval Pass³ 59.7 对 59.8、TAU3-Bench 71.5 对 71.7，几项几乎咬住；只在 Claw-Eval 均分（74.2 对 77.2）和 Terminal-Bench（51.7 对 56.0）上还有一段</li>
+<li><strong>轻量版 lite 也没掉队</strong>，官方口径是 lite 在多数基准上仍优于 MiniMax 2.7，这意味着哪怕你为了省成本选轻量版，拿到的也不是阉割玩具</li>
+</ul>
+<p>这里要给个客观提醒：PinchBench、Claw-Eval、Skywork-Claw-Bench 这套评测里，Skywork-Claw-Bench 是天工自建的，主场作战难免占一点便宜；真实选型还得拿自己的任务实测。但即便把自建那一项的分数打个折扣，剩下五项里 TAU3-Bench、Terminal-Bench 2.0 都是业界通用的智能体 / 编程评测，SkyClaw 在同价位段的领先是成立的。</p>
+<h2>定价才是杀手锏：旗舰版只要竞品一半</h2>
+<p>如果说基准是“够用”，那定价就是 SkyClaw 真正的差异点。把官方价目表摆出来（单位：元 / 百万词元）：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/01/skyclaw-pricing-compare-2026-06-01.png" alt="SkyClaw API 定价与 DeepSeek V4、MiniMax 2.7 的输入输出价对位柱状图"></p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th align="center">输入</th>
+<th align="center">输出</th>
+<th align="center">缓存读</th>
+<th align="center">缓存写</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>SkyClaw-v1.0</strong></td>
+<td align="center">0.5</td>
+<td align="center">4</td>
+<td align="center">0.2</td>
+<td align="center">1.5</td>
+</tr>
+<tr>
+<td><strong>SkyClaw-v1.0-lite</strong></td>
+<td align="center">0.3</td>
+<td align="center">2</td>
+<td align="center">0.12</td>
+<td align="center">0.9</td>
+</tr>
+<tr>
+<td>DeepSeek V4-Flash</td>
+<td align="center">1</td>
+<td align="center">2</td>
+<td align="center">0.02</td>
+<td align="center">—</td>
+</tr>
+<tr>
+<td>DeepSeek V4-Pro</td>
+<td align="center">12</td>
+<td align="center">24</td>
+<td align="center">0.1</td>
+<td align="center">—</td>
+</tr>
+<tr>
+<td>MiniMax-M2.7</td>
+<td align="center">2.1</td>
+<td align="center">8.4</td>
+<td align="center">0.42</td>
+<td align="center">2.625</td>
+</tr>
+</tbody></table>
+<p>读这张表，差距是数量级的：</p>
+<ul>
+<li><strong>SkyClaw-v1.0 输出 4 元，是 MiniMax-M2.7（8.4 元）的约一半，是 DeepSeek V4-Pro（24 元）的 1/6</strong>。考虑到前面基准里 SkyClaw 和 V4-Pro 在多项上几乎咬住，这个单价对比相当有冲击力</li>
+<li><strong>输入价 0.5 元更狠</strong>——智能体任务里输入往往是大头（工具返回、长文件、多轮历史一遍遍喂进去），输入便宜对真实账单的影响比输出更直接</li>
+<li><strong>lite 版输入 0.3 元、输出 2 元</strong>，再低一档，专为高吞吐、成本敏感的批量场景准备</li>
+<li><strong>缓存价也单列了</strong>：缓存读 0.2 元，对那种系统提示词长期固定、反复命中的智能体应用，实际成本还能再压</li>
+</ul>
+<p>为什么定价对智能体这么关键？因为智能体和聊天不一样。一次聊天问答可能就几千词元，一个真实的智能体任务——比如让它读完一个代码仓库、规划改动、逐个文件编辑、跑测试、根据报错再改——一来一回几十轮，轻松吃掉几十万词元。单价差一倍，月底账单就差一倍。这也是官方反复强调“从可演示推进到可高频调用”的底层逻辑：成本不降下来，智能体就只能停在演示阶段。</p>
+<p>需要说明的是，发布初期 SkyClaw-v1.0 与 lite 都开放了 2 至 4 周限时免费试用，开发者注册账号拿到 Key 就能零成本先跑一轮真实任务，再决定要不要长期用。</p>
+<h2>怎么接进自己的工作流：一个 OpenAI 兼容端点的事</h2>
+<p>对国内开发者最有价值的部分在这里。SkyClaw 本身不是一个带界面的产品，它是个模型——真正的用法是把它接到你已经在用的智能体客户端里。官方明确列了适配范围：OpenClaw、Hermes、Nanobot 这类通用智能体环境，以及 Claude Code、Codex 这类代码智能体框架。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/01/skyclaw-agent-routing-2026-06-01.png" alt="SkyClaw 通过 OpenAI 兼容端点接入 OpenClaw、Hermes、Nanobot、Claude Code、Codex 与自研工作流的接入路线图"></p>
+<p>接入的关键，是它走 <strong>OpenAI 兼容格式的接口</strong>。这意味着任何已经支持配置 OpenAI 风格 base_url 的工具，理论上都能把后端模型换成 SkyClaw，改动只有三处：接口地址、API Key、模型名。</p>
+<ul>
+<li><strong>接口地址</strong>：<code>https://api.apifree.ai/v1/chat/completions</code></li>
+<li><strong>模型名</strong>：旗舰用 <code>skywork-ai/skyclaw-v1</code>，轻量用 <code>skywork-ai/skyclaw-v1-lite</code></li>
+<li><strong>能力</strong>：支持流式输出、工具调用（function/tool calling）、多轮对话，这三样正是智能体框架运转的硬性前提</li>
+</ul>
+<p>落到几种典型场景，接法各有差别：</p>
+<ul>
+<li><strong>接 Claude Code / Codex 这类代码智能体</strong>：这两家的核心是让模型规划文件改动、编辑、跑测试、迭代。SkyClaw 在 Terminal-Bench 2.0（终端编程智能体）上 51.7 的成绩说明它能干这类活；接入后把它当作后端推理模型，让客户端负责工具编排即可。官方对应用构建、代码任务建议优先用旗舰版</li>
+<li><strong>接 OpenClaw / Hermes / Nanobot 这类通用智能体</strong>：这是 SkyClaw 训练时的主场（强化学习就在 OpenClaw 风格环境里做），适配度天然高，规划、文件编辑、工具调用、交互式应用构建都在能力范围内</li>
+<li><strong>接自研工作流 / 企业内部工具 / 任务平台</strong>：只要你的系统是按 OpenAI 接口写的，换 base_url 即可；流式 + 工具调用 + 多轮这套齐全，足够撑起自研智能体的调度</li>
+</ul>
+<p>选旗舰还是 lite，给个简单判断：<strong>跑应用构建、代码这类对质量敏感的任务用旗舰版；批量、高吞吐、对单价敏感的任务切到 lite 版。</strong> 也可以混用——主流程用旗舰保质量，外围的分类、摘要、批处理交给 lite 省钱，这是智能体系统里很常见的分级调用思路。</p>
+<h2>放进国产模型坐标系横评：它补的是哪个位置</h2>
+<p>把 SkyClaw 放回当下国产智能体模型的格局里看，会更清楚它的价值。这一年国产在智能体方向已经很热闹：DeepSeek V4 系列分了 Flash 和 Pro 两档、千问 3.6 铺了从 27B 到 Plus 的全尺寸、MiniMax 把 M2.7 推到智能体场景。SkyClaw 进来，补的不是“最强”那个位置——最强还得看 DeepSeek V4-Pro 这类大模型——而是**“同样能打、但便宜一半”**这个性价比身位。</p>
+<ul>
+<li><strong>和 DeepSeek 比</strong>：V4-Pro 性能更全面，但贵；V4-Flash 便宜，但智能体基准上明显被 SkyClaw 压一头。SkyClaw 正好卡在两者之间——性能贴近 Pro、价格贴近甚至低于 Flash</li>
+<li><strong>和千问 3.6 比</strong>：千问胜在尺寸齐全、生态成熟；SkyClaw 在 27B 同价位段六项基准全面领先，且定价不到千问 3.6 系列的一半</li>
+<li><strong>和 MiniMax 2.7 比</strong>：这是 SkyClaw 直接对标的对象，基准全面超越、价格只要一半，对位关系最清楚</li>
+<li><strong>和 Claude Opus 比</strong>：Opus 仍是闭源智能体的标杆之一，SkyClaw 的说法是在 OpenClaw 相关任务上“逼近”，而不是“超越”——这个分寸官方拿捏得克制，也更可信</li>
+</ul>
+<p>对正在做个人 AI 工具、AI 编程助手、自研智能体的国内团队，SkyClaw 的实际意义是多了一个高性价比的国产后端选项：接入零门槛（标准兼容接口）、单价低到能放进高频场景、百万上下文撑得住长任务、还有免费试用期可以先实测再决定。这套组合拳，恰好打在“智能体想上量但被成本卡住”这个最普遍的痛点上。</p>
+<h2>写在最后</h2>
+<p>SkyClaw-v1.0 没有用“最强模型”这种姿态出场，它讲的是另一个更务实的故事：当智能体已经在基准上证明能干活，下一步的竞争就从“能不能做到”转向“能不能用得起、跑得稳、接得进”。百万上下文解决了长任务跑不完的问题，OpenAI 兼容接口解决了接入门槛的问题，而把输出价压到竞品一半，解决的是最现实的账单问题。</p>
+<p>对国内开发者来说，最值得做的一件事很简单：趁免费试用期，拿自己真实的智能体任务接上去跑一轮，用自己的数据而不是官方基准来判断它够不够用。国产智能体模型这一年走得很快，从堆参数、刷榜，到现在开始认真比性价比和工程接入体验——这种转向，对每天在搭智能体、写 AI 编程工作流的人是实打实的好消息。</p>
+<hr>
+<h2>参考链接</h2>
+<ul>
+<li>[1] 天工 SkyClaw 官方发布页：<a href="https://skyworkai.github.io/skyclaw/" target="_blank" rel="noopener">https://skyworkai.github.io/skyclaw/</a></li>
+<li>[2] SkyClaw 开源仓库（含定价、接入说明、Demo）：<a href="https://github.com/SkyworkAI/skyclaw" target="_blank" rel="noopener">https://github.com/SkyworkAI/skyclaw</a></li>
+<li>[3] 天工 AI 发布 SkyClaw-v1.0：面向真实工作流的百万上下文 Agent 模型（腾讯云开发者社区）：<a href="https://cloud.tencent.com/developer/news/3976243" target="_blank" rel="noopener">https://cloud.tencent.com/developer/news/3976243</a></li>
+<li>[4] 国产 Agent 模型 SkyClaw-v1.0 登场：百万上下文逼近 Opus 4.6（腾讯云开发者社区）：<a href="https://cloud.tencent.com/developer/news/3982272" target="_blank" rel="noopener">https://cloud.tencent.com/developer/news/3982272</a></li>
+<li>[5] 昆仑万维：天工 AI 重磅官宣 SkyClaw-v1.0 Agent 模型正式上线（中国证券网）：<a href="https://www.cs.com.cn/ssgs/07/2026/05/26/detail_2026052610014261.html" target="_blank" rel="noopener">https://www.cs.com.cn/ssgs/07/2026/05/26/detail_2026052610014261.html</a></li>
+<li>[6] 天工 AI 发布 SkyClaw-v1.0：百万上下文 Agent 模型（新浪科技）：<a href="https://finance.sina.com.cn/tech/it/2026-05-26/doc-inhzfshk8938918.shtml" target="_blank" rel="noopener">https://finance.sina.com.cn/tech/it/2026-05-26/doc-inhzfshk8938918.shtml</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PewDiePie 开源 Odysseus：本地跑的 ChatGPT 平替 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-02</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-02</span><span class="tag-pill">Daily Report</span></div>
+      <h1>PewDiePie 开源 Odysseus：本地跑的 ChatGPT 平替</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/odysseus-selfhost-local-ai-workspace-2026-06-02.png" alt="Odysseus 自托管 AI 工作台封面"></p>
+<p>一个常被当成娱乐符号的名字，这次交出的是一份扎实的工程作品。瑞典 YouTube 创作者 PewDiePie（本名 Felix Kjellberg）在 2026-05-31 开源了一台名为 Odysseus 的自托管 AI 工作台，把聊天、自主智能体、本地模型服务、深度研究、邮件日历集成全部塞进同一台机器，主打本地优先、隐私优先、零遥测。仓库上线第一天就涨到约 1.8 万 stars——截至 2026-06-02 凌晨核对约 18624 stars、2290 个 fork，采用 MIT 许可证。</p>
+<p>核心一句话：它想做的，是让你在自己的硬件上得到接近 ChatGPT 和 Claude 桌面端的体验，但数据一步都不离开本机。对国内做个人 AI、跑本地大模型的开发者来说，这正好踩在最关心的点上——一套现成的前端外加智能体，底下能直接接 DeepSeek（深度求索）、千问（Qwen）、智谱 GLM。下面把它到底是什么、和国内同类自托管前端比怎样、国内开发者怎么接国产模型跑起来，一项项讲清楚。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/source-odysseus-github-card-2026-06-02.png" alt="Odysseus 仓库展示卡"></p>
+<p><small>来源：GitHub 仓库展示卡</small></p>
+<h2>它不是一个聊天框，是一整套工作台</h2>
+<p>很多人看到「ChatGPT 平替」第一反应是又一个聊天界面。Odysseus 的野心明显更大。它对标的不只是 ChatGPT 网页版那个对话框，而是整个桌面端体验——你日常打开一个 AI 产品会用到的功能，它基本都想自己装一份，区别只在于全部跑在你自己的硬件上。项目 README 里列出的模块覆盖了一个人日常用 AI 的几乎全部场景：</p>
+<ul>
+<li><strong>聊天</strong>：接任意本地模型或云端 API，添加模型在设置里点几下就行。</li>
+<li><strong>智能体（Agent）</strong>：把工具交给它，让它自己跑完整个任务，底层基于 opencode，支持网页、文件、外壳（shell）、技能与记忆。</li>
+<li><strong>深度研究</strong>：多步运行，自己去检索、阅读、把多个来源综合成一份带可视化的报告，这一块改自阿里巴巴的通义 DeepResearch。</li>
+<li><strong>模型横向对比</strong>：把多个模型并排盲测，去掉先入为主的偏好。</li>
+<li><strong>文档编辑</strong>：多标签编辑器，支持 Markdown、HTML、CSV、语法高亮，AI 在旁边辅助而不是替你写。</li>
+<li><strong>持久记忆与技能</strong>：基于 ChromaDB 向量库加 fastembed（ONNX 推理），向量加关键词双路检索，可导入导出，智能体会随使用越来越懂你。</li>
+<li><strong>邮件</strong>：内置 IMAP / SMTP 收件箱，带 AI 分拣——紧急提醒、自动打标签、自动摘要、自动起草回复、自动反垃圾。</li>
+<li><strong>日历 / 笔记 / 任务</strong>：本地优先日历，支持 CalDAV 同步到 Radicale、Nextcloud、Apple、Fastmail；笔记带提醒，任务支持定时触发，智能体能直接对它们动手。</li>
+<li><strong>手机适配</strong>：响应式，可作为 PWA 安装到手机，触屏手势齐全。</li>
+</ul>
+<p>把这些模块叠在一起，它更像一个装在自己机器上的「个人 AI 操作中心」，而不是单一对话工具。它没有把这些能力做成互相独立的小工具，而是让它们共享同一套模型后端、同一份记忆、同一个智能体——你在聊天里随口提的一件事，可能被记忆收下，几天后在深度研究里被重新引用，再变成日历里的一条定时任务。这种把场景串起来用的设计，才是它和单一聊天客户端真正拉开距离的地方。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/odysseus-modules-2026-06-02.png" alt="Odysseus 七大模块功能矩阵"></p>
+<p><small>来源：自制图表（数据据正文）</small></p>
+<p>下面这张图把模块和后端的关系画在了一起。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/odysseus-arch-2026-06-02.png" alt="Odysseus 模块与多后端架构图"></p>
+<p><small>来源：依据项目 README 自制（截至 2026-06-02 凌晨核对）</small></p>
+<h2>拆开看，撑起它的三个引擎：智能体、深度研究、持久记忆</h2>
+<p>把界面剥掉，Odysseus 真正有技术含量的是三块「引擎」，而且每一块都没有从零硬写，而是站在成熟开源项目上做集成。</p>
+<p><strong>自主智能体建在 opencode 之上。</strong> 它不是简单的「函数调用」式工具桥接，而是把一整套能力交给模型自己编排：网页检索、文件读写、外壳命令、技能调用、记忆存取。也就是说，你给它一个目标，它会自己拆解步骤、调用工具、看结果、再决定下一步，直到任务收尾。这套能力对接的是 MCP（Model Context Protocol，模型上下文协议），README 里还专门列了内置的 MCP 服务可选配置——这意味着第三方工具能以标准协议挂进来，而不是被框死在作者预设的几个工具里。对国内开发者来说，这一点很实用：你完全可以把自己写的 MCP 工具接上去，让本地模型驱动的智能体去操作你自己的系统。</p>
+<p><strong>深度研究改自通义 DeepResearch。</strong> 这是阿里巴巴开源的多步研究框架，Odysseus 在它的基础上做了适配。它的工作方式不是「问一句答一句」，而是一次运行里反复检索、阅读、交叉印证多个来源，最后综合成一份带可视化的报告。配合本地的 SearXNG 自托管搜索（Docker 部署会一并起这个容器），整个检索过程也可以不依赖商业搜索 API——查什么、查多少，都在自己掌控里。对需要做调研、写综述、又介意数据外泄的人，这条链路相当有价值。</p>
+<p><strong>记忆用 ChromaDB 加 ONNX 嵌入。</strong> 持久记忆这一块，底层是 ChromaDB 向量库，嵌入用的是 fastembed，跑在 ONNX 运行时上，检索时向量与关键词双路并行。这样设计的好处是嵌入推理本身也能本地化、轻量化，不必为了记忆功能再去调一个云端嵌入接口。记忆可以导入导出，技能也是持久的——README 的说法是，智能体会随着使用越来越懂你和你的任务。从工程角度看，这是把「个性化」做成了可迁移的本地资产，而不是锁在某个云账号里。</p>
+<p>值得一提的是「技能」这个设计。它和记忆是配套的——记忆让智能体记住事实和偏好，技能则让它保存可复用的做事方法，两者都能导入导出。这意味着你可以把调教好的一套智能体配置带到另一台机器，或者和别人分享，而不是每换一台设备就从头训练它认识你。对于把 AI 当长期工具用的人，这种「个性化资产可迁移」的思路，比单纯堆功能更见功力。</p>
+<p>三块拼起来的效果是：一个跑在本地模型上的智能体，有长期记忆、能自己做多步研究、能调用标准协议下的任意工具。这已经不是「聊天框 + 插件」的层级了，更接近一个能自己处理完整任务、并且越用越懂你的本地助手。</p>
+<h2>Docker 一键起，多后端随手切</h2>
+<p>工程上最让开发者省心的，是它的安装与后端路由设计。</p>
+<p>按 README，推荐用 Docker 部署。克隆仓库、<code>docker compose up -d --build</code>，容器健康后浏览器打开 <code>http://localhost:7000</code> 即可。Compose 默认把 Web 界面绑在 <code>127.0.0.1</code>，只有本机可达，不会暴露到局域网或公网，除非你显式把 <code>APP_BIND</code> 改成 <code>0.0.0.0</code>。首次启动会自动建一个管理员账号，并在终端打印一次性临时密码，登录后再到设置里改掉。</p>
+<p>不想用 Docker 也行：原生 Linux / macOS 走 Python 虚拟环境加 uvicorn，要求 Python 3.11 以上;苹果芯片的 Mac 因为 Docker 用不了 Metal GPU，单独提供了 <code>start-macos.sh</code> 原生启动脚本;Windows 有一条命令的 PowerShell 启动器。</p>
+<p>真正的关键词是「多后端」。模型这一层是可切换的：</p>
+<table>
+<thead>
+<tr>
+<th>后端</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>vLLM</td>
+<td>高吞吐的本地服务，适合有独显的机器</td>
+</tr>
+<tr>
+<td>llama.cpp</td>
+<td>GGUF 量化模型，CPU 或 GPU 都能跑</td>
+</tr>
+<tr>
+<td>Ollama</td>
+<td>一行命令拉模型，上手最快</td>
+</tr>
+<tr>
+<td>OpenRouter</td>
+<td>聚合云端 API，临时借算力</td>
+</tr>
+<tr>
+<td>OpenAI 兼容端点</td>
+<td>任意自建或第三方兼容接口</td>
+</tr>
+</tbody></table>
+<p>也就是说，本机有独显就用 vLLM 追吞吐，笔记本没显卡就用 llama.cpp 跑量化模型，临时想试某个云端模型就挂 OpenRouter——同一个界面、同一套记忆，底下换后端互不影响。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/odysseus-backends-2026-06-02.png" alt="Odysseus 本地后端选型适用场景表"></p>
+<p><small>来源：自制图表（数据据正文）</small></p>
+<p>配套还有个叫 Cookbook 的功能，基于开源项目 llmfit，会扫描你的硬件、按显存算「适配分」推荐模型，支持 GGUF、FP8、AWQ 等格式，点一下就下载并用 vLLM 或 llama.cpp 起服务，对不熟悉部署细节的人很友好。Docker 模式下，下载的权重落在 <code>./data/huggingface</code>，Cookbook 装的 Python 命令行工具和推理引擎落在 <code>./data/local</code>，都映射成容器外的目录，容器重建也不会丢。要在远程服务器上起模型也行——在 Cookbook 的服务器设置里生成 Odysseus 的 SSH 密钥，加到远端的 <code>authorized_keys</code> 即可。</p>
+<p>排错这块文档也照顾到了。README 给了一串现成的检查命令：<code>docker compose ps</code> 看容器状态、<code>docker compose logs --tail=120 odysseus</code> 看日志，还有专门 grep <code>ChromaDB|MemoryVectorStore|DEGRADED</code> 来确认记忆服务是否正常。这种「连怎么排错都替你写好」的细致，往往是区分玩票项目和认真项目的地方。</p>
+<p>附带说一句安全。README 专门有一节《Security Notes》，反复强调这是一台有外壳访问、文件上传、模型下载、邮件日历集成的工作台，要当成管理员控制台对待：</p>
+<ul>
+<li>任何能从网络访问的部署都要保持 <code>AUTH_ENABLED=true</code>，绝不裸奔。</li>
+<li>公网暴露必须配 HTTPS 和可信反向代理，文档给了 Caddy 自动签 Let&#39;s Encrypt 证书的最短配置，也提了 Tailscale 内网部署的做法。</li>
+<li>非管理员用户默认拿不到外壳、Python、文件读写权限;MCP 管理、API 令牌、模型服务等敏感路由全部仅管理员可用。</li>
+<li>曾经贴进聊天、演示、截图或日志里的任何 API 密钥，都建议轮换掉。</li>
+</ul>
+<p>把这些写进文档而不是留给用户踩坑，是个明显的加分项——它清楚自己交到用户手里的是一台权限很大的机器，并且认真对待这件事。</p>
+<h2>和同类自托管前端横评，差在哪、强在哪</h2>
+<p>国内开发者对自托管 AI 前端并不陌生——Cherry Studio、Chatbox、LobeChat 都很常用，再加上不少人手里的 OpenClaw 这类本地个人 AI。把 Odysseus 放进来横着看，差异就清楚了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/odysseus-selfhost-compare-2026-06-02.png" alt="五款自托管 AI 前端横评表"></p>
+<p><small>来源：依据各项目公开资料与说明自制（截至 2026-06-02）</small></p>
+<p>几个观察：</p>
+<ul>
+<li><strong>后端广度</strong>：Cherry Studio、Chatbox、LobeChat 都能接 Ollama 或本地 API，但 Odysseus 把 vLLM / llama.cpp / Ollama / OpenRouter / OpenAI 兼容端点这一整套并列做进了路由层，切换更直接;尤其 vLLM 这种偏生产级的高吞吐后端，能在前端层一键挂上的并不多见。</li>
+<li><strong>记忆</strong>：Odysseus 内置 ChromaDB 向量记忆，属于把长期记忆当成默认能力而不是附加项；几款桌面客户端更偏会话级，LobeChat 有知识库、OpenClaw 也主打长期记忆。</li>
+<li><strong>智能体与深度研究</strong>：这是 Odysseus 拉开身位的地方——自主智能体带外壳、文件、技能，深度研究是多步检索再综合成报告，而多数桌面型前端还是以聊天为主、联网检索为辅。</li>
+<li><strong>邮件 / 日历</strong>：把 IMAP / SMTP 收件箱和 CalDAV 日历直接做进同一个工作台，是它相当独特的一点，目前几款常见前端基本不碰这块。</li>
+<li><strong>隐私这条线大家一致</strong>：本地运行、可自托管、零遥测，是这一类工具的共同底色，不分国内国外。</li>
+</ul>
+<p>结论不复杂：如果你只想要一个干净的多模型聊天客户端，国内几款轻量好用、中文体验更顺;但如果你想把记忆、自主智能体、深度研究、邮件日历收在一台自己的机器上，Odysseus 的模块完整度目前确实更高。两者不冲突，看你要的是一把好用的刀，还是一整套工具箱。</p>
+<h2>把邮件和日历也搬进来，是最少见的一步</h2>
+<p>在所有模块里，邮件和日历是最值得单独说的——因为这是同类自托管前端几乎都不碰的领域，而它把这两块当成一等公民做了进来。</p>
+<p>邮件这边是一个完整的 IMAP / SMTP 收件箱，支持按账号分别路由，并且自带一套 AI 分拣：自动判断紧急程度并提醒、自动打标签、自动生成摘要、自动起草回复、自动识别垃圾邮件。换句话说，模型不只是陪你聊天，还能帮你先把一天的邮件过一遍、把重要的挑出来、把回复的草稿写好等你确认。</p>
+<p>日历是本地优先的，可通过 CalDAV 同步到 Radicale、Nextcloud、Apple、Fastmail 等服务，支持 <code>.ics</code> 导入导出、按日历分色，而且是「智能体可感知」的——也就是说自主智能体在跑任务时，能看到你的日程、能往里写日程。再加上笔记、待办和定时任务（cron 风格），并支持通过 ntfy、浏览器、邮件多渠道提醒，一个人日常的信息流就基本被收拢进同一台机器了。</p>
+<p>把邮件、日历这种高度私密的数据交给一个本地优先、零遥测的系统，逻辑上是自洽的——正是因为这些数据敏感，才更不该流向云端。这也是它「隐私优先」口号里最有说服力的一部分：它愿意去碰最敏感的数据，并且选择把它们留在你手里。</p>
+<h2>怎么接本地与第三方模型跑起来</h2>
+<p>对国内用户来说，最实际的问题是：能不能接 DeepSeek、千问、智谱 GLM？答案是能，而且路径很直——因为 Odysseus 从一开始就没把自己绑死在某一家模型上，它要的只是一个标准的 OpenAI 兼容接口。</p>
+<p>Odysseus 的模型层是 OpenAI 兼容的，所以凡是能起一个兼容端点的国产模型，都能挂上去。两条主流路子：</p>
+<p><strong>第一条，用 Ollama 起本地模型。</strong> README 明确写了 Ollama 的接法——如果 Ollama 跑在宿主机，要让它监听到回环之外：</p>
+<pre><code class="language-bash">OLLAMA_HOST=0.0.0.0:11434 ollama serve
+</code></pre>
+<p>Docker 里的 Odysseus 在设置中填入 <code>http://host.docker.internal:11434/v1</code> 即可发现模型;原生运行则直接填 <code>http://localhost:11434/v1</code>。Ollama 仓库里 DeepSeek、千问、智谱 GLM 的量化版都能一行命令拉下来,适合先把流程跑通、或者机器显存有限的场景。</p>
+<p><strong>第二条，用 vLLM 起高吞吐服务。</strong> 有独显、追求并发和速度时，用 vLLM 把国产模型起成一个 OpenAI 兼容服务，再在 Odysseus 设置里把这个端点加进去。Docker 部署还提供了 <code>docker-compose.yml:docker/gpu.nvidia.yml</code> 这类 GPU 叠加配置，NVIDIA 和 AMD 都覆盖了。需要注意：vLLM 与 SGLang 只支持 CUDA / ROCm，macOS 上跑不了，苹果芯片用户走 llama.cpp 或 Ollama 这条路。</p>
+<p>两条路也可以混用：用 Ollama 跑一个小一点的国产模型做日常对话和记忆嵌入，用 vLLM 起一个更大的国产模型专门跑深度研究和复杂智能体任务，Odysseus 的模型横向对比功能还能让你把几个国产模型并排盲测，直接看谁更适合你的活儿。</p>
+<p>接好之后，国产模型不只是能聊天，还能直接喂给自主智能体去跑任务、进深度研究流程、被持久记忆调用——前端的全部能力都对国产模型开放。</p>
+<p>这一点对国内开发者尤其重要：很多现成的「AI 助手」要么绑定特定的云端模型，要么对国产模型支持得不上心;而 Odysseus 这种「后端无关、谁兼容 OpenAI 接口就接谁」的设计，天然把选择权留给了用户。你既不必为了用上某个能力被迫换模型，也不必担心哪天上游 API 涨价或变动会牵连整套工作流。</p>
+<p>对一个想要「数据不出本机、模型还用得顺手」的国内开发者，这套组合的吸引力是实打实的。</p>
+<h2>什么样的机器跑得动，适合谁</h2>
+<p>聊了这么多能力，落到地面上的问题是：我的机器配得上吗？答案比想象中宽松，因为 Odysseus 把「跑模型」和「用界面」解耦了。</p>
+<p>界面和应用本身很轻——一台普通的笔记本或一台小主机，装好 Docker 或 Python 3.11 环境就能起，聊天、智能体、记忆、文档、邮件、日历、深度研究这些核心功能都能原生跑起来。真正吃硬件的是模型本身，而模型这层是你自己挑后端、自己定规模的：</p>
+<ul>
+<li><strong>没有独显</strong>：用 llama.cpp 或 Ollama 跑量化版的小模型（几 B 到十几 B 参数），日常对话、记忆嵌入、轻量任务都够用。</li>
+<li><strong>有一块消费级独显</strong>：可以用 vLLM 起中等规模的国产模型，深度研究和复杂智能体任务会明显更流畅;Cookbook 会按你的显存算「适配分」帮你挑。</li>
+<li><strong>手头没有合适硬件、又想先体验</strong>：挂 OpenRouter 或任意 OpenAI 兼容的云端端点，照样能把整套工作流跑通，等以后有机器再切回本地。</li>
+</ul>
+<p>适合谁也就清楚了：关心数据隐私、不愿把邮件日历和聊天记录交给云端的人;想要一套带智能体和记忆的本地 AI、而不只是聊天框的人;以及想找一份模块齐全、建在成熟开源件上的参考实现来学习的开发者。如果你只是偶尔问问 AI 问题，它可能偏重;但只要你认真把 AI 当成日常生产力的一部分，这套自托管方案的价值就会显出来。</p>
+<h2>名字是热度，价值在工程</h2>
+<p>平心而论，是「PewDiePie 开源了 AI 工具」这个标签让 Odysseus 一天冲到 1.8 万 stars——在 Hacker News 上，标题《Odysseus – self-hosted AI workspace》的帖子也拿到了约 206 分、几十条讨论。但热度是入口，留下来的人看的是工程本身。</p>
+<p>作者自己给项目的定位很克制：README 里写它是「ChatGPT 和 Claude 那种界面体验的自托管版本，只是更糙也更好玩」，运行在你自己的硬件上、用你自己的数据，本地优先、隐私优先。他在发布时说得更直白——「没有销售团队，没有演示申请」，并强调过去一年他一直在自己琢磨怎么在自家硬件上跑开源模型，目标就是做一个有主流 AI 那种便利、却不必依赖云、不必把数据交给大公司的工具。</p>
+<p>这种态度配上一份模块齐全、文档认真、连反向代理和密钥轮换都写进安全须知的代码，已经超出了「名人玩票」的范畴。它更像一个真在自己用、并且愿意把成果摊开给所有人的开发者交出来的东西。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/source-odysseus-hero-2026-06-02.png" alt="Odysseus 项目展示图"></p>
+<p><small>来源：项目仓库 docs/odysseus.jpg</small></p>
+<p>把视线拉回国内：它真正的意义不在于「又一个聊天前端」，而在于它把一整套个人 AI 工作流——多后端、持久记忆、自主智能体、深度研究、邮件日历——打包成了一个能在自己机器上一键起的开源样板。更难得的是，它每一块都建在成熟的开源项目上（智能体用 opencode、深度研究用通义 DeepResearch、记忆用 ChromaDB、检索用 SearXNG），而不是闭门造车，这让它既好读又好改。</p>
+<p>对正在搭本地大模型环境、关心隐私、又想要顺手体验的国内开发者，它有两重价值：一是能直接拿来接 DeepSeek、千问、智谱 GLM 用，省去自己拼前端的功夫;二是作为一份模块齐整、文档认真的参考实现，值得拆开来学——尤其是它怎么把多后端路由、向量记忆、智能体编排这几件事整合在一个不算庞大的代码库里。</p>
+<p>一个娱乐领域出身的人，用一份认真的工程作品提醒了所有人：把 AI 留在自己手里，门槛正在变低。你不需要顶配的机器，也不需要把数据交出去，就能拥有一台属于自己的、能记事、会研究、肯干活的 AI 工作台。这件事本身，比谁开源的更让人有信心。</p>
+<hr>
+<p><small>核对信息：仓库 pewdiepie-archdaemon/odysseus，MIT 许可证，2026-05-31 创建，主语言 JavaScript（含 Python 后端）;约 18624 stars / 2290 fork，经 gh api 实时核对（2026-06-02 凌晨）。Hacker News 条目 48346693 约 206 分，经 Algolia 接口核对。</small></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

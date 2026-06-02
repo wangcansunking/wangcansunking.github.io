@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mcp2cli：把 MCP 工具变成命令行，给 Agent 上下文减负 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-02</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-02</span><span class="tag-pill">Daily Report</span></div>
+      <h1>mcp2cli：把 MCP 工具变成命令行，给 Agent 上下文减负</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/mcp2cli-mcp-token-diet-runtime-2026-06-02.png" alt="mcp2cli 把臃肿的 MCP 工具结构换成一个干净的命令行，手绘涂鸦风格示意"></p>
+<p>接过 MCP 的人多半都遇过同一件烦心事：给 Claude Code 或者 Cursor 挂上几个 MCP 服务，本来想让它能查数据库、调接口、读文件，结果还没开始干活，上下文窗口先被一堆工具的参数结构占去一大块。工具越接越多，每一轮对话都要把这些结构原样重新塞一遍，账单和延迟一起往上走。<strong>问题不在模型笨，而在原生 MCP 的接入方式天生就把每个工具的完整结构当成常驻开销，哪怕这一轮根本用不到。</strong></p>
+<p>mcp2cli（仓库 knowsuchagency/mcp2cli）想正面解决的就是这一块。它给自己的定位很直白：<strong>在运行时把任意一个 MCP 服务、OpenAPI 规范或者 GraphQL 接口变成一个命令行工具，不写一行生成代码。</strong> 6 月 2 日凌晨核对仓库，总 star 约 2,192、150 个 fork、MIT 许可、Python 写成，今年 3 月初建库；对应那条 Show HN 帖约 146 分、31 条讨论。它对外打出的卖点是一句话：<strong>比原生 MCP 的工具调用省下 96% 到 99% 的令牌。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/source-mcp2cli-github-card-2026-06-02.png" alt="mcp2cli 仓库社交卡片：一个命令行接管所有接口，运行时转换，零代码生成">
+<small>来源：knowsuchagency/mcp2cli 仓库社交卡片</small></p>
+<p>这篇文章想把几件事讲清楚：<strong>原生 MCP 到底为什么会把上下文撑爆、那个省 96% 到 99% 的数字是怎么算出来的、它和原生 MCP、OpenAPI 直连、函数调用差在哪、给 Claude Code 和 Cursor 接它怎么落地、以及它用命令行换掉结构化调用之后到底丢了什么。</strong> 结论先放这儿——如果你的痛点是工具一多、上下文就被结构挤爆，把工具变成命令行让 Agent 自己去敲，是个相当对症的思路；但那个亮眼的省令牌数字是作者自己用一套成本模型算的，不是真机跑出来的准确率对照，怎么看待这个数字，本文会摊开说。</p>
+<h2>原生 MCP 的开销，藏在每一轮都要重交一遍结构里</h2>
+<p>先把账算明白：<strong>原生 MCP 贵在哪，不在调用本身，而在那份工具清单要逐轮重交。</strong></p>
+<p>MCP 这个协议的好处是把一个服务的能力描述成一组工具，每个工具有名字、说明，还有一份完整的参数结构（也就是那份 JSON Schema）。模型要想知道某个工具叫什么、收哪些参数、哪些必填，就得把这份结构看到。问题是，主流的工具调用机制里，<strong>这份结构是注入到系统提示里的，而系统提示每一轮对话都会重新发送一遍。</strong></p>
+<p>于是开销就这样滚起来了：</p>
+<ul>
+<li><strong>工具越多，常驻成本越高。</strong> 接 20 个工具，就是 20 份参数结构常年躺在上下文里；接到企业内部那种上百个端点的服务，这份清单本身就是个庞然大物。</li>
+<li><strong>没用到也照样付钱。</strong> 哪怕这一整轮你只让它调一个工具，其余十九份结构还是原样占着位置，跟着这一轮一起计费。</li>
+<li><strong>轮数越多，重复越狠。</strong> 一段二十几轮的长对话，这份结构就被重新塞了二十几遍，每一遍都是实打实的令牌。</li>
+</ul>
+<p>mcp2cli 的作者把这套换了个思路：<strong>别把全部结构常驻在上下文里，而是把服务变成一个命令行工具，让 Agent 像敲普通命令一样去用它。</strong> 具体说，系统提示里只留一句话——用 mcp2cli 这个命令调接口，先跑 <code>--list</code> 看有哪些命令，要调哪个再跑它的 <code>--help</code> 看参数。这样一来，常驻开销从&quot;全部工具的完整结构&quot;缩成&quot;一句话提示&quot;，剩下的清单和参数说明都改成用到时才查、查一次。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/chart-mcp2cli-callflow-2026-06-02.png" alt="原生 MCP 与 mcp2cli 两种接入方式，上下文里装的东西完全不同"></p>
+<p>这就是它和 MCP 客户端最根本的不同：原生 MCP 把&quot;模型该知道什么&quot;全部前置塞进上下文，mcp2cli 把它后置成一次次主动的查询动作。对会写命令行的模型来说，这笔账很划算——它们敲命令、读帮助本来就熟，让它先 <code>--list</code> 再 <code>--help</code>，跟人用一个陌生命令行工具时的习惯几乎一样。</p>
+<p>值得点一句的是，这个&quot;逐轮重交&quot;的开销并不是 mcp2cli 作者一个人的发现。Anthropic 自己也在公开的工程文章里谈过 MCP 工具占用上下文这个问题，并给出过用代码执行环境去包住工具调用的思路；mcp2cli 走的是更轻的一条路——不引入一层执行沙箱，只把工具还原成一个普通命令行让模型去敲。这两种思路解决的是同一个痛点，只是抽象的层次不同。</p>
+<h2>它在运行时做的事：探查、生成命令、不落一行代码</h2>
+<p>要理解 mcp2cli 为什么敢说&quot;零代码生成&quot;，得看清它实际在干什么。<strong>它不是把接口提前编译成一套客户端代码，而是在你每次运行的当下，临时把目标服务探查一遍，按探查结果即时拼出一组子命令。</strong></p>
+<p>具体到三种来源，它各有一套探查办法：</p>
+<ul>
+<li><strong>MCP 服务</strong>：连上之后向服务要工具清单，把每个工具变成一个子命令，参数变成命令行的选项。支持 HTTP/SSE 远程连接，也支持用 <code>--mcp-stdio</code> 接一个本地起的 MCP 进程。</li>
+<li><strong>OpenAPI 规范</strong>：读那份规范文件——本地的、远程的、JSON 或 YAML 都行——把每个端点变成一个子命令，路径参数、查询参数、请求体字段都映射成命令行选项。</li>
+<li><strong>GraphQL 端点</strong>：自己探查端点，把查询和变更都列出来，还会自动拼好要取回的字段、按变量声明把参数组织好，整个过程不用你手写查询语句、也不解析模式定义文件。</li>
+</ul>
+<p>因为是运行时探查，目标服务一旦更新——加了个新工具、改了某个参数——你下次跑 mcp2cli 时拿到的就是最新的命令，不用重新生成、重新编译任何东西。代价是每次都得探查一遍，为此它把探查结果在本地缓存了一小时，可以用 <code>--refresh</code> 强制刷新、用 <code>--cache-ttl</code> 调整缓存时长，本地的规范文件则从不缓存。这套&quot;运行时探查加缓存&quot;的设计，正是它能在零代码生成的前提下还保持响应够快的关键。</p>
+<h2>那个省 96% 到 99% 的数字，是一套成本模型算出来的</h2>
+<p>这是全篇最该说清楚的一点，因为它直接决定了你该怎么看待这个项目。<strong>这个省令牌的比例不是把同一个任务在真实模型上各跑一遍量出来的，而是作者写了一套成本模型、用分词器把两种方式的令牌数估算出来再相减得到的。</strong></p>
+<p>打开仓库里那份专门测令牌的测试就能看明白它的算法。它用 OpenAI 的 cl100k_base 分词器，对两种方式分别记账：</p>
+<ul>
+<li><strong>原生那一侧</strong>：把每个工具的名字、说明和完整参数结构拼成模型实际会收到的工具定义，数出令牌数，然后乘以对话轮数——因为它每轮都重交。</li>
+<li><strong>mcp2cli 这一侧</strong>：那句话提示约 67 个令牌，每轮都发；<code>--list</code> 清单按工具数量线性增长、只跑一次；真正用到的每个命令再加一次 <code>--help</code>，单条约一百多令牌；工具调用本身产生的输出两边一样,不计入差额。</li>
+</ul>
+<p>把这套模型套到不同规模的接口上，账就出来了。按作者的参数复算一遍：</p>
+<ul>
+<li><strong>中型接口</strong>（20 个端点、15 轮对话）大约省 86%。</li>
+<li><strong>大型接口</strong>（50 个端点、20 轮）约省 94%。</li>
+<li><strong>企业级</strong>那种 200 个端点、25 轮的长对话，原生方式累计要吃掉二十多万令牌，mcp2cli 这边只要几千，差额逼近 98% 到 99%。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/mcp2cli-token-growth-2026-06-02.png" alt="mcp2cli 令牌开销随接口规模膨胀的对比，按作者成本模型复算"></p>
+<p><small>来源：自制图表（数据据正文）</small></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/chart-mcp2cli-token-cost-2026-06-02.png" alt="原生 MCP 与 mcp2cli 的上下文消耗对照，按作者成本模型复算"></p>
+<p>看懂这张图，关键是抓住它高在哪、虚在哪：</p>
+<ul>
+<li><strong>趋势是真的，而且有迹可循。</strong> 原生那条柱子随&quot;工具数 × 轮数&quot;两个维度一起涨，mcp2cli 这条几乎是平的——固定开销小、用到才查，所以工具越多、对话越长，省得越狠。这个结构性差别站得住。</li>
+<li><strong>那个 96% 到 99% 是上限场景。</strong> 它对应的是端点很多、对话很长、真正用到的工具又只占一小撮的情形。要是你只接三五个工具、对话也短，差距会小很多——测试里小规模那档的节省比例就明显低于大规模档。</li>
+<li><strong>它衡量的是令牌，不是效果。</strong> 这套模型算的是&quot;装进上下文的令牌少了多少&quot;，没有回答&quot;换成命令行之后，Agent 选对工具、传对参数的成功率有没有掉&quot;。</li>
+</ul>
+<p>这套模型里有个细节挺能说明问题：mcp2cli 这一侧的账其实算得相当老实，它没把自己的开销藏起来。那句固定提示每轮都要发、<code>--list</code> 清单随工具数线性增长、每个真正用到的工具还要额外付一次 <code>--help</code> 的钱——这些都明明白白计进了它自己那一栏。它之所以还能赢这么多，靠的是一个简单的结构性事实：<strong>原生那一侧的成本是&quot;工具数 × 轮数&quot;两个维度相乘，而 mcp2cli 这一侧基本只随&quot;用到的工具数&quot;走。</strong> 一旦对话变长、工具变多，相乘的那一侧就被指数般甩开。这也是为什么轮数越多、端点越多，省的比例越往 99% 靠。</p>
+<p>但话说回来，最后这条提醒不是吹毛求疵。Show HN 讨论里得票最高的一条质疑说得很直接：省令牌不该是唯一的衡量标准，真正该证明的是——在省令牌的同时，工具调用的准确率有没有保持住。这套测试目前没覆盖这一层。还有几位评论者直言这个项目的说明文档读起来像是模型生成的，对那串漂亮数字本能地存疑。</p>
+<p>所以更稳妥的读法是：<strong>把它当成&quot;上下文开销能压下一个数量级&quot;的工程结论，而不是&quot;白赚 99% 还毫无代价&quot;的承诺。</strong> 真要用在生产里，最好自己拿几个典型任务，对比一下接 mcp2cli 前后 Agent 完成得怎么样，再决定吃不吃这个红利。</p>
+<h2>命令行换掉结构化调用，丢的是那层硬校验</h2>
+<p>任何把结构挪走的做法都有代价，mcp2cli 也不例外。原生 MCP 那份常驻的参数结构不只是开销，它还是一道<strong>调用前的校验</strong>——模型按结构生成参数，平台能在真正发起调用前，对着结构核一遍类型、必填项对不对。这是 MCP 拥护者最看重的一点。</p>
+<p>换成命令行之后，这道校验就从&quot;平台对着结构核&quot;变成了&quot;模型读着 <code>--help</code> 自己把握&quot;。好处和代价是一体两面：</p>
+<ul>
+<li><strong>好处是组合起来顺手。</strong> 既然是命令行，Agent 就能像拼普通脚本一样把它和管道、<code>jq</code>、其他命令串起来用——这是 Show HN 里被点赞的一个实在价值，对会写命令行的强模型尤其明显。</li>
+<li><strong>代价是少了那层兜底。</strong> 模型万一把参数读错了，没有一道独立的结构校验在调用前拦住它，只能等接口报错再纠。</li>
+</ul>
+<p>mcp2cli 也没完全撒手，它做了几件事把这个代价压低：提供 <code>--json</code> 强制让每条命令输出规整的 JSON，方便 Agent 可靠解析；MCP 工具调用会把完整的返回结构原样吐出来；还能按本地记录的调用频率给 <code>--list</code> 排序，配合 <code>--top</code> 和 <code>--compact</code> 把清单进一步压短。但本质上，<strong>它是拿&quot;命令行的灵活和省&quot;去换&quot;结构化调用的那层硬保证&quot;</strong>，值不值，取决于你接的接口有多容易传错参、以及你用的模型读帮助靠不靠谱。</p>
+<p>Show HN 里还有一条追问很尖锐：既然工具结构不再常驻上下文，模型怎么知道这个命令行存在、又怎么发现它有哪些命令？讨论里几个人的答案是一致的——靠那套教 Agent 用法的技能包，或者干脆在系统里告诉它&quot;有不懂的命令就先跑 <code>--list</code>&quot;。</p>
+<p>这其实点破了一个本质：<strong>mcp2cli 没有消灭&quot;告诉模型有哪些工具&quot;这个动作，只是把它从&quot;每轮自动塞满&quot;改成了&quot;需要时主动去查&quot;。</strong> 对一个会读帮助的强模型来说，这种改动是省钱；但如果你用的是能力较弱、不擅长自己探索命令行的模型，原生 MCP 那种把一切摊在眼前的方式，反而可能更稳。</p>
+<p>这也是为什么前面那张横评表里，mcp2cli 的甜区写的是&quot;工具多、被结构撑爆&quot;——它最适合的，正是工具数量大到原生方式扛不住、同时又用着读帮助没问题的强模型那种场景。</p>
+<h2>和另外三种把接口给 Agent 的方式，横着比一遍</h2>
+<p>把工具交给 Agent，眼下常见的有四条路，各有各的甜区。摆在一起看，mcp2cli 的位置就清楚了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/chart-mcp2cli-compare-2026-06-02.png" alt="mcp2cli 与三种方式横评：上下文开销、调用校验、支持协议、适合谁"></p>
+<p>几点值得展开：</p>
+<ul>
+<li><strong>原生 MCP</strong> 胜在结构校验强、生态成熟，但上下文开销随工具数和轮数一起涨，工具一多就是它的软肋。</li>
+<li><strong>mcp2cli</strong> 把开销压到很低，而且一个工具同时吃下 MCP、OpenAPI 和 GraphQL 三种接口——这点很实用，等于不管后端是什么协议，对 Agent 都长成同一个命令行。代价就是前面说的那层硬校验变软。</li>
+<li><strong>OpenAPI 直连</strong> 适合后端本来就有规范的场景，但它只覆盖 OpenAPI 一种，遇到 MCP 或 GraphQL 就接不上。</li>
+<li><strong>函数调用</strong> 是模型原生支持、校验最稳的一档，缺点是每轮都要带着函数签名，工具一多同样会胀，更适合少量、稳定的核心函数。</li>
+</ul>
+<p>Show HN 的讨论里还冒出一个有意思的现象：类似&quot;把 MCP 转成命令行&quot;的项目，最近一口气出来好几个，有人当场列了七八个同类。这说明&quot;MCP 工具撑爆上下文&quot;是个被广泛感受到的真痛点，mcp2cli 不是唯一解，但它把 MCP、OpenAPI、GraphQL 三种来源统一在一个命令行下、又零代码生成，这个覆盖面在同类里算靠前的。</p>
+<h2>接进 Claude Code、Cursor 和自研 Agent，怎么落地</h2>
+<p>讲了这么多，落到手上其实很轻。mcp2cli 用 Python 写成，靠 uv 就能直接跑，不用全局安装：</p>
+<pre><code class="language-bash"># 不安装直接跑
+uvx mcp2cli --help
+
+# 或者装到全局
+uv tool install mcp2cli
+</code></pre>
+<p>最基础的用法是三步走——连上、看清单、调命令：</p>
+<pre><code class="language-bash"># 连一个 MCP 服务，列出它有哪些命令
+mcp2cli --mcp https://mcp.example.com/sse --list
+
+# 调其中一个命令
+mcp2cli --mcp https://mcp.example.com/sse search --query &quot;test&quot;
+
+# 调之前先看某个命令收哪些参数
+mcp2cli --mcp https://mcp.example.com/sse search --help
+</code></pre>
+<p>它对三种来源是一视同仁的，换个参数就行：OpenAPI 用 <code>--spec</code> 指向规范文件或地址，GraphQL 用 <code>--graphql</code> 指向端点，本地起的 MCP 进程用 <code>--mcp-stdio</code> 接命令。GraphQL 这边它会自己探查端点、把查询和变更都列出来、还自动拼好要取的字段，不用你手写。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/source-mcp2cli-hero-2026-06-02.png" alt="mcp2cli 的核心主张：一个命令行接管所有接口，运行时转换，给上下文减负">
+<small>来源：knowsuchagency/mcp2cli 项目主页插图</small></p>
+<p>要让 Agent 自己会用它，关键是把&quot;先 <code>--list</code> 再 <code>--help</code>&quot;这套习惯教给它。mcp2cli 为此专门做了一个能装的技能包，给 Claude Code、Cursor、Codex 这类编程 Agent 用：</p>
+<pre><code class="language-bash">npx skills add knowsuchagency/mcp2cli --skill mcp2cli
+</code></pre>
+<p>装完之后，直接对 Agent 说&quot;用 mcp2cli 连这个 MCP 服务&quot;或者&quot;照这个接口规范生成一个技能&quot;，它就知道该先列清单、再查帮助、最后发起调用。</p>
+<p>日常用下来还有两个省心的设计值得记一笔：</p>
+<ul>
+<li><strong>把连接参数烤进一个名字里。</strong> 老是重复敲 <code>--mcp</code> 加一长串鉴权参数很烦，可以用 <code>bake</code> 把它们存成一个命名配置，之后用 <code>@名字</code> 一带而过，比如 <code>mcp2cli @petstore --list</code>；还能在创建时用 <code>--include</code>、<code>--exclude</code> 按通配符筛掉一批工具，进一步压短清单。</li>
+<li><strong>鉴权这块考虑得比较周到。</strong> OAuth 在 MCP、OpenAPI、GraphQL 三种模式下都开箱支持，令牌会自动缓存和刷新；密钥支持用 <code>env:</code> 和 <code>file:</code> 前缀从环境变量或文件里读，避免明文写在命令行参数里被进程列表看到。</li>
+</ul>
+<p>对国内自研 Agent 来说，最直接的价值是：<strong>只要你的 Agent 会执行命令行，就能用它把一批五花八门的后端统一成同一种调用方式，而不必为每个 MCP 服务、每份 OpenAPI 规范单独写适配。</strong> 接入成本低、又不挑协议，是它最实在的地方。</p>
+<h2>省令牌不止在工具结构这一头，输出这头也压</h2>
+<p>前面算的省令牌账，全集中在&quot;工具结构不再常驻&quot;这一头。但 Agent 跟接口打交道，另一头的开销同样不小——接口返回的数据也是要进上下文的，一个列了几十条记录的响应，照样能吃掉不少令牌。mcp2cli 在这头也准备了几把刀：</p>
+<ul>
+<li><strong>清单按使用频率排序。</strong> 它会在本地记下哪些命令被调得多，之后跑 <code>--list</code> 默认就把常用的排在前面；配合 <code>--top 10</code> 只列最常用的十个、<code>--compact</code> 只留命令名不带说明，一份上百个工具的清单能从上千令牌压到几十令牌。</li>
+<li><strong>大数组改用更省的编码。</strong> 对那种一长串结构一致的记录，它支持用 <code>--toon</code> 输出一种为模型读取优化过的紧凑编码，官方说法是比等价的 JSON 省下四到六成令牌。</li>
+<li><strong>截断和裁剪。</strong> 用 <code>--head</code> 只取返回的前几条记录，避免一次把成百上千条全灌进上下文；要精确解析时再用 <code>--json</code> 拿规整结构。</li>
+</ul>
+<p>这几招的共同逻辑和它压工具结构是一脉相承的：<strong>让进上下文的东西尽量短、尽量是模型真正要用的那部分。</strong> 把工具结构这头和返回数据这头一起压下来，一段长对话累计省下的令牌，比单看工具结构那张图还要多一些。这也是它把&quot;省令牌&quot;做成一以贯之的设计、而不是只靠一个噱头的地方。</p>
+<h2>写在最后</h2>
+<p>把 mcp2cli 放回它出现的背景里看，会更清楚它的分量。MCP 让 Agent 接外部能力这件事有了统一协议，这是它的功劳；但&quot;每个工具的完整结构逐轮常驻上下文&quot;这个设计，在工具越接越多的今天，确实成了一笔越来越重的固定开销。mcp2cli 代表的是一种很务实的回应——既然现在的模型本来就擅长读帮助、敲命令，那就把工具还原成命令行，让它用到才查，把常驻开销压到一句话。</p>
+<p>它不是没有取舍。那层结构化调用的硬校验被换成了模型自己读帮助的软约束；那个 96% 到 99% 的省令牌数字是作者用成本模型算的、对应的是工具多对话长的上限场景，而且只衡量令牌、没衡量调用准确率。把这些都摊开之后，它依然是个值得装来试一试的工具：覆盖 MCP、OpenAPI、GraphQL 三种来源，零代码生成，一条命令就能跑，接进 Claude Code、Cursor 或自研 Agent 都很轻。</p>
+<p>更大的信号或许是——当&quot;把 MCP 转成命令行&quot;这类项目一周冒出好几个，说明一线开发者对&quot;上下文别被工具结构挤爆&quot;的需求已经足够强。怎么在省开销和保校验之间找到那个平衡点，会是接下来这批工具一起往前推的方向。对正在被 MCP 上下文撑爆困扰的人来说，现在就有现成的东西可以上手试，这本身就是件让人踏实的事。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

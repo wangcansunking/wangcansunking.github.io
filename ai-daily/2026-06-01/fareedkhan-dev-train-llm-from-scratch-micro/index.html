@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>开发者FareedKhan：如何用PyTorch与825GB数据从头构建Transformer — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-01</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-01</span><span class="tag-pill">AI Daily</span></div>
+      <h1>开发者FareedKhan：如何用PyTorch与825GB数据从头构建Transformer</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-01/fareedkhan-dev-train-llm-from-scratch-micro/head.png" alt=""></p>
+<p>几年前，一位名叫 Andrej Karpathy 的工程师在 YouTube 上直播用一台 MacBook 从头写了一个 GPT，观众看着终端里滚动的 loss 曲线，第一次意识到“造一个大模型”的门槛可能没有想象中那么高。但 Karpathy 用的是莎士比亚全集——一个只有 1MB 的文本文件。真正的难题从来不是“能不能跑通”，而是“能不能在真实世界的脏数据上跑出像样的结果”。</p>
+<p>2025 年，一个名为 FareedKhan-dev 的开发者把一个更完整的答案扔到了 GitHub 上：一个从数据下载、预处理、Transformer 从头搭建、训练到文本生成的完整流水线。仓库名叫 <code>train-llm-from-scratch</code>，没有花哨的框架封装，没有分布式训练的复杂配置，只有纯 PyTorch 代码和一份写给人看的 README。作者甚至在文档里坦白：他正在找 AI 方向的 PhD 位置。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-01/fareedkhan-dev-train-llm-from-scratch-micro/content-1.png" alt="FareedKhan-dev/train-llm-from-scratch — A straightforward method for training yo"></p>
+<p><strong>一个求职 PhD 的开发者，把“训练大模型”这件事拆到了单 GPU 可复现的程度。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-01/fareedkhan-dev-train-llm-from-scratch-micro/content-2.png" alt="Transformer Architecture by Fareed Khan"></p>
+<h2>从 The Pile 啃起：825GB 里的 13M 参数</h2>
+<p>这个项目最让我愣神的地方，不是它把 Transformer 写得多优雅，而是它对训练数据的处理思路异常务实。</p>
+<p>作者选择了 The Pile 数据集——一个由 22 个子集组成的 825GB 开源语料库，涵盖书籍、论文、GitHub 代码、网页文本等。但他没有试图吞下整个巨兽。README 里明确说：只取 5%–10% 的数据量用于训练。数据下载脚本 <code>data_download.py</code> 的 <code>--train_max</code> 参数默认值为 1（每个文件约 11GB），最大可到 30。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-01/fareedkhan-dev-train-llm-from-scratch-micro/schematic-1.png" alt="The Pile 数据集 22 个子集构成饼图，标注 PubMed Abstracts / GitHub / Books3 等主要来源"></p>
+<p>数据格式是 <code>.jsonl.zst</code>——JSON Lines 加 Zstandard 压缩。每一行是一个 JSON 对象，包含 <code>text</code> 字段和 <code>meta</code> 元数据（比如 <code>pile_set_name: &quot;PubMed Abstracts&quot;</code>）。预处理脚本 <code>data_preprocess.py</code> 用 OpenAI 的 tiktoken 库（<code>r50k_base</code> 编码，也就是 GPT-3 用的那套分词器）把文本转成 token 序列，存进 HDF5 文件。这个设计很聪明：HDF5 支持随机读取和动态扩展，训练时不用每次都重新解析原始 JSON，数据加载效率大幅提升。</p>
+<p>然后是最核心的架构部分。作者在 <code>src/models/</code> 目录下逐层做到 Transformer 的全部组件：</p>
+<ul>
+<li><strong>MLP</strong>（<code>mlp.py</code>）：标准的 4 倍扩展-激活-投影结构，<code>n_embed → 4*n_embed → n_embed</code>，激活函数用 ReLU。</li>
+<li><strong>单头注意力</strong>（<code>attention.py</code> 中的 <code>Head</code> 类）：Key/Query/Value 三个线性投影层，因果掩码用 <code>torch.tril</code> 下三角矩阵做到，缩放因子 <code>1/sqrt(C)</code>。</li>
+<li><strong>多头注意力</strong>（<code>MultiHeadAttention</code> 类）：<code>n_head</code> 个独立 <code>Head</code> 并行计算，每个头的维度是 <code>n_embed // n_head</code>，最后沿最后一维拼接。</li>
+<li><strong>Transformer Block</strong>（<code>transformer_block.py</code>）：LayerNorm → MultiHeadAttention → 残差连接 → LayerNorm → MLP → 残差连接。这是和 GPT-2 完全一致的结构。</li>
+<li><strong>完整模型</strong>（<code>transformer.py</code>）：Token Embedding + Position Embedding + <code>N_BLOCKS</code> 个 Block 堆叠 + 最终输出层映射到 <code>vocab_size</code>。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-01/fareedkhan-dev-train-llm-from-scratch-micro/schematic-2.png" alt="简化 Transformer 架构图，输入 Token → Embedding + Position → N 个 Block（Attention + MLP）→ 输出预测"></p>
+<p>默认配置跑的是 13M 参数版本：词表大小 <code>VOCAB_SIZE = 50304</code>（GPT-2 标准词表），上下文长度 <code>CONTEXT_LENGTH = 128</code>，嵌入维度 <code>N_EMBED = 128</code>，注意力头数 <code>N_HEAD = 8</code>，Transformer Block 层数 <code>N_BLOCKS = 1</code>。训练脚本 <code>train_transformer.py</code> 跑通后，模型会在 <code>models/</code> 目录下保存 <code>.pth</code> 权重，文本生成脚本 <code>generate_text.py</code> 可以直接加载推理。</p>
+<p>作者还贴了一段 13M 模型的输出样本，语法确实不完美，但已经能生成有结构的句子：“In 1978, The park was returned to the factory-plate that the public share to the lower of the electronic fence...” 这种输出水平和 GPT-2 小模型（124M 参数）的早期 checkpoint 相当，而参数量只有后者的十分之一。</p>
+<h2>一张 GPU 能跑多大？作者给了张“算力对照表”</h2>
+<p>这个项目最实用的部分，可能不是代码本身，而是 README 里那张 GPU 兼容性表格。作者列出了从 NVIDIA A100 到 GTX 1660 Ti 共 23 款 GPU，标注了每张卡的显存、能否训练 2B 参数模型、能否训练 13M 参数模型，以及“最大可训练模型规模”。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-01/fareedkhan-dev-train-llm-from-scratch-micro/schematic-3.png" alt="GPU 算力对照表，横轴为 GPU 型号，纵轴为最大可训练参数量，A100 40GB 标注 6B–8B / RTX 4090 标注 4B / Tesla T4 标注 1.5B–2B"></p>
+<p>几个关键数据点：</p>
+<ul>
+<li><strong>NVIDIA A100（40GB）</strong>：可训练约 6B–8B 参数模型。</li>
+<li><strong>NVIDIA RTX 4090（24GB）</strong>：可训练约 4B 参数模型。</li>
+<li><strong>NVIDIA RTX 3090（24GB）</strong>：可训练约 3.5B–4B 参数模型。</li>
+<li><strong>Tesla T4（16GB，Colab/Kaggle 免费版常见配置）</strong>：可训练约 1.5B–2B 参数模型，13M 模型完全无压力。</li>
+<li><strong>NVIDIA GTX 1660 Ti（6GB）</strong>：只能跑 0.75B 以下的模型，但 13M 依然能跑。</li>
+</ul>
+<p>这张表的隐含信息是：如果你只是想做实验、写论文、验证一个想法，你不需要 AWS 账单上多出一行四位数。一张 Colab 免费 T4 足够训练 13M 模型并在一天内出结果；一张 RTX 3090 或 4090 就能摸到 2B–4B 的门槛。作者的建议是“先训练一个 13M 模型，理解整个流程，再考虑扩展”。</p>
+<p>于是他反向推导：如果把架构做得更小更简单，但把数据做得更多样化，参数规模要多大才能让模型“至少写出像样的英文”？答案是 13M。</p>
+<p>这个思路和当前“越大越好”的主流叙事形成了一种有趣的张力。当 OpenAI 和 Anthropic 在拼万亿参数、万卡集群的时候，一个独立开发者用单 GPU 证明了：在特定条件下，13M 参数就能产生有意义的文本输出。这对于那些想在私有数据上跑模型、又不想把数据送进第三方 API 的企业来说，是一个值得关注的信号。</p>
+<h2>参考来源</h2>
+<ul>
+<li><a href="https://github.com/FareedKhan-dev/train-llm-from-scratch" target="_blank" rel="noopener">https://github.com/FareedKhan-dev/train-llm-from-scratch</a></li>
+<li><a href="https://huggingface.co/datasets/monology/pile-uncopyrighted" target="_blank" rel="noopener">https://huggingface.co/datasets/monology/pile-uncopyrighted</a></li>
+</ul>
+<p>#FareedKhandev #LLM #AI #科技</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-01/fareedkhan-dev-train-llm-from-scratch-micro/content-3.png" alt="Transformer Block by Fareed Khan"></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

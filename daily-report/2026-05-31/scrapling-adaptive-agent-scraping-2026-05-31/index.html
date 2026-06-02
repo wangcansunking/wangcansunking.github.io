@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scrapling：网站改版后能自己找回元素的爬虫 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-31</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-31</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Scrapling：网站改版后能自己找回元素的爬虫</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/31/scrapling-adaptive-agent-scraping-2026-05-31.png" alt="Scrapling：自适应 Web 抓取框架，5 月底冲上 GitHub Trending"></p>
+<p>写过爬虫的人都被同一件事折磨过：脚本上线时跑得好好的，过几天网站改了个版，<code>class</code> 名换了、层级挪了一下，选择器立刻失效，抓回来的全是空值，半夜被告警叫醒去改 CSS 路径。<strong>爬虫真正的成本从来不是写出来，而是维护——网站每改一次版，你的选择器就碎一次。</strong></p>
+<p>Scrapling（仓库 <code>D4Vinci/Scrapling</code>）这个开源框架想正面解决的就是这件事。5 月底它单日涨了约 600 颗 star 冲上 GitHub Trending，6 月 1 日凌晨核对仓库,总 star 约 5.7 万、5500 多 fork、BSD-3 协议、Python 写成。它给自己的定位是一句话：<strong>一个自适应的 Web 抓取框架，从一个请求到全站爬都能接。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/31/source-scrapling-github-og-2026-05-31.png" alt="Scrapling 仓库主页：自适应抓取、过反爬、内置 MCP 服务">
+<small>来源：D4Vinci/Scrapling 仓库社交卡片</small></p>
+<p>这篇文章想把一件事讲清楚：<strong>Scrapling 所谓的&quot;自适应&quot;到底是什么机制、它凭什么能在网站改版后自己把元素找回来、给 AI Agent 喂数据这个场景它怎么接、以及它和大家天天用的 BeautifulSoup、Scrapy、Playwright 到底差在哪。</strong> 结论先放这儿——如果你的痛点是&quot;爬虫总因为网站改版碎掉&quot;或者&quot;想让 Agent 自己去抓网页但老被反爬挡住&quot;，它现在是最对症的一个；但它也不是万能盾，页面整体重写或反爬升级照样会让它失手。</p>
+<h2>&quot;自适应&quot;不是玄学：它存了元素的一份指纹</h2>
+<p>先把最核心、也最容易被当成营销词的&quot;adaptive&quot;讲透。</p>
+<p>很多框架都说自己&quot;智能&quot;，但 Scrapling 的自适应是有具体机制的，不是糊弄。它分两步走，<strong>第一步是记，第二步是认</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/31/scrapling-adaptive-flow-2026-05-31.png" alt="选择器失效时 Scrapling 怎么自己把元素找回来"></p>
+<p><strong>第一次抓取时，你给选择器加一个 <code>auto_save=True</code>，它会把这个元素的一份&quot;指纹&quot;存到本地。</strong> 这份指纹不是只记一个 CSS 路径那么简单，按它文档的说法，它会记下：</p>
+<ul>
+<li>元素自己的<strong>标签名、文本内容、全部属性的名字和值</strong></li>
+<li>它的<strong>兄弟节点的标签序列</strong>（只记标签名）</li>
+<li>它到根的<strong>路径标签</strong></li>
+<li>它<strong>父节点的标签、属性和文本</strong></li>
+</ul>
+<p>换句话说，它不是死记&quot;这个元素在第几个 div 里 class 叫什么&quot;，而是给这个元素拍了一张包含上下文的全身照。</p>
+<p><strong>第二次再抓，如果原来的选择器已经失效了，你把它换成 <code>adaptive=True</code>，触发的就是&quot;认&quot;这一步。</strong> Scrapling 把存下的指纹和新页面里的每一个元素逐个比对，算相似度——属性重合多少、文本和标签像不像、邻居和路径对不对，然后把最像的那个还给你。</p>
+<pre><code class="language-python">from scrapling.fetchers import Fetcher
+
+# 第一次：抓到目标，顺手存下指纹
+page = Fetcher.get(&quot;https://example.com/product&quot;)
+price = page.css_first(&quot;span.price&quot;, auto_save=True)
+
+# 网站改版后，原选择器失效，让它按相似度自己找回来
+page2 = Fetcher.get(&quot;https://example.com/product&quot;)
+price = page2.css_first(&quot;span.price&quot;, adaptive=True)
+</code></pre>
+<p>这套机制的好处很直接：<strong>网站只改样式、不改数据本身时，命中率最高。</strong> 比如它把 <code>class=&quot;price&quot;</code> 改成 <code>class=&quot;product-price-v2&quot;</code>，又或者外面多包了一层 div——这些动作会让传统选择器立刻失效，但元素的文本、属性值、上下文关系基本没变，指纹一比相似度还很高，就能找回来。</p>
+<p>这里要诚实地说清楚它的边界，避免被当成银弹：</p>
+<ul>
+<li><strong>存指纹是覆盖式的</strong>，同一个&quot;域名 + 选择器&quot;再存一次会把上一次的覆盖掉，不是累积。</li>
+<li><strong>指纹存在本地数据库里</strong>，所以在那种用完即销毁的无状态环境（比如某些 serverless 函数）里，如果不挂持久存储，这套自愈能力基本就废了。</li>
+<li><strong>页面被整体重写时它救不回来。</strong> 一个第三方评测说得很到位：如果一个网站把整套前端从服务端渲染换成了异步加载、数据走 WebSocket 而不再出现在 HTML 里，那 Scrapling 的自动匹配会彻底失效——因为指纹的参照物没了。</li>
+<li>指纹里存了元素属性，所以<strong>别在含个人隐私信息的页面上随手开 <code>auto_save</code></strong>。</li>
+</ul>
+<p>把这些边界讲明白，反而更能看清它的价值：<strong>它治的是&quot;网站小步快跑改版导致选择器碎掉&quot;这个最高频的维护痛点，而不是承诺&quot;任何网站任何改动都能抓&quot;。</strong> 对天天和电商、新闻、目录站打交道的人来说，绝大多数改版恰恰就是这种小改。</p>
+<h2>给 AI Agent 喂数据：内置一个 MCP 服务，省 token 是关键</h2>
+<p>这是 Scrapling 这一波关注度里最值得国内开发者注意的部分，也是它和老牌爬虫库拉开身位的地方。</p>
+<p>现在大家都在让 AI Agent 自己上网查实时信息——查个价格、读个文档、抓个榜单。最朴素的做法是把整个网页的 HTML 塞进大模型的上下文里让它自己读。<strong>问题是网页 HTML 又长又脏，一个页面动辄几万 token，又烧钱又容易把上下文撑爆，Agent 还得在一堆标签噪声里费劲找数据。</strong></p>
+<p>Scrapling 的解法是内置了一个 MCP 服务。MCP（模型上下文协议，Anthropic 提出的让大模型调用外部工具的标准接口）让任何兼容它的 Agent——比如 Claude、Cursor——都能把 Scrapling 当成一个原生工具直接调用。装上它只要：</p>
+<pre><code class="language-bash">pip install &quot;scrapling[ai]&quot;
+</code></pre>
+<p>它的工作方式按第三方技术评测的描述是这样：<strong>当大模型判断需要一份实时数据（比如某商品的现价）来回答你时，它把抓取指令发给 Scrapling 的 MCP 服务，Scrapling 在后台完成无头浏览器抓取，只把清洗好的 JSON 结果还给大模型。</strong></p>
+<p>这一步的意义在于：<strong>抓取和清洗发生在大模型外面，进入上下文的不再是几万 token 的原始 HTML，而是一小段结构化数据。</strong> 一句话——先用 Scrapling 把目标内容择出来再交给 AI，既加快了速度，也实打实省了 token、省了钱。</p>
+<p>这正好踩中了国内做 Agent 的人现在最在意的两件事：<strong>一是别让上下文被网页噪声占满，二是别为了读一个网页烧一大笔 token。</strong> 对要接 MCP、要让 Agent 自己去网上取数的工程师来说，这个内置服务省掉了自己拼一套&quot;抓取 + 清洗 + 喂模型&quot;管线的活。</p>
+<h2>三个抓取器各管一段：从一个请求到过 Cloudflare 盾</h2>
+<p>讲完解析和喂数据，再看它怎么把网页&quot;拿&quot;回来。Scrapling 没有用一个万能抓取器硬扛所有情况，而是分了三个，按页面难度递进。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/31/scrapling-fetcher-matrix-2026-05-31.png" alt="三种抓取器各管一段，和传统组合的取舍"></p>
+<ul>
+<li><strong>Fetcher</strong>：最快的那个，走 HTTP 请求（底层用 <code>curl_cffi</code>），带 TLS 指纹伪装、支持 HTTP/3。适合静态页、没有 JavaScript 渲染的页面。它顶替的是大家常用的 <code>requests</code> + BeautifulSoup 这套组合。</li>
+<li><strong>StealthyFetcher</strong>：主打隐身，能伪装浏览器指纹，按官方说法<strong>可以应对 Cloudflare 的 Turnstile 这类人机验证</strong>。适合有反爬过滤的站。它顶替的是你过去为了过盾东拼西凑的一堆反爬补丁。</li>
+<li><strong>DynamicFetcher</strong>：底层是 Playwright，真开一个浏览器把页面渲染出来，适合重度依赖 JavaScript 的页面。它顶替的是裸用 Playwright。</li>
+</ul>
+<p>三个抓取器最舒服的一点是：<strong>解析接口完全一样。</strong> 不管用哪个把页面拿回来，后面 <code>.css()</code>、<code>.xpath()</code>、<code>.find_by_text()</code> 这套用法都不变。所以实战里的策略很自然——<strong>先用最快的 Fetcher 试，被挡了再换 StealthyFetcher，确实要执行 JS 才上 DynamicFetcher。</strong></p>
+<p>反爬这块同样要把话说全。官方说能过 Cloudflare，但第三方评测提醒得很实在：<strong>这不是一个&quot;永久关掉 Cloudflare&quot;的开关，今天能过的，明天可能就被升级的反爬挡住了——反爬本来就是一场持续拉锯。</strong> 另外有个工程细节值得记住：在 8GB 内存的小机器上，StealthyFetcher 并发超过约 10 个就容易把内存吃满、把进程拖崩，别盲目把并发拉高。</p>
+<h2>和 BeautifulSoup、Scrapy、Playwright 到底差在哪</h2>
+<p>这是大家最关心的问题：手上已经有这么多爬虫工具了，Scrapling 凭什么值得看一眼？分三个维度比。</p>
+<p><strong>第一，解析速度上，它和最快的那一档站在一起，甩开 BeautifulSoup 几个数量级。</strong> 这是它仓库自带基准里最扎眼的数字。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/31/scrapling-parse-bench-2026-05-31.png" alt="同一个 HTML，谁解析得快"></p>
+<p>同一份 HTML 解析下来，Scrapling 约 2.02 毫秒、Parsel（也就是 Scrapy 的解析层）约 2.04 毫秒、原生 lxml 约 2.54 毫秒，这三个基本一个水平。往下，PyQuery 约 24 毫秒、Selectolax 约 83 毫秒，而最常被新手当默认选项的 <strong>BeautifulSoup 配 lxml 要约 1584 毫秒、配 html5lib 更是约 3392 毫秒——是 Scrapling 的上千倍。</strong> 这意味着在大批量抓取里，光解析这一层换成 Scrapling 就能省下大量时间。</p>
+<p>需要说明的是，BeautifulSoup 慢是有原因的——它本来就不追求极致速度，强项是 API 友好、容错好、新手好上手，少量页面用它完全没问题。但一旦量级上来，这个差距就很要命了。</p>
+<p><strong>第二，它把&quot;抓取 + 解析 + 反爬 + 自愈&quot;打包在一个库里。</strong> 过去这套活要拼好几个东西：Scrapy 负责调度和并发、requests 或 Playwright 负责取页面、BeautifulSoup 或 parsel 负责解析、反爬还得自己加各种补丁。Scrapling 想做的是一个库把这条线全接上——它自带 Scrapy 风格的 Spider，支持并发爬、按域名限速、多会话、暂停续跑、断点、流式输出、自带 JSON 导出。</p>
+<p><strong>第三，也是最独一份的，是前面讲的自适应自愈和给 Agent 喂数据。</strong> 这两点是 BeautifulSoup、Scrapy、原生 Playwright 都没有的。值得一提的是，它的&quot;找相似元素&quot;能力也比专门做这事的 AutoScraper 快——同样的相似度匹配，Scrapling 约 2.39 毫秒，AutoScraper 约 12.45 毫秒，快了约 5 倍。</p>
+<p>把它放进坐标系看就清楚了：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>BeautifulSoup</th>
+<th>Scrapy</th>
+<th>原生 Playwright</th>
+<th>Scrapling</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>解析速度</td>
+<td>慢（上千毫秒级）</td>
+<td>快</td>
+<td>取决于解析层</td>
+<td>快（约 2 毫秒级）</td>
+</tr>
+<tr>
+<td>全站并发爬</td>
+<td>× 要自己搭</td>
+<td>○ 强项</td>
+<td>× 要自己搭</td>
+<td>○ 自带 Spider</td>
+</tr>
+<tr>
+<td>过反爬盾</td>
+<td>×</td>
+<td>△ 要加插件</td>
+<td>△ 要加隐身补丁</td>
+<td>○ StealthyFetcher</td>
+</tr>
+<tr>
+<td>改版自愈</td>
+<td>×</td>
+<td>×</td>
+<td>×</td>
+<td>○ 自适应指纹</td>
+</tr>
+<tr>
+<td>给 Agent 喂数据</td>
+<td>×</td>
+<td>×</td>
+<td>×</td>
+<td>○ 内置 MCP 服务</td>
+</tr>
+<tr>
+<td>上手难度</td>
+<td>低</td>
+<td>中高</td>
+<td>中</td>
+<td>中</td>
+</tr>
+</tbody></table>
+<p>它不是要把这些工具全取代——Scrapy 在超大规模分布式爬虫的工程成熟度上、Playwright 在底层浏览器控制的精细度上，都还有各自的地盘。<strong>Scrapling 真正抢的，是&quot;中小规模、要常年维护、还想接 Agent&quot;这一档需求，而这一档恰恰是被老工具忽略得最久的。</strong></p>
+<h2>解析 API：CSS、XPath、按文本找、找相似的一应俱全</h2>
+<p>最后看一眼实际写起来什么手感，毕竟好不好用是要落到代码上的。它的查询接口对用过 BeautifulSoup 和 parsel 的人几乎零学习成本：</p>
+<pre><code class="language-python">from scrapling.fetchers import Fetcher
+page = Fetcher.get(&quot;https://quotes.toscrape.com/&quot;)
+
+quotes = page.css(&quot;.quote&quot;)                      # CSS 选择器
+quotes = page.xpath(&#39;//div[@class=&quot;quote&quot;]&#39;)     # XPath
+quotes = page.find_all(&quot;div&quot;, class_=&quot;quote&quot;)    # BeautifulSoup 风格
+quotes = page.find_by_text(&quot;quote&quot;, tag=&quot;div&quot;)   # 按文本内容找
+
+# 取文本、做导航
+text = page.css(&quot;.quote&quot;)[0].css(&quot;.text::text&quot;).get()
+first = page.css(&quot;.quote&quot;)[0]
+author = first.next_sibling.css(&quot;.author::text&quot;)
+similar = first.find_similar()                   # 自动找页面上结构相似的元素
+</code></pre>
+<p>这里 <code>find_similar()</code> 很实用：<strong>你只要指给它一个商品卡片，它能把整页结构相同的卡片全揪出来</strong>，省掉自己写循环和判断的功夫。配上 <code>.next_sibling</code>、<code>.parent</code> 这套关系导航，复杂页面里&quot;从这个元素跳到旁边那个&quot;的活也好写。</p>
+<p>一句话总结手感：<strong>会用 BeautifulSoup 的人几乎不用重新学，但白拿了速度、反爬、自愈和喂 Agent 这几样新能力。</strong></p>
+<h2>该不该用它：看你的痛点踩中哪一个</h2>
+<p>把判断收一下，给国内开发者一个清楚的参照——</p>
+<p><strong>这些情况它很对症：</strong> 你的爬虫总因为网站改版碎掉、维护成本高；你想让 AI Agent 自己去抓网页做实时检索，又苦于 HTML 太长烧 token；你要过 Cloudflare 这类反爬；你想要 BeautifulSoup 的好用手感但受不了它的慢。</p>
+<p><strong>这些情况先别急着换：</strong> 你已经有一套跑了多年、规模巨大的 Scrapy 分布式集群，工程成熟稳定，没有强动机去动它；你抓的页面有非常复杂的浏览器交互，需要 Playwright 那种底层精细控制；或者你的目标站反爬极强、还频繁整体重写前端——那自愈帮不上忙，得另想办法。</p>
+<p>它也确实还年轻、有些粗糙的地方，文档偶尔跟不上功能迭代。但方向是对的：<strong>爬虫最磨人的&quot;改版即碎&quot;和&quot;给 Agent 喂数据又脏又贵&quot;这两个老问题，正在被这样一个趁手的开源工具一点点接管。</strong> 对每天和网页数据打交道的国内开发者来说，这是个值得放进工具箱、随手就能省下不少夜间告警的选择。又脏又累的活有人替你扛了一截，这事本身就挺好。</p>
+<hr>
+<p>参考链接：</p>
+<ul>
+<li>[1] D4Vinci/Scrapling 项目仓库与 README（含解析基准、三抓取器、自适应说明）</li>
+<li>[2] ScrapingBee 技术解析：Scrapling 自适应元素追踪的内部机制与三抓取器</li>
+<li>[3] use-apify 技术评测：MCP 集成、省 token 机制与三类失效场景</li>
+<li>[4] Scrapling 官方站点 scrapling.homes：功能概览与 MCP 服务说明</li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

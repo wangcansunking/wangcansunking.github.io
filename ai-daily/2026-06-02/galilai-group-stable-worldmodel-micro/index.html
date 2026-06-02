@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yann LeCun团队发布stable-worldmodel：统一13年混乱的世界模型基准 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-02</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-02</span><span class="tag-pill">AI Daily</span></div>
+      <h1>Yann LeCun团队发布stable-worldmodel：统一13年混乱的世界模型基准</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/galilai-group-stable-worldmodel-micro/head.png" alt=""></p>
+<p>2013 年，DeepMind 在 NeurIPS 上扔出一篇论文，用世界模型让 Atari 游戏里的 Agent 学会了“想象下一秒会发生什么”。13 年后，这个方向依然是具身智能和强化学习圈最烫的议题——但问题也一直没变：<strong>每个人都在造自己的轮子，却没有一条统一的跑道。</strong></p>
+<p>你翻遍 GitHub，会发现世界模型的代码库多到离谱：Dreamer 系列有自己的训练流水线，IRIS 用离散 token 做预测，DINO-WM 靠视觉预训练特征建模，LeWM 则把重点放在潜在空间的时序一致性上。每个项目都在独立的数据格式、环境封装、评估协议上重复造轮子。跑通一个 baseline 可能要花三天配环境，想横向对比两个模型？先祈祷它们的 observation space 对齐再说。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/galilai-group-stable-worldmodel-micro/content-1.png" alt="galilai-group/stable-worldmodel — A platform for reproducible world model resear"></p>
+<p><strong>世界模型这个领域，缺的不是好点子，缺的是一把能同时量所有人的尺子。</strong></p>
+<p>就在 2026 年 5 月 20 日（arXiv 编号 2605.21800），Yann LeCun 的团队与 galilai-group 联合抛出了 stable-worldmodel——一个试图终结这场混乱的平台。看一眼作者列表就知道这事不简单：Lucas Maes、Quentin Le Lidec 这些名字背后是 Meta AI 的世界模型研究主力，而 Randall Balestriero 和 Yann LeCun 的署名则直接把这块工作钉在了 JEPA（Joint Embedding Predictive Architecture）这条技术路线的核心版图上。</p>
+<p>但真正让我愣神的，不是作者阵容，而是这个库的设计哲学——<strong>它把“可复现”三个字写进了 API 的每一层。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/galilai-group-stable-worldmodel-micro/schematic-1.png" alt="stable-worldmodel 三阶段流水线示意——数据收集 / 训练 / MPC 评估，统一接口贯穿全流程"></p>
+<h2>一个 <code>pip install</code> 就把数据、训练、评估串起来了</h2>
+<p>stable-worldmodel 做的事情用一句话就能讲清楚：<strong>提供从数据采集到模型评估的全套标准化接口。</strong> 但这句话背后的工程细节，才是它区别于其他“又一个 world model 库”的地方。</p>
+<p>先看数据层。世界模型的数据集通常是什么？一堆 episode 级别的观测序列，每步可能包含图像、关节角度、奖励信号。过去这些数据被存在 HDF5、NPZ、TFRecord、甚至自定义二进制格式里，读一个数据集就得写一套 dataloader。stable-worldmodel 直接内置了五种格式注册表：LanceDB（默认）、HDF5、folder（NPZ+JPEG）、video（MP4）、以及 LeRobot Hub 的只读适配器。而且它允许用户注册自己的格式——这意味着你完全可以把公司内部的私有数据格式挂载到这个流水线上，而不必迁就别人的技术选型。</p>
+<p>更狠的是性能。官方给出的 benchmark 数据（基于 PushT 数据集，可复现脚本在 <code>scripts/benchmark/compare_h5_lance.py</code>）显示，LanceDB 格式在本地无缓存条件下跑到 4814.8 samples/s，每步耗时仅 13.3ms。作为对比，HDF5 在同样条件下只有 1416.1 samples/s，慢了 3.4 倍。如果把存储搬到 S3 上，差距直接拉到一个数量级：LanceDB S3 无缓存 3183.7 samples/s，而 HDF5 S3 无缓存？<strong>9.1 samples/s，每步 7 秒。</strong> 你训一个 10 万步的模型，光读数据就要花掉将近 20 个小时——这还没开始算 GPU 时间。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/galilai-group-stable-worldmodel-micro/schematic-2.png" alt="LanceDB vs HDF5 吞吐量对比柱状图，本地/S3 环境下的 samples/s 差距"></p>
+<p>存储体积的差异同样扎眼：同一个 PushT 数据集，HDF5 吃了 43.12 GB，LanceDB 只占 13.31 GB，而 video 格式更是压缩到了 496.29 MB。对于动辄数百 GB 的机器人操作数据集来说，这个差距意味着你是在租一台带 2TB SSD 的机器，还是在 AWS S3 上按请求付费——成本模型完全不同。</p>
+<p>再看环境层。stable-worldmodel 一口气集成了 25+ 个标准化环境，从 DeepMind Control Suite 的人形机器人、四足机器人，到 Gymnasium 的经典控制任务（CartPole、MountainCar），再到 OGBench 的物体操作场景和 ALE 的 100+ Atari 游戏。每个环境还附带一组 <strong>factors of variation（FoV）</strong>——独立可控的视觉和物理参数，比如光照、纹理、动力学参数、形态学变化。PushT-v1 有 16 个 FoV，TwoRoom-v1 有 17 个，HumanoidDMControl-v0 有 7 个。这意味着你不需要写任何额外代码，就能测试模型在分布外场景下的零样本泛化能力：把光照调暗、把摩擦系数翻倍、把机械臂的关节长度改 20%，然后看你的世界模型还能不能预测准下一步。</p>
+<p><strong>这直接击中了世界模型研究最痛的软肋：大家天天说“泛化”，但从来没在一个公平的起跑线上比过。</strong></p>
+<p>最后是 solver 和 baseline 层。库内直接提供了 7 种规划求解器——CEM、iCEM、MPPI、Predictive Sampling、SGD、PGD、Augmented Lagrangian——覆盖了从采样到梯度到约束优化的主流路线。baseline 方面，DINO-WM、PLDM、LeWM 三个 JEPA 系模型已经给出参考做到，外加 GCBC、GCIVL、GCIQL 三个行为克隆/RL 基线。你在 <code>scripts/train/</code> 下能找到 LeWM 和 DINO-WM 的训练脚本，H200 GPU 上的利用率曲线也公开了——这等于在说：“别猜我们的配置了，直接复现。”</p>
+<h2>LeCun 的 JEPA 路线终于有了自己的“标准答案”</h2>
+<p>如果你关注 Yann LeCun 过去三年的言论，你会知道他对自回归模型做世界模型这件事有多不屑。“GenAI 不是通往 AGI 的路”“世界模型不应该在像素空间预测”——这些话他在 Twitter、Meta 内部会、各种 keynote 上重复了无数遍。他的赌注压在 JEPA 架构上：不预测下一个像素，而是预测下一个潜在表征。</p>
+<p>stable-worldmodel 的出现，本质上是在给这条技术路线铺铁轨。库里的三个 baseline 全部是 JEPA 变体：DINO-WM 用 DINOv2 的预训练特征做世界模型，PLDM 在潜在空间做扩散预测，LeWM 则加入了时序对齐的对比损失。而 solver 层的 MPC（模型预测控制）框架天然适配 JEPA 的输出——你不需要解码回像素空间，直接在潜在空间里规划就行。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/galilai-group-stable-worldmodel-micro/schematic-3.png" alt="JEPA 世界模型 vs 自回归像素预测模型的架构对比，突出潜在空间规划的闭环"></p>
+<p>更有意思的是，这个库的 CLI 工具暴露出了“开箱即用”的野心。装完 <code>pip install stable-worldmodel[all]</code> 之后，你可以在终端里直接敲 <code>swm datasets</code> 看缓存的数据集列表，<code>swm fovs PushT-v1</code> 查环境的泛化因子，<code>swm convert pusht_expert_train --dest-format video</code> 一键转换格式。不需要开 Jupyter Notebook，不需要 import torch——这更像是在做一个世界模型领域的“Hugging Face transformers”，把入门门槛压到 CLI 级别。</p>
+<p>但话说回来，stable-worldmodel 现在的状态更接近于 <strong>“1.0 版本的基建声明”</strong> 而非成熟生态。API 明确标注“可能在 minor version 之间变化”，LeRobot 数据集的支持还挂着“需要 Python 3.12+ 且单独 opt-in”的标签，25+ 环境的覆盖面虽然广，但跟真实机器人操作的 sim-to-real gap 还没开始啃。而且——最关键的——它目前深度绑定在 JEPA 路线和 MPC 评估范式上。如果你做的是 Transformer-based 自回归世界模型（比如 IRIS、TECO），或者你用的是 offline RL 评估而非 MPC，这个库的接口能不能无缝适配，还要打个问号。</p>
+<p><strong>LeCun 在造一条高速公路，但这条路上暂时只跑他自己的车。</strong></p>
+<p>不过这不影响 stable-worldmodel 在 2026 年这个时间节点的信号意义。世界模型研究正在从学术圈的“各显神通”走向工程化的“标准化评估”，而谁先定义这套标准，谁就握住了下一阶段的话语权。galilai-group 的选择是：不争辩，直接交代码。13.3ms 的读取速度、43GB vs 13GB 的存储差距、16 个 FoV 的泛化测试——这些数字比任何白皮书都更有说服力。</p>
+<p>我唯一好奇的是，DeepMind 那帮做 Dreamer 的人看到这个库会作何反应。毕竟他们 2013 年就画下了世界模型的蓝图，现在却要看着 LeCun 的团队来定义“什么叫一个合格的世界模型实验”。</p>
+<h2>参考来源</h2>
+<ul>
+<li>stable-worldmodel GitHub 仓库：<a href="https://github.com/galilai-group/stable-worldmodel" target="_blank" rel="noopener">https://github.com/galilai-group/stable-worldmodel</a></li>
+<li>stable-worldmodel 论文（arXiv 2605.21800）：<a href="https://arxiv.org/abs/2605.21800" target="_blank" rel="noopener">https://arxiv.org/abs/2605.21800</a></li>
+<li>官方文档：<a href="https://galilai-group.github.io/stable-worldmodel" target="_blank" rel="noopener">https://galilai-group.github.io/stable-worldmodel</a></li>
+</ul>
+<p>#AI #科技</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

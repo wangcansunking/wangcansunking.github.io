@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>十年前的老 Xeon 跑通 26B 模型，墙是内存带宽不是算力 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-02</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-02</span><span class="tag-pill">Daily Report</span></div>
+      <h1>十年前的老 Xeon 跑通 26B 模型，墙是内存带宽不是算力</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/gemma4-26b-moe-vintage-xeon-cpu-2026-06-02.png" alt="十年老 Xeon 跑通 26B 模型，瓶颈是内存带宽"></p>
+<p>先把结论摆在最前面：一台 2016 年出厂、连一块独立显卡都没有的服务器，跑起了 2026 年的 26B 大模型，满载状态下还能稳定吐出每秒约 11.94 个词元——大致就是一个人正常阅读的速度。</p>
+<p>这台机器的处理器是 Intel Xeon E5-2620 v4，八个物理核、十六个线程，主频 2.10 GHz，配 128GB 内存。听起来内存挺大方，但那是 DDR3——按作者的说法，比当下最好的笔记本内存还要慢上 5 到 6 倍。就是在这样一台被很多人当电子垃圾处理掉的老机器上，谷歌（Google）Gemma 4 的 26B 混合专家（MoE）模型跑了起来。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/source-gemma4-xeon-banner-2026-06-02.png" alt="原文博客头图，作者在文中详细记录了这套配置（来源：point.free 博客 gemma-4-on-a-2016-xeon）"></p>
+<p>这件事在国外开发者社区掀起的讨论，标题起得很直白：「一台十年的 Xeon 就够了」。作者把完整的配置、命令和数字都写在了博客里（point.free 博客的 gemma-4-on-a-2016-xeon 一文），讨论帖也很快冲到了 599 个赞、248 条回复。它之所以值得国内同行认真看一遍，不是因为又有人秀了一把极限折腾，而是因为作者把一个被官方营销长期盖住的事实重新讲清楚了——<strong>本地跑大模型，挡在你面前的那堵墙，几乎从来不是算力，而是内存带宽。</strong></p>
+<p>想明白这一点，手里那台吃灰的二手 Xeon、矿渣机、旧工作站，立刻从废铁变成了能干活的本地推理机。</p>
+<h2>这台「电子垃圾」的真实配置</h2>
+<p>先把这台机器看清楚，因为后面所有的优化都是冲着它的短板去的。</p>
+<ul>
+<li><strong>处理器</strong>：Intel Xeon E5-2620 v4，2016 年的产品，八核十六线程，主频 2.10 GHz</li>
+<li><strong>显卡</strong>：没有，一块都没有，纯靠 CPU 推理</li>
+<li><strong>内存</strong>：128GB，但是 DDR3，带宽是这台机器最大的软肋</li>
+<li><strong>本职工作</strong>：它平时还兼着一台二进制缓存服务器和持续集成（CI）的构建机，也就是说大模型是在它一边干别的活的时候顺带跑起来的</li>
+</ul>
+<p>注意最后一条。作者给出 11.94 词元/秒这个数字时，特意说明机器当时正同时当缓存和构建服务器用——也就是处在满载状态。如果让它空下来专心推理，粗测能到每秒 20 个词元上下。这两个数字的对比本身就说明问题：负载在变，速度也在变，但变的幅度并没有想象中那么夸张。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/chart-throughput-2026-06-02.png" alt="同一台老 Xeon 在不同负载下的生成速度（throughput）"></p>
+<p>这台机器为什么有代表性？因为它几乎就是国内二手市场上最常见的那一类——早些年从机房退役、被拆成矿渣机和洋垃圾服务器流出来的至强（Xeon）平台，核多、内存插槽多、价格便宜得离谱，唯一的硬伤就是制程老、内存代际旧。很多人买回来当软路由、当下载机、当家庭存储，却很少有人指望它能跑大模型。这台 E5-2620 v4 把那层「不指望」捅破了。</p>
+<p>有人会立刻拿独立显卡来比：同代的独立显卡在生成阶段轻松上千词元/秒，这台老 Xeon 连零头都不到。这个对比没错，但它问错了问题。本地推理这条路，从来不是要跟数据中心的显卡比谁快，而是要解决一个完全不同的诉求——把闲置的旧硬件利用起来，让数据不出自己的机器，每天那点不急着要结果的活，交给一台已经买断、不再花钱的机器去慢慢磨。</p>
+<p>从这个角度看，11.94 词元/秒不是一个寒酸的数字，而是一个「够用」的数字。</p>
+<h2>核心论点：墙是内存带宽，不是算力</h2>
+<p>为什么这台机器的算力看着这么弱，却还能把 26B 模型跑到阅读速度？</p>
+<p>要回答这个问题，得先搞清楚大模型在生成阶段到底在干什么。每吐出一个词元，模型都要把这一步需要用到的权重，从内存里完整搬运一遍到处理器跟前。<strong>真正耗时的不是处理器算这些数有多快，而是这些数从内存搬到处理器要多久。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/chart-bandwidth-wall-2026-06-02.png" alt="为什么核多不等于更快：墙是内存带宽（bandwidth）"></p>
+<p>这就解释了一个很多人想不通的现象：为什么核心越堆越多，速度却不见得越快？因为处理器的核心再多，也只是在原地等内存把数据喂过来。算力是那条又宽又快的高速路，内存带宽是路尽头那根细吸管——车再多，也得排队从吸管里一辆一辆挤过去。</p>
+<p>老 Xeon 的处理器其实没那么不堪，八核十六线程算这点数绰绰有余，它大部分时间是在「等」。卡住它的是那条 DDR3 内存通道，慢，就是慢在这里。</p>
+<p>明白了这堵墙在哪，剩下的所有优化思路就都顺了：<strong>与其想方设法让处理器算得更快，不如想方设法让它每一步少搬一点数据、把搬的过程排得更顺。</strong> 接下来这套约 25 个开关，几乎每一个都在围着「内存带宽」这堵墙做文章。</p>
+<h2>MoE 为什么是老 CPU 的天选搭档</h2>
+<p>第一个、也是最关键的一招，其实藏在模型本身的结构里。</p>
+<p>Gemma 4 这个 26B 模型并不是一个传统的稠密模型。它是混合专家结构——总共约 25.2B 参数，切成 128 个「专家」，但每生成一个词元，只激活其中 8 个，真正参与计算的参数只有约 3.8B。</p>
+<p>这个设计对老 CPU 来说简直是量身定做。回到那堵内存带宽的墙：稠密模型每生成一个词元，要把全部参数都搬一遍；而这个 MoE 模型每一步只需要搬约 3.8B 那部分。要搬的数据少了，吸管的压力自然就小了。</p>
+<p>这也是为什么作者会强调，MoE 才是老硬件能跑大模型的真正前提。<strong>一个 26B 的稠密模型在这台机器上大概率会卡到没法用，但一个激活量只有约 4B 的 26B MoE 模型，正好绕开了带宽墙。</strong> 同样规模、同样聪明，但每一步的搬运成本只有零头。</p>
+<p>这里可以再具体一点。128 个专家、每步只用 8 个，意味着模型把「知识」拆成了很多块，每生成一个词元只调用其中最相关的一小撮。对带宽受限的机器来说，这等于把一道窄门后面的拥堵，分散成了很多次轻量的小搬运。算下来，激活的约 3.8B 参数，差不多就是一个小模型的体量——但它背后站着的是一个 26B 模型的整体能力。你享受了大模型的聪明，却只付小模型的搬运成本。</p>
+<p>国内开发者对这个结构应该很熟悉，因为千问（Qwen）、DeepSeek、智谱 GLM 这几家近一两年放出的开源模型里，MoE 档位越来越成主流。这意味着这条老 CPU 路线不是只能跑 Gemma——后面会专门讲国产模型怎么对上号。</p>
+<h2>这套配置吃掉了多少内存</h2>
+<p>在看那一长串开关之前，先看一个很有说服力的数字：这套配置跑起来，一共占了多少内存。</p>
+<p>作者贴出的数字是 82355 MiB，约 82GB。拆开看：</p>
+<ul>
+<li><strong>权重</strong>约 25GB</li>
+<li><strong>KV 缓存</strong>约 56GB，这是把上下文撑到完整的 262K 长度时的占用</li>
+<li>两者相加，82GB 稳稳落在 128GB 内存里</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/gemma4-xeon-kvcache-2026-06-02.png" alt="这套配置 82GB 占用拆解，KV 缓存比模型权重还大（Xeon）"></p>
+<p><small>来源：自制图表（数据据正文）</small></p>
+<p>这里有个反常识的细节值得停一下：<strong>KV 缓存（56GB）居然比模型权重（25GB）还要大。</strong> 这恰恰说明，一旦把上下文拉长，真正吃内存的不是模型本身，而是它要记住的那段对话。这也是为什么内存够大在本地推理里这么重要——128GB 看着奢侈，但要塞下权重加超长上下文的缓存，一点都不浪费。</p>
+<p>对手里有二手 Xeon 平台的人来说，这个账算下来是个好消息：旧服务器主板往往能插很多根内存条，而二手 DDR3/DDR4 内存条现在便宜得近乎白送。带宽是慢，但容量管够——而容量恰恰是塞下大模型加长上下文的硬门槛。</p>
+<h2>约 25 个开关，按作用分成四类</h2>
+<p>作者把这套配置形容成一句「咒语」——一条命令带着约 25 个开关。直接看会觉得密密麻麻像天书，但只要按「它们各自在跟哪堵墙较劲」来归类，立刻就清楚了。这些开关大致分四类。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/chart-flags-2026-06-02.png" alt="约 25 个开关，按作用分四类（flags）"></p>
+<table>
+<thead>
+<tr>
+<th>分类</th>
+<th>主要开关</th>
+<th>在做什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>投机解码（先猜后验）</td>
+<td><code>spec-type mtp</code>、<code>draft-max 3</code>、<code>draft-p-min</code>、<code>spec-autotune</code></td>
+<td>用一个 MTP 草稿模型先快速猜出后面几个词元，再让大模型一次性验证，省下逐个生成的来回</td>
+</tr>
+<tr>
+<td>注意力 + 路由</td>
+<td><code>flash-attn on</code>、<code>mla-use 3</code>、<code>cpu-moe</code>、<code>merge-up-gate-experts</code></td>
+<td>CPU 版 Flash Attention 省内存，压缩 KV 缓存腾出带宽，按 CPU 缓存层级安排专家路由</td>
+</tr>
+<tr>
+<td>内存（搬得少、搬得稳）</td>
+<td><code>mlock</code>、<code>run-time-repack</code>、<code>no-kv-offload</code></td>
+<td>把权重锁死在内存不被换出，运行时把张量重新排得更顺，KV 缓存全程留在内存不来回倒腾</td>
+</tr>
+<tr>
+<td>线程 / 并行</td>
+<td><code>-t 8</code>、<code>parallel 8</code>、<code>split-mode</code> 系列</td>
+<td>对齐八个物理核，并行批处理，控制计算图怎么切分</td>
+</tr>
+</tbody></table>
+<p>下面挑几个对理解全局最关键的，单独说清楚。</p>
+<h3>投机解码：让大模型从「逐字写」变成「批改作业」</h3>
+<p>正常生成时，大模型是一个词元一个词元往外蹦的，每蹦一个都要把权重搬一遍。投机解码（speculative decoding）换了个玩法：先让一个又小又快的草稿模型，一口气猜出后面三个词元（<code>draft-max 3</code>），再让真正的大模型一次性验证这三个猜得对不对。</p>
+<p>这里用的草稿模型叫 MTP 草稿模型（<code>spec-type mtp</code>）。它的好处是，大模型从「一个一个写」变成了「一次批改三个」。如果草稿猜得准，大模型一次验证就顶过去三步，搬权重的次数直接砍下来。<code>spec-autotune</code> 则让引擎自己去调接受草稿的门槛，省得人工反复试。</p>
+<p>为什么这一招在 CPU 上格外划算？因为草稿模型小，猜三个词元的成本很低；而大模型验证这三个词元，几乎和它单独生成一个词元搬的权重一样多——验证三个和生成一个，搬运量接近，等于白赚了两步。猜得越准，赚得越多。在内存带宽是瓶颈的场景里，这一招特别值——因为它直接把「搬运」的总次数压了下来，而搬运正是这台机器最贵的开销。</p>
+<p><code>draft-p-min</code> 控制的是接受草稿的宽松程度，<code>spec-autotune</code> 则让引擎在跑的过程中自己摸索最合适的门槛，不用人盯着反复调。对刚上手的人来说，这意味着不必把每个参数都吃透，引擎会替你找到一个还不错的平衡点。</p>
+<h3>CPU 版 Flash Attention：把省显存的招用到内存上</h3>
+<p>Flash Attention 这个技术原本是为显卡省显存设计的，思路是不把庞大的注意力中间结果一次性铺开，而是分块计算、随算随丢。</p>
+<p>到了纯 CPU 的场景，这个思路一样管用，只不过省的从「显存」变成了「内存带宽和占用」。<code>flash-attn on</code> 加上 <code>mla-use 3</code>（一种压缩 KV 缓存的做法），合起来就是让那 56GB 的 KV 缓存在搬运时更省。少搬一点，墙就松一点。</p>
+<h3>运行时张量重排与内存锁定：跟 CPU 缓存层级较劲</h3>
+<p>这两个开关是最「老 CPU 特供」的部分。</p>
+<p><code>run-time-repack</code>（运行时张量重排）做的事，是在加载好之后，把模型张量在内存里重新排布一遍，让处理器读取它们时更顺、更贴合 CPU 自己的缓存层级。打个比方：同样一柜子文件，乱塞和按顺序码好，找起来的速度天差地别。重排就是帮处理器把文件码顺。</p>
+<p><code>mlock</code>（内存锁定）则是把权重死死钉在物理内存里，不允许操作系统把它换到硬盘上去。一旦权重被换出，再用时要从慢得多的硬盘读回来，那一下就是灾难。<code>no-kv-offload</code> 同理，让 KV 缓存全程待在内存里，绝不来回倒腾。</p>
+<p><code>cpu-moe</code> 和 <code>merge-up-gate-experts</code> 则是专门针对 MoE 结构，按 CPU 的缓存特性来安排那 128 个专家的调度顺序——还是那句话，让处理器读取时少走冤枉路。</p>
+<p>这一整类开关串起来看，主题非常统一：<strong>既然搬运是瓶颈，那就让每一次搬运都搬得尽量少、尽量顺、尽量不出岔子。</strong></p>
+<h2>为什么是 ik_llama.cpp，不是 Ollama</h2>
+<p>这套配置能跑起来，还有一个绕不开的前提：用的不是 Ollama，而是一个叫 ik_llama.cpp 的专用分支。</p>
+<p>很多人本地跑模型的第一站都是 Ollama，因为它装好就能用，几乎不用配置。但「不用配置」的另一面，是你也几乎没法配置——上面那约 25 个开关，绝大多数 Ollama 这类黑盒工具根本不认。作者把它形容成黑盒，意思就是你只能用它给你的那几个旋钮，碰不到底下真正决定性能的部分。</p>
+<p>ik_llama.cpp 是社区里专门往「极致压榨 CPU 推理」方向走的分支。投机解码、CPU 版 Flash Attention、运行时张量重排、各种 MoE 路由开关，这些能在老硬件上把速度从「卡得没法用」拉到「阅读速度」的关键参数，正是它的主场。</p>
+<p>这里有个对国内开发者特别实在的判断：<strong>如果你的目标只是在一台还不错的机器上随便跑跑模型，Ollama 完全够用；但如果你想榨干一台老 Xeon、矿渣机的每一分潜力，就必须换到 ik_llama.cpp 这种能让你碰到底层旋钮的引擎上。</strong> 选错引擎，再好的硬件配置也白搭——因为决定成败的那些开关，黑盒压根不给你。</p>
+<h2>几个要先想清楚的现实账</h2>
+<p>把这套方法夸完，也得把它的边界讲清楚——讨论帖里恰恰有不少冷静的声音，值得一并看进去。</p>
+<p><strong>第一，长输入会慢下来。</strong> 那个 11.94 词元/秒，测的是一句很短的提问（讨论里用的例子是「天空为什么是蓝的」，只有七个词元）。换成动辄上千、上万词元的代码任务，处理输入这一步会明显变慢。好在如果开了上下文缓存，同一段长文不必每次都重算，能缓解一部分压力，但「输入越长、首个词元出来越慢」这个特性，是 CPU 推理逃不掉的。换句话说，这台机器适合短问短答、适合慢慢磨的后台任务，不适合那种要瞬间吞下一整个大项目的活。</p>
+<p><strong>第二，电费账要自己算。</strong> 有人提醒，这类老服务器谈不上省电，一直开着推理，电表是会动的。值不值，取决于你当地的电价、机器闲置的时长，以及你到底有多在意「数据不出门」这件事。对很多人来说，把一台本来就开着的缓存机、构建机顺手用来推理，边际成本几乎可以忽略；但如果是专门为推理 7×24 开一台老服务器，就得拿电费和云端 API 的钱认真比一比。</p>
+<p><strong>第三，量化精度要对得上内存。</strong> 讨论里有人发现，不同来源的量化版本占用差别很大——同样想跑这个 26B 模型，有人加载下来要 72GB，有人换一个量化档就只要十几 GB。所以「能不能塞进我的内存」不是看模型名字，而是要看你选的具体量化版本。手里内存小的人，更要去挑激活量小、量化更狠的档位。</p>
+<p>把这三条放在一起看，结论并不悲观，反而更扎实：<strong>这条路线不是万能钥匙，但对「有闲置旧硬件、跑的是不急着要结果的本地任务、又在意数据隐私」的人，它是一笔很划算的买卖。</strong> 知道它的短板在哪，反而更容易把它用在对的地方。</p>
+<h2>国产开源模型怎么对上这条老 CPU 路线</h2>
+<p>讲到这里，国内开发者最关心的问题该来了：这套打法只能跑 Gemma 吗？</p>
+<p>完全不是。这条路线的核心从来不是某个具体模型，而是一个判断标准——<strong>找一个总参数够大、但每步激活量很小的 MoE 模型，让 DDR3/DDR4 那点可怜的带宽刚好搬得动。</strong> 凡是符合这个特征的模型，都能套进来。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/gemma4-xeon-domestic-moe-2026-06-02.png" alt="国产 MoE 模型套用老 CPU 路线的方法论清单（Xeon）"></p>
+<p><small>来源：自制图表（数据据正文）</small></p>
+<p>而国产开源阵营这两年恰好在 MoE 这个方向上很积极：</p>
+<ul>
+<li><strong>千问（Qwen）系列</strong>的 MoE 档，把激活参数控制得很克制，结构上和 Gemma 4 这种「大总量、小激活」的思路高度一致，是老 CPU 路线的天然候选</li>
+<li><strong>DeepSeek</strong> 的 MoE 模型同样是稀疏激活的代表，总量大、每步激活小，正是绕开带宽墙最想要的形态</li>
+<li><strong>智谱 GLM</strong> 的 MoE 档也在往这个方向走，给国内开发者多了一个能本地跑、还都是中文友好的选择</li>
+</ul>
+<p>对手里有二手 Xeon 平台的人来说，思路可以这样走：先看清自己机器的内存有多大、带宽多慢，再去国产开源模型里挑一个激活量合适的 MoE 档，量化到能塞进内存的精度，最后用 ik_llama.cpp 把上面那四类开关挨个配上。模型可以换成你信得过、又是中文母语的国产模型，但「绕开带宽墙」这套方法论是通用的。</p>
+<p>这也是这件事对国内最大的价值所在：它不是一个只能复刻一次的炫技，而是一套可以反复套用的本地推理方法——而且越是国产 MoE 模型百花齐放，这套方法能选的搭档就越多。</p>
+<h2>这台老机器，重新有了用处</h2>
+<p>把这件事从头看一遍，最打动人的其实不是那个 11.94 词元/秒的数字，而是它背后那个被重新讲清楚的常识。</p>
+<p>长期以来，「本地跑大模型」几乎和「得先攒一块好显卡」画上了等号，很多手里只有旧硬件的人，看一眼配置要求就默认自己被挡在门外了。而这台老 Xeon 证明的恰恰相反：挡住大多数人的那堵墙，名字叫内存带宽，不叫算力——只要选对了稀疏激活的 MoE 模型、用对了能碰底层的引擎、把每一次内存搬运都安排得明明白白，一台 2016 年的无显卡服务器，照样能把 2026 年的大模型跑到能用。</p>
+<p>对国内开发者来说，这是一份相当扎实的好消息。机房角落里、二手市场上那些被当成电子垃圾的 Xeon 服务器、矿渣机、旧工作站，加上越来越多中文友好的国产 MoE 模型，本地大模型这件事的门槛，正在以一种很多人没料到的方式被拉低。</p>
+<p>更值得高兴的是，这条路并不要求你有多深的底子。你需要的不过是一台插满内存的老机器、一个像 ik_llama.cpp 这样愿意把旋钮交到你手里的引擎、一个激活量合适的国产 MoE 模型，再加上把那四类开关挨个试一遍的耐心。每多搞懂一个开关，那台老机器的速度就往上抬一截——这种亲手把废铁盘活的成就感，是直接调云端接口永远给不了的。</p>
+<p>旧硬件没有过时，它只是一直在等一个愿意搞懂那堵墙在哪的人。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

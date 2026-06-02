@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoxCPM2：不切音频 token 的开源语音模型 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-31</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-31</span><span class="tag-pill">Daily Report</span></div>
+      <h1>VoxCPM2：不切音频 token 的开源语音模型</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/31/voxcpm-tokenizer-free-tts-clone-2026-05-31.png" alt="VoxCPM2：面壁智能开源的语音生成模型，登上 GitHub Trending"></p>
+<p>一段几秒钟的录音，喂给模型，它就能用你的声音念出任何一段文字——不光是音色像，连你的口音、语速、那点情绪起伏都跟着学过来。这件事现在不需要云端 API，也不需要一块专业显卡，一个 2B 大小的开源模型就能做到，权重和代码都是 Apache 2.0，商用免费。</p>
+<p>这就是面壁智能（ModelBest）和清华团队开源的 <strong>VoxCPM2</strong>。它的仓库 <code>OpenBMB/VoxCPM</code> 在 5 月底冲上了 GitHub Trending，6 月 1 日凌晨核对约 23,700 stars、3,000 forks。它最特别的地方不在参数量，而在技术路线：<strong>它不把语音先切成一串离散的音频 token，而是直接在连续空间里建模整段声音。</strong> 这个选择，正好踩在当下语音合成（TTS，Text-to-Speech，文字转语音）最核心的一个矛盾上。</p>
+<p>本文想把一件事讲清楚：<strong>VoxCPM2 的&quot;不切 token&quot;到底解决了什么问题，它和大家已经在用的 CosyVoice、F5-TTS 各占什么位置，做语音应用的国内开发者在什么场景下值得换过去。</strong> 结论先放这儿——如果你要的是高保真的声音克隆、自然的情绪韵律，又想自己掌控部署、甚至想在 CPU 或苹果芯片上跑，VoxCPM2 现在是开源里很顺手的一个；如果你做的是要求极低延迟的实时语音对话客服，那还得把流式方案一并配齐再上。</p>
+<h2>VoxCPM2 是什么：一个 2B 的语音底座</h2>
+<p>一句话：<strong>VoxCPM2 是面壁智能开源的语音生成模型，输入文字就能合成 48kHz 高保真语音，能凭一段参考音频克隆声音，也能只靠文字描述凭空&quot;设计&quot;一把新声音。</strong></p>
+<p>先把几个事实摆清楚：</p>
+<ul>
+<li><strong>作者</strong>是 OpenBMB / ModelBest（面壁智能）联合清华大学相关团队，和此前 MiniCPM 系列小模型同源，VoxCPM2 就建在 MiniCPM-4 这个语言模型骨干上</li>
+<li><strong>参数量</strong>是 2B，相比上一代 VoxCPM-0.5B 大了一圈，但放在语音模型里仍然算小尺寸，对部署友好</li>
+<li><strong>许可证</strong>是 Apache 2.0，权重和代码都可商用，国内公司可以放心集成</li>
+<li><strong>仓库</strong> 2025 年 9 月建立，6 月 1 日凌晨核对约 23,700 stars、3,000 forks，5 月底登上 GitHub Trending</li>
+<li><strong>配套论文</strong>已上 arXiv（编号 2509.24650），把整套技术路线写得很完整</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/31/source-voxcpm-github-og-2026-05-31.png" alt="OpenBMB/VoxCPM 仓库页：Tokenizer-Free TTS，登上 GitHub Trending">
+<small>来源：OpenBMB/VoxCPM 仓库社交卡片</small></p>
+<p>它能干的事，官方归成几类，值得逐个点一下：</p>
+<ul>
+<li><strong>多语言生成</strong>：支持 30 种语言，大多数情况直接输入目标语言文字即可，不用额外标注语种</li>
+<li><strong>中国方言</strong>：覆盖 9 种方言——四川话、粤语、吴语、东北话、河南话、陕西话、山东话、天津话、闽南话</li>
+<li><strong>声音设计（Voice Design）</strong>：不给参考音频，只用一段自然语言描述（比如&quot;一个低沉、沙哑、偏慢的中年男声&quot;），就能造出一把全新的声音</li>
+<li><strong>可控声音克隆</strong>：用一段简短参考音频克隆音色，同时还能调情绪、语速和说话风格，尽量保留原始音色</li>
+<li><strong>高保真克隆</strong>：若同时给参考音频和对应文字，模型能更自然地承接参考语音，在音色、节奏、情绪上保留更多细节</li>
+<li><strong>理解语境</strong>：能根据文字内容自动推断合适的韵律，不用你手动标注语气</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/31/voxcpm-capability-overview-2026-05-31.png" alt="VoxCPM2 能力全景：2B 参数、30 种语言、9 种方言、48kHz，克隆与声音设计收在一起"></p>
+<p>从 0.5B 到 2B，从中英双语到 30 种语言，从 16kHz 到 48kHz——这一代基本把开源语音模型常见的能力凑齐了，而且收在一个模型里，不用为不同功能各配一个。</p>
+<h2>核心区别：为什么&quot;不切 token&quot;是关键</h2>
+<p>这一节是全文的核心判断：<strong>过去的主流 TTS 都得先把语音压缩成一串离散的音频 token 再处理，这一步注定会丢掉声音里最细的那部分信息；VoxCPM2 绕开了这一步，所以克隆出来的声音更像、韵律更自然。</strong></p>
+<p>要理解这件事，得先看传统路线的难处。语音合成长期卡在一个两难里：</p>
+<ul>
+<li>走<strong>离散 token</strong>这条路（像早期 VALL-E、以及 CosyVoice 用的监督式语义 token），好处是自回归生成稳定、不容易跑飞，但语音被量化成有限的 token 之后，那些精细的声学细节就被不可逆地丢掉了</li>
+<li>走<strong>连续信号</strong>这条路，能保住完整的声音保真度，但一长就容易&quot;误差累积&quot;，越念越飘，严重时整句话糊成一团听不清</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/31/voxcpm-tts-route-compare-2026-05-31.png" alt="两条 TTS 技术路线对比：VoxCPM2 的连续建模 vs 传统离散 token"></p>
+<p>VoxCPM2 的解法很巧：它不是在&quot;稳定&quot;和&quot;保真&quot;里二选一，而是用一个叫**有限标量量化（FSQ，Finite Scalar Quantization）**的瓶颈结构，把信息拆成两部分管。一部分像&quot;骨架&quot;，负责语义和韵律的稳定规划；另一部分是&quot;残差&quot;，负责补回精细的声学细节。整套模型端到端一起训练，中间不再依赖一个预先训练好的音频分词器。</p>
+<p>论文里把这套结构讲得很具体，分成几个分工明确的部件：</p>
+<ul>
+<li><strong>文本语义语言模型（TSLM）</strong>：先生成语义和韵律的&quot;草图&quot;，靠量化稳住，专注于语言层面有意义的规划</li>
+<li><strong>残差声学语言模型（RALM）</strong>：把量化时丢掉的精细声学细节再补回来，专门负责声音的精修</li>
+<li><strong>局部扩散解码器（Local DiT）</strong>：在前两者的指引下,生成高保真的语音潜变量</li>
+</ul>
+<p>打个不严谨但好理解的比方：离散 token 路线像是先把一幅画压成马赛克再放大，细节回不来了；VoxCPM2 则是把&quot;画什么内容&quot;和&quot;画多细&quot;分开管，内容那条线压得规整、细节那条线保持连续，最后合起来出图。这就是为什么官方反复强调&quot;克隆不再是生硬的拼凑，而是高度还原的语音再生&quot;——细节没在中途被丢掉。</p>
+<p>值得一提的是，这条&quot;连续建模&quot;的路并非面壁独创。海外的 <strong>F5-TTS</strong> 也走纯连续（流匹配 + 扩散）路线，同样不需要音素字典；区别在于 F5-TTS 是非流式架构、中文偏弱，而 VoxCPM2 把语义和声学显式分层，又补齐了流式和中文方言。可以说 VoxCPM2 是把这条技术路线，在中文场景和工程完整度上往前推了一截。</p>
+<h2>VoxCPM2 相比上一代改了什么</h2>
+<p>这一代不是简单调大参数。对照官方文档，VoxCPM2 在保留&quot;局部编码器 → 文本语义 LM → 残差声学 LM → 局部扩散&quot;这条四阶段主线的同时，重新设计了三条核心信息流。下面这张表把代际差异列清楚：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>VoxCPM 1 / 1.5</th>
+<th>VoxCPM 2</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>残差 LM 层数</td>
+<td>6</td>
+<td>8</td>
+</tr>
+<tr>
+<td>FSQ 潜变量维度</td>
+<td>256</td>
+<td>512</td>
+</tr>
+<tr>
+<td>最大序列长度</td>
+<td>4096</td>
+<td>8192</td>
+</tr>
+<tr>
+<td>音频输出采样率</td>
+<td>16kHz / 44.1kHz</td>
+<td>48kHz</td>
+</tr>
+<tr>
+<td>编解码采样率</td>
+<td>对称（同采样率）</td>
+<td>非对称（16kHz 输入 → 48kHz 输出）</td>
+</tr>
+<tr>
+<td>语义与声学融合</td>
+<td>加法</td>
+<td>拼接 + 投影</td>
+</tr>
+<tr>
+<td>支持语言</td>
+<td>2（中、英）</td>
+<td>30</td>
+</tr>
+<tr>
+<td>可控性</td>
+<td>无</td>
+<td>声音设计 + 风格控制</td>
+</tr>
+</tbody></table>
+<p>几个改动的意思值得点破：</p>
+<ul>
+<li><strong>非对称编解码</strong>最实用：你只需要给一段普通的 16kHz 录音（手机随手录的就行），模型内部带超分能力，直接输出 48kHz 录音棚级别的音质，省掉额外上采样这一步</li>
+<li><strong>融合方式从加法改成&quot;拼接 + 投影&quot;</strong>：让模型更灵活地学怎么把语义和声学信息揉到一起，而不是被逐元素相加这种死规矩限制，表现力更强</li>
+<li><strong>隔离式参考通道</strong>：上一代克隆声音是靠&quot;prompt 续写&quot;——把参考音频拼在前面接着念；这一代给参考音频开了一条专用通道，支持四种模式：零样本（无参考）、续写、仅参考、参考定音色 + prompt 给上下文</li>
+</ul>
+<h2>声音克隆要多少素材，效果怎么样</h2>
+<p>做应用的人最关心两件事：克隆一个声音要喂多少素材，像不像。</p>
+<p>VoxCPM2 的答案是<strong>零样本克隆</strong>——官方口径是&quot;只需一段简短的参考音频&quot;，不需要为某个特定说话人专门微调或重训。它捕捉的不只是音色，还包括说话人的口音、情绪基调、节奏和停顿。论文和示例页里能看到一组很有说服力的演示：</p>
+<ul>
+<li><strong>情绪克隆</strong>：同一个声音，能切换生气、开心、悲伤、惊讶</li>
+<li><strong>方言与口音克隆</strong>：从四川话、河南话、粤语，到印度英语、伦敦腔英语</li>
+<li><strong>录音环境克隆</strong>：连参考音频里的背景特征和录音条件都能一并学过来</li>
+</ul>
+<p>如果你愿意多给一点——参考音频再配上它对应的文字转写——模型还能进入&quot;高保真&quot;模式，在音色、节奏、情绪、风格上保留更多细节。这是一个梯度：素材越完整，还原度越高，但门槛始终很低。</p>
+<p>它还有两个偏&quot;创作&quot;的能力，对内容生产场景特别有用：</p>
+<ul>
+<li><strong>声音设计</strong>：完全不给参考音频，只用一句自然语言描述就凭空造一把声音。做有声书、播客、游戏配音时，不用真去找配音演员录样本</li>
+<li><strong>理解语境的生成</strong>：丢给它一段讲故事的文字、一段天气预报、一首诗，它会自动判断该用什么语气念，不用你手动标注</li>
+</ul>
+<p>当然官方也很坦诚地标了限制：遇到极长文本，或者情绪、语气变化特别剧烈的输入，模型仍可能偶发不稳定；声音设计和风格控制提供了更直接的属性调节，但实际效果仍可能有波动。这种坦诚反而比&quot;无所不能&quot;的宣传更可信。</p>
+<h2>端侧能不能跑：这是 VoxCPM2 最被低估的一点</h2>
+<p>对国内开发者来说，&quot;能不能自己掌控部署&quot;往往比跑分更重要。VoxCPM2 在这件事上准备得相当充分。</p>
+<p>先看速度。官方给的实时系数（RTF，Real-Time Factor，数值越小越快，小于 1 就是比实时还快）：</p>
+<ul>
+<li>在消费级的 <strong>NVIDIA RTX 4090</strong> 上，基础推理 RTF 约 0.30</li>
+<li>配上专门的 <strong>NanoVLLM-VoxCPM</strong> 推理后端，RTF 能压到约 0.13，适合高并发服务</li>
+<li>显存需求约 8GB——这意味着一块 4090、甚至显存够的中端卡就能带得动</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/31/voxcpm-deploy-matrix-2026-05-31.png" alt="VoxCPM2 端侧部署矩阵：GGUF CPU、苹果芯片、MLX、vLLM、ComfyUI 六条官方路径"></p>
+<p>更值得说的是它的部署矩阵，已经不是&quot;只能在 N 卡上跑&quot;的状态：</p>
+<ul>
+<li><strong>VoxCPM.cpp</strong>：基于 ggml / GGUF，支持在 CPU、CUDA、Vulkan 上推理——也就是说没有独立显卡的机器也能跑</li>
+<li><strong>VoxCPMANE</strong>：面向苹果神经引擎（Apple Neural Engine）部署</li>
+<li><strong>MLX-Audio</strong>：基于苹果 Silicon 的 MLX 框架做推理、API 服务和 Web 界面</li>
+<li><strong>vLLM-Omni</strong>：基于上游 vLLM 的官方服务方案，支持连续批处理和兼容 OpenAI 的 API</li>
+<li><strong>ComfyUI-VoxCPM</strong>：接入节点式工作流，支持 LoRA 训练、多人对话、声音设计、自动转写</li>
+</ul>
+<p>这套组合的潜台词很清楚：<strong>你可以在自己的 Mac 上本地跑出录音棚级别的语音，也可以在一块 4090 上搭一个高吞吐的语音服务，全程数据不出本机。</strong> 对做隐私优先应用、做端侧 AI、或者单纯不想为语音功能持续付云端 API 费用的开发者，这是实打实的选项。GGUF 这条线尤其关键——它把语音合成的门槛从&quot;得有 GPU&quot;降到了&quot;有台电脑就行&quot;。</p>
+<h2>和 CosyVoice、F5-TTS 怎么选</h2>
+<p>把同类放一起看，定位会更清楚。这里不堆跑分，只讲取舍：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>VoxCPM2</th>
+<th>CosyVoice 2</th>
+<th>F5-TTS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>核心路线</td>
+<td>扩散自回归（连续，无离散 token）</td>
+<td>监督语义 token + 流匹配</td>
+<td>纯流匹配 + 扩散（连续）</td>
+</tr>
+<tr>
+<td>是否需音素字典</td>
+<td>否</td>
+<td>多数需要</td>
+<td>否</td>
+</tr>
+<tr>
+<td>中文表现</td>
+<td>强（含 9 种方言）</td>
+<td>强（中文 SOTA）</td>
+<td>中（需微调）</td>
+</tr>
+<tr>
+<td>流式 / 低延迟</td>
+<td>配 NanoVLLM 可低延迟</td>
+<td>原生流式，约 150ms</td>
+<td>非流式架构</td>
+</tr>
+<tr>
+<td>声音克隆</td>
+<td>零样本，含情绪 / 方言 / 风格</td>
+<td>零样本</td>
+<td>零样本</td>
+</tr>
+<tr>
+<td>声音设计（凭描述造声）</td>
+<td>有</td>
+<td>较弱</td>
+<td>无</td>
+</tr>
+<tr>
+<td>端侧 / CPU 部署</td>
+<td>GGUF + 苹果芯片 + MLX</td>
+<td>偏 GPU</td>
+<td>偏 GPU</td>
+</tr>
+<tr>
+<td>许可证</td>
+<td>Apache 2.0</td>
+<td>Apache 2.0</td>
+<td>较宽松</td>
+</tr>
+</tbody></table>
+<p>落到具体场景，给一个直接的判断：</p>
+<ul>
+<li><strong>要做高质量配音、有声书、声音克隆，又看重情绪和方言还原</strong> → VoxCPM2，它的连续建模在保真度和表现力上占优，声音设计还能省掉找样本的麻烦</li>
+<li><strong>要做实时语音对话、客服、语音助手，延迟卡得极死</strong> → 优先看 CosyVoice 2 的原生流式（约 150ms），VoxCPM2 也能配 NanoVLLM 做低延迟，但流式生态 CosyVoice 更成熟</li>
+<li><strong>以英文短文本朗读、海外 demo 为主，要架构简洁</strong> → F5-TTS 依然轻快</li>
+<li><strong>想在 Mac 或没有独显的机器上本地跑</strong> → VoxCPM2 的 GGUF / 苹果芯片这条线，目前同类里准备得最全</li>
+</ul>
+<p>需要说明的是，这几家都在快速迭代，上面的取舍是按当前各自的成熟度判断，不是谁全面碾压谁。实际选型，建议拿自己真实的文本和参考音频各跑一轮再定。</p>
+<h2>写在最后</h2>
+<p>VoxCPM2 这次冲上 Trending，热闹的是&quot;几秒录音克隆你的声音&quot;这个直观演示，但真正有分量的是它把&quot;不切音频 token&quot;这条更难走的连续建模路线，在中文场景、方言覆盖、端侧部署上一次性补齐到了能用的程度。</p>
+<p>它给国内开发者带来的，不只是又多了一个开源 TTS 选项，而是一个信号：高保真、可克隆、能自己掌控部署的语音能力，正在从云端付费 API 的专属，变成一个 2B 模型、一段几秒录音、甚至一台没有独显的电脑就能拥有的东西。对想把语音真正用进产品、又在意成本和数据掌控权的人来说，这一步的意义，比任何一个跑分数字都更实在。</p>
+<hr>
+<p><strong>参考链接</strong></p>
+<ul>
+<li>[1] OpenBMB/VoxCPM 开源仓库：<a href="https://github.com/OpenBMB/VoxCPM" target="_blank" rel="noopener">https://github.com/OpenBMB/VoxCPM</a></li>
+<li>[2] VoxCPM 论文（arXiv 2509.24650）：<a href="https://arxiv.org/abs/2509.24650" target="_blank" rel="noopener">https://arxiv.org/abs/2509.24650</a></li>
+<li>[3] VoxCPM 示例演示页：<a href="https://openbmb.github.io/VoxCPM-demopage/" target="_blank" rel="noopener">https://openbmb.github.io/VoxCPM-demopage/</a></li>
+<li>[4] VoxCPM-0.5B 模型卡（HuggingFace）：<a href="https://huggingface.co/openbmb/VoxCPM-0.5B" target="_blank" rel="noopener">https://huggingface.co/openbmb/VoxCPM-0.5B</a></li>
+<li>[5] VoxCPM 2.0 官方文档：<a href="https://voxcpm.readthedocs.io/zh-cn/latest/" target="_blank" rel="noopener">https://voxcpm.readthedocs.io/zh-cn/latest/</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

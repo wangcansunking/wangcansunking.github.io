@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Windows 想从装 AI 应用的电脑，变成原生跑 Agent 的系统 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-05-31</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-05-31</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Windows 想从装 AI 应用的电脑，变成原生跑 Agent 的系统</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/31/microsoft-build-windows-agent-os-2026-05-31.png" alt="Windows Agent 平台：微软 Build 2026 把操作系统重新定位成跑智能体的运行时"></p>
+<p>过去三十年，Windows 一直是一台&quot;装应用的电脑&quot;——你装 Office、装浏览器、装微信，操作系统负责把它们跑起来。微软 Build 2026 想改的，正是这句话的最后半截：<strong>让 Windows 不只是跑应用的地方，而是原生跑 AI 智能体（Agent）的系统。</strong></p>
+<p>6 月 2 日到 3 日，微软把开发者大会搬回了旧金山 Fort Mason 中心，这是疫情后第一次完全线下办。Nadella 的主题演讲定在太平洋时间上午开场，会前披露的几样东西摆在一起，已经能看出这届 Build 的主线不是&quot;再给 Copilot 加几个功能&quot;，而是一次平台定位的改写。核心是四样：<strong>Windows Agent Runtime（智能体运行时，下称 WAR）让 Agent 变成系统级一等公民、WSL 3 把 NPU 直通进 Linux、Azure Agent Mesh 负责跨设备编排、Windows Agent Store 负责分发和分成。</strong></p>
+<p>这篇文章想讲清楚三件事：<strong>这套东西在技术上到底改了什么、和苹果谷歌的端侧智能体路线比微软站在哪、以及国内开发者现在能用上哪些、还差在哪。</strong> 先把结论放这儿——微软这步棋的真正分量不在某个新产品，而在它把&quot;智能体&quot;从一个装在系统里的应用，提升成了操作系统自己管理、自己授权、自己分发的对象；但初期能落到手里的，是一个范围被刻意收窄的预览版，离&quot;Windows 上随便跑视觉 Agent&quot;还有相当距离。</p>
+<h2>WAR 运行时：让 Agent 变成和应用平级的系统对象</h2>
+<p>这一节先说最关键的一层：<strong>Windows Agent Runtime 把智能体当成系统级服务来管，而不是当成又一个普通应用。</strong></p>
+<p>按微软会前的说法，WAR 里注册的 Agent 是&quot;带明确权限、有生命周期管理、有审计日志的系统级服务&quot;。具体能干的事包括：</p>
+<ul>
+<li><strong>进任务栏</strong>：Agent 可以像应用一样出现在 Windows 任务栏里</li>
+<li><strong>收系统事件</strong>：能接收操作系统发来的文件系统、日历事件</li>
+<li><strong>用任务计划程序</strong>：能用 Windows 自带的任务计划程序排后台任务</li>
+<li><strong>逐项授权</strong>：每个 Agent 拿到的是按项目划分的能力授权——文件系统访问范围、网络访问、启动应用的权限，都是分开授予的</li>
+</ul>
+<p>最值得注意的是授权模型。WAR 在装 Agent 的时候让用户逐条审批它申请的能力，跟手机装应用要你同意定位、相机权限是一个路子。微软还给了一个 AgentPolicy API，让企业 IT 管理员能做细到&quot;剪贴板限制&quot;这种粒度的访问控制——举的例子是一个扫描文档的 Agent 可以被限死只能读某个文件夹、且禁用网络，全程不需要开发者自己手写沙箱。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/31/msbuild-windows-agent-architecture-2026-05-31.png" alt="Windows Agent 平台四层架构：底层硬件 → WAR 运行时 → Mesh 编排 → Store 分发，是一套架构不是四个独立产品"></p>
+<p>为什么这件事重要？过去你在 Windows 上做一个能自动干活的 AI 助手，本质上是写一个普通程序，自己去调系统接口、自己想办法拿权限、自己管自己的进程。系统不认识&quot;Agent&quot;这个概念，它只看见一个 .exe。WAR 做的事，是把&quot;Agent&quot;这个抽象提升到操作系统认得的层级——系统知道它是个智能体，知道该给它什么样的权限围栏，知道怎么记录它干了什么。<strong>这跟 Android 当年把&quot;应用&quot;做成系统一等公民、配上权限弹窗和应用商店，是同一类动作，只不过这次的主角换成了 Agent。</strong></p>
+<p>和现有 Copilot 的关系也理顺了：微软说内置 Copilot 能调的那些 WinRT 接口，第三方 Agent 只要过了认证也都能调，做到能力对等。换句话说，Copilot 不再是唯一有特权的那个智能体，它只是第一个跑在这套运行时上的 Agent。</p>
+<h2>为什么初期只让跑文本类 Agent</h2>
+<p>这一节单独拎出来，因为它是最容易被误读成&quot;挤牙膏&quot;、其实有硬原因的地方：<strong>6 月给 Insider 的预览版，只支持处理结构化数据的文本类 Agent——JSON、XML、PDF——能看屏幕、点界面的视觉类 Agent 推到 2027。</strong></p>
+<p>微软对这个限制说得很直白，是&quot;文本优先的设计选择&quot;，理由是宁可把预期定低一点，也不在发布时过度承诺。背后的技术原因也不难理解：</p>
+<ul>
+<li><strong>文本类 Agent 的输入是确定的</strong>：一份 JSON、一份 PDF，结构清楚，Agent 读进来、处理、给结果，行为可控、好审计</li>
+<li><strong>视觉类 Agent 要&quot;看像素点界面&quot;</strong>：它得理解屏幕上渲染出来的图像、判断哪个是按钮、模拟点击，这条链路对端侧多模态模型的要求高得多，错一步就可能点错地方</li>
+<li><strong>视觉类要等模型在端侧优化好</strong>：微软的说法是，得等底层多模态模型为边缘设备优化到位，视觉 Agent 才会进预览</li>
+</ul>
+<p>这个取舍其实和文档解析、数据处理类工具是一个逻辑——<strong>先把确定性高、能审计、出错代价低的那部分做扎实，再去碰&quot;看屏幕替你操作&quot;这种一旦失控代价很大的能力。</strong> 对国内开发者来说，这意味着 6 月能上手的，是&quot;读结构化文档、处理数据、串接口&quot;这一类 Agent；那种&quot;自动帮你操作整个桌面&quot;的科幻场景，得再等一年。</p>
+<h2>WSL 3：把 NPU 直通进 Linux，这是给开发者的真东西</h2>
+<p>如果说 WAR 是面向产品的定位，那 WSL 3 是这届 Build 里最实在的开发者福利。<strong>微软把 WSL（Windows 里跑 Linux 的子系统）做了一次重构：Linux 内核搬进一个轻量虚拟机，对 Windows 的 GPU 和 NPU 做半虚拟化直通。</strong></p>
+<p>这话翻译成开发者能感知的差别是：</p>
+<ul>
+<li><strong>近原生速度</strong>：早期跑分显示，在 WSL 3 里训练 PyTorch 模型，只比裸机 Linux 慢 3-5%，相比 WSL 2 那套 GPU 直通的延迟是质的改善</li>
+<li><strong>能直接吃 NPU</strong>：开发者能在 WSL 里直接用上骁龙 X Elite、英特尔 Lunar Lake 这些芯片带的神经处理单元（NPU），跑 AI/ML 负载</li>
+<li><strong>配套有 WSL-AI 扩展</strong>：能让你在 Linux 环境里用 Python 或 Node.js 写 Agent，不离开终端就对着 WAR 测试；它会自动把 Linux 文件路径映射到 Windows 对应路径，把 WSL 系统调用翻译成 Agent 要用的 WinRT 接口</li>
+</ul>
+<p>这一条对在 Windows 上做 AI 开发的人是真正解痛的。过去 WSL 2 里想用上 GPU 加速本来就别扭，NPU 更是基本碰不到——你要么裸装 Linux、要么忍受虚拟化那一层的开销。WSL 3 如果真能做到&quot;在 Jupyter notebook 里原型一个 Agent，然后不用交叉编译就打包成 Windows 可执行文件&quot;，那对数据科学家和模型工程师的工作流是实打实的简化。</p>
+<p>但这里有个必须说清楚的限制：<strong>NPU 直通现在只认两类芯片——高通骁龙 X Elite，以及英特尔 Meteor Lake / Lunar Lake；AMD 的支持还在后续更新里。</strong> 这个名单直接圈定了谁能用上这套加速。骁龙 X Elite 的 NPU 算力约 45 TOPS，英特尔 Lunar Lake 的 NPU 约 40-48 TOPS，都是 Copilot+ PC 那一档的硬件。换句话说，<strong>你手上得是一台相对新的 AI PC，才吃得到 WSL 3 NPU 直通的好处；</strong> 一台普通的老式笔记本，享受不到这一层。</p>
+<h2>Azure Agent Mesh 和 Agent 商店：把单机能力接到云，再做成生意</h2>
+<p>光有单机运行时还不够，微软还补了两块——一块解决&quot;Agent 跨设备跑在哪&quot;，一块解决&quot;Agent 怎么分发、怎么赚钱&quot;。</p>
+<p>第一块是 <strong>Azure Agent Mesh，一个智能体编排的控制面。</strong> 它把 Agent 的执行联到三种环境里：本地 Windows 服务器、Windows 365 云电脑、以及 Azure Arc 接入的边缘设备。开发者用跟本地一样的接口去调这张网，Mesh 会按延迟和算力是否空闲，自动把任务派给最近的可用节点。微软的算盘很清楚——这等于把全球 Windows 365 的装机量变成一张分布式的 Agent 算力网。它走的是按用量计费，专门为 Agent 计算开了新的计费档，正式版预计 2026 年第四季度到。</p>
+<p>第二块是 <strong>Windows Agent Store，智能体的分发和发现层。</strong> 开发者把 Agent 提交上来，要过微软的安全审核——审能力声明、审数据处理政策、审是否符合沙箱规范，整套流程跟 Microsoft Store 的认证很像。分成是开发者拿 85%、微软留 15%，对标 Microsoft Store 的模式。会上演示的早期合作方里，有 Adobe 拿出一个能学设计师排版习惯、自动准备 InDesign 模板的 Agent；还有 Zoom 展示了一个能代用户进会、把行动项直接总结进 Planner 的 Agent。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/31/msbuild-three-vendor-agent-compare-2026-05-31.png" alt="三家端侧智能体路线对照：微软 Windows、苹果 App Intents、谷歌安卓 AppFunctions"></p>
+<p>把这两块和 WAR、WSL 3 拼起来看，微软想讲的是一个完整的故事：<strong>底层硬件出算力 → WAR 运行时把 Agent 做成系统对象 → Mesh 把单机能力接到云上编排 → Store 负责分发和分账。</strong> 用微软自己的话说，这四样不是四个独立产品，而是一套架构的四个面。这个判断对开发者有实际意义——你不该把它们当成四条独立新闻分别评估，而该看它们合起来对你这套技术栈意味着什么。</p>
+<h2>横着比一遍：微软、苹果、谷歌的端侧 Agent 路线差在哪</h2>
+<p>把视野放大，2026 年其实是三大操作系统厂商不约而同把 OS 改造成&quot;原生 Agent 平台&quot;的一年。微软不是孤例，苹果和谷歌走在同一个方向上，但路子各有侧重。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/31/source-msbuild-agentic-stack-2026-05-31.png" alt="微软 Build 2026 把智能体运行时、多模型 Copilot 和整套智能体技术栈作为开发者主线">
+<small>来源：DEV Community 对 Build 2026 智能体技术栈的拆解配图</small></p>
+<p><strong>苹果走的是复用老接口的路。</strong> 它的 App Intents 框架从 iOS 16 时代（2016 年那套 Shortcuts 体系演进而来）就在了，允许开发者把应用能做的、带参数的离散动作暴露出来。到了 2026 年，传闻 WWDC 2026 的重头戏&quot;Agent Siri&quot;会把这些 App Intents 串起来，完成跨应用的多步任务。它的好处是——已经为快捷指令暴露过 App Intents 的应用，会自动被 Agent Siri 发现，开发者不用做新集成。端侧靠的是约 30 亿参数的苹果基础模型，在新芯片上能本地处理约 80% 的请求，剩下的走&quot;私有云计算&quot;。<strong>苹果的哲学是隐私优先：尽量在端上做完，云只是溢出兜底。</strong></p>
+<p><strong>谷歌安卓走的是结构化暴露能力的路。</strong> 它在 2026 年的开发者大会上喊出&quot;安卓从操作系统变成智能系统&quot;，核心是 AppFunctions——谷歌自己把它叫&quot;安卓版 MCP&quot;，让应用把工具、服务、数据声明成能被本地 Agent 发现和调用的接口；没集成的应用则有 UI 自动化兜底，让 Gemini 直接驱动界面。端侧靠 Gemini Nano 4（基于开源的 Gemma 4），比上代快约 4 倍、省约 60% 电。但它对硬件要求不低——需要至少 12GB 内存和特定旗舰芯片，先在三星 Galaxy S26、谷歌 Pixel 10 这些机型上跑。</p>
+<p>对照之下，<strong>微软的不同点有两个：</strong> 一是它把战场放在 PC / 桌面，这是苹果谷歌的手机端覆盖不到的生产力主场；二是它不光暴露能力，还专门新建了一套系统级运行时（WAR）和一个独立的分发商店（Agent Store），把 Agent 做成了系统认得、能授权、能分账的完整对象。苹果是复用已有的 App Store 和意图体系，谷歌暂时还没有独立的 Agent 商店——这一点上微软走得更&quot;重&quot;，也更像是在赌一个新的生态位。</p>
+<p>三家有一个共同点值得记住：<strong>它们都在解决同一个问题——怎么让端侧模型既快又不泄露隐私地替用户跨应用干活，而能力声明（微软的声明式 API、苹果的 App Intents、谷歌的 AppFunctions）会不会收敛成一个跨平台标准，是这件事最长远的悬念。</strong> 如果三家各搞各的，开发者就得面对&quot;桌面一套、iOS 一套、安卓一套&quot;的三份规范问题。</p>
+<h2>国内开发者怎么用：能直接上手的和隔着一层的</h2>
+<p>这一节说最实际的：<strong>对国内开发者来说，这套东西有的能直接用，有的隔着一层，得分开看。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/05/31/msbuild-availability-timeline-2026-05-31.png" alt="四件套各自什么时候能拿到、初期给谁：WSL 3 与开源 Agent Framework 最先能上手，视觉类 Agent 推到 2027"></p>
+<p>先说能用的部分：</p>
+<ul>
+<li><strong>WSL 3 + NPU 直通</strong>：这是纯本地的开发能力，只要你手上有一台带支持芯片的 Copilot+ PC（骁龙 X Elite 或英特尔 Lunar/Meteor Lake），装上对应的 Windows 预览版，就能在 WSL 里吃到 NPU 加速。这一层不依赖任何云服务，对国内做本地优先 AI 工具的开发者最友好。</li>
+<li><strong>Windows Agent Runtime 预览</strong>：随 6 月的 Windows Insider 通道发，文本类 Agent 的开发和本地测试不强依赖境外云，能上手。</li>
+<li><strong>微软 Agent Framework（开源 SDK）</strong>：这是 AutoGen 和 Semantic Kernel 合并后的统一智能体 SDK，支持 .NET 和 Python，本身是开源的，国内能直接拿来用。</li>
+</ul>
+<p>再说隔着一层的部分：</p>
+<ul>
+<li><strong>Azure Agent Mesh</strong>：跨设备编排走的是 Azure，国内用 Azure 的企业有，但个人开发者和中小团队接入要考虑 Azure 中国区的可用性和合规边界。</li>
+<li><strong>Windows Agent Store</strong>：分发渠道是微软的商店，能不能在国内顺畅提交、上架、收到分成，要看后续政策落地，现在还看不清。</li>
+<li><strong>硬件门槛</strong>：NPU 直通圈定的骁龙 X Elite、英特尔 Lunar Lake 这些芯片，对应的是相对新的高端 AI PC，国内装机的普及还需要时间。</li>
+</ul>
+<p>一个客观的判断是：<strong>国内开发者现在最值得动手的，是 WSL 3 NPU 直通和微软 Agent Framework 这两块——纯本地、开源、不卡在境外云上。</strong> 至于 Agent Store 的分账生意、Mesh 的跨设备编排，更适合先观望落地情况。这跟过去几年的规律一致：微软开放的本地开发工具链，国内一般能跟上；越往&quot;云服务 + 商业分发&quot;那头走，越要看区域政策。</p>
+<h2>写在最后</h2>
+<p>把 Build 2026 这一摞东西收束成一句话：<strong>微软在赌操作系统的下一个十年，不再是&quot;装应用的地方&quot;，而是&quot;跑智能体的运行时&quot;。</strong> WAR 把 Agent 做成系统一等公民，WSL 3 把 NPU 直通给开发者，Mesh 把单机接到云，Store 把它做成生意——四层是一套架构。</p>
+<p>但同样要看清它的克制：初期只跑文本类，视觉类推到 2027；NPU 直通只认两类新芯片；商店和云编排对国内还隔着政策这一层。这不是一次&quot;今天就改变一切&quot;的发布，而是一个多年工程的起点。微软自己在闭幕环节也是这么定调的——这是把&quot;智能体当成可被治理的基础设施&quot;这件事，慢慢变成常态的开始。</p>
+<p>对国内做 AI 工具、做 Agent 的开发者，好消息是最实在的那两块（WSL 3 本地加速、开源 Agent Framework）门槛最低、最先能上手。操作系统正在长出新的形状，而这一次，端侧、本地、开源这几条线，恰好是离我们最近的入口。一起往前走。</p>
+<hr>
+<p><strong>参考链接</strong></p>
+<ul>
+<li>[1] Microsoft Build 2026 Developer Preview: Windows Agent Runtime, Multi-Model Copilot, and the Agentic Stack — DEV Community：<a href="https://dev.to/akaranjkar08/microsoft-build-2026-developer-preview-windows-agent-runtime-multi-model-copilot-and-the-agentic-5pi" target="_blank" rel="noopener">https://dev.to/akaranjkar08/microsoft-build-2026-developer-preview-windows-agent-runtime-multi-model-copilot-and-the-agentic-5pi</a></li>
+<li>[2] Build 2026: Microsoft Makes Windows an Agent Platform for AI Developers — Windows News：<a href="https://windowsnews.ai/article/build-2026-makes-windows-an-agent-platform-for-ai-developers.420496" target="_blank" rel="noopener">https://windowsnews.ai/article/build-2026-makes-windows-an-agent-platform-for-ai-developers.420496</a></li>
+<li>[3] Microsoft Build 2026: Windows Agent Framework, WSL 3, Azure Mesh — AI Tools Recap：<a href="https://aitoolsrecap.com/Blog/microsoft-build-2026-windows-agent-framework-wsl3-azure-mesh" target="_blank" rel="noopener">https://aitoolsrecap.com/Blog/microsoft-build-2026-windows-agent-framework-wsl3-azure-mesh</a></li>
+<li>[4] Build 2026: Microsoft&#39;s Platform Shift to AI Agents, Copilot, Azure AI Foundry — Windows Forum：<a href="https://windowsforum.com/threads/build-2026-microsofts-platform-shift-to-ai-agents-copilot-azure-ai-foundry.420960/" target="_blank" rel="noopener">https://windowsforum.com/threads/build-2026-microsofts-platform-shift-to-ai-agents-copilot-azure-ai-foundry.420960/</a></li>
+<li>[5] Android Intelligent OS and Apple Intelligence App Intents: When Mobile OSes Become First-Class AI Agent Platforms — Agent Market Cap：<a href="https://agentmarketcap.ai/blog/2026/04/10/android-intelligent-os-apple-intelligence-appintents-agent-platforms-2026" target="_blank" rel="noopener">https://agentmarketcap.ai/blog/2026/04/10/android-intelligent-os-apple-intelligence-appintents-agent-platforms-2026</a></li>
+<li>[6] Google races to put Gemini at center of Android before Apple&#39;s AI reboot — CNBC：<a href="https://www.cnbc.com/2026/05/12/google-races-put-gemini-at-center-of-android-before-apples-ai-reboot.html" target="_blank" rel="noopener">https://www.cnbc.com/2026/05/12/google-races-put-gemini-at-center-of-android-before-apples-ai-reboot.html</a></li>
+<li>[7] Intel Lunar Lake vs Snapdragon X Elite: x86 Makes a Comeback — Beebom：<a href="https://beebom.com/intel-lunar-lake-vs-snapdragon-x-elite/" target="_blank" rel="noopener">https://beebom.com/intel-lunar-lake-vs-snapdragon-x-elite/</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
