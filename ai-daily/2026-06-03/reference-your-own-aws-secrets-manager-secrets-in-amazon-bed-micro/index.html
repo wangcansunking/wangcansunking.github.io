@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS 发布 AgentCore 新功能：AI 代理密钥管理权回归企业 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-03</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-03</span><span class="tag-pill">AI Daily</span></div>
+      <h1>AWS 发布 AgentCore 新功能：AI 代理密钥管理权回归企业</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-03/reference-your-own-aws-secrets-manager-secrets-in-amazon-bed-micro/head.png" alt=""></p>
+<h1>AI 代理的安全凭证，终于能用自己的保险柜了</h1>
+<p>这件事说起来有点反常识 —— Amazon Bedrock AgentCore 发布快一年了，企业客户在上面跑了上万个 AI 代理，每天调用外部 API 几百万次。但直到 2026 年 6 月之前，这些代理随身携带的“钥匙”，你其实管不了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-03/reference-your-own-aws-secrets-manager-secrets-in-amazon-bed-micro/content-1.png" alt="Reference your own AWS Secrets Manager secrets in Amazon Bedrock AgentCore Ident"></p>
+<p>过去 AgentCore Identity 的机制是这样：你创建一个 Outbound Auth 资源，系统自动在 AWS Secrets Manager 里帮你生一个 secret，把 API key 或 OAuth client secret 存进去。密钥的加密方式、轮换策略、资源标签、谁能访问 —— 全是 AWS 定的默认值。你甚至没法给这个 secret 贴上你公司成本中心的 tag，因为它根本不在你的治理视野里诞生。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-03/reference-your-own-aws-secrets-manager-secrets-in-amazon-bed-micro/content-2.png" alt="AgentCore Identity console showing creation of an Outbound Auth resource with a referenced secret"></p>
+<p>安全团队看到这个设计的第一反应，通常不是“方便”，而是“失控”。</p>
+<p><strong>让 AI 代理自己保管钥匙，等于把保险柜密码写在便利贴上贴在机房门口。</strong></p>
+<h2>一次迟到的“交钥匙”，藏着企业级 AI 的隐秘痛点</h2>
+<p>2026 年 6 月 1 日，AWS 在官方机器学习博客上发了一篇低调的更新公告。Swara Gandhi 和 Satveer Khurpa 两位解决方案架构师联名宣布：AgentCore Identity 现在支持引用你自己在 Secrets Manager 里预配置的 secret —— 而不是让系统替你新建一个。</p>
+<p>这个功能的操作界面极其简单：在创建 Outbound Auth 资源时，API key 或 OAuth client secret 的选择方式从“自动生成”多了一个选项 ——“Provide via Secrets Manager”。你填入一个 ARN（比如 <code>arn:aws:secretsmanager:us-east-1:123456789012:secret:myApiKeySecret-AbCdEf</code>），再指定 JSON key 路径，AgentCore 就会在运行时从你指定的 secret 里拉取凭证值，而不是去读它自己生成的那个。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-03/reference-your-own-aws-secrets-manager-secrets-in-amazon-bed-micro/schematic-1.png" alt="AgentCore Identity 控制台截图，Outbound Auth 创建页面中“API key selection method”下拉菜单，显示“Provide API key via Secrets Manager”选项，旁边是 Secrets Manager ARN 输入框和 JSON key 输入框"></p>
+<p>但真正重要的不是操作步骤，而是这个切换带来的五个工程场景。</p>
+<p><strong>第一，轮换凭证不再需要重建资源。</strong> 过去如果你需要轮换 API key，AgentCore 自动生成的 secret 不支持你在外部直接修改 —— 你得删掉整个 Outbound Auth 资源重建，代理在重建期间直接瘫痪。现在你用自己的 secret，在 Secrets Manager 里配好自动轮换（比如每 30 天换一次），AgentCore 下次读取时自动拿到新值，代理全程无感知。（值得一提的是，AWS Secrets Manager 的自动轮换功能本身支持 Lambda 自定义轮换逻辑，你可以直接复用已有的轮换模板，不需要为 AgentCore 单独写一套。）</p>
+<p><strong>第二，加密密钥终于归你管。</strong> 受监管行业（金融、医疗、政府）通常有强制要求：所有静态数据必须用客户管理的 KMS key（Customer Managed Key, CMK）加密，且用 SCP（Service Control Policy）和 RCP（Resource Control Policy）在组织级强制执行。AgentCore 之前自动创建的 secret 用的是 AWS 托管密钥，你没法证明“我确实在用 CMK”。现在你提前用 CMK 创建好 secret，再把 ARN 交给 AgentCore，审计这一环就闭合了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-03/reference-your-own-aws-secrets-manager-secrets-in-amazon-bed-micro/schematic-2.png" alt="架构对比图，左侧“旧模式”：AgentCore → 自动创建 secret（AWS 托管密钥，无自定义标签，无资源策略）→ 外部 API；右侧“新模式”：用户预创建 secret（CMK 加密 + 自定义标签 + 资源策略 + 轮换配置）→ AgentCore 运行时读取 → 外部 API"></p>
+<p><strong>第三，跨账号和第三方 secret manager 打通了。</strong> 公告里明确提到，你引用的 secret 可以来自同一个 Region 内的另一个 AWS 账号（跨 Region 暂不支持），也可以用 AWS Secrets Manager external connectors 接入第三方 secret manager（比如 HashiCorp Vault 或 CyberArk）。这对大型企业意义重大 —— 他们的凭证可能统一存在一个安全账号里，AgentCore 所在的开发账号只需要拿到引用权限即可。安全团队不用再为“AgentCore 自己生了一堆我们看不见的 secret”这件事失眠。</p>
+<p><strong>第四，资源策略可以精细到单个代理。</strong> 你可以直接在 Secrets Manager 里给 secret 配 resource policy，精确控制哪些 IAM 主体能访问、在什么条件下访问。比如“只允许 AgentCore 的 service principal 在从特定 VPC endpoint 发起请求时读取这个 secret”。相比之下，旧模式下 secret 的访问控制完全由 AgentCore 内部逻辑决定，你连 policy document 都看不到。</p>
+<p><strong>第五，标签和成本追踪终于补上了。</strong> 企业用 AWS Organizations 管理多账号时，tag 是成本分摊和合规审计的基础。一个没有正确 tag 的资源等于财务黑洞。AgentCore 自动创建的 secret 打不上你的 cost center 标签，财务团队月底对账时只能看到一堆“Untagged”的费用条目。现在你可以先创建好带完整标签的 secret，再引用进来，账单上的每一分钱都能追溯到具体业务部门。</p>
+<h2>为什么这个功能拖到现在才出？看时间线就懂了</h2>
+<p>Amazon Bedrock AgentCore 是在 2025 年 re:Invent 上正式发布的，当时主打的是“用自然语言描述工具，AgentCore 自动处理认证和安全”。那个阶段 AWS 的核心叙事是“零配置”—— 你连 OAuth 的 client secret 都不用自己管，AgentCore 全包。</p>
+<p>但“零配置”在企业级市场往往等于“零控制”。</p>
+<p>2026 年上半年，AgentCore 的企业客户数量开始快速增长。根据 AWS 官方在 2026 年 4 月的公开案例中引用的数据，财富 500 强中已有超过 40 家企业将 AgentCore 用于生产环境的客户服务代理和内部 IT 自动化代理。这些企业的安全团队开始提同一个问题：“我们连 secret 的加密密钥都审计不了，怎么过 SOC 2？”</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-03/reference-your-own-aws-secrets-manager-secrets-in-amazon-bed-micro/schematic-3.png" alt="时间线图，2025 年 12 月 AgentCore 发布 → 2026 年 Q1 企业客户规模增长 → 2026 年 4 月客户安全审计需求集中爆发 → 2026 年 6 月 1 日“引用自有 secret”功能 GA"></p>
+<p>所以这个功能不是 AWS“突然想起来”加的，而是被企业安全团队的工单堆出来的。公告里 Satveer Khurpa 的署名也值得注意 —— 他的 title 是“Sr. WW Specialist Solutions Architect, Amazon Bedrock AgentCore, specializing in agentic AI security”。专门为代理安全设一个全球专家岗位，本身就说明这个领域的需求密度有多高。</p>
+<p>另一个细节：公告里专门用了一节教你怎么用 AI 编码代理（比如 Kiro）去配置这个功能。给的 prompt 示例是这样的：</p>
+<blockquote>
+<p>“I have an existing secret in AWS Secrets Manager at ARN arn:aws:secretsmanager:us-east-1:123456789012:secret:my-api-key. Create an OAuth2 credential provider in Amazon Bedrock AgentCore Identity named <client-name>, using GoogleOauth2 as the vendor...”</p>
+</blockquote>
+<p>让 AI 代理去配置 AI 代理的安全凭证 —— 这个递归画面本身就够赛博朋克了。</p>
+<p>不过，这个功能目前还有两个明确的限制：跨 Region 引用不支持（secret 和 AgentCore 资源必须在同一个 AWS Region 内），以及需要手动给 secret 添加 resource policy 授权 AgentCore 的 service principal 执行 <code>secretsmanager:GetSecretValue</code>（如果用了 CMK 还要额外授权 <code>kms:Decrypt</code>）。这两个步骤如果不做，代理运行时会直接报权限错误，对新手来说是个容易踩的坑。</p>
+<p>回到开头那个反常识的结论：AgentCore 花了快一年时间，把一个“自动管理密钥”的产品做成了“让你自己管理密钥”。这在消费级市场是倒退，在企业级市场却是刚需。安全这件事，从来没有“托管”能解决所有问题 —— 真正跑在生产环境里的 AI 代理，每一把钥匙都得握在客户自己手里。AWS 这次交钥匙，交得晚，但总比不交强。</p>
+<h2>参考来源</h2>
+<ul>
+<li>AWS Machine Learning Blog: &quot;Reference your own AWS Secrets Manager secrets in Amazon Bedrock AgentCore Identity&quot; — <a href="https://aws.amazon.com/blogs/machine-learning/reference-your-own-aws-secrets-manager-secrets-in-amazon-bedrock-agentcore-identity/" target="_blank" rel="noopener">https://aws.amazon.com/blogs/machine-learning/reference-your-own-aws-secrets-manager-secrets-in-amazon-bedrock-agentcore-identity/</a></li>
+<li>Amazon Bedrock AgentCore Identity 官方文档 — <a href="https://docs.aws.amazon.com/bedrock-agentcore/" target="_blank" rel="noopener">https://docs.aws.amazon.com/bedrock-agentcore/</a></li>
+<li>AWS Secrets Manager User Guide — <a href="https://docs.aws.amazon.com/secretsmanager/latest/userguide/" target="_blank" rel="noopener">https://docs.aws.amazon.com/secretsmanager/latest/userguide/</a></li>
+</ul>
+<p>#Reference #AWS #Secrets #Manager #Amazon</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-03/reference-your-own-aws-secrets-manager-secrets-in-amazon-bed-micro/content-3.png" alt="AgentCore Identity console showing how to add an API key from Secrets Manager"></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

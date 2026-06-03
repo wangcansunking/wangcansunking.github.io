@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Qwen3.7-Plus 喂一张截图就把前端写出来 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-03</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-03</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Qwen3.7-Plus 喂一张截图就把前端写出来</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/qwen37-plus-vision-agent-base-2026-06-03.png" alt="Qwen3.7-Plus 发布：把屏幕理解到可执行代码做成一条即开即用的智能体路径"></p>
+<p>先把这篇要讲的一句话放在最前面：Qwen3.7-Plus 真正的看点，不是「视觉能力又升级了」这句套话，而是它把「看一张真实软件截图 → 推理 → 自己写代码 → 调工具执行 → 跑测试验证」这一整条路，做成了阿里云百炼上即开即用的 API。</p>
+<p>2026 年 6 月 2 日，阿里千问大模型发布 Qwen3.7-Plus，官方给它的定位是「视觉与语言统一的智能体基座」。它能看图像、视频、屏幕、网页和文本，并在图形界面（GUI）、命令行（CLI）和工具环境里完成多步任务。</p>
+<p>国内媒体当天大多把它写成「千问视觉能力全面升级」。这没错，但漏掉了更要紧的那一层：升级的不只是「看得更准」，而是「看完之后能不能直接动手把活干完」。这两件事差着一个量级。</p>
+<p>这也是本文想讲清楚的核心：一个模型从「看懂屏幕」到「写出能跑的代码」中间，过去要靠人一步步搭桥；Qwen3.7-Plus 想把这座桥自己走完。下面把这条路拆开看，再把它放进读者每天接触的海外屏幕操作方案——Computer Use、OpenClaw——的坐标系里对照。</p>
+<h2>先讲清新在哪：从「看懂」到「干完」</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-qwen37plus-official-banner-2026-06-03.png" alt="Qwen3.7-Plus 官方发布主视觉：多模态交互混合智能体 / 编程与生产力助手 / 视觉智能体 / 跨框架泛化能力"></p>
+<p><small>来源：阿里千问 Qwen3.7-Plus 官方发布配图 · 2026-06-02</small></p>
+<p>如果只记一件事：Qwen3.7-Plus 把「看屏幕」和「写代码、跑工具」接成了一条连续的智能体路径，而不是停在「看图问答」这一步。</p>
+<p>官方把这条路概括成五个字——「看、想、写、做、验」，并强调它们被整合进同一个智能体循环里：</p>
+<ul>
+<li><strong>看</strong>：读屏幕、截图、网页、视频、文档，定位界面里的控件和布局；</li>
+<li><strong>想</strong>：深度推理，把一个目标拆成多步计划；</li>
+<li><strong>写</strong>：自主编程，生成矢量图（SVG）、网页、可运行前端，乃至 macOS 原生界面的 SwiftUI 源码；</li>
+<li><strong>做</strong>：调用工具和接口，在图形界面或命令行里一步步执行；</li>
+<li><strong>验</strong>：跑测试、对照结果，没通过就回头重新规划、自己迭代。</li>
+</ul>
+<p>这五步连起来，最关键的是最后那个「验」。它意味着模型不是写完代码就交差，而是会自己跑一遍、看对不对、不对就改——这才是它敢长时间无人干预连续工作的前提。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/chart-qwen37plus-loop-2026-06-03.png" alt="Qwen3.7-Plus 的「看-想-写-做-验」闭环：看屏幕到推理、写代码、调工具、跑测试自我修正"></p>
+<p>需要先把口径说清楚，免得后面读混：Qwen3.7-Plus 的<strong>参数量、模型架构、激活参数，官方均未披露</strong>。本文不会出现任何「多少亿参数」「多少个专家」的数字——凡是官方没说的，一律不编造。能确认的是定位、输入模态、能力清单、上线渠道，以及官方援引的榜单口径，下面逐项交代来源。</p>
+<p>这一代和 5 月那两次千问发布也要区分清楚：5 月 21 日的 Qwen3.7-Max 是纯文本推理旗舰，5 月 26 日的 Qwen3-Coder 主打编程。这次的 Qwen3.7-Plus 是其中的<strong>视觉-语言变体</strong>——它的主场在「看屏幕、看图、看视频，然后动手」，而不是再去刷一遍文本榜。</p>
+<h2>输入五种，输出四类：原生多模态到底指什么</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/chart-qwen37plus-modality-matrix-2026-06-03.png" alt="Qwen3.7-Plus 输入模态矩阵：图像/视频/屏幕/网页/文本 五种输入，在一个智能体里完成推理、视觉编程、GUI 操作、真实世界感知"></p>
+<p>这一节先看它「吃什么、产出什么」。官方称 Qwen3.7-Plus 统一处理五种输入：图像、视频、屏幕、网页、文本。</p>
+<p>输入这一侧里，「屏幕」是和过去看图模型最不一样的一项。看一张静态图谁都会，但把实时界面当成输入、理解上面哪里是按钮、哪里是输入框、点哪一下会跳到哪——这是 GUI 智能体的门槛。Qwen3.7-Plus 把屏幕当成一等输入来处理。</p>
+<p>产出这一侧，它在同一个智能体循环里完成四类任务：</p>
+<ol>
+<li><strong>深度推理 + 工具调用</strong>：把目标拆成多步，调外部接口完成；</li>
+<li><strong>视觉编程（Visual Coding）</strong>：看图、看视频，生成 SVG、网页、可运行的交互前端；</li>
+<li><strong>GUI 操作</strong>：理解桌面和手机界面，定位控件、做多步点选操作；</li>
+<li><strong>真实世界感知</strong>：读文档、识别图表、做视频与文字识别。</li>
+</ol>
+<p>官方反复强调它是「原生多模态」。这个词不是营销话术，它指的是文本、图像、视频从训练第一步起就一起进入同一个模型，而不是先训一个语言模型、再外挂一个视觉模块拼起来。</p>
+<p>这两条路线的差别会体现在理解的深度上：原生路线下，模型看一张带界面截图的需求文档时，文字描述和画面布局是被当成一个整体来理解的，而不是分两步处理再勉强对齐。对「看截图写前端」这种图文必须严丝合缝对上的任务，原生多模态是它能做准的底子。</p>
+<p>官方还点名了一批视觉相关评测，称在这些项目上提升明显——BabyVision、MathVision、ScreenSpot Pro、OSWorld-Verified、AndroidWorld 等。需要说明的是，发布材料给的是「提升明显」这类定性描述，并未在正文逐项印出可横向对比的分数，所以本文不替它编造一张精确分数表，具体以官方后续技术材料或第三方实测为准。</p>
+<h2>视觉编程：看一张截图，把可运行前端写出来</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-qwen37plus-sina-replicate-app-2026-06-03.png" alt="Qwen3.7-Plus 看截图复刻手机 App 的能力演示示意"></p>
+<p><small>来源：新浪科技 Qwen3.7-Plus 报道配图 · 2026-06-02</small></p>
+<p>这是 Qwen3.7-Plus 最想立的招牌，也是本文标题那句话的出处。</p>
+<p>「视觉编程」要解决的，是开发者每天都遇到的一个真实环节：手里有一张设计稿、一份带界面截图的产品文档、或者一个已有软件的样子，目标是把它变成能跑的前端代码。过去这一步要靠人盯着图、一行行手敲。</p>
+<p>官方给的演示里，最有说服力的是一个 macOS 桌面应用的复刻案例。据站长之家、新浪科技援引官方的描述：模型自主和示例里的 macOS 原生「股市」应用交互、理解它的界面布局，自动写出对应的 SwiftUI 源码，并接上真实的行情接口，最终十项核心功能测试全部通过，一比一复刻了这个桌面应用。</p>
+<p>把这个例子拆开看，它正好走完了「看-想-写-做-验」整条路：</p>
+<ul>
+<li><strong>看</strong>：理解「股市」应用的界面长什么样、有哪些控件；</li>
+<li><strong>想</strong>：规划要复刻哪些功能、需要接哪些数据；</li>
+<li><strong>写</strong>：生成 SwiftUI 源码；</li>
+<li><strong>做</strong>：调真实行情接口、把应用跑起来；</li>
+<li><strong>验</strong>：跑十项功能测试，全过才算复刻成功。</li>
+</ul>
+<p>另一个被反复引用的演示，是一个连续运行的长任务：据站长之家援引官方，混合智能体系统持续稳定运行十一小时以上，触发工具调用超过一千次，自主生成超过一万行代码，全程无人干预，完成了一个英语单词学习 App 从需求文档到测试、部署的整条流程。</p>
+<p>这两个数字——十一小时、一万行代码——是官方演示口径，真实复现得靠开发者自己上手验证，但它们指向的能力方向是清楚的：模型不只是「能写一段代码」，而是能在很长的任务里自己撑住、不断自我修正。这正是「验」这一步带来的耐力。</p>
+<p>还有一个偏运维的演示也值得一提：官方称模型能自主进入阿里云控制台，完成云服务器的比价、选型、配置、购买，甚至处理停机扩容这类复杂运维操作。这把「GUI 操作」从「点一个按钮」推到了「在真实控制台里把一串运维活干完」。</p>
+<p>这个运维演示的分量，在于它落在一个对开发者很实在的场景上。买服务器、选配置、处理扩容，平时要在控制台里点开一层层菜单、对照一堆参数，是典型的「不难但很烦」的活。把它交给一个能看懂控制台界面、又会自己一步步操作的智能体，省下的是真实的时间。而它能干这种活，前提还是那条闭环——看懂界面、规划步骤、执行、再核对结果对不对，少一环都做不到。</p>
+<p>把视觉编程和 GUI 操作这两类演示放在一起看，能看出 Qwen3.7-Plus 想覆盖的是两种典型需求：一种是「把我看到的样子变成代码」（设计稿、截图、已有软件），一种是「替我在界面上把事办了」（运维、操作、复刻）。前者偏生成，后者偏执行，但底层用的是同一套「看-想-写-做-验」的能力。</p>
+<p>需要冷静的一点是：这些都是厂商挑出来的成功演示。演示能跑通，不等于你手上任意一张截图都能一次复刻成功。真正的判断，还得把它接进自己的活儿里跑一段（本文末尾给了一套实测办法）。但方向上，「看截图直接产出可运行前端」这条路，国产视觉基座这次是认真地把它做成了产品。</p>
+<h2>为什么「看完直接干」比「看得更准」难一个量级</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-qwen37plus-qbitai-hero-2026-06-03.png" alt="Qwen3.7-Plus 上线：多模态智能体新基座，一键复刻桌面端专业软件"></p>
+<p><small>来源：量子位 Qwen3.7-Plus 报道主图 · 2026-06-02</small></p>
+<p>这一节解释一个容易被略过的问题：为什么把「看屏幕」接到「动手干完」这么难，难到值得单独拿出来说。</p>
+<p>「看得更准」是一个感知问题：模型把图里有什么、文字写了什么认对，就算过关。这条路这几年已经被各家做得相当成熟。</p>
+<p>「看完直接干」则是一个<strong>长链条</strong>问题，它把感知、推理、代码生成、工具调用、结果校验串成一条互相依赖的链——任何一环出错，后面全跟着错，而且越往后越难发现是哪一步坏的。具体卡在三个地方：</p>
+<ul>
+<li><strong>看与做之间要对齐</strong>：模型看到「界面右上角有个登录按钮」，得准确转成「点屏幕坐标某处」或「生成一段对应的前端代码」，看准了不等于动作对；</li>
+<li><strong>多步之间要记得住</strong>：一个十几步的任务，第八步要用到第二步的结果，中间任何一步丢了上下文，整条就断；</li>
+<li><strong>错了要自己发现</strong>：没有人盯着的时候，模型得自己跑测试、自己看对不对、自己改——这就是「验」这一步存在的全部意义。</li>
+</ul>
+<p>把这三关连起来看，就明白「看-想-写-做-验」为什么要做成一个闭环，而不是五个独立功能的叠加。Qwen3.7-Plus 把这条链做通，靠的是原生多模态打的底子加上能自我修正的循环——这也是它和「只会看图问答」的模型最本质的区别。</p>
+<p>这条路也不是凭空冒出来的。过去一年，国产模型在视觉理解、文档解析、屏幕操作这几条线上的持续投入，已经攒下了不少积累。Qwen3.7-Plus 把这些积累收进一个能动手的智能体基座里，是这条线越走越实的一个新节点——受益的是每一个想让模型「看完就把活干了」的国内开发者。</p>
+<h2>放进读者的坐标系：和 Computer Use、OpenClaw 怎么对位</h2>
+<p>把视角拉回到日常。读者更熟悉的「让模型操作屏幕」的方案，其实是海外的两条：一条是 Anthropic 的 Computer Use（让 Claude 看截图、移动鼠标、点按键操作电脑），另一条是开源社区的 OpenClaw 这类屏幕操作智能体。Qwen3.7-Plus 的差异化，正好可以放进这个坐标系里看。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/chart-qwen37plus-gui-agent-vs-2026-06-03.png" alt="屏幕理解到可执行代码：Qwen3.7-Plus 与海外 Computer Use、OpenClaw 屏幕操作能力对位"></p>
+<p>先把厂商和国籍标清楚，避免混淆：</p>
+<table>
+<thead>
+<tr>
+<th>产品</th>
+<th>厂商 · 国籍</th>
+<th>定位侧重</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qwen3.7-Plus</td>
+<td>阿里千问 · 国内</td>
+<td>视觉-语言统一智能体基座，主打看图生成可运行前端</td>
+</tr>
+<tr>
+<td>Computer Use</td>
+<td>Anthropic · 美国</td>
+<td>让 Claude 看屏幕、操作鼠标键盘完成电脑任务</td>
+</tr>
+<tr>
+<td>OpenClaw 屏幕操作</td>
+<td>开源社区 · 海外</td>
+<td>开源智能体框架里的屏幕操作能力</td>
+</tr>
+</tbody></table>
+<p>三者都能「看屏幕」，但路线重心不一样：</p>
+<ul>
+<li><strong>Computer Use（Anthropic · 美国）</strong>：强项在「像人一样操作电脑」——看截图、定位元素、点选拖拽。它更偏「替你点」，把视觉理解直接接到屏幕操作上。</li>
+<li><strong>OpenClaw 屏幕操作（开源 · 海外社区）</strong>：作为开源框架，它的屏幕操作能力很大程度上取决于背后接的模型和工具链，灵活但要自己搭。</li>
+<li><strong>Qwen3.7-Plus（阿里 · 国内）</strong>：它把「看图 → 生成可运行代码」这一段做成了主打能力，并且通过阿里云百炼直接提供 API。这条「屏幕理解到可执行代码」的路，国产视觉基座第一次做成了即开即用。</li>
+</ul>
+<p>这里要诚实地说清边界：这三者并不是在同一张榜单上跑出来的分数，定位也各有侧重，上面的对位是「能力路线」层面的对照，不是「谁打赢谁」的跑分。Computer Use、OpenClaw 在屏幕操作的成熟度和工具生态上有各自积累；Qwen3.7-Plus 的鲜明标签是「看截图复刻前端」加「国内直连、百炼即开即用」。</p>
+<p>对国内开发者，最实在的差别其实是「用得顺不顺手」。海外的屏幕操作方案在国内访问要绕一圈，接进正式产品还要顾合规。Qwen3.7-Plus 是国内直连、按量计费的国产基座，对要把视觉智能体能力嵌进自家产品的团队来说，这种「拿来就能调」的确定性，本身就是一项不写在能力清单里的优势。</p>
+<p>还有一点值得记下：官方称 Qwen3.7-Plus 具备跨框架泛化能力，无论通过 Claude Code、OpenClaw 还是千问自家的 Qwen Code 部署，都能保持稳定表现。换句话说，它不挑「壳」——你现有的智能体工具链是哪一套，大概率都能把它接进去当后端模型。</p>
+<h2>Vision Arena 全球前五：这个排名怎么看</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-qwen37plus-chinaz-demo-2026-06-03.png" alt="Qwen3.7-Plus 多模态评测网格与 Vision Arena 视觉榜：阿里位列前五（榜单截图，原文标注为官方援引第三方榜）"></p>
+<p><small>来源：站长之家报道所引用的 Qwen3.7-Plus 评测网格与 Vision Arena 视觉榜截图 · 2026-06-02</small></p>
+<p>这一节专门把榜单口径讲清楚，因为它最容易被一句话带偏。</p>
+<p>官方援引第三方视觉榜 Vision Arena 称，Qwen3.7-Plus 的成绩帮助阿里进入<strong>全球前五、中国第一</strong>。这是一个值得高兴的位置——视觉这条线上，国产模型站进了全球第一梯队的边缘。</p>
+<p>但要诚实标注两件事：</p>
+<p>第一，<strong>「全球前五、中国第一」是官方援引第三方榜的口径</strong>，不是本文独立测得的。Vision Arena 这类竞技场式榜单靠用户对模型在真实视觉任务上的输出投票排名，是动态变化的，不同时间、不同切片看到的位次会不一样。</p>
+<p>第二，<strong>海外口径与国内口径存在差异</strong>。海外科技媒体 MarkTechPost 在报道里提到 Qwen3.7-Plus 在 Vision Arena（LM Arena 体系）「整体排名第 16」，落在头部美国实验室之后。这和国内「全球前五、中国第一」的说法看起来对不上——大概率是两者引用了榜单的不同切片（比如「视觉竞技场单项」与「整体综合榜」），或者取的是不同时间的快照。本文把两种口径都摆出来，不替任何一方下「到底第几」的定论，建议读者以各自查证的 Vision Arena 实时榜为准。</p>
+<p>把这两条标清楚，是想说明一个态度：榜单排名是参考，不是结论。Qwen3.7-Plus 在视觉这条线上确实站到了相当靠前的位置，这点不必怀疑；但「全球前五」这种漂亮话，得知道它来自哪个口径、是哪个时间点，才不会读偏。</p>
+<p>至于纯文本能力，官方称 Qwen3.7-Plus <strong>接近 Max 级别模型</strong>，在编码智能体、通用智能体、推理、指令遵循、多语言任务上保持强表现。这意味着它不是「为了看图牺牲了文本」的偏科生——文本底子还在第一梯队，视觉是加出来的能力，而不是换来的。</p>
+<h2>怎么用上：百炼即开即用，外加一套实测办法</h2>
+<p>Qwen3.7-Plus 发布即开放调用，接入方式对国内开发者相当友好。它已经通过阿里云百炼对外提供服务，也可以在 Qwen Studio 里直接体验，对话入口在 chat.qwen.ai。</p>
+<p>接入这一侧有两个对开发者友好的点：</p>
+<ul>
+<li><strong>协议兼容</strong>：据网易、站长之家援引官方，百炼上的 Qwen3.7-Plus 支持 OpenAI 兼容 API 与 Anthropic 协议调用——也就是说，你现有的代码大概率改个接口地址和模型名就能接上，迁移成本低；</li>
+<li><strong>跨框架可部署</strong>：官方称它能在 Claude Code、OpenClaw、Qwen Code 等框架里稳定运行，要把它当作编程工具或自研智能体的后端模型，路径是通的。</li>
+</ul>
+<p>回到本文开头那句核心：这条「看截图复刻 App」的路到底能不能复现？官方演示很漂亮，但你真正该信的是自己的实测。给一套可以照做的办法：</p>
+<ol>
+<li><strong>找一张你手头真实的界面截图</strong>——一个你熟悉的 App 首页、一段后台管理界面、或一份带界面图的需求文档，让 Qwen3.7-Plus 直接产出对应的前端代码，把代码跑起来，看还原度有多高、能不能直接用；</li>
+<li><strong>挑一个有标准答案的复刻目标</strong>——像官方那样选一个功能明确的小应用，让它复刻，自己一项项验功能，看十项里能过几项；</li>
+<li><strong>跑一段长任务感受「验」这一步</strong>——给它一个需要多步、需要自我纠错的任务（比如从需求到一个能跑的小工具），重点看它在没人干预时能不能自己发现错误、自己改对。</li>
+</ol>
+<p>三步走完，「看截图复刻前端」在你这套活儿里到底成不成，心里就有数了。</p>
+<h2>收个尾：国产视觉基座，第一次把这条路做成即开即用</h2>
+<p>把好消息和边界都说完，回到最开始那句核心。</p>
+<p>Qwen3.7-Plus 这次最值得记住的，不是又一个「视觉升级」的版本号，而是它把「看一张真实截图 → 想清楚 → 自己写代码 → 调工具干完 → 跑测试验证」这条完整的智能体路径，做成了国内开发者打开百炼就能调用的 API。这条「屏幕理解到可执行代码」的路，对位的是海外的 Computer Use 和 OpenClaw，而国产视觉基座这次第一次把它做成了即开即用。</p>
+<p>参数和架构官方没披露，那些漂亮的演示也需要你亲手验证——这些都得冷静看待。但有一件事是确定的：当一个国产团队能在视觉理解、视觉编程、GUI 操作这几条最难的线上同时拿出能用的工程方案，并且把它直接摆到每个开发者的接口面前，这本身就是一件让人对国产前沿模型更有底气的事。</p>
+<p>剩下的，交给你自己的那张截图来评分。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

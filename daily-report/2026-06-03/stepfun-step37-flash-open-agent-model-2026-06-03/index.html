@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>阶跃 Step 3.7 Flash：能本地跑的开源 Agent 底座 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-03</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-03</span><span class="tag-pill">Daily Report</span></div>
+      <h1>阶跃 Step 3.7 Flash：能本地跑的开源 Agent 底座</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/stepfun-step37-flash-open-agent-model-2026-06-03.png" alt="阶跃星辰 Step 3.7 Flash 发布并开源：一款主打速度、成本、可靠执行的生产级 Agent 模型"></p>
+<p>过去一年，国内想自己搭一套智能体（Agent）的团队，几乎都卡在同一个地方：好用的模型几乎都是闭源的。想要稳定的工具调用、可靠的多轮执行，往往只能把 Claude、GPT 这类海外旗舰挂在云端 API 后面——延迟看别人脸色，价格随调用量往上走，数据还得出内网。开源那一侧能打的不是没有，但要么偏向通用对话、要么参数大到本地跑不动，真正&quot;为智能体而生、又能搬进自己机房&quot;的底座，一直是稀缺品。</p>
+<p>2026 年 5 月 29 日，阶跃星辰（StepFun）发布并开源的 Step 3.7 Flash，正面回答的就是这个缺口。它是一款稀疏混合专家（MoE）架构的多模态模型：总参数约 1960 亿（196B），外加一个 18 亿参数（1.8B）的视觉编码器，但每生成一个 token 只激活约 110 亿（11B）参数；最高生成速度约为每秒 400 个 token，支持 25.6 万（256K）token 上下文；权重以 Apache 2.0 协议放上了 HuggingFace 与 ModelScope（仓库名 <code>stepfun-ai/Step-3.7-Flash</code>）。</p>
+<p>这篇文章想说清楚的核心判断只有一句：<strong>一个 Apache 2.0、11B 激活、约 400 token/s 的开源生产级 Agent 模型，第一次让国内自建智能体的团队，手里有了一个可本地部署、低延迟、工具调用可复现的低成本底座。</strong> 它的价值不在某一项基准排第几，而在&quot;开放 + 够快 + 够省 + 为智能体专门调过&quot;这几件事同时成立。下面把官方自评的分数逐项核对清楚，再把它放进读者每天会掂量的那几个开放权重模型里比一比。</p>
+<h2>它到底新在哪：为智能体专门调过的一款 Flash 模型</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-stepfun-hf-modelcard-2026-06-03.png" alt="阶跃星辰 Step 3.7 Flash 官方模型卡（HuggingFace stepfun-ai/Step-3.7-Flash）"></p>
+<p><small>来源：HuggingFace 官方模型卡 stepfun-ai/Step-3.7-Flash · 2026-05-29</small></p>
+<p>如果只记一件事，那就是：Step 3.7 Flash 不是一个通用大模型的&quot;小号版本&quot;，而是从设计目标上就奔着&quot;生产环境里的智能体&quot;去的一款 Flash 模型。</p>
+<p>阶跃把它的优化方向归成四条：原生多模态的理解与执行，能直接读图表、文档、应用界面；联网搜索与视觉搜索增强；高可靠的工具调用与编排；以及对主流智能体框架的兼容适配。官方在发布中的原话是，这是&quot;专为生产级 Agent 打造的 Flash 模型&quot;，特别适合高频、多轮的智能体场景。</p>
+<p>先把几个关键参数的口径标清楚，免得后面读表时混淆：</p>
+<ul>
+<li><strong>架构</strong>：稀疏 MoE，总参数 196B，外挂 1.8B 视觉编码器（ViT）；每个 token 推理只激活约 11B 参数。这组数字官方模型卡与发布页均有列出；个别国内媒体把 ViT 写成 18.8 亿（1.88B），以官方模型卡的 1.8B 为准。</li>
+<li><strong>上下文</strong>：最大 256K token。</li>
+<li><strong>速度</strong>：官方称最高生成速度可达每秒约 400 个 token。</li>
+<li><strong>推理档位</strong>：提供低、中、高三档推理级别（low / medium / high），开发者可在响应速度、token 成本和思考深度之间按需取舍。</li>
+<li><strong>多模态</strong>：原生支持图像、视频输入，能把视觉信息转成结构化结果并据此执行任务。</li>
+</ul>
+<p>这里有一个值得展开的细节：阶跃这次选择把权重连同模型一起开源，走的是和谷歌 Gemini 3.5 Flash、Anthropic Claude Haiku 这类闭源 Flash 不同的路。后两者只给 API，而 Step 3.7 Flash 把权重摆上了台面。对一款定位&quot;生产级&quot;的模型来说，开源不是附赠的姿态，而是直接改变了它能被怎么用——这一点是后文反复要回到的主线。</p>
+<p>原生多模态这条也值得多说一句。Step 3.7 Flash 强调的是&quot;原生&quot;——从训练第一步起，文本、图像、视频就一起进入模型，而不是先训好一个语言模型、再外挂一个视觉模块拼起来。</p>
+<p>这两种路线的差别，会落在模型对图文混排内容的理解深度上：原生路线下，模型看一份带界面截图的需求文档、一张带图表的研报时，文字和画面是被当作一个整体来理解的，而不是分两步处理再勉强对齐。对要把&quot;看懂屏幕、再据此操作&quot;做进智能体的团队，这条路线决定了它能不能把视觉信息可靠地转成结构化结果和下一步动作。这也是为什么它在 SimpleVQA 这类带工具的视觉问答上能拿到官方对比图第一——视觉理解不是外挂上去的功能，而是和它的智能体能力长在一起的。</p>
+<p>它的上一代 Step 3.5 Flash 在 2026 年 2 月开源，按官方说法，上线一个月就登上了 OpenRouter 平台 OpenClaw 调用量月榜的全球第一，HuggingFace 下载量超过 30 万。这说明阶跃的 Flash 系列在海外开发者那里已经用真实调用量投过票，3.7 这一代是把&quot;生产级&quot;这件事进一步往前推——不再只追求榜单上好看，而是奔着&quot;能被大规模、长时间、稳定地用在真实业务里&quot;去。</p>
+<h2>11B 激活 + 400 token/s：高频智能体最在意的两个数字</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/chart-stepfun-activation-speed-2026-06-03.png" alt="Step 3.7 Flash 稀疏 MoE：总参数 196B、每 token 只激活约 11B，最高生成速度约每秒 400 个 token"></p>
+<p>对自建智能体的团队来说，模型参数榜上的峰值分数往往不是第一关心的，<strong>延迟和成本才是每天要还的账</strong>。Step 3.7 Flash 最值得讲的两个数字，恰恰落在这两件事上。</p>
+<p>第一个是激活参数。它总参数有 196B，但靠稀疏 MoE，每个 token 推理时只激活约 11B（官方称是 288 个专家里选 8 个）。换算下来，每生成一个 token 实际只动用约 5.6% 的参数。这意味着它有大模型的知识储备，却只付小模型的推理开销——这是它敢自称&quot;快又省&quot;的工程前提。</p>
+<p>第二个是生成速度。官方称最高可达每秒约 400 个 token。这个数字单看也许没感觉，但放进智能体的工作方式里就很要紧：一个智能体跑完一个任务，常常要在&quot;想一步、调一次工具、读一次结果、再想下一步&quot;之间往返几十轮，每一轮都要等模型把 token 一个个吐出来。单步越快，整条任务链路堆起来的等待就越短，体验越接近&quot;即时&quot;。</p>
+<p>把这两件事和&quot;可本地部署&quot;叠在一起，对国内团队的意义就具体了：</p>
+<ul>
+<li><strong>低延迟</strong>：单步生成快，多轮往返的累积等待短，交互体验更顺；</li>
+<li><strong>低成本</strong>：激活参数小，按官方公布的 API 价格，单位 token 成本远低于头部闭源旗舰，自托管时单卡能承载的并发也更友好；</li>
+<li><strong>可本地</strong>：权重 Apache 2.0 开放，官方同时给了 FP8、NVFP4 量化版本，数据不出内网也能把它跑进生产环境。</li>
+</ul>
+<p>阶跃在官方材料里给出过一个很直白的成本说法：在它的&quot;顾问模式（Advisor Mode）&quot;下，能拿到约相当于 Claude Opus 4.6 编程能力 97% 的表现，而单任务成本约为后者的九分之一。这个比例是厂商自评口径，但它点出的方向是真实的——对那些要把智能体大规模铺到生产里、对每一次调用都要算钱的团队，&quot;九分之一的成本换接近的能力&quot;正是 Flash 这类模型存在的理由。</p>
+<p>落到官方 API 定价上，这种&quot;省&quot;是看得见的。按官方开放平台公布的价格（单位：美元 / 百万 token）：输入未命中缓存约 0.20、命中缓存约 0.04、输出约 1.15。</p>
+<p>对智能体场景特别友好的是缓存这一档——系统提示词、工具定义、长文档在多轮任务里会被反复读取，命中缓存后输入价直接降到 0.04，重复部分几乎不再二次收费。对一条要往返几十轮、反复带着同一套上下文的智能体任务来说，这是实打实的省钱点。如果再算上自托管这条路：权重开源、量化齐备，团队完全可以不走 API、直接把模型跑在自己的卡上，按机器折旧而不是按调用量付费——量大到一定程度后，这条路往往更划算。</p>
+<h2>智能体真实任务横评：视觉问答拔尖，多数仍在追</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-stepfun-hf-benchmarks-2026-06-03.png" alt="Step 3.7 Flash 官方 benchmark 大图：覆盖 Agentic Coding、General Agent、Multimodal 三组评测"></p>
+<p><small>来源：阶跃星辰官方 Step 3.7 Flash 发布页 benchmark 大图（HuggingFace 模型卡）· 2026-05-29</small></p>
+<p>这是国内开发者最关心、也最需要把&quot;自评&quot;二字标清楚的部分。下面这些分数全部来自阶跃官方发布页的 benchmark 大图，<strong>均为厂商自评，第三方独立的横向复现尚未出炉</strong>——多家国内媒体在转述时也明确写了这一点，本文沿用同样的口径。</p>
+<p>先把贴近&quot;自建智能体&quot;的几项真实任务分数摆出来，每一项都标明它在测什么：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/chart-stepfun-benchmark-2026-06-03.png" alt="Step 3.7 Flash 智能体真实任务横评：SimpleVQA 拿对比图最高、ClawEval 排第二，其余多项仍落后同台最高分（均为官方自评）"></p>
+<table>
+<thead>
+<tr>
+<th>评测项（测什么）</th>
+<th>Step 3.7 Flash</th>
+<th>同台最高分</th>
+<th>官方定位</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SWE-Bench Pro（真实仓库改 bug）</td>
+<td>56.3</td>
+<td>64.3</td>
+<td>官方称第二</td>
+</tr>
+<tr>
+<td>Terminal-Bench 2.1（终端多步任务）</td>
+<td>59.5</td>
+<td>82.7</td>
+<td>落后头部</td>
+</tr>
+<tr>
+<td>Toolathlon（多工具长链路调用）</td>
+<td>49.5</td>
+<td>65.4</td>
+<td>落后头部</td>
+</tr>
+<tr>
+<td>ClawEval-1.1（端到端智能体）</td>
+<td>67.1</td>
+<td>70.8</td>
+<td>仅次于 Claude Opus 4.6</td>
+</tr>
+<tr>
+<td>GDPval（44 种职业产出物）</td>
+<td>45.8</td>
+<td>63.0</td>
+<td>落后头部</td>
+</tr>
+<tr>
+<td>HLE w. Tool（带工具的难题）</td>
+<td>47.2</td>
+<td>54.7</td>
+<td>落后头部</td>
+</tr>
+<tr>
+<td>SimpleVQA（视觉问答 · 带工具）</td>
+<td>79.2</td>
+<td>79.2</td>
+<td>官方称该项最高</td>
+</tr>
+</tbody></table>
+<p>读这张表，建议分三档来看，别被&quot;全球第二&quot;或&quot;第一&quot;任何一句话单独带偏：</p>
+<ul>
+<li><strong>靠前的</strong>：SimpleVQA（带工具的视觉问答）拿 79.2，是对比图里的最高一档（紧随其后的 GPT-5.5 是 79.1）；ClawEval-1.1（端到端智能体评测）拿 67.1，在对比图里仅次于 Claude Opus 4.6 的 70.8，排在第二，明显甩开同台的 GPT-5.4（60.3）、DeepSeek V4 Flash（57.8）。这两项正好落在它&quot;智能体 + 多模态&quot;合二为一的定位上。</li>
+<li><strong>进第一梯队的</strong>：SWE-Bench Pro（在真实开源仓库里改 bug，最贴近日常编程的一项）拿 56.3，官方在发布页里称这是&quot;第二名&quot;的成绩——对比图最高一档是 Claude Opus 4.7 的 64.3，前面还排着 GPT-5.5（58.6）。56.3 是个能进生产工作流的水准，但官方&quot;第二&quot;这个说法按哪套口径取舍，值得读者自己记一笔；国内开放权重里智谱 GLM-5.1 在该项按公开口径也排得很靠前。</li>
+<li><strong>仍在追的</strong>：Terminal-Bench 2.1（终端环境里的多步任务）拿 59.5，明显落后同台最高的 82.7；Toolathlon（多工具长链路调用）49.5、GDPval（覆盖 44 种职业的产出物）45.8、HLE w. Tool（带工具的高难题）47.2，这几项都还落在头部身后。阶跃没有回避这些数字，把它们和领先项列在了同一张图里，这一点值得肯定。</li>
+</ul>
+<p>一句话总结这张表：Step 3.7 Flash 在带工具的视觉问答上拿到了官方对比图的最高一档，在端到端智能体上排到第二（仅次于 Claude Opus 4.6），在真实仓库改 bug 上站进了第一梯队，但在终端长任务、多工具长链路、跨职业产出物这些更&quot;重&quot;的智能体场景里，离头部还有一段距离。对一款主打&quot;快、省、可本地&quot;的 Flash 模型来说，这个段位是说得过去的——它要换的本来就不是峰值，而是&quot;在可接受的能力上把延迟和成本压到日常用得起&quot;。</p>
+<p>这里要特别说清楚 benchmark 的来路：阶跃这套分数是官方在自己选定的框架下跑出来的自评，对横向比较各家是一致的，但和&quot;第三方盲测榜单&quot;不是一回事。更要紧的是，对自建智能体的团队，benchmark 的真正价值在于<strong>可复现</strong>——SWE-Bench Pro、Terminal-Bench、Toolathlon 这些项目本身都是公开的智能体任务集，权重既然开源，社区完全可以在自己的硬件、自己的框架上把同样的题重新跑一遍，验证这些数字经不经得起复现。这正是开源带来的、闭源模型给不了的那层确定性。</p>
+<h2>开源这件事，才是它对自建智能体团队的真正分量</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-stepfun-nvidia-blog-2026-06-03.png" alt="Step 3.7 Flash 与 NVIDIA 联合：vLLM / SGLang / TensorRT-LLM / NIM 全链路适配，FP8、NVFP4 量化齐备"></p>
+<p><small>来源：NVIDIA 官方技术博客 Run Step 3.7 Flash on NVIDIA GPUs · 2026-05</small></p>
+<p>把视角从分数拉回到&quot;怎么用&quot;。对一个要自己搭智能体框架（harness）的国内团队来说，Step 3.7 Flash 最实在的一点，是它把&quot;模型挑选&quot;这件事从&quot;只能租闭源 API&quot;变成了&quot;可以拿权重回家自己跑&quot;。</p>
+<p>它在部署这一侧的适配相当齐全：</p>
+<ul>
+<li><strong>推理框架</strong>：官方适配 vLLM、SGLang、HuggingFace Transformers、llama.cpp，并通过 SGLang 接 NVIDIA TensorRT-LLM 的优化算子；vLLM、SGLang 都给了预置 Docker 镜像。</li>
+<li><strong>量化版本</strong>：除 BF16 基座外，提供 FP8 与 NVFP4 两种量化权重，显存与带宽占用更友好；llama.cpp 一侧还有 Q4_K_S、IQ4_XS 等 GGUF 量化档。</li>
+<li><strong>接入通道</strong>：除自托管外，云端可走阶跃开放平台 API，也已上 OpenRouter、NVIDIA NIM，以及 DeepInfra、Fireworks AI 等第三方推理平台。</li>
+<li><strong>智能体协议</strong>：官方明确兼容 MCP、Skills 这类工具调用协议，并对 Claude Code、OpenClaw、KiloCode、RooCode、OpenCode、Hermes Agent 等主流智能体框架做了适配。</li>
+</ul>
+<p>这串清单背后是一件对开发者很关键的事：<strong>你不必为了用上一个够格的智能体底座，就把数据和调用全交给云端闭源 API。</strong> 把 Step 3.7 Flash 的 FP8 权重拉到自己的机房，接进自己写的智能体框架，用 MCP 把内部工具挂上去——整套链路都在自己手里，延迟自己控，成本自己算，数据不出域。对金融、政务、企业内网这些对数据合规敏感的场景，这层确定性本身就是不写在 benchmark 表里的硬价值。</p>
+<p>值得单独提一句的是&quot;高可靠工具调用&quot;这条。智能体在生产里最怕的不是某一步答错，而是工具调用格式飘、参数填错、该停的时候停不下来——一条几十轮的任务链，任何一环抽风，整个任务就废了。阶跃把这一项当成 Step 3.7 Flash 的核心卖点之一，并在 τ²-bench 的电信场景里给出过一个佐证：低、中、高三档难度的通过率都超过 98%（官方自评口径）。对要把智能体规模化铺进生产流程的团队，这种&quot;稳定不抽风&quot;的可靠性，往往比某一项峰值分数更值钱。</p>
+<p>开源权重对一款&quot;生产级 Agent 模型&quot;的意义还不止于此。权重摆上台面，社区就能把官方那套自评分数拿去复现，把高可靠工具调用的行为在真实任务里反复验证，也能针对自家业务做微调、做蒸馏、做私有部署。</p>
+<p>过去一年，DeepSeek、千问（Qwen）、智谱 GLM、Kimi 这几家的开源动作，已经让国产模型在全球开发者那里攒下了相当的信任——大家愿意基于它们二次开发，正是因为权重是骡子是马拉出来遛得到。Step 3.7 Flash 把&quot;模型 + 权重 + 多框架适配&quot;一整套完整交出来，等于把自评成绩单的可信度也一并交给社区检验，这比任何一句&quot;全球第二&quot;的口号都更有说服力。</p>
+<h2>放进坐标系：和千问、GLM、DeepSeek 这些开放权重底座怎么选</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/chart-stepfun-open-weight-peers-2026-06-03.png" alt="把 Step 3.7 Flash 放进开放权重 Agent 模型的坐标系：国内四家权重均可下载，闭源 Flash 仅作对位参照"></p>
+<p>国内自建智能体的团队，手里的开放权重选项其实已经不少。把 Step 3.7 Flash 放进这个坐标系，更容易看清它的位置。</p>
+<table>
+<thead>
+<tr>
+<th>模型（厂商 · 国籍）</th>
+<th>开源协议</th>
+<th>总 / 激活参数</th>
+<th>上下文</th>
+<th>智能体定位</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Step 3.7 Flash（阶跃星辰 · 国内）</td>
+<td>Apache 2.0</td>
+<td>196B / 约 11B</td>
+<td>256K</td>
+<td>生产级 · 主打速度成本可靠</td>
+</tr>
+<tr>
+<td>DeepSeek V4（深度求索 · 国内）</td>
+<td>MIT</td>
+<td>约 1.6T / 稀疏激活</td>
+<td>1M</td>
+<td>开源旗舰 · 综合能力强</td>
+</tr>
+<tr>
+<td>千问 Qwen3.6（阿里 · 国内）</td>
+<td>Apache 2.0</td>
+<td>多档 MoE</td>
+<td>256K 起</td>
+<td>开源全家桶 · 商用稳</td>
+</tr>
+<tr>
+<td>GLM-5.1（智谱 · 国内）</td>
+<td>MIT</td>
+<td>稀疏 MoE</td>
+<td>200K 起</td>
+<td>智能体见长 · 工具调用强</td>
+</tr>
+<tr>
+<td>Kimi K2.6（月之暗面 · 国内）</td>
+<td>开放权重</td>
+<td>稀疏 MoE</td>
+<td>长上下文</td>
+<td>长文 / 智能体</td>
+</tr>
+<tr>
+<td>Claude Haiku（Anthropic · 海外）</td>
+<td>闭源 API</td>
+<td>未公开</td>
+<td>200K</td>
+<td>闭源 Flash 对位参照</td>
+</tr>
+<tr>
+<td>Gemini 3.5 Flash（谷歌 · 海外）</td>
+<td>闭源 API</td>
+<td>未公开</td>
+<td>1M</td>
+<td>闭源 Flash 对位参照</td>
+</tr>
+</tbody></table>
+<p>几条对位的判断，给得明确一些：</p>
+<ul>
+<li><strong>对位 DeepSeek V4</strong>：DeepSeek V4 是综合更全面的开源旗舰，体量也大得多（约 1.6T 总参数、1M 上下文），适合追求单点峰值与最大通用能力的场景；Step 3.7 Flash 的差异化在&quot;轻&quot;——11B 激活、约 400 token/s，专为高频多轮智能体的延迟和成本优化，是两类不同的活。</li>
+<li><strong>对位千问 Qwen3.6</strong>：同为 Apache 2.0、商用最省心的一档。千问胜在开源全家桶、生态成熟、各尺寸齐全；Step 3.7 Flash 更专一，把&quot;生产级智能体&quot;这一个目标做深，原生多模态 + 工具调用是它的招牌。</li>
+<li><strong>对位 GLM-5.1</strong>：这是最直接的同台对手。智谱 GLM-5.1 在智能体、工具调用上同样见长，按公开口径在 SWE-Bench Pro 上排得很靠前（不过它没出现在阶跃这张对比图里，跨框架直接比分要谨慎）。两者都把宝押在智能体上，GLM-5.1 用的是 MIT、Step 3.7 Flash 用的是 Apache 2.0，许可证都足够宽松，具体选哪个，建议按自己最常跑的那类智能体任务实测后再定。</li>
+</ul>
+<p>要说明的是，阶跃官方那张 benchmark 大图列的对手是 DeepSeek V4 Flash、Gemini 3.5 Flash、GPT-5.5、Claude Opus 4.7/4.6、Kimi K2.6 这几款（同台最高分多数来自 GPT-5.5 或 Claude Opus），并没有逐项摆出本文坐标系里的千问 Qwen3.6、GLM-5.1、DeepSeek V4 这些开放权重底座的对应分数。所以本文不为坐标系里这几家在 Step 的评测框架下编造数字——跨模型的精确对比，建议以各家官方各自披露、或第三方统一框架的实测为准。</p>
+<p>从选型角度，可以这样安排手里的工具组合：如果你的工作量集中在最高强度的通用推理、对单点峰值最敏感，DeepSeek V4 这类大体量旗舰仍有它的位置；如果你要的是把一套智能体高频、大规模铺进生产，对每一次调用的延迟和费用都斤斤计较，又希望权重能搬进自己机房，那 Step 3.7 Flash 这种&quot;为智能体调过、又开源、又快又省&quot;的 Flash 模型，正好补上这个位置。这不是&quot;谁取代谁&quot;，而是&quot;什么场景下少付几倍的钱、少等几倍的时间&quot;。</p>
+<h2>一点冷静，也是一点底气</h2>
+<p>把好消息说完，边界也得说清楚。Step 3.7 Flash 这次拿出的所有基准成绩都是厂商自评，且第三方独立复现尚未出炉；它在终端长任务、多工具长链路、跨职业产出物这些更&quot;重&quot;的智能体场景上，离头部还有可见的差距。这些都要在自己的真实任务里跑过才算数。</p>
+<p>更现实的验证方法，是把它接进自己的智能体框架跑一段时间。好在它已经开源、已经开放 API，这个验证周期不会太长，可以分几步来试：</p>
+<ul>
+<li>把 FP8 或 NVFP4 权重拉到自己的机器，用 vLLM 或 SGLang 起服务，先把&quot;本地能跑起来、显存够不够、并发稳不稳&quot;这件事确认掉；</li>
+<li>用 MCP 把你现有的几个内部工具挂上去，让它在真实的多轮任务里跑工具调用，重点看它在高、中、低三档推理下，可靠性和延迟、成本之间怎么权衡；</li>
+<li>挑一份你平时要人工读半天的图文文档，让它直接结构化输出，对照人工结果看准确率——这是它原生多模态最该发力的地方。</li>
+</ul>
+<p>三步走完，Step 3.7 Flash 在你这套智能体工作流里的位置，基本就清楚了。</p>
+<p>说到底，一个国内团队，能在&quot;为智能体专门优化、把激活参数压到 11B、速度做到每秒 400 个 token、还把权重连同多框架适配一起 Apache 2.0 开源&quot;这几件事上同时交卷，这本身就是一件让人对国产开源底座更有底气的事。它未必是每一项榜单的第一，但它让&quot;自己搭一套能本地跑、低延迟、可复现的智能体&quot;，第一次有了一个不必看闭源 API 脸色的现成起点。剩下的，交给每个团队自己的真实任务来评分。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

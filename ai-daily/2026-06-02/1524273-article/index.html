@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>上下文窗口从128K到1M：ChatGPT为何还是记不住你的品牌色？ — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-02</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-02</span><span class="tag-pill">AI Daily</span></div>
+      <h1>上下文窗口从128K到1M：ChatGPT为何还是记不住你的品牌色？</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/1524273-article/head.png" alt=""></p>
+<p>你打开任何一个大模型对话界面，随手输入“帮我写一份 Q3 市场分析报告”。几秒钟后，一份结构完整、数据翔实的文档就出现在屏幕上。一切看起来都那么理所当然。</p>
+<p>但如果你在这句话后面再补一句——“对了，记得用上次开会说的那套新的品牌色，还有，数据口径跟财务部对齐，别用市场部那版”——AI 就开始犯难了。它要么礼貌地请你重新描述一遍“上次开会说的品牌色”和“财务部的数据口径”，要么干脆给你生成一份看起来漂亮但完全不符合内部规范的报告。</p>
+<p>这不是 AI 不够聪明。<strong>这是它“记得”的东西不够用，而你能“塞”给它的信息又受到物理极限的约束。</strong></p>
+<p><strong>上下文，正在成为 AI 应用中最昂贵也最稀缺的资源——而且这个局面短期内不会因为硬件进步而彻底改变。</strong></p>
+<h2>为什么不能把所有东西都塞给 AI？</h2>
+<p>要理解这个问题，我们得先看看大模型的大脑——Transformer 架构——到底是怎么“想”事情的。</p>
+<p>当你给模型一段文本，它会把这段文本里的每一个词都变成一个向量（你可以理解为一串数字坐标）。然后，它会让每一个词都去“关注”这段文本里的所有其他词，计算彼此之间的关联强度。这一步，叫做自注意力（Self-Attention）。</p>
+<p>问题就出在这里。假设你输入的文本长度是 n 个词，那么模型需要计算的“词与词之间的关系”是一个 n × n 的巨大矩阵。当 n 从 1000 变成 10000 时，这个矩阵的大小从 100 万格直接跳到 1 亿格——<strong>计算量增加了整整 100 倍</strong>。这就是计算机科学里臭名昭著的 O(n²) 复杂度。</p>
+<blockquote>
+<p>想象一个圆桌会议：4 个人开会，每个人只需要关注另外 3 个人的发言，交流轻松自如。当人数增加到 40 人，每个人需要同时追踪 39 条对话线索，整个房间的信息交换复杂度呈几何级数攀升。Transformer 面对的，正是这种困境。</p>
+</blockquote>
+<p>这意味着什么？意味着哪怕你的显卡再强、上下文窗口从 128K 扩到 1M，你永远不可能用“把所有资料都扔进去”的方式一劳永逸地解决问题。把一本 500 页的技术手册完整塞进上下文，带来的可能是响应时间从 2 秒变成 20 秒，推理成本从几分钱飙升到几块钱——<strong>而模型的注意力反而在信息的海洋中被稀释，重要的细节淹没在无关的噪声里</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/1524273-article/schematic-1.png" alt="O(n²) 复杂度示意，随着输入长度增加，计算量指数级上升的曲线图"></p>
+<p>正因如此，从 2022 年 12 月 ChatGPT 发布以来，“如何更好地管理上下文”就成了整个业界持续攻关的核心方向之一。过去几年，业界逐渐摸索出了三条相对清晰的技术路径：RAG（检索增强生成）、Memory（记忆系统）、以及 Sub-Agent（子代理架构）。而在这些之上，最近又冒出来一个新概念——Skills——正在重新定义我们组织上下文的方式。</p>
+<h2>RAG：让模型学会“查资料”而不是“背资料”</h2>
+<p>RAG 的核心思路非常朴素，甚至有点偷懒：既然上下文窗口装不下所有信息，那就别装了，需要什么再去查。</p>
+<p>这其实模仿的是人类专家的工作方式。一位资深律师不会把所有法条都背在脑子里，但他知道在遇到具体案件时，该去哪里找到相关的判例和条文。RAG 赋予了大模型类似的能力：当用户提出问题时，系统先从外部知识库中检索出可能相关的文档片段，然后把这些片段和用户的问题一起送进模型，让模型在“有据可查”的前提下生成回答。</p>
+<p>这个设计的精妙之处在于，它将“知识存储”和“推理能力”解耦了。模型本身不需要记住所有细节，它只需要具备理解和整合信息的能力。知识库可以随时更新、扩展，甚至可以对不同领域构建专门的知识源，而模型的参数不需要任何改动。</p>
+<p>但 RAG 的短板也同样扎眼。检索的质量严重依赖于向量化表示和相似度匹配的准确性，而语义相似并不总是等于逻辑相关。一个用户问“如何处理项目延期”，检索系统可能返回一堆包含“项目”和“延期”关键词的文档——但真正有价值的，可能是某次会议纪要中关于资源调配策略的讨论，而这段内容在字面上可能完全没提到“延期”二字。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/1524273-article/schematic-2.png" alt="RAG 工作流程示意，用户提问 → 向量检索 → 返回相关文档片段 → 拼接进上下文 → 模型生成回答"></p>
+<p>从原理上看，RAG 本质上是一种“即时查询”机制。它擅长回答事实性的问题——某个 API 的参数是什么、某份合同的关键条款有哪些——但很难处理需要长期上下文积累的推理任务。它能告诉你一个函数的用法，但记不住你三天前说过“以后所有接口都要加上日志追踪”这样的持续性约定。</p>
+<p><strong>RAG 解决的是“世界知识”的焦点问题——那些存在于外部文档、数据库、知识图谱中的客观信息。但还有一种知识，藏在持续交互的缝隙里，那是关于“我们之间”的默契和约定。</strong> 这就引出了第二条路径。</p>
+<h2>记忆系统：让模型学会“记事情”</h2>
+<p>如果说 RAG 是让模型学会查资料，那么记忆系统就是让模型学会记事情——而且是像人一样，分门别类地记。</p>
+<p>这个方向的设计灵感直接来源于认知科学对人类记忆的研究。心理学家早就发现，人类的记忆并非单一的存储系统，而是由工作记忆、短期记忆和长期记忆等多个子系统协同运作的复杂网络。每个子系统有不同的容量限制、存储时长和提取机制。</p>
+<p>映射到 AI 系统中，这种分层设计就变成了三层结构：</p>
+<p><strong>工作记忆</strong>对应的是当前对话轮次中的即时上下文，容量最小但访问最快。你刚才说的那句话、你正在编辑的这段代码，都活跃在这个层面。<strong>短期记忆</strong>通常覆盖一个会话周期或一个任务阶段，存储的是“这次我们在讨论什么”“用户刚才提出了哪些要求”这类信息。很多产品中的“对话历史”功能就属于这个层面，但更精细的做到会对历史内容摘要和压缩，而非无限塞原始对话记录到上下文——毕竟大家的钱包和 GPU 都受不了。</p>
+<p><strong>长期记忆</strong>则是跨越会话、跨越任务的持久化存储。它保存的是用户的偏好设定、项目的核心约定、历次协作中提炼出的经验教训。这些信息有的会在每次对话中都被加载，有的会在系统判断其相关时才被调取。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/1524273-article/schematic-3.png" alt="三层记忆系统架构图，工作记忆 → 短期记忆 → 长期记忆，标注各自的容量、时效和访问速度"></p>
+<p>以 ChatGPT 为例，OpenAI 构建了一套相当精细的用户画像系统：显式保存的记忆条目、隐式提取的行为洞察、响应风格偏好、近期对话摘要，再加上各种交互元数据。这些信息被结构化地组织起来，在每次对话开始时根据语义相关性动态注入到系统提示中。<strong>用户看到的是“ChatGPT 记得我喜欢咖啡”，实际发生的是系统在背后偷偷提醒模型“这位用户喜欢咖啡”。</strong></p>
+<blockquote>
+<p>在记忆系统的探索上，市面上有非常多出色的开源项目，例如 LangChain 的 Memory 模块、LlamaIndex，以及专门对长短期记忆优化的 Mem0 和 Zep 等。</p>
+</blockquote>
+<p>但记忆系统的设计也是一项极其复杂的系统工程：什么信息应该从短期记忆“固化”到长期记忆？什么时候应该“遗忘”过时的内容？如何在提取记忆时平衡相关性和新鲜度？这些问题目前都还没有标准答案，不同的产品和框架给出了各异的策略。</p>
+<p><strong>如果说 RAG 解决的是“世界知识的焦点”，那么记忆系统解决的就是“关系知识的焦点”——那些在持续交互中积累的、关于“我们之间”的默契和约定。</strong> 一个成熟的系统往往需要两者协同工作：RAG 告诉模型“这个 API 的参数是什么”，记忆系统告诉模型“用户三天前说过以后所有接口都要加日志追踪”。</p>
+<p>但无论是 RAG 还是记忆系统，它们本质上都还是在“单个模型”的框架内做优化。当任务复杂度继续上升，当我们需要处理的不再是简单的问答而是多步骤、多领域的协作流程时，第三条路径开始显现出它的价值。</p>
+<h2>子代理架构：分而治之，各管各的上下文</h2>
+<p>前面两种方法都在试图优化“单个模型如何更好地利用上下文”，而子代理架构则换了一个思路：既然一个模型的上下文有限，那就让多个模型分工合作，每个模型只需要关注自己负责的那部分上下文。</p>
+<p>这种设计的灵感来源更像是现代管理学：当一个复杂项目需要处理时，你不会让一个人记住所有细节、完成所有任务。更有效的方式是设立不同的角色——有人负责整体规划，有人专注代码做到，有人处理文档撰写，有人质量检查。每个角色只需要掌握自己领域内的深度上下文，用明确的接口和协议与其他角色协作。</p>
+<p>在 AI 系统中，这就演变成了“主代理 + 多个专业子代理”的架构。主代理负责理解用户意图、分解任务、协调调度；子代理各自专注于特定领域，比如代码生成、文件操作、网络搜索、数据分析等。当主代理判断某个任务需要特定能力时，它将相关的上下文片段传递给对应的子代理，由子代理完成具体工作后返回结果。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/1524273-article/schematic-4.png" alt="主代理 + 子代理架构示意，主代理拆解任务并分发到代码子代理、文档子代理、搜索子代理等"></p>
+<p>这种架构带来的好处是多方面的。首先，每个子代理的上下文可以高度专业化，不会被无关信息干扰——一个专门处理数据库查询的子代理，它的上下文里就只有数据库模式、查询需求和相关的领域知识，不会混入用户偏好设置或项目管理约定。其次，不同子代理可以并行工作，提升整体效率。第三，也是最关键的一点：失败隔离——一个子代理的错误不会污染其他子代理的上下文和状态。</p>
+<p>当然，这种架构也引入了新的复杂性。代理之间如何有效通信？主代理如何判断应该调用哪个子代理？任务分解的粒度如何把握？多个子代理的输出如何整合成连贯的最终结果？这些都是工程做到中需要仔细权衡的问题。</p>
+<p>在工程实践层面，开源社区已经有了不少代表性的项目。LangGraph 把每个代理抽象成图上的节点，用状态机和有向图来控制谁在什么时候接过话语权；CrewAI 则是把一组代理组织成一个“crew”，用角色设定和 Flow 抽象来管理多代理之间的上下文共享与任务分派。MetaGPT 的设计更加激进——直接把系统设计成一个小型软件公司，内部有产品经理、架构师、项目经理、开发和测试等不同角色，输入一句需求，就会沿着既定流程完成需求拆解、技术方案、代码做到再到文档输出。</p>
+<p><strong>RAG、Memory、Sub-Agent——这三条路径，本质上都是在回答同一个问题：在有限的注意力资源下，如何把认知焦点放在最关键的地方。</strong> 但它们都有一个共同的特征：人类预先设计好，AI 被动执行。人类决定什么该被记住、什么该被检索、什么流程该被拆解成子代理。</p>
+<p>那么，有没有一种方式，能让 AI 自己学会“如何做事”，并把这种能力打包、复用、甚至跨产品共享？</p>
+<p>这就是 Skills 要解决的问题。</p>
+<h2>Skills：把“如何做事”打包成一个文件夹</h2>
+<p>Skills 这个概念，最早由 Anthropic 提出，并在其 Claude 产品中落地。在当前业界语境下，Skills 通常被做到为一个文件夹——里面放着说明书、参考资料，有时还包含脚本。支持 Skills 的智能体可以在合适的时机把对应 Skills 的内容加载进自己的上下文，把自己暂时变成某个领域的熟练工。</p>
+<p>OpenAI 在 Codex 里对 Skills 的定义是：Skills 让团队可以把组织里的经验和流程沉淀成可复用、可共享的工作流，让 Codex 在不同人、不同仓库、不同会话中都能保持一致的行为。Anthropic 的 Claude Skills 则把它解释成“写在 Markdown 文件里的超级提示词”，再配上一些参考资料和脚本，让 Claude 像拿到了一本本可以随时翻开的业务手册。</p>
+<p>从这些做到里抽象出来，Skills 可以被理解为满足三点的东西：第一，它是结构化的上下文包，是一个有文件结构的小型知识库，核心通常是一份 SKILL.md 文件，里面写清楚任务定义、语气风格、操作步骤、注意事项，旁边可以挂各种 PDF、示例模板、脚本。第二，它是可复用的流程单元，是程序化的 playbook，强调可重复执行、结果稳定、可以不断迭代。第三，它是按需加载的能力扩展——设计上强调“渐进式暴露”：先只把 Skill 的元信息丢给模型，让它知道“有这么个工具”，只有当当前任务真的需要时，才把完整说明、脚本和资源一点点塞进上下文里。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/1524273-article/schematic-5.png" alt="Skills 文件结构示意，SKILL.md + scripts/ + references/ + assets/ 的文件夹树形图"></p>
+<p>如果只从产品交互层面看，Skills 解决的是一个很多人已经习惯到麻木的问题：重复说人话。在 Claude Skills 的介绍里反复举一个例子：你有一套公司内部的写作规范，每次让 AI 写新闻稿、周报、提案前，都要先贴一大段要求。有了 Skill 之后，把这些要求写进 SKILL.md，再配上历史范文，之后只要说“帮我写一份本周市场回顾”，模型自己就会加载那套规范，套模板、控语气。</p>
+<p><strong>但如果只是“把常用指令存起来方便调用”，那 Skills 看起来和以前的 system prompt 套壳助手没什么本质区别。Skills 真正在处理的是一个更难啃的问题：上下文管理。</strong></p>
+<p>在这里，被迫重复说人话只是症状，病根在于用户每次都得把完整的背景信息塞进对话窗口。一份风格指南可能几千字，每轮都贴进去，既麻烦费钱又挤占模型的注意力。Skills 的做法是把“我具备这项能力”的声明和“这项能力的完整说明”拆开存放，只在确实需要时才展开详细内容——可以显著节省 token，也减轻注意力扩散的问题。</p>
+<p>让我们拆解一个真实案例。Anthropic 官方提供了一个 docx 文件处理 Skill，它的文件结构是这样的：</p>
+<pre><code>docx/
+├── SKILL.md          # 核心指令文件（197 行）
+├── LICENSE.txt       # 许可协议
+├── docx-js.md        # docx-js 库详细文档（约 500 行）
+├── ooxml.md          # OOXML 操作详细文档
+├── scripts/
+│   ├── document.py   # Python 文档操作库
+│   ├── utilities.py  # 工具函数
+│   └── templates/    # XML 模板文件
+└── ooxml/
+    └── scripts/
+        ├── unpack.py   # 解包 docx 文件
+        ├── pack.py     # 打包 docx 文件
+        └── validate.py # 验证文档结构
+</code></pre>
+<p>这个 Skill 的 SKILL.md 头部有一个 YAML 元数据块：</p>
+<pre><code>---
+name: docx
+description: &quot;Comprehensive document creation, editing, and analysis with support for tracked changes, comments, formatting preservation, and text extraction...&quot;
+license: Proprietary. LICENSE.txt has complete terms
+---
+</code></pre>
+<p>关键在于那个 description 字段。在 Agent 启动时，所有已安装的 Skills 的 name 和 description 都会被加载到上下文中——但 SKILL.md 的正文内容此时还没有被读取。如果你有 20 个 Skills，每个 description 平均 100 tokens，那么启动成本只有 2000 tokens。相比之下，如果直接加载所有 Skills 的完整内容（平均每个 5000 tokens），启动成本将高达 100,000 tokens。</p>
+<p><strong>这就是“渐进式上下文披露”的核心思想：将“能力的声明”和“能力的细节”在原本已经模块化的前提下进一步解耦。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-02/1524273-article/schematic-6.png" alt="Skills 渐进式加载的三阶段流程：发现阶段（仅加载元信息）→ 激活阶段（加载 SKILL.md 正文）→ 执行阶段（按需加载 references 和 scripts）"></p>
+<p>更进一步，这个 docx Skill 的正文里还有一个决策树结构，对不同场景规定了不同的工作流：阅读文档用“文本提取”方案，创建新文档用 docx-js 库，编辑他人文档必须走“修订模式”工作流。这个设计体现了 Skills 的一个核心原则：自由度是根据任务脆弱性动态调整的。对于“读取文档”这种低风险操作，只提供工具建议，给 Agent 高度自由；对于“添加修订标记”这种高风险操作，提供详细的步骤和示例，严格限制自由度。</p>
+<blockquote>
+<p>用 Anthropic 的话说：“把 Claude 想象成在探索一条路：悬崖边的窄桥需要特定的护栏（低自由度），而开阔的田野允许多条路线（高自由度）。”</p>
+</blockquote>
+<p>此外，Scripts 目录里的 Python 脚本还解决了另一个关键问题：某些操作太容易出错，不应该让 LLM 每次都从头生成代码。如果没有 document.py 提供的 add_comment() 方法，每次 Agent 需要在 Word 文档中添加批注时，都要手动解析 OOXML 的 XML 结构、生成符合规范的元素、在正确的位置插入引用标记、更新 comments.xml 文件、确保所有 ID 不冲突——这个过程有太多细节需要处理，LLM 很容易在某个环节出错。<strong>用脚本封装提供确定性保证，这是 Skills 的第三个核心能力。</strong></p>
+<p>Anthropic 在 skill-creator 这个 meta-skill 中有一段话，我觉得是整个 Skills 设计哲学的精髓：</p>
+<blockquote>
+<p>上下文窗口是一种公共资源。技能与 Claude 所需的其他所有内容共享上下文窗口：系统提示词、对话历史、其他技能的元数据以及实际的用户请求。默认假设：Claude 已经非常聪明。仅添加 Claude 尚未掌握的内容。质疑每一条信息：“Claude 真的需要这个解释吗？”以及“这段文字的价值是否对得起它的 Token 开销？”</p>
+</blockquote>
+<p>这段话透露出的设计哲学是：Skills 不是文档，是操作手册。不要写 README.md 解释这个 Skill 是干什么的（那是给人看的），不要写 CHANGELOG.md 记录版本历史（AI 不关心历史），不要写 INSTALLATION_GUIDE.md 解释如何安装（那是部署阶段的事）。只写 SKILL.md，里面只放“如何完成任务”的操作指令。<strong>它是给 AI 的 playbook，不是给人的说明书。</strong></p>
+<h2>上下文管理的未来：从“塞”到“取”到“挂载”再到“生长”</h2>
+<p>把视野拉远一点，我们会发现上下文管理这件事正在经历一场方法论革命。</p>
+<p>最早期的做法是“塞”——把所有可能相关的信息一股脑塞进提示词里，然后祈祷模型能从中找到有用的部分。后来演变成“取”——用 RAG 和记忆系统，在需要时精准提取相关片段。现在 Skills 代表的是“挂载”——把预先打包好的能力模块按需加载。</p>
+<p>而未来的方向，很可能是“生长”。</p>
+<p>如果我们观察人类专家是如何积累能力的，会发现：专家的技能不是被“配置”出来的，而是在实践中涌现出来的。一个资深律师不会先背诵完所有 SOP 再开始工作，而是在处理一个又一个案件的过程中，逐渐提炼出自己的工作方法。这指向了一个令人兴奋的可能性：Agent 能否从交互中自主习得新的 Skills？当一个 Agent 反复处理类似的任务，它能否自己识别出“这是一个值得固化的流程”，然后自动生成对应的 SKILL.md？</p>
+<p>一些前沿探索已经在触碰这个边界。早在三年前，Voyager 项目就已让 Agent 在 Minecraft 中用代码库的形式积累可复用的技能。在 Yunjue-Agent 项目中，我们也可以看到 Agent 在复杂任务中完全可以自己制造一大批 Skills 工具，然后进一步螺旋升天自我强化去解题，像人那样持续学习，而迭代速度则远快于人类。</p>
+<p>想象一个 Agent，它的能力库像一棵不断生长的树：每次成功完成一个复杂任务，它都会把其中可复用的部分萃取出来，形成新的枝叶；那些长期不被调用的能力会逐渐休眠，被压缩成更紧凑的索引；而那些频繁使用的核心技能则会被反复打磨，变得越来越精炼高效。这棵树不需要人类园丁每天修剪，它自己知道哪些枝条该保留、哪些该剪去、哪些该合并。</p>
+<p>当然，这幅图景目前还只是一种可能性，而非现实。在真正落地之前，还有大量的技术挑战需要攻克：如何让模型可靠地识别“值得固化”的模式？如何防止自动生成的 Skills 质量退化或相互冲突？如何在保持灵活性的同时确保行为的一致性和可预测性？这些问题都没有现成的答案。</p>
+<p>但有一点可以确定：在模型能力不断提升、上下文窗口持续扩大的今天，“如何更好地管理上下文”这个问题并没有变得更简单，反而变得更加复杂、更加关键。无论是对人类还是对 AI 而言，能够在信息的洪流中准确地知道“现在该关注什么”，才是一切有效协作的前提。</p>
+<p>RAG、Memory、Skills、Sub-Agent——这些名词背后，本质上都是在回答同一个问题：在有限的注意力资源下，如何把认知焦点放在最关键的地方。RAG 解决的是世界知识的焦点，Memory 解决的是关系知识的焦点，Skills 解决的是程序知识的焦点，而子代理架构则是用分工把复杂任务拆解成多个更容易聚焦的子问题。它们不是互相替代的关系，而是一个成熟系统需要同时编织的多条线索。</p>
+<p>而 Skills 的出现，也许标志着我们开始从“替 AI 管理上下文”走向“让 AI 自己管理上下文”的转折点——虽然这个转折才刚刚开始。</p>
+<h2>参考来源</h2>
+<ul>
+<li>原帖：<a href="https://linux.do/t/topic/1524273" target="_blank" rel="noopener">https://linux.do/t/topic/1524273</a> （作者：linux.do 用户 香蕉生的）</li>
+<li>Anthropic Skills 仓库：<a href="https://github.com/anthropics/skills" target="_blank" rel="noopener">https://github.com/anthropics/skills</a></li>
+<li>Agent Skills 规范：<a href="https://agentskills.io" target="_blank" rel="noopener">https://agentskills.io</a></li>
+<li>Lapis0x0 博文《浅谈 ChatGPT 的记忆做到机制》：<a href="https://www.lapis.cafe/posts/technicaltutorials/chatgpt-memory-system-breakdown/" target="_blank" rel="noopener">https://www.lapis.cafe/posts/technicaltutorials/chatgpt-memory-system-breakdown/</a></li>
+<li>香蕉生的博客全文：<a href="https://www.lapis.cafe/posts/ai-and-deep-learning/agi/context-scarcity-rag-memory-skills/" target="_blank" rel="noopener">https://www.lapis.cafe/posts/ai-and-deep-learning/agi/context-scarcity-rag-memory-skills/</a></li>
+<li>LangGraph：<a href="https://github.com/langchain-ai/langgraph" target="_blank" rel="noopener">https://github.com/langchain-ai/langgraph</a></li>
+<li>CrewAI：<a href="https://www.crewai.com" target="_blank" rel="noopener">https://www.crewai.com</a></li>
+<li>MetaGPT：<a href="https://github.com/FoundationAgents/MetaGPT" target="_blank" rel="noopener">https://github.com/FoundationAgents/MetaGPT</a></li>
+<li>CAMEL：<a href="https://github.com/camel-ai/camel" target="_blank" rel="noopener">https://github.com/camel-ai/camel</a></li>
+<li>Kilo Code：<a href="https://github.com/Kilo-Org/kilocode" target="_blank" rel="noopener">https://github.com/Kilo-Org/kilocode</a></li>
+<li>Yunjue-Agent：<a href="https://github.com/YunjueTech/Yunjue-Agent/" target="_blank" rel="noopener">https://github.com/YunjueTech/Yunjue-Agent/</a></li>
+</ul>
+<p>#RAG #Memory #Skills #AI #科技</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

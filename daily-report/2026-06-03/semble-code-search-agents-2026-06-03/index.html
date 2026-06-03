@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>给 Claude Code 装个语义检索：别再让它 grep 完读整篇 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-03</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-03</span><span class="tag-pill">Daily Report</span></div>
+      <h1>给 Claude Code 装个语义检索：别再让它 grep 完读整篇</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/semble-code-search-agents-2026-06-03.png" alt="一个语义检索层站在编码 Agent 和代码仓库之间，只把最相关的几段代码递回去，低多边形风格示意"></p>
+<p>用 Claude Code 或者 Cursor 在一个陌生的大仓库里干活，多半都见过这一幕：你让它改一处认证逻辑，它先 grep 一个关键词，搜出二十几个命中，然后挨个把这些文件整篇读进上下文。等它真正动手时，窗口里已经塞了几万令牌的代码，其中大部分跟你要改的那一处毫无关系。<strong>问题不在模型不会找，而在它手上只有 grep 这把锤子——只能按字面命中，命中之后又只能把整个文件搬进来看。</strong></p>
+<p>仓库 MinishLab/semble 想正面解决的就是这一块。它给自己的定位很直白：<strong>做一个专门给 Agent 用的代码检索库，用自然语言或者一个符号名去问，直接返回那几段最相关的代码，不用 grep，也不用把整文件读进来。</strong> 6 月 3 日核对仓库，总 star 约 4,735、196 个 fork、MIT 许可、Python 写成，今年 4 月初建库；对应那条 Show HN 帖约 445 分、151 条讨论。它对外打出的卖点是一句话：<strong>比 grep 完再读整文件省约 98% 的令牌。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-semble-github-card-2026-06-03.png" alt="semble 仓库社交卡片：给 Agent 用的快速且准确的代码检索，比 grep 加读文件省约 98% 令牌">
+<small>来源：MinishLab/semble 仓库社交卡片</small></p>
+<p>这篇文章想把几件事讲清楚：<strong>grep 加读文件这套默认做法到底差在哪、那个省 98% 令牌的数字是怎么算出来的、它跟向量检索式 RAG 又有什么不同、给 Claude Code 和 Cursor 怎么把它接进来、以及国内开发者本地用它配自己的模型端点要留意什么。</strong> 结论先放这儿——如果你的痛点是 Agent 在大仓库里找代码又慢又费令牌，给它换上一个语义检索层是相当对症的思路；但真正值得讲的不是&quot;省了多少令牌&quot;，而是<strong>它在更小的令牌预算下拿到了更高的召回</strong>，省令牌只是这件事的副产品。怎么看待这个区别，本文会摊开说。</p>
+<h2>grep 这把锤子的真正短板：召回低，还逼你读整文件</h2>
+<p>先把账算明白：<strong>grep 加读文件这套默认做法贵在哪，不在搜索本身，而在搜完之后你只能整篇地读。</strong></p>
+<p>grep（以及它更快的兄弟 ripgrep）做的是字面匹配——你给一个字符串，它把含这个字符串的行挑出来。这件事本身极快、也几乎不花令牌。真正的开销在后面两步：</p>
+<ul>
+<li><strong>命中行没有上下文，必须回去读整文件。</strong> grep 只告诉你&quot;第 42 行有这个词&quot;，但 Agent 要看懂这段代码在干什么，得把那一整个函数、往往是那一整个文件读进上下文。命中越多，读得越多。</li>
+<li><strong>字面匹配的召回天生有限。</strong> 你想找&quot;认证流程&quot;，但代码里这部分写的是 <code>verifyCredentials</code>、<code>session_guard</code>，一个字面 grep 关键词根本框不住这些写法。换个词再搜一遍，又是一轮命中加整文件读取。</li>
+<li><strong>轮数一多，重复读取很狠。</strong> 一段在陌生代码里来回探的长对话，同一批文件可能被反复读进上下文好几遍，每一遍都是实打实的令牌。</li>
+</ul>
+<p>semble 的作者把这套换了个思路：<strong>别让 Agent 拿字符串去字面碰，而是把整个仓库先切成一块块带语义的代码片段、建好索引，让它用自然语言去问，只把最相关的那几块递回去。</strong> 比如它直接问&quot;认证是怎么处理的&quot;，semble 返回的就是那几段真正实现认证的代码，连文件路径和行号一起给，而不是一堆需要 Agent 自己再去筛的命中行。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-semble-speed-vs-ndcg-2026-06-03.png" alt="grep 加读整文件，与 semble 只返回相关片段，两种方式装进上下文的东西完全不同">
+<small>来源：MinishLab/semble 仓库基准图（检索质量对总耗时）</small></p>
+<p>这就是它和 grep 最根本的不同：grep 给你字面命中、把读懂的活全留给 Agent，semble 直接给你读懂所需的那几段。对在大仓库里干活的 Agent 来说，这笔账很划算——它要的从来不是&quot;哪些行出现过这个词&quot;，而是&quot;我现在该看哪几段代码&quot;。</p>
+<h2>比读整文件省约 98% 的令牌，这个数字是这样算出来的</h2>
+<p>这是全篇最该说清楚的一点，因为它直接决定了你该怎么看待这个项目。<strong>这个省令牌的比例不是把同一个任务在真实模型上各跑一遍量出来的，而是作者用一套基准、按&quot;读整文件要花的字符数&quot;减去&quot;实际返回片段的字符数&quot;再折算成令牌算出来的。</strong></p>
+<p>具体怎么算，作者在仓库里写得很清楚：每一次检索，semble 记下命中片段所在那些文件的总字符数，再记下真正返回给你的那些片段的字符数，两者之差除以 4（按 4 个字符约等于 1 个令牌估），就是这次省下的令牌。这里的基线，是&quot;把命中的文件整篇读进来&quot;——也就是编码 Agent 探索陌生代码时常见的做法。</p>
+<p>这套算法有两个地方值得你心里有数：</p>
+<ul>
+<li><strong>基线选的是&quot;读整文件&quot;，而不是 grep 本身。</strong> grep 命中行几乎不花令牌，真正花令牌的是命中之后读整文件这一步。所以这个 98% 比的是&quot;完整读文件&quot;对&quot;只读相关片段&quot;，不是&quot;grep 命中行&quot;对&quot;semble 片段&quot;。换句话说，它省的是你本来要为读懂而付的那部分令牌。</li>
+<li><strong>这是一个保守估计，但口径是作者自定的。</strong> 作者自己注明这是个偏保守的估法。但&quot;省多少&quot;终究取决于你的仓库结构、文件平均多大、Agent 平时探索得多凶——同样的 semble，在一个文件普遍很大的仓库里省得多，在一个文件本来就很碎的仓库里省得少。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/chart-semble-token-recall-2026-06-03.png" alt="semble 召回率随检索令牌预算变化：语义检索在 2k 令牌处达 94%，grep 加读文件要 100k 上下文才到 85%"></p>
+<p>所以更稳妥的读法是：<strong>别盯着&quot;省 98%&quot;这个标题，去看它附带的那条召回曲线。</strong> 按作者基准，semble 用大约 2,000 令牌就能拿到 94% 的召回，而 grep 加读文件要灌满整整 10 万令牌的上下文才到 85%。这条对照才是关键——它说的不是&quot;我更省&quot;，而是&quot;我用更少的预算，找得更准、更全&quot;。省令牌只是&quot;找得更准&quot;自然带出来的结果。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-semble-token-efficiency-2026-06-03.png" alt="semble 仓库的令牌效率基准图：在相同召回水平下，semble 所需的检索令牌远低于 grep 加读文件">
+<small>来源：MinishLab/semble 仓库基准图（召回率对检索令牌数）</small></p>
+<p>这套基准本身也值得交代一句口径：它在约 1,250 条查询、覆盖 63 个仓库、19 种语言的范围里跑出来。样本不算小，但仍是作者自家的一套评测集，不是某个第三方公认的代码检索榜单。所以这条曲线该当成&quot;作者口径下的强信号&quot;来看——趋势可信，绝对数字别当成放之四海皆准的成绩。</p>
+<h2>它到底怎么找：切块、两路打分、再按代码常识重排</h2>
+<p>要理解 semble 为什么能在一颗 CPU 上又快又准，得看清它实际在干什么。<strong>它不靠一个重型神经网络在查询时现算，而是把&quot;切块&quot;和&quot;打分&quot;都换成了极轻的做法，再叠一层针对代码的排序常识。</strong></p>
+<p>它的检索分三步走，每一步都为&quot;快&quot;和&quot;准&quot;服务：</p>
+<ul>
+<li><strong>用 tree-sitter 按代码结构切块。</strong> 它不是按固定行数硬切，而是借 tree-sitter 解析语法，把每个文件切成一个个&quot;代码感知&quot;的块——一个函数、一个类尽量是完整的一块，不会从中间断开。这样返回的片段本身就是能读懂的单位。</li>
+<li><strong>两路检索器同时打分再融合。</strong> 一路是 Model2Vec 静态向量（用代码专用的 potion-code-16M 模型）管语义相似，一路是 BM25 管标识符、接口名这种字面匹配，两份排序用倒数排名融合（RRF）合到一起。自然语言查询走语义那路多一点，像 <code>getUserById</code> 这种符号查询走字面那路多一点。</li>
+<li><strong>再按代码常识重排一遍。</strong> 定义某个符号的块排在只是引用它的块前面；多个片段来自同一文件时这个文件整体加权；测试文件、兼容垫片、示例代码、声明桩这些会被压低，让真正的实现浮上来。</li>
+</ul>
+<p>关键在第二步那个&quot;静态向量&quot;：<strong>它在查询时没有神经网络的前向计算，所以整套流程能在 CPU 上以毫秒级跑完。</strong> 按作者基准，索引一个普通仓库约 250 毫秒、单次查询约 1.5 毫秒，索引速度约是代码专用 Transformer 的 218 倍，而检索质量（NDCG@10 为 0.854）达到那个重得多的模型的约 99%。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/chart-semble-speed-quality-2026-06-03.png" alt="一颗 CPU 就能跑：semble 在索引速度、查询延迟、检索质量三项上的对照"></p>
+<p>一句话收住这节：<strong>semble 的快不是靠堆硬件，而是靠把&quot;算语义&quot;这件最贵的事提前用静态向量做掉了，剩下查询时只做轻量的打分和重排。</strong> 这也是它敢说&quot;不要 GPU、不要密钥、纯 CPU&quot;的底气所在。</p>
+<h2>Show HN 上的较真：grep 不花令牌，那省的是读整文件的令牌</h2>
+<p>这个项目在 Show HN 一上线，下面的讨论很快就把&quot;省 98%&quot;这个口号拎出来较真，而作者的回应恰好把这件事的边界说清楚了，值得原样转述。</p>
+<p>有人直接发问：grep 本身几乎不花令牌，那&quot;比 grep 省 98%&quot;是比谁省了谁的什么？作者的回答是——光有 grep 命中的那几行没用，你得把文件读进来才能真正用上那段代码，而读文件才是花令牌的地方。所以这个对照比的是&quot;读整文件&quot;对&quot;只读相关片段&quot;，不是&quot;grep 命中行&quot;对&quot;semble 片段&quot;。有人追问&quot;那加 <code>grep -C</code> 带上下文呢&quot;，作者的回应是：就算带了上下文，去看 grep 那套做法的检索质量得分也不好看。</p>
+<p>还有一个更要紧的追问，关于&quot;找得准&quot;到底量的是什么：</p>
+<ul>
+<li><strong>量的是检索准不准，不是任务做得对不对。</strong> 作者坦白，现在的基准只衡量了检索质量（用的是 NDCG 这个排序指标），还没有把它接上 Agent、连提示和工具一起做端到端的评测。换句话说，&quot;对的片段排在前面&quot;是量过的，&quot;片段对了之后整个任务答得更好&quot;还没量。</li>
+<li><strong>怎么判定一次检索算&quot;命中&quot;。</strong> 作者的口径是：如果正确答案出现在返回的那批片段里，就认为 Agent 不需要再往下读了——令牌的节省正是建立在这个假设上。</li>
+<li><strong>不同查询、不同返回条数会让结果波动。</strong> 有人指出 Agent 实际用 grep 时往往是分多次小搜，作者也承认这一点对两边都成立——semble 同样可以多查几次，他们想强调的是&quot;达到同样效果，semble 需要的查询轮数更少&quot;。</li>
+</ul>
+<p>把这段较真摆出来，不是为了给项目泼冷水，恰恰相反——<strong>作者没有把&quot;省 98%&quot;包装成放之四海的成绩，而是当场说清了它的口径和未做的部分。</strong> 这种坦白本身，比那个亮眼的百分比更值得一个工具被信任。读到这儿，你大概也清楚了该怎么用一句话概括它：检索这一层它做得扎实，端到端的故事还在写。</p>
+<h2>和向量检索式 RAG 比，它轻在哪、稳在哪</h2>
+<p>聊到&quot;语义检索代码&quot;，很多人第一反应是那套常见的向量检索式 RAG——把代码切块、调一个嵌入模型算向量、存进向量数据库，查询时再算一次向量去比。semble 走的是同一个大方向，但有意做得更轻。下面这张表把三种做法摆在一起看。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>grep 加读文件（Claude Code 默认）</th>
+<th>向量检索式 RAG</th>
+<th>semble</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>召回方式</td>
+<td>字面字符串匹配</td>
+<td>嵌入向量近似</td>
+<td>静态向量 + BM25 混合再重排</td>
+</tr>
+<tr>
+<td>是否要 GPU</td>
+<td>不要</td>
+<td>算嵌入常要 GPU 或调云端</td>
+<td>不要，纯 CPU</td>
+</tr>
+<tr>
+<td>是否要密钥 / 外部服务</td>
+<td>不要</td>
+<td>多数要嵌入接口或向量库服务</td>
+<td>不要</td>
+</tr>
+<tr>
+<td>索引一个仓库</td>
+<td>不索引，每次现搜</td>
+<td>分钟级（取决于模型）</td>
+<td>约 250 毫秒</td>
+</tr>
+<tr>
+<td>文件改了怎么办</td>
+<td>天然实时</td>
+<td>需重新嵌入、重建索引</td>
+<td>自动比对改动、增量重建</td>
+</tr>
+<tr>
+<td>部署复杂度</td>
+<td>零</td>
+<td>要装模型 + 向量库 + 维护管线</td>
+<td>一条命令，装完即用</td>
+</tr>
+</tbody></table>
+<p>从这张表能看出 semble 的取舍：<strong>它放弃了大向量模型那点额外的语义精度，换来了纯本地、零依赖、毫秒级的工程简单。</strong> 三个差别最值得一提：</p>
+<ul>
+<li><strong>不依赖任何云端嵌入接口。</strong> 常见 RAG 方案算向量这一步往往要调云端模型或自己架 GPU，semble 用静态向量在 CPU 上算完，离线、不出网、不花接口费。</li>
+<li><strong>索引跟着文件走，自动保鲜。</strong> 它读 <code>.gitignore</code> 和 <code>.sembleignore</code> 决定索哪些文件，第一次检索时建索引并缓存；之后每次会比对文件改动时间，有增删改就重建。挂成服务时还有文件监听，同一次会话里改了代码，索引自动跟上。</li>
+<li><strong>BM25 这一路保住了字面精度。</strong> 纯向量检索容易在精确的标识符、接口名上漂；semble 留着 BM25 这一路专管字面匹配，符号类查询不会被语义模型带偏。</li>
+</ul>
+<p>所以选型上可以这么定：<strong>如果你要的是给编码 Agent 配一个零依赖、本地就能跑的代码检索层，semble 是个相当顺手的选择；如果你的场景是要把跨越文档、工单、代码的异构知识统一检索，那仍然是重型 RAG 的地盘。</strong> 两者解决的不完全是同一个问题。</p>
+<h2>接进 Claude Code、Cursor：三条路，挑一条就行</h2>
+<p>落到怎么用，semble 给了三条接入路径，覆盖了主流的编码 Agent，你按自己的习惯挑一条即可。</p>
+<ul>
+<li><strong>挂成 MCP 服务（推荐）。</strong> 让 Agent 把它当一个原生工具直接调。Claude Code 里一条命令就能加上，Cursor、Codex、OpenCode、VS Code、GitHub Copilot CLI、Windsurf、Gemini CLI 等都给了对应的配置写法。挂上之后 Agent 多两个工具：一个按自然语言或代码查询去搜，一个按文件加行号去找相似实现。</li>
+<li><strong>写进 AGENTS.md / CLAUDE.md 当命令行用。</strong> 装好命令行工具后，往项目的指令文件里加一段说明，告诉 Agent &quot;找代码先用 <code>semble search</code>，别上来就 grep&quot;。它就会用 <code>semble search &quot;认证流程&quot; ./项目</code> 这样去搜，需要时再加 <code>--content docs</code> 搜文档、<code>--content all</code> 连配置一起搜。</li>
+<li><strong>装一个专用子 Agent。</strong> 对支持子 Agent 的工具（Claude Code、Cursor、Codex、OpenCode、Copilot CLI、Kiro 等），跑一次 <code>semble init</code> 就能生成一个专门管检索的 <code>semble-search</code> 子 Agent，让检索在它自己的上下文里跑，不挤占主对话。</li>
+</ul>
+<p>作者推荐三条一起上，但其实<strong>挑一条最贴合你工具链的就够了</strong>。这里有个该点破的取舍：换成 semble 之后，Agent 拿到的是&quot;语义最相关的若干片段&quot;，而不是&quot;某个字符串的全部字面命中&quot;。所以——</p>
+<ul>
+<li><strong>绝大多数&quot;我要改哪段逻辑&quot;的探索，语义检索更省事也更全。</strong></li>
+<li><strong>但当你要的是&quot;这个常量到底在哪几处被引用&quot;&quot;这个报错字符串出自何方&quot;这种穷举式的精确匹配，grep 仍然不可替代。</strong> semble 的文档自己也写明：需要穷举字面命中或者快速确认某个精确字符串时，还是用 grep。</li>
+</ul>
+<p>换句话说，<strong>semble 不是来取代 grep 的，是来接管那件 grep 一直做不好的事——按意思找代码。</strong> 两个工具各管一段，配合着用最顺。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/chart-semble-when-to-use-2026-06-03.png" alt="semble 与 grep 选用决策卡片：按意思找用 semble，按字面穷举用 grep，两件事各管一段"></p>
+<p>具体到日常，可以把这条分界线记成一句话：<strong>只要你心里那句话是&quot;我想找做某件事的那段代码&quot;，就交给 semble；只要是&quot;我要确认某个精确写法在哪几处出现&quot;，就交给 grep。</strong> 写进 AGENTS.md 时不妨把这条规则也一并交代给 Agent，让它自己学会在两者之间切换——先用 semble 把范围收窄到几段，再在必要时用 grep 做精确确认，这套组合往往比单用任何一个都利落。</p>
+<h2>在国内怎么用：本地能跑，接哪个模型都不挡</h2>
+<p>对国内开发者，最实际的问题是两个：本地跑得起来吗？配国产模型端点有没有坑？两个答案都让人安心。</p>
+<ul>
+<li><strong>本地完全跑得起来，不卡在出网上。</strong> semble 全程在 CPU 上算，不要 GPU、不要任何云端嵌入接口、不要 API 密钥。索引和检索都在你本机完成，代码不出本地——这一点对在意代码不外传的团队尤其要紧。装它就是一条 <code>pip install semble</code> 或者用 uv 装，没有额外的向量库要架。</li>
+<li><strong>它和你接哪个大模型是两件事，互不打架。</strong> 这里要分清一层：semble 只负责&quot;把对的代码片段找出来&quot;，至于把这些片段交给谁去读、去改，是你的编码 Agent 背后那个模型的事。所以无论你的 Claude Code、Cursor 背后接的是 DeepSeek、千问（Qwen）还是别的端点，semble 这一层都照常工作——它不调用大模型，自然也不挑大模型。</li>
+</ul>
+<p>这就带出一个对国内特别友好的组合：<strong>用一个本地的、零密钥的语义检索层，配上一个国产模型端点，整条链路既省令牌又不依赖境外服务。</strong> 检索在本地 CPU 上完成，模型这头用你顺手的国产接口，两边都踩在自己能掌控的地基上。</p>
+<p>需要提醒的是它目前的边界：<strong>作者在 Show HN 的讨论里明确说，现在的基准只衡量了&quot;检索本身找得准不准&quot;，还没做&quot;接上 Agent 端到端跑完一个任务，最后答得对不对&quot;的评测。</strong> 也就是说，&quot;片段找得准&quot;是已经量过的，&quot;找得准之后整个任务做得更好&quot;还有待它后续补上端到端的数字。把这点放在心里，用起来会更踏实。</p>
+<h2>写在最后：Agent 要的从来不是整个文件，是对的那两千令牌</h2>
+<p>回到开头那一句：<strong>编码 Agent 真正需要的，从来不是把整个文件搬进上下文，而是恰好那两千令牌的对的代码。</strong> semble 把这件事做成了一个纯 CPU、零密钥、一条命令就能挂上的检索层——用 tree-sitter 切块、静态向量配 BM25 混合排序，在毫秒级里把最相关的几段递到 Agent 手上。</p>
+<p>它最值得记住的不是&quot;省了约 98% 的令牌&quot;这个标题，而是标题底下那条召回曲线：<strong>用更小的预算，找得更准、更全。</strong> 省令牌是结果，检索质量才是它真正在比的东西。它也很诚实——那个省令牌数字是作者用成本模型估的，端到端的任务级评测还在路上，这些都摆在明面上。</p>
+<p>对国内开发者来说，这是一块踏实的工具：本地能跑、代码不出网、接哪个国产模型都不挡道。把它挂到你日常的 Claude Code 或者 Cursor 上，让 Agent 先学会&quot;按意思找代码&quot;，再回头去读那几段真正要紧的——这一步迈出去，手里的 Agent 在大仓库里会立刻利落不少。趁手的工具正一件件冒出来，我们这代开发者，赶上的是把检索、模型、工作流都能自己拼起来的好时候。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

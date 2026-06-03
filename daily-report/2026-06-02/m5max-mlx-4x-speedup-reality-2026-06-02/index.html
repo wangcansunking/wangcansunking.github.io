@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>M5 Max 跑大模型：苹果说快 4 倍，生成只多两成 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-02</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-02</span><span class="tag-pill">Daily Report</span></div>
+      <h1>M5 Max 跑大模型：苹果说快 4 倍，生成只多两成</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/m5max-mlx-4x-speedup-reality-2026-06-02.png" alt="M5 Max 跑本地大模型，神经加速器把预填充提速 4 倍，但生成速度由内存带宽决定"></p>
+<p>升级到 macOS 26.2、把 MLX 更新到 0.31，再在 M5 这代芯片上跑一遍本地模型，苹果官方给的数字是：最高快 4 倍。</p>
+<p>这句话本身没错，但容易被理解偏。如果你冲着「跑大模型整体快 4 倍」去把手里的 M4 Max 换成 M5 Max，大概率会失望。</p>
+<p>这篇文章的核心判断只有一句：<strong>M5 这次快 4 倍的是预填充（也就是你等第一个字蹦出来的那段延迟），不是生成（字一个接一个往外吐的速度）。生成只快了约两成，因为它被内存带宽锁死，而 M5 Max 的带宽只比 M4 Max 高 12%。</strong></p>
+<p>先看苹果官方自己的测试，反差就在这张表里。</p>
+<h2>苹果官方的数字：预填充快 4 倍，生成只快两成</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/source-apple-m5-speedup-table.png" alt="苹果 MLX 官方测试表：TTFT 提速 3.33–4.06 倍，生成提速只有 1.19–1.27 倍"></p>
+<p><em>来源：Apple Machine Learning Research《Exploring LLMs with MLX and the Neural Accelerators in the M5 GPU》官方测试表</em></p>
+<p>苹果机器学习团队这篇文章里有一张关键的表，把同一批模型在 M5 和 M4 上各跑了一遍，4096 词元的提示、再生成 128 个词元，结果分成两列：</p>
+<ul>
+<li><strong>首词元延迟（TTFT，也就是预填充）</strong>：Qwen3-8B 4 位量化提速 3.97 倍，Qwen3-14B 4 位量化 4.06 倍，gpt-oss-20B 是 3.33 倍，Qwen3-30B MoE 是 3.52 倍。这一列基本都在 3.3 到 4.1 倍之间，官方说的「最高 4 倍」就是从这里来的。</li>
+<li><strong>生成速度</strong>：同样这几个模型，只有 1.19 到 1.27 倍。换算成百分比，就是比 M4 快了 19% 到 27%，约莫两成。</li>
+</ul>
+<p>同一台机器、同一个模型，一列快了近 4 倍，一列只快了两成。这不是测试误差，而是这两件事压根由不同的硬件部分决定。</p>
+<p>把它画成柱状图，落差更直观：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/m5-prefill-vs-gen-2026-06-02.png" alt="M5 提速分解柱状图：四个模型的预填充都接近 4 倍，生成都只有 1.2 倍上下"></p>
+<p>蓝色（预填充）几乎顶到 4 倍那条线，绿色（生成）紧贴着 1 倍上方。苹果这代新加的神经加速器，专门加速大矩阵乘法这种算力密集的活，而预填充正是这种活——它要把你输入的几千个词元一次性算完，吃的是算力。所以神经加速器一上，预填充立刻飞起来。</p>
+<p>但生成不一样。</p>
+<h2>为什么生成快不起来：每吐一个字，都要把整个模型读一遍</h2>
+<p>生成慢的根子，是一件很多人没意识到的事：<strong>模型每生成一个词元，都要把自己全部的权重从内存里完整读一遍。</strong></p>
+<p>一个 14B 的模型 4 位量化后约 9GB，跑生成时，每吐一个字就要搬 9GB 数据从统一内存进 GPU。你能多快地搬这 9GB，就决定了你一秒能吐多少个字。这件事卡的是内存带宽，不是算力——神经加速器再快，数据喂不上来也是空转。</p>
+<p>这就解释了那两成的来历。看官方给的带宽数字：基础版 M5 的内存带宽是 153 GB/s，M4 是 120 GB/s，高了 28%。生成提速的 1.19 到 1.27 倍，正好和这个带宽涨幅对得上。换句话说，<strong>生成速度几乎是内存带宽的影子，带宽涨多少，生成就快多少。</strong></p>
+<p>到了 M5 Max 这档，带宽差距还更小。苹果官方规格里，M5 Max 的统一内存带宽是 614 GB/s，M4 Max 是 546 GB/s，只高了 12.4%。所以如果你是 M4 Max 用户，指望换 M5 Max 让本地模型「字蹦得更快」，能拿到的提升大概也就一成出头。</p>
+<h2>社区在 M5 Max 上实测：70B 约 20 tok/s，比 M4 Max 多两成</h2>
+<p>光看官方数字还不够，得看真人在自己机器上跑出来什么。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/source-m5max-toks-table.png" alt="社区实测：M5 Max 约 600 GB/s 带宽，70B 约 20 tok/s、9B 约 100 tok/s"></p>
+<p><em>来源：LLM Check《M5 Max for Local AI: Apple Silicon Benchmark Guide 2026》社区实测整理</em></p>
+<p>这张社区整理的实测表，把几代 Mac 芯片摆在一起，关键是右边两列每秒生成词元数：</p>
+<ul>
+<li><strong>M5 Max（约 600 GB/s 带宽，128GB 内存）</strong>：70B 模型 4 位量化约 20 tok/s，9B 模型约 100 tok/s。</li>
+<li><strong>M4 Max（546 GB/s，128GB）</strong>：70B 约 15 tok/s，9B 约 80 tok/s。</li>
+<li><strong>M2 Ultra（800 GB/s，192GB）</strong>：70B 约 25 tok/s，9B 约 110 tok/s。</li>
+</ul>
+<p>三行数字连起来读，能读出两件事。</p>
+<p>第一，M5 Max 跑 70B 比 M4 Max 的 15 tok/s 提到约 20 tok/s，多了约三分之一——比官方那一成多要好看些，这里面除了带宽，还有 GPU 整体调度、量化内核优化的功劳，但量级仍然是「快一截」而不是「快几倍」。20 tok/s 什么概念？大约是正常阅读速度，跑 70B 做日常问答够用，但谈不上飞快。</p>
+<p>第二，也是更值得玩味的一点：<strong>三年前的 M2 Ultra，靠 800 GB/s 的带宽，70B 实测 25 tok/s，反而比最新的 M5 Max 还快。</strong> 这恰恰是「生成由带宽决定」最直白的证据——M2 Ultra 神经加速器没 M5 先进，但它内存带宽更高，生成就是更快。如果你的活全是长对话、纯生成，一台二手 M2 Ultra 在这件事上并不输给新机。</p>
+<p>另有社区实测给到 M5 Max 跑 70B 在 18 到 25 tok/s 区间，1000 词元的提示首词元延迟压到 3 秒以内——后半句又一次印证了预填充确实被神经加速器拉快了。</p>
+<h2>那这 4 倍到底有没有用？看你跑什么</h2>
+<p>讲到这，容易给人一种「4 倍是虚的」印象。不是的。预填充快 4 倍，在某些场景是实打实的体验提升，关键看你的活偏哪一头。</p>
+<p><strong>预填充重的活，M5 提升明显：</strong></p>
+<ul>
+<li><strong>长上下文喂文档</strong>：你把一篇几万字的报告、一整个代码仓库丢进去问问题，模型要先把这几万词元全部读进去（预填充），再开始回答。上下文越长，预填充占的时间越大。这种场景下，神经加速器把「读完资料」这步压到原来的四分之一，等待感会明显改善。</li>
+<li><strong>RAG、批量摘要、代码库问答</strong>：都是提示长、生成短的典型，预填充是大头，M5 提升能吃满。</li>
+<li><strong>文生图</strong>：苹果实测 M5 用 MLX 跑 FLUX 模型出一张 1024×1024 的图，比 M4 快 3.8 倍——画图也是算力密集的活，神经加速器同样吃得满。</li>
+</ul>
+<p><strong>生成重的活，M5 提升有限：</strong></p>
+<ul>
+<li><strong>日常聊天、写长文、角色扮演</strong>：提示短、生成长，体感几乎全看每秒吐字速度，而这一项 M5 Max 比 M4 Max 只多约一两成。</li>
+<li><strong>纯本地跑 70B 当助手</strong>：20 tok/s 对 15 tok/s，能感觉到快，但不会有质变。</li>
+</ul>
+<p>一句话：<strong>M5 让你「等第一个字」快了很多，让你「字往外蹦」快了一点点。</strong></p>
+<p>苹果这篇官方文章把方法、模型、提示长度都写得很透，想自己复核的人可以照着同样的 4096 词元提示跑一遍，数字基本对得上。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/02/source-apple-m5-mlx-research.png" alt="苹果机器学习研究官方文章，完整给出 M5 神经加速器跑大模型与文生图的测试方法和结果"></p>
+<p><em>来源：Apple Machine Learning Research 官方文章页面</em></p>
+<h2>想让本地模型真的更快，先看这三件事</h2>
+<p>如果你的目标就是本地模型生成更快，把钱花在带宽和工程上，比单纯追新芯片更划算。</p>
+<ol>
+<li><strong>优先看内存带宽，不是只看芯片代次</strong>。同样 128GB，M5 Max 的 614 GB/s 决定了它生成的天花板。这也是为什么 M2 Ultra 的 800 GB/s 在纯生成上还能压新机一头。买二手 Mac 跑本地模型，带宽是比代次更该盯的一栏。</li>
+<li><strong>用对运行时</strong>。MLX 这条线进展很快，Ollama 从 0.23 起也把 MLX 作为 Mac 上的推理后端，并给 Gemma 4 这类模型上了多词元投机解码，官方说在 Apple Silicon 上能让 Gemma 4 31B 的编程任务再快一倍以上。投机解码是另一条和带宽无关的提速路子——让小模型先猜、大模型来验，验得准就省了反复读权重的开销。</li>
+<li><strong>选合适的量化和模型尺寸</strong>。生成既然卡在「每个词元要把权重读一遍」，那把权重压小（更激进的量化）、或者选激活参数更少的 MoE 模型，都能直接换来更高的 tok/s。这些都是读者在自己机器上当天就能验证的调法。</li>
+</ol>
+<h2>想自己验证，跑这一组对照就够</h2>
+<p>这件事最好的地方，是你不用信任何人的结论，自己机器上十分钟就能复核。</p>
+<p>把判断拆成两个独立的数字看，而不是只盯着一个笼统的「快不快」：</p>
+<ol>
+<li><strong>首词元延迟（预填充）</strong>：给模型一段长一点的提示——苹果官方用的是 4096 词元，你也可以丢一篇长文档进去，掐表看「从回车到第一个字出现」用了多久。这一项在 M5 上会明显比 M4 短，神经加速器的功劳就体现在这里。</li>
+<li><strong>生成速度（每秒吐字）</strong>：等模型开始回答后，看它每秒吐出多少词元——MLX、Ollama、LM Studio 这些工具大多会在跑完后直接显示 tok/s。这一项在 M5 Max 上大约 70B 二十出头、9B 一百上下，比 M4 Max 只快一两成。</li>
+</ol>
+<p>两个数字分开记，你就会发现它们的提升幅度差着一大截——预填充快了一大块，生成只快了一点点。再回头对一眼自己机器的内存带宽（M5 Max 是 614 GB/s），就能理解为什么生成卡在那个数上。这套对照，换任何一代 Mac、任何一个模型都成立。</p>
+<h2>收个尾</h2>
+<p>回到开头那句判断：M5 这代跑大模型「快 4 倍」是真的，但快的是预填充，不是生成。</p>
+<p>苹果官方自己的表写得很清楚——首词元提速 3.3 到 4.1 倍，生成只 1.19 到 1.27 倍；社区在 M5 Max 上实测 70B 约 20 tok/s，比 M4 Max 多约三分之一，但还跑不过三年前靠高带宽的 M2 Ultra。把这三组数字摆在一起，结论就立住了：<strong>预填充吃算力，神经加速器管够；生成吃带宽，M5 Max 只比 M4 Max 高 12%。</strong></p>
+<p>所以该不该升，答案不在「快几倍」这个宣传词里，而在你自己的活上：天天喂长文档、做 RAG、跑代码库问答、画图，M5 值得；主要是日常聊天、写长文、本地 70B 当助手，那这一代的提升你大概率感知不强，把预算留给带宽更高的机型或更聪明的运行时，更实在。</p>
+<p>本地跑模型这两年最好的变化，是它越来越不玄学——官方给数据，社区有实测，原理也讲得通。看懂「预填充和生成是两回事、生成由带宽决定」这一层，下次再看到任何「快 N 倍」的宣传，你都能自己判断那 N 倍到底落在哪。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>5090 跑大模型：换个引擎，并发吞吐差几倍 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-03</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-03</span><span class="tag-pill">Daily Report</span></div>
+      <h1>5090 跑大模型：换个引擎，并发吞吐差几倍</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/rtx5090-three-engine-local-pick-2026-06-03.png" alt="RTX 5090 显卡跑本地大模型，三个推理引擎吞吐速度不同的示意"></p>
+<p>一张 RTX 5090，跑同一个 Llama-3-8B，把 vLLM、Ollama、llama.cpp 三个推理引擎分别测一遍，单人单流的速度差距不到 15%——最慢的每秒 42 个词元，最快的 48.2 个，肉眼几乎分不出来。</p>
+<p>可只要把场景换成十几个人同时发请求，差距立刻拉开：70B 模型上，vLLM 每秒能扛 9.7 个请求，Ollama 只有 4.2 个。同一张卡、同一个模型，选错引擎，吞吐能差出一倍还多。</p>
+<p>这篇文章的核心判断只有一句：<strong>消费级单卡跑大模型，选哪个推理引擎，一个人用几乎无所谓，一旦要扛并发就天差地别；而装起来的难易程度恰好反过来——最好装的那个最不抗压，最抗压的那个最难装。</strong> 想清楚自己是一个人玩、还是要供一群人用，这道选择题就解了一大半。</p>
+<p>先看第三方在 RTX 5090 上的实测，把测试条件和命令都摆了出来。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-rtx5090-engine-bench-2026-06-03.png" alt="markaicode 在 RTX 5090 上对 Ollama、vLLM、llama.cpp 的实测页面，列出测试环境、方法和运行参数"></p>
+<p><em>来源：markaicode《RTX 5090 Inference Benchmark: Ollama vs vLLM vs llama.cpp Tokens per Second》第三方实测，测试条件为上下文 512、输出 128 词元、批大小 1、温度 0、取三次运行中位数</em></p>
+<h2>Ollama 刚更到 0.30，本地跑模型的门槛又降了一截</h2>
+<p>Ollama 在 5 月 13 日发布了 0.30 正式版，几周后又推出 0.30.1 预览版，这两版把能跑的东西铺得更宽：可以直接拉 HuggingFace 上的 GGUF 模型和你自己微调的权重，NVIDIA 显卡上的速度也做了优化，苹果芯片那边则用 llama.cpp 给 MLX 引擎做了补强。</p>
+<p>0.30.1 预览版还顺手加了几件小而实用的东西：Cline 命令行的一键安装集成、对 Qwen code 的支持、给 AMD Radeon 8060S 核显默认开箱，以及对已缓存提示词的词元计数优化。</p>
+<p>这类更新的方向很一致——把&quot;在本地跑一个大模型&quot;这件事的门槛一点点削平。门槛低了，越来越多人开始在自己那张显卡上认真跑模型，而不只是浅尝。问题也就跟着浮出来：同样一张卡，到底该用哪个引擎？</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-ollama-030-release-2026-06-03.png" alt="Ollama 在 GitHub 上的版本发布页，显示 0.30.1 预览版和 0.30.0 正式版的更新说明"></p>
+<p><em>来源：Ollama 官方版本发布说明，0.30.0 正式版说明其&quot;在苹果芯片上用 llama.cpp 补强 MLX 引擎，并在 NVIDIA 硬件上带来更快性能&quot;</em></p>
+<h2>一个人用：三个引擎的速度，几乎分不出高下</h2>
+<p>在 RTX 5090 上跑 Llama-3-8B 的 4 位量化版，第三方实测的单人单流速度是这样的：vLLM 每秒 48.2 个词元，Ollama 45.1 个，llama.cpp 42.0 个。最快和最慢之间只差 6.2 个词元，差距不到 15%。</p>
+<p>等第一个字蹦出来的时间（首词元延迟）也很接近：vLLM 62 毫秒，Ollama 74 毫秒，llama.cpp 78 毫秒，都在不到一眨眼的范围里。</p>
+<p>道理不难理解。单人单流的时候，显卡一次只伺候一个请求，瓶颈在于一张卡的算力和它读权重的速度，三个引擎的底层都得老老实实把同一批计算做完，谁也快不到哪去。换句话说，如果你就是自己一个人对着一个对话框聊，那么这三个引擎你随便挑，体感几乎一样。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/chart-engine-single-vs-concurrent-2026-06-03.png" alt="三引擎单人单流速度与并发吞吐对比柱状图，左侧三家差距不到 15%，右侧 vLLM 约为 Ollama 的 2.3 倍"></p>
+<p>真正的分水岭，在多人同时用的时候。</p>
+<h2>多人一起用：vLLM 的吞吐，能甩开 Ollama 一倍多</h2>
+<p>把负载换成并发场景，差距立刻显现。在 70B 的 4 位量化模型上，第三方实测 vLLM 每秒能处理 9.7 个请求，Ollama 只有 4.2 个，前者大约是后者的 2.3 倍；尾延迟（p99）方面，vLLM 是 142 毫秒，比 Ollama 的 217 毫秒快了约三分之一。</p>
+<p>这个差距来自 vLLM 的一套显存调度办法，叫分页注意力（PagedAttention）。它把显存像操作系统管内存那样分成小页来用，把原本零碎、用不上的显存空间也利用起来，于是同一张卡能同时塞下更多请求一起算，单位时间内吐出去的总词元数自然更高。第三方资料还提到，这套机制能省下约 19% 到 27% 的显存占用。</p>
+<p>并发场景再极端一些，差距还会放大。有第三方测算，在多用户高并发下，vLLM 的聚合吞吐能达到 llama.cpp 的几十倍——当然这是把场景拉到满负载多人请求的结果，和你一个人用时的&quot;几乎没差&quot;是两码事。这正是引擎选择的关键：<strong>速度这个词，得先问清楚是&quot;一个人的速度&quot;还是&quot;一群人的总吞吐&quot;，两者的答案完全相反。</strong></p>
+<h2>显存、装机时间、并发上限：三个引擎各让一步</h2>
+<p>把四个维度并排放，每个引擎的取舍就清楚了。值得注意的是，llama.cpp 虽然单流最慢，峰值显存却最省，反而在单卡上能同时挂更多请求。</p>
+<table>
+<thead>
+<tr>
+<th>维度（RTX 5090）</th>
+<th>vLLM</th>
+<th>Ollama</th>
+<th>llama.cpp</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单人单流速度（8B Q4）</td>
+<td>48.2 词元/秒</td>
+<td>45.1 词元/秒</td>
+<td>42.0 词元/秒</td>
+</tr>
+<tr>
+<td>首词元延迟</td>
+<td>62 毫秒</td>
+<td>74 毫秒</td>
+<td>78 毫秒</td>
+</tr>
+<tr>
+<td>峰值显存（8B Q4）</td>
+<td>8.6 GB</td>
+<td>9.2 GB</td>
+<td>8.2 GB</td>
+</tr>
+<tr>
+<td>单卡并发请求上限</td>
+<td>4 个</td>
+<td>3 个</td>
+<td>5 个</td>
+</tr>
+<tr>
+<td>70B 并发吞吐</td>
+<td>9.7 请求/秒</td>
+<td>4.2 请求/秒</td>
+<td>偏离线场景</td>
+</tr>
+<tr>
+<td>装起来要多久</td>
+<td>1 到 2 小时</td>
+<td>约 1 分钟</td>
+<td>10 到 20 分钟</td>
+</tr>
+<tr>
+<td>最顺手的用法</td>
+<td>多人 / 服务供并发</td>
+<td>单人 / 快速试用</td>
+<td>小设备 / 离线嵌入</td>
+</tr>
+</tbody></table>
+<p>这张表里最反直觉的一行是装机时间。Ollama 装起来大约一分钟，拉个模型就能聊；llama.cpp 要编译配置，得花十几二十分钟；vLLM 想跑顺，连环境带依赖调一两个小时是常事。<strong>最能扛并发的那个，恰恰是最难装的那个。</strong> 这不是谁做得差，而是各自服务的场景不同——为单人省心，和为多人榨吞吐，本来就是两套目标。</p>
+<p>三个引擎的官方与社区定位也印证了这一点：Ollama 主打单人和快速试用，vLLM 配上 Ray 这类调度框架面向生产环境的高并发接口，llama.cpp 则擅长往手机、嵌入式和离线设备里塞。</p>
+<h2>真实玩家的机器：从 3090 到四张 V100，没人只盯着跑分</h2>
+<p>跑分之外，真实玩家怎么配机器，更能说明本地跑模型现在是什么状态。在一个&quot;2026 年谁还在自建本地 AI 工作站&quot;的热门讨论里，大家晒出来的配置五花八门：</p>
+<ul>
+<li>一位用户用单张 3090（24 GB 显存）配 64 GB 内存的双路至强主机，专门跑 Qwen 系列；</li>
+<li>另一位放弃了 Mac Studio，选了 AMD Strix Halo 的 Framework 台式机，靠 llama.cpp 加 Vulkan 后端干专业活；</li>
+<li>还有人直接上四张 V100（32 GB 显存）的二手服务器，整套下来大约一万到一万两千美元。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-hn-local-workstation-2026-06-03.png" alt="Hacker News 上"2026 年谁在跑本地 AI 工作站"的真实讨论，用户晒出 3090、Strix Halo、四张 V100 等配置"></p>
+<p><em>来源：Hacker News《Ask HN: Who&#39;s running local AI workstations in 2026?》真实讨论串</em></p>
+<p>这群人里有句话被反复提起，值得每个想本地跑模型的人记住：有人坦言，&quot;一个本地要跑三小时的任务，Claude 的云端接口两分钟就出结果了&quot;。本地推理在原始速度上，确实比不过云端的大集群。</p>
+<p>那为什么还要自己跑？讨论里给出的真实理由几乎都不是为了快、也不是为了省钱——有人算过账，云端按量计费还有补贴，单纯比成本本地并不占优。真正的驱动力是隐私与合规：国防、工业研发、知识产权这类场景，数据根本不能离开自己的机器。<strong>本地跑模型的价值，是把数据攥在自己手里，而不是更快或更便宜。</strong> 把这一点想明白，你才不会用错了尺子去量它。</p>
+<h2>所以到底选哪个：先回答你是一个人，还是要供一群人</h2>
+<p>回到最开始那张 5090。换引擎到底值不值得折腾，答案取决于你的用法：</p>
+<ul>
+<li><strong>自己一个人本地玩、快速试新模型</strong> → 选 Ollama。一分钟装好、拉个模型就聊，单流速度和别家差不到 15%，省下的时间够你多试好几个模型；</li>
+<li><strong>要给团队或应用供多人并发</strong> → 选 vLLM。那一两个小时的配置成本，换来的是 70B 上两倍多的吞吐和更稳的尾延迟，人一多就回本；</li>
+<li><strong>想塞进小设备、做离线或嵌入式</strong> → 选 llama.cpp。显存最省、对各种硬件最宽容，单卡还能多挂几个并发请求。</li>
+</ul>
+<p>说到底，&quot;换个引擎差几倍&quot;这句话本身没错，但那个&quot;几倍&quot;只在并发场景里成立；一个人用的时候，三家几乎一样。选型的全部诀窍，就是先认清自己站在哪一边。</p>
+<p>往好处看，本地跑大模型这件事，正在从早两年的&quot;玄学调参&quot;变成今天的&quot;按需选型&quot;。一张消费级显卡、三个成熟引擎、一组能复现的实测数据，普通开发者也能把模型跑得明明白白——该用哪个、为什么用、什么时候换，都有据可依。这份确定感，本身就是本地 AI 这两年最实在的进步。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
