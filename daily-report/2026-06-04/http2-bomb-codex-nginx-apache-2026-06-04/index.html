@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Codex 挖出 HTTP/2 大洞：家用机几秒打垮你的服务器 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-04</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-04</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Codex 挖出 HTTP/2 大洞：家用机几秒打垮你的服务器</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/http2-bomb-codex-nginx-apache-2026-06-04.png" alt="一个人在小电脑前发出一道火花，击中一排正在过载、迸出红色内存方块的服务器机柜，象征 HTTP/2 Bomb 漏洞让单台家用机几秒打垮服务器"></p>
+<p>一台普通的百兆宽带家用电脑，几秒钟就能让一台跑着 nginx 或 Apache 的服务器吃满内存、彻底失去响应。这不是科幻，而是 6 月初公开的一个新漏洞——名字就叫 HTTP/2 Bomb，编号 CVE-2026-49975，安全机构给它打了 9.8 分的&quot;严重&quot;等级（满分 10）。</p>
+<p>受影响的不是某个冷门软件，而是几乎整张 Web 服务器版图：nginx、Apache httpd、微软 IIS、代理服务器 Envoy、Cloudflare 的 Pingora，在默认的 HTTP/2 配置下全部中招。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/source-calif-http2-bomb-2026-06-04.png" alt="安全机构 Calif 对 HTTP/2 Bomb 的原始披露页，标注受影响的 nginx、Apache、IIS、Envoy、Pingora，以及单客户端约 10 秒占满 32GB 内存、放大比约 5700 比 1"></p>
+<p><em>来源：安全机构 Calif 的原始披露《Codex discovered a hidden HTTP/2 Bomb》，标注攻击组合（HPACK 压缩炸弹 + 流控窗口拖延）与受影响的五款服务器</em></p>
+<p>听起来很吓人，但这件事真正值得记住的是另一面，而且是好消息：这个漏洞是安全研究员借 OpenAI 的 Codex 找出来的，等于 <strong>AI 这一回站在了防守方这边，赶在攻击者之前先把洞翻了出来</strong>；而开源社区的反应快得惊人——nginx 在通报后 24 小时内就发了补丁，Apache 更是当天就修好。换句话说，对绝大多数人来说，要做的只有一件事：确认版本，升级一下。这篇就把漏洞原理、影响范围和自查方法讲清楚。</p>
+<h2>它能干什么：单台家用机，几秒占满几十 GB 内存</h2>
+<p>它的破坏力到底有多大？几个数字就够说明问题。</p>
+<p>这个攻击的特点是&quot;以小博大&quot;：攻击者只需要一台普通电脑、一条百兆家用宽带，就能拖垮一台配置高得多的服务器。原始披露里给出了几款主流服务器的实测数据，差异还不小。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/chart-http2-affected-patch-2026-06-04.png" alt="HTTP/2 Bomb 受影响服务器一览表，列出 Envoy、Apache、nginx、IIS、Cloudflare Pingora 各自的内存放大比、单客户端占用内存与耗时、以及补丁状态"></p>
+<p><em>来源：综合 Calif 原始披露、Tenable 的 CVE-2026-49975 记录（CVSS 9.8 严重）与 oss-security 邮件列表整理</em></p>
+<p>读这张表，几个数字值得留意：</p>
+<ul>
+<li><strong>Envoy 最脆</strong>：内存放大比约 5700 比 1，意思是攻击者发出去 1 份数据，服务器要分配约 5700 份的内存来应付。单个客户端约 10 秒就能让它吃下 32GB。</li>
+<li><strong>Apache 紧随其后</strong>：放大比约 4000 比 1，约 18 秒占满 32GB。</li>
+<li><strong>nginx 相对结实</strong>：放大比约 70 比 1，要约 45 秒才占满 32GB——但&quot;结实&quot;只是相对而言，45 秒对一次拒绝服务攻击来说依然是眨眼的工夫。</li>
+<li><strong>微软 IIS</strong> 在 Windows Server 2025 上约 45 秒能撑到 64GB。</li>
+</ul>
+<p>按安全机构用 Shodan（联网设备搜索引擎）做的估算，全网有 88 万以上的站点跑在受影响的服务器上、开着 HTTP/2。这也是为什么它一公开就被列为&quot;严重&quot;。</p>
+<p>要补一句的是：让它影响面这么大的，不是某个管理员配错了参数，而是这几款服务器<strong>开箱默认</strong>的 HTTP/2 配置就会中招。HTTP/2 当年为了提速，设计上允许一条连接里同时跑很多个请求、并且大量复用压缩过的请求头——这些特性平时是优点，可一旦被人专门拿来&quot;喂&quot;超额的内部记账，就成了被撬动的支点。也正因为问题出在协议常用功能的实现细节上，而不是某个边角设置，受影响的服务器才会这么齐。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/source-cyberinsider-http2-2026-06-04.jpg" alt="一张以网络与服务器为主题的安全示意图，呼应 HTTP/2 拒绝服务攻击对全网 Web 服务器的影响"></p>
+<p><em>来源：CyberInsider 对 HTTP/2 Bomb 攻击的报道配图</em></p>
+<h2>这个洞是怎么来的：两招十年前的老技术，拼在了一起</h2>
+<p>有意思的是，这个攻击没有用到任何新技术。它把两个业内早就知道、单独都不算致命的老套路组合了起来，威力才陡然放大。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/chart-http2-mechanism-2026-06-04.png" alt="HTTP/2 Bomb 的两步攻击原理图：第一招 HPACK 索引炸弹让服务器按条目分配簿记内存，第二招流控窗口拖延把已分配的内存钉住不释放，合起来单客户端几秒占满几十 GB"></p>
+<p><em>来源：依据 Calif 原始披露整理的两步攻击原理</em></p>
+<p><strong>第一招，HPACK 索引炸弹。</strong> HTTP/2 为了省流量，会把重复的请求头压缩，把见过的头部存进一张&quot;动态表&quot;，之后只用一个 1 字节的编号去引用它。问题在于：攻击者塞一个头部进表，再用这个 1 字节编号引用上千次。传过去的数据只有几 KB，可服务器要为每一次引用都做一份内部记账，内存就被放大了几十到几千倍。这一招绕过了服务器对&quot;解压后体积&quot;的限制——因为撑爆内存的不是数据本身，而是服务器围着它做的那堆簿记。</p>
+<p><strong>第二招，流控窗口拖延。</strong> 攻击者把 HTTP/2 的流量控制窗口设成 0 字节，等于告诉服务器&quot;你的回复先别发，我还没准备好收&quot;。服务器的响应卡在那里发不出去，已经分配的内存也就一直占着。攻击者再每隔一会儿滴一个微小的窗口更新信号续命，把这块内存无限期地钉住。这跟十多年前那个著名的 Slowloris 慢速攻击是一个思路。</p>
+<p>两招合起来：第一招负责把内存撑大，第二招负责让它一直不释放。单个客户端，几秒钟，几十 GB。</p>
+<h2>AI 的角色：这一次，它帮的是防守方</h2>
+<p>这件事最该被记住的，其实是发现它的方式。</p>
+<p>漏洞是安全研究员 Quang Luong 借助 OpenAI 的 Codex 找出来的。按披露里的说法，研究员让 Codex 去读这两套早已公开的攻击技术对应的代码，模型识别出&quot;这两个东西可以拼在一起&quot;，并把组合后的攻击给搭了出来。一个人要同时吃透 HPACK 压缩、HTTP/2 流控两套机制、再想到把它们叠加，门槛不低；而模型把跨领域的已知弱点拼起来这件事，做得又快又顺。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/source-tenable-cve-http2-2026-06-04.png" alt="Tenable 的 CVE-2026-49975 记录页，标注该漏洞为"严重"等级、CVSS 9.8 分、发布于 2026 年 6 月 3 日，影响 nginx、Apache httpd、微软 IIS、Envoy、Cloudflare Pingora"></p>
+<p><em>来源：Tenable 的官方 CVE-2026-49975 记录，列为严重等级（CVSS v3 9.8），发布于 2026 年 6 月 3 日</em></p>
+<p>值得一提的是，这类&quot;组合式&quot;漏洞过去很难被发现，恰恰因为它跨了好几个领域：HPACK 压缩属于一个圈子，HTTP/2 流控又是另一摊知识，单独看每一块都早被研究透、也都不算致命，真正危险的是把它们叠在一起的那一步。人很容易困在自己最熟的那一块里，而模型不挑领域，能把分散在不同代码库里的已知弱点一起读进来、再去试探&quot;它们能不能凑成一个组合&quot;。这正是 AI 用在安全研究上最务实的价值——不是凭空造新攻击，而是把人类零散的旧知识接起来。</p>
+<p>不过这里也有一个值得正视的另一面：补丁一旦公开，它的代码改动本身就把漏洞点直接写明了。任何有能力的模型，读一遍补丁的前后差异，就能反推出可用的攻击——研究员正是用这个办法，确认了微软 IIS、Envoy、Pingora 同样中招。这把双刃剑提醒的不是&quot;别用 AI&quot;，而是另一件更实在的事：攻防两边都在提速，留给你&quot;还没升级&quot;的窗口期，比过去更短了。</p>
+<p>但把镜头拉远看，这依然是让人安心的一幕：找洞的是研究员和模型，不是攻击者；漏洞是被负责任地通报给厂商、等补丁就位后才公开的。AI 正在变成安全研究里一件趁手的工具，而它这次的成果，是让全网服务器在被真正攻击之前先补上了。</p>
+<h2>你该怎么做：先确认版本，再升级</h2>
+<p>这一节最实在。涉及一个能直接打垮服务器的严重漏洞，行动建议是必要的——而且这次的动作很简单。</p>
+<p>补丁的速度是这次事件里最让人踏实的部分：</p>
+<ul>
+<li><strong>nginx</strong>：4 月就收到通报，团队 24 小时内发了 1.29.8，借鉴 freenginx 引入了一个限制请求头数量的开关。跑 nginx 的，把版本升到 1.29.8 或更高即可。</li>
+<li><strong>Apache httpd</strong>：5 月 27 日收到通报，维护者当天就修好了，办法是让 Cookie 头也计入请求头数量的上限；对应的是 mod_http2 的 2.0.41 版本。升级到带这个修复的版本就行。</li>
+<li><strong>Envoy</strong>：6 月 3 日发布了补丁，及时更新即可。</li>
+<li><strong>微软 IIS、Cloudflare Pingora</strong>：在漏洞公开时补丁还在路上，厂商已收到通报。用这两者的，密切关注官方更新，在补丁到位前可以临时收紧 HTTP/2 的连接内存上限、请求头数量等配置。</li>
+</ul>
+<p>自查也不复杂：用 <code>nginx -v</code> 看一眼当前版本，比对一下是否在 1.29.8 以上；Apache 这边确认 mod_http2 是否已是含修复的版本。如果你用的是云厂商托管的负载均衡或网关，多数已经在后台统一打过补丁，但仍建议跟客服或公告确认一次。</p>
+<h2>结尾：补丁到位，AI 帮的是防守，升级一下就好</h2>
+<p>回到开头那个吓人的画面——一台家用机几秒打垮你的服务器。它是真的，但它只是这件事的一半。</p>
+<p>另一半，是这次事件里三个让人踏实的事实：漏洞是研究员借 AI 在攻击者之前先找到的；它被负责任地通报、等补丁就位才公开；而开源社区从通报到补丁，最快只用了一天。<strong>对绝大多数人来说，这个&quot;严重&quot;漏洞要应对的全部动作，就是把 nginx 或 Apache 的版本号往上挪一格。</strong></p>
+<p>这一年里，我们会越来越习惯看到 AI 出现在安全研究的现场。它确实让攻防两边都跑得更快，但只要找洞的人愿意把成果先交给防守方、厂商愿意第一时间响应，这套机制就还是向着好的方向转。这次 HTTP/2 Bomb，就是一个不错的样板：值得警觉，但更值得安心。现在，去检查一下你的版本号吧。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

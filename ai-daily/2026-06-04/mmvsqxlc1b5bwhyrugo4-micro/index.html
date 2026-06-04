@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>当AI攻防升级：支付宝“以模治模”如何系统性治理Agent风险？ — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-04</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-04</span><span class="tag-pill">AI Daily</span></div>
+      <h1>当AI攻防升级：支付宝“以模治模”如何系统性治理Agent风险？</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-04/mmvsqxlc1b5bwhyrugo4-micro/head.png" alt=""></p>
+<p>当安全研究员开始给 AI 配“对手 AI”，这事本身就值得玩味。支付宝安全团队没有选择打补丁的老路，而是直接扔了一个 Agent 进去——让它去挖另一个 Agent 的漏洞。这套方案叫“以模治模”，盛锦辰（幻猫）将在 2026 年 6 月 26 日的 AICon 上海站上把它拆开来讲。我在预告页里看到这个标题时，第一反应是：这跟当年用编译器写编译器的自举逻辑异曲同工，只不过这次赌的是安全。</p>
+<p><strong>Agent 最大的安全漏洞，恰恰是它被赋予了“自主决策权”。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-04/mmvsqxlc1b5bwhyrugo4-micro/content-1.png" alt="原文配图"></p>
+<h2>三层攻击面叠在一起，旧地图已经彻底失灵</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-04/mmvsqxlc1b5bwhyrugo4-micro/content-2.jpg" alt="原文配图"></p>
+<p>Agent 的安全问题跟传统应用完全不在一个量级。传统应用的安全边界相对清晰——你守好代码漏洞、网络边界、身份鉴权，基本能把大部分攻击挡在外面。但 Agent 是三层叠加的复合系统：底层是模型本身的幻觉与偏见，中间是框架的工具调用与记忆管理，上层是运行环境的沙箱与权限。这三层不是简单相加，而是跨层级联放大。模型输出一句看似无害的文本，框架把它解析成工具调用指令，运行环境又给了这个指令过高的权限——攻击链路就这么串起来了。</p>
+<p>盛锦辰的演讲提纲里把这个现象概括成一句话：<strong>复合风险，跨层级联放大攻击面</strong>。支付宝安全团队在实践中撞上的场景包括记忆投毒（往长期记忆里塞恶意上下文）、工具滥用（诱导 Agent 调用不该调用的 API）、身份越权（Agent 以高权限账号执行低权限用户指令）、沙箱逃逸（从容器内反控宿主环境）。这些攻击手法单独看都不新鲜，但组合在一起的时候，传统的单层切片检测工具基本抓瞎——你扫模型日志看不出异常，查框架配置也没毛病，但链路一跑通，漏洞就暴露了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-04/mmvsqxlc1b5bwhyrugo4-micro/schematic-1.png" alt="Agent 三层攻击面示意——模型层幻觉/偏见、框架层工具调用/记忆管理、运行环境沙箱/权限，箭头标注跨层级联放大路径"></p>
+<p>支付宝的解法是把攻击路径做系统性建模。不是头痛医头地修某个单点漏洞，而是先画一张“Agent 风险大图”，把离散风险收敛成可治理的结构。这一步很像当年安全行业从漏洞扫描转向攻击面管理（Attack Surface Management）的思路跃迁——不再数漏洞个数，而是看攻击者视角的路径图。盛锦辰在 2022 年 QCon 上海站讲过 Java 代码安全的智能化分析，那时候他的方法论还是围绕静态代码扫描展开的。四年过去，战场从代码级跳到了系统级，对手从人类黑客变成了另一个 AI。</p>
+<h2>用 Agent 挖 Agent 的漏洞，Harness 才是关键工程组件</h2>
+<p>“以模治模”听上去很性感，但工程落地需要一个关键组件：harness。盛锦辰的演讲标题里写得很直白——《构建 Agent 漏洞挖掘 harness 环境》。这个 harness 分两刀切：静态切面和动态切面。</p>
+<p>静态切面做的事是把框架代码、Dockerfile、工具配置文件全部聚拢到一个可控环境里，让“挖洞 Agent”做一站式静态扫描。这里面的难点不是扫描技术本身，而是上下文对齐——Agent 框架的配置格式五花八门，OpenClaw 的 manifest 跟 LangChain 的 tool definition 完全不是一套语法，harness 要把它们标准化之后喂给扫描引擎。</p>
+<p>动态切面更有意思。harness 直接暴露模型 IO、工具调用接口和沙箱运行时，然后让“红队 Agent”注入对抗输入去复现可利用性。这本质上是一个自动化渗透测试闭环：红队 Agent 生成对抗样本 → 被测 Agent 执行 → harness 抓取运行时状态 → 分析是否触发漏洞 → 反馈给红队 Agent 调整策略。整个过程不需要人类安全研究员手动构造 payload，Agent 之间自己在攻防博弈。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-04/mmvsqxlc1b5bwhyrugo4-micro/schematic-2.png" alt="Harness 双切面架构——左侧静态切面聚拢代码/配置/Dockerfile，右侧动态切面暴露模型 IO/工具调用/沙箱运行时，红队 Agent 注入对抗输入"></p>
+<p>这个架构让我想起 Google 在 2023 年发表的 AI 红队框架论文，但支付宝的方案多了一层“记忆驱动”。盛锦辰在提纲里提到了一个上线后的新瓶颈：Agent 安全检测的质量会触顶，差距不在技术能力，而在对企业上下文的理理解——业务语义、组织权限结构、历史漏洞模式。这些东西是通用安全工具永远学不会的。支付宝的解法是让每次确认和排除都固化为安全知识与记忆资产，长期记忆越用越懂业务场景。换句话说，这个挖洞 Agent 不是一次性工具，而是一个会“长记性”的安全工程师。</p>
+<h2>评测体系也必须重定义：精度不够，还要可信度</h2>
+<p>Agent 安全检测的另一个坑在评测。传统安全工具的评测指标很单一——检出率、误报率、扫描速度。但 Agent 挖洞的场景里，这三个指标远远不够。盛锦辰提出要加入稳定性（多次扫描结果是否一致）、可解释性（为什么判定这是个漏洞）、对抗鲁棒性（红队 Agent 变种攻击手法后检测是否依然有效）。这四维评测合在一起，他称之为“全面量化可信度”。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-04/mmvsqxlc1b5bwhyrugo4-micro/schematic-3.png" alt="四维评测雷达图——精度、稳定性、可解释性、对抗鲁棒性，标注“可信度”为聚合指标"></p>
+<p>这个思路跟蚂蚁安全团队一贯的风格匹配。他们主导的支付宝多 Agent 协同漏洞挖掘方案已经在 2025 年被国际电联（ITU SG17）立项为 AI 安全国际标准。能把一个工程实践推到国际标准层面，说明这套方法论不是实验室 demo，而是经过了生产环境的海量验证。盛锦辰从 2018 年加入支付宝安全团队，在代码安全风险智能化分析、Java 安全漏洞自动化挖掘这两个方向上深耕了八年，为多个开源软件和互联网平台发现了数十个高危严重漏洞。这个人本身就是从“人工挖洞”时代一路打到“AI 挖洞”时代的老兵。</p>
+<p>评测体系的另一个关键是双向闭环：对外，评测结果是 Agent 上线前的生产准入门槛；对内，评测数据是记忆系统的反馈信号，驱动挖洞 Agent 持续进化。这个闭环一旦跑通，安全检测能力就不再依赖个别研究员的经验曲线，而是随着业务规模线性增长。</p>
+<p>AICon 上海站这次把“Agent 安全与可信治理”单独列为一个专题，跟“Agent 架构与工程化实践”“企业级研发体系重构”并列，说明行业已经把安全从“运维的附属品”提到了架构设计的第一排。支付宝这套“以模治模”的方案，可能是 2026 年 Agent 安全领域最值得盯的生产实践之一。唯一让我好奇的是：那个负责挖洞的 Agent，谁来保证它本身没有漏洞？</p>
+<h2>参考来源</h2>
+<ul>
+<li>InfoQ 中国：《以模治模：支付宝 Agent 安全漏洞智能化检测实践｜AICon 上海》<a href="https://www.infoq.cn/article/MmVSQxLc1b5BWHYRuGo4?utm_source=rss&amp;utm_medium=article" target="_blank" rel="noopener">https://www.infoq.cn/article/MmVSQxLc1b5BWHYRuGo4?utm_source=rss&amp;utm_medium=article</a></li>
+</ul>
+<p>#Agent #AI #科技</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

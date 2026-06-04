@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeepSeek 接进 Codex 保姆级教程：国内直连不看额度脸色 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-03</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-03</span><span class="tag-pill">Daily Report</span></div>
+      <h1>DeepSeek 接进 Codex 保姆级教程：国内直连不看额度脸色</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/deepseek-codex-moonbridge-guide-2026-06-03.png" alt="用一层本地转发把 DeepSeek 接进 OpenAI Codex CLI，国内直连、按量付费"></p>
+<p>Codex 是 OpenAI 的编程智能体，好用，但有两道坎：要 OpenAI 账号、额度还总是不够花。而 DeepSeek 的 API 在国内可以直连、按量付费、单价便宜得多。把后者接到前者上，是很多国内开发者想干的事。</p>
+<p>但有一个绕不过去的现实，先说在前面：</p>
+<p><strong>Codex 现在只通过 OpenAI 的 Responses API 和模型通信，而 DeepSeek 提供的是 Chat Completions / Anthropic 兼容接口——两者对不上，没法直接把 DeepSeek 的地址填进 Codex 就用。</strong> 官方给的解法不是改 Codex，而是在中间加一层本地转发：让 Codex 把 Responses 请求发给本地的转发程序，转发程序翻译成 DeepSeek 能听懂的格式，再把结果翻回来。DeepSeek 官方文档用的转发层是 Moon Bridge。这篇就按官方这条路，一步步把它走通。</p>
+<p>先讲清楚为什么不能直接接——理解了这一层，后面每一步你都知道自己在干什么。</p>
+<h2>为什么不能直接填地址：协议对不上</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-deepseek-codex-doc.png" alt="Codex 走 Responses API，DeepSeek 走 Chat / Anthropic 兼容接口，中间需要一层转发"></p>
+<p><em>来源：DeepSeek 官方 awesome-deepseek-agent 仓库 接入 Codex 文档</em></p>
+<p>很多老教程教你直接在 Codex 配置里写一个 <code>model_providers</code>，把 <code>base_url</code> 填成 DeepSeek 的地址、<code>wire_api</code> 设成 <code>chat</code>。这套在早期能用，<strong>但现在失效了</strong>：Codex 已经把对话补全（Chat Completions）那条老路弃用，改走 OpenAI 自己的 Responses API；而 DeepSeek 只提供 Chat Completions 和 Anthropic 兼容两种接口。请求格式对不上，直接接就会报错。</p>
+<p>所以正确的做法是加一层「翻译官」：</p>
+<ul>
+<li><strong>Codex</strong> 这头：只会说 Responses API；</li>
+<li><strong>Moon Bridge</strong>（本地转发层）：在中间收下 Responses 请求，翻译成 DeepSeek 能听懂的格式，发给 DeepSeek，再把回复翻回 Responses 格式；</li>
+<li><strong>DeepSeek</strong> 那头：正常用它的 Anthropic 兼容接口收发。</li>
+</ul>
+<p>整条路是：<code>Codex → 本地 Moon Bridge → DeepSeek API</code>。下面照着配就行。</p>
+<h2>第一步：装好环境</h2>
+<p>需要三样东西：Node.js、Go、Codex CLI。</p>
+<ul>
+<li>Node.js 18 及以上（从官网下载安装）；</li>
+<li>Go 1.25 及以上（Moon Bridge 用 Go 写，要它来跑）；</li>
+<li>用 npm 全局装 Codex CLI：</li>
+</ul>
+<pre><code class="language-shell">npm install -g @openai/codex
+</code></pre>
+<p>装完验证一下两个版本号都能出来：</p>
+<pre><code class="language-shell">codex --version
+go version
+</code></pre>
+<h2>第二步：拿 DeepSeek API Key</h2>
+<p>去 DeepSeek 开放平台（platform.deepseek.com）的 API Keys 页面，新建一个 Key 并复制好。这个 Key 后面要填进转发层的配置里。</p>
+<p>这一步顺带说一句<strong>国内直连</strong>的关键：DeepSeek 的 API 地址在国内可以直接访问，不需要任何代理。这正是这套方案对国内开发者最实在的地方——不用为了喂一个编程智能体去折腾网络。</p>
+<h2>第三步：配置 Moon Bridge（本地转发层）</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-moonbridge-repo.png" alt="Moon Bridge（moonbridge）本地转发层仓库，把 Codex 的 Responses 请求翻译给 DeepSeek"></p>
+<p><em>来源：Moon Bridge 开源仓库 github.com/ZhiYi-R/moon-bridge</em></p>
+<p>把 Moon Bridge 仓库克隆下来：</p>
+<pre><code class="language-shell">git clone https://github.com/ZhiYi-R/moon-bridge.git
+cd moon-bridge
+</code></pre>
+<p>在目录里新建一个 <code>config.yml</code>，填入下面这份最小配置，把里面的 <code>sk-your-deepseek-api-key</code> 换成你刚拿到的 Key：</p>
+<pre><code class="language-yaml">mode: &quot;Transform&quot;
+
+server:
+  addr: &quot;127.0.0.1:38440&quot;
+
+models:
+  deepseek-v4-pro:
+    context_window: 1000000
+    max_output_tokens: 384000
+    default_reasoning_level: &quot;high&quot;
+    extensions:
+      deepseek_v4:
+        enabled: true
+  deepseek-v4-flash:
+    context_window: 1000000
+    max_output_tokens: 384000
+    default_reasoning_level: &quot;high&quot;
+    extensions:
+      deepseek_v4:
+        enabled: true
+
+providers:
+  deepseek:
+    base_url: &quot;https://api.deepseek.com/anthropic&quot;
+    api_key: &quot;sk-your-deepseek-api-key&quot;
+    offers:
+      - model: deepseek-v4-pro
+      - model: deepseek-v4-flash
+
+routes:
+  moonbridge:
+    model: deepseek-v4-pro
+    provider: deepseek
+
+defaults:
+  model: moonbridge
+  max_tokens: 65536
+</code></pre>
+<p>这份配置做了几件事：把转发层监听地址设在本地 <code>127.0.0.1:38440</code>，挂上 DeepSeek V4 Pro 和 Flash 两个模型，默认路由走 Pro。要图片输入、联网搜索或多家模型路由，可以再参考 Moon Bridge 自带的 <code>config.example.yml</code> 扩展，这里先用最小可用版。</p>
+<h2>第四步：启动转发层</h2>
+<pre><code class="language-shell">go run ./cmd/moonbridge --config config.yml
+</code></pre>
+<p><strong>这个终端要一直开着别关。</strong> 启动后，Moon Bridge 在本地 <code>127.0.0.1:38440</code> 提供一个 Responses 兼容接口，地址是 <code>http://127.0.0.1:38440/v1/responses</code>——这正是 Codex 要去说话的地方。</p>
+<h2>第五步：生成 Codex 配置</h2>
+<p>另开一个终端，还在 moon-bridge 目录下。如果你之前已经配过 Codex，下面的命令会覆盖配置，<strong>先备份一份</strong>再生成。以 macOS / Linux 为例：</p>
+<pre><code class="language-shell">CODEX_HOME_DIR=&quot;${CODEX_HOME:-$HOME/.codex}&quot;
+mkdir -p &quot;$CODEX_HOME_DIR&quot;
+
+# 先备份现有 config.toml
+cp &quot;$CODEX_HOME_DIR/config.toml&quot; &quot;$CODEX_HOME_DIR/config.toml.bak&quot; 2&gt;/dev/null || true
+
+# 生成指向本地转发层的 Codex 配置
+MODEL=&quot;$(go run ./cmd/moonbridge --config config.yml --print-codex-model)&quot;
+go run ./cmd/moonbridge \
+  --config config.yml \
+  --print-codex-config &quot;$MODEL&quot; \
+  --codex-base-url &quot;http://127.0.0.1:38440/v1&quot; \
+  --codex-home &quot;$CODEX_HOME_DIR&quot; \
+  &gt; &quot;$CODEX_HOME_DIR/config.toml&quot;
+</code></pre>
+<p>Windows PowerShell 用户用对应的写法：</p>
+<pre><code class="language-powershell">$CODEX_HOME_DIR = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { &quot;$HOME\.codex&quot; }
+New-Item -ItemType Directory -Force -Path $CODEX_HOME_DIR | Out-Null
+if (Test-Path &quot;$CODEX_HOME_DIR\config.toml&quot;) {
+  Copy-Item &quot;$CODEX_HOME_DIR\config.toml&quot; &quot;$CODEX_HOME_DIR\config.toml.bak&quot; -Force
+}
+$MODEL = go run ./cmd/moonbridge --config config.yml --print-codex-model
+go run ./cmd/moonbridge `
+  --config config.yml `
+  --print-codex-config &quot;$MODEL&quot; `
+  --codex-base-url &quot;http://127.0.0.1:38440/v1&quot; `
+  --codex-home &quot;$CODEX_HOME_DIR&quot; `
+  | Set-Content -Path &quot;$CODEX_HOME_DIR\config.toml&quot;
+</code></pre>
+<p>这一步会写出两个文件：<code>config.toml</code>（Codex 的服务商配置，关键是 <code>wire_api = &quot;responses&quot;</code>，让 Codex 走 Responses 这条路），以及 <code>models_catalog.json</code>（告诉 Codex 这个模型的上下文窗口、推理档位、工具支持等能力信息）。</p>
+<h2>第六步：启动 Codex，干活</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/03/source-codex-repo.png" alt="Codex 是 OpenAI 的编程智能体，配好转发层后即可由 DeepSeek 驱动"></p>
+<p><em>来源：OpenAI Codex 官方仓库 github.com/openai/codex</em></p>
+<p>进到你要写的项目目录，直接起 Codex：</p>
+<pre><code class="language-shell">cd /path/to/my-project
+codex
+</code></pre>
+<p>此时 Codex 把请求发给本地 Moon Bridge，Moon Bridge 再路由到 DeepSeek V4。Codex 桌面 App 也能复用这同一份生成好的配置。</p>
+<p>Moon Bridge 还提供了一键脚本，帮你一次把转发层、配置、Codex 全起好：</p>
+<pre><code class="language-shell">./scripts/start_codex_with_moonbridge.sh --project-directory /path/to/my-project
+</code></pre>
+<h2>验证：两条命令确认通了</h2>
+<p>想确认链路真的通了，先看可用模型列表：</p>
+<pre><code class="language-shell">curl http://127.0.0.1:38440/v1/models
+</code></pre>
+<p>再发一条 Responses 测试请求，能正常回话就说明 DeepSeek 已经接上：</p>
+<pre><code class="language-shell">curl http://127.0.0.1:38440/v1/responses \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{
+    &quot;model&quot;: &quot;moonbridge&quot;,
+    &quot;input&quot;: &quot;请用一句话打个招呼。&quot;,
+    &quot;max_output_tokens&quot;: 1024
+  }&#39;
+</code></pre>
+<h2>这套到底划不划算：国内直连 + 按量付费两笔账</h2>
+<p>走到这里，回到最开始的两个动机，把账算清楚：</p>
+<ul>
+<li><strong>国内直连</strong>：DeepSeek 的 API 在国内可以直接访问，整套链路（Codex → 本地转发 → DeepSeek）全程不需要代理。转发层也只是跑在你自己机器上的本地程序，不绕外网。</li>
+<li><strong>额度自由</strong>：DeepSeek API 是按量付费，用多少算多少，单价比官方自带额度便宜得多；不再受 Codex 自带额度的节奏限制，跑重活心里更有底。</li>
+<li><strong>代价是多一层维护</strong>：你得让本地转发层一直开着，遇到 Codex 或 DeepSeek 接口升级，配置可能要跟着调。这是「用一层转发换协议兼容」必然的代价，不是这套方案的 bug。</li>
+</ul>
+<p>一句话总结这条路：<strong>它不是把地址一填就通的捷径，而是用一层本地转发，换来 Codex 这台好用的编程智能体在国内直连 DeepSeek、按量付费地跑起来。</strong> 配置只是一次性的活，配好之后，你手里就多了一套「不看额度脸色」的编程智能体。开源工具把这些接法一条条做出来，我们这一代开发者，能选的组合只会越来越多——配好今晚这套，明天就能上手。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AMD 128GB 迷你主机跑大模型：混合专家比密集快十倍 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-04</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-04</span><span class="tag-pill">Daily Report</span></div>
+      <h1>AMD 128GB 迷你主机跑大模型：混合专家比密集快十倍</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/strix-halo-128gb-moe-vs-dense-2026-06-04.png" alt="一台 AMD 迷你主机点亮，128GB 统一内存把一个巨大的发光神经网络压进巴掌大的盒子，象征用统一内存在本地跑千亿参数大模型"></p>
+<p>花两千美元买一台巴掌大的 AMD 迷你主机，128GB 统一内存能装下连 RTX 4090 都塞不进的千亿参数大模型。这件事本身已经够吸引人，但社区实测里还藏着一个更反常的结论。</p>
+<p>同一台机器上，一个 1200 亿参数的混合专家（MoE）模型，每秒能生成 55 个字；而一个只有 700 亿参数、个头小得多的密集模型，每秒只有不到 5 个字。<strong>更大的模型，反而快了十倍还多。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/source-strix-halo-guide-github-2026-06-04.png" alt="一份 Strix Halo 本地大模型实测指南的封面卡，标注混合专家推理速度、可运行 700 亿参数以上模型、128GB 统一内存"></p>
+<p><em>来源：社区实测指南《The definitive Strix Halo LLM guide》首页，标注这台机器在混合专家模型上的推理速度与 128GB 统一内存容量</em></p>
+<p>这篇文章的核心判断只有一句：<strong>在这类内存带宽受限的统一内存机器上，决定一个模型跑多快的，不是它的总参数量，而是每生成一个字真正参与计算的那部分参数（激活参数）。</strong> 想清楚这一点，你就知道这台机器该买来跑什么、不该指望它干什么——它天生只配混合专家架构的大模型。</p>
+<h2>先认清这台机器：巴掌大，128GB，但带宽只有 4090 的五分之一</h2>
+<p>这一节先把硬件摆清楚，后面所有反常的速度都从这里来。</p>
+<p>主角是 AMD 的 Ryzen AI Max+ 395 处理器，代号 Strix Halo。它把 16 个 Zen 5 架构的 CPU 核心、一块 40 计算单元的 Radeon 8060S 集成显卡、还有最高 128GB 的 LPDDR5X-8000 内存焊在一颗芯片上。关键就在这 128GB 内存：CPU 和显卡共用同一池内存，显卡能直接拿来当显存使。这就是它能装下大模型的根本原因——普通显卡的显存是单独的一小块，4090 只有 24GB，而它有 128GB。</p>
+<p>代价是带宽。社区实测这套内存的实际带宽大约是每秒 215GB，而 RTX 4090 的显存带宽是每秒约 1008GB，几乎是它的五倍。这个差距，正是后面一切的伏笔。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/source-gmktec-evox2-toms-2026-06-04.jpg" alt="GMKtec EVO-X2 迷你主机实物，机身只有一罐汽水大小，搭载 AMD Ryzen AI Max+ 395 处理器与 128GB 统一内存"></p>
+<p><em>来源：Tom&#39;s Hardware 对 GMKtec EVO-X2 迷你主机的评测，机身仅一罐饮料大小，128GB/2TB 版本零售价约 2199 美元</em></p>
+<p>价格上，这类 Strix Halo 迷你主机已经下探到能让个人开发者认真考虑的区间。GMKtec 的 EVO-X2 整机（128GB 内存 + 2TB 固态）官方约 2199 美元；Framework 的桌面版 128GB 配置约 2459 美元；社区实测指南用的那台 Beelink GTR9 Pro 因为配置更高，定价到了 4399 美元。无论哪台，都是一台不到三升、几乎不发出噪音的小盒子。</p>
+<h2>反常的速度表：1200 亿的模型，比 700 亿的快十倍</h2>
+<p>把社区在这台机器上跑出来的一串真实成绩摆在一起，反常之处一眼就看出来了。</p>
+<p>下面这些数字都来自同一类 Strix Halo 机器、同一套 llama.cpp 推理后端，跑的是 4 位量化版本：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>架构</th>
+<th>总参数 / 每字激活</th>
+<th>显存占用</th>
+<th>生成速度</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qwen3-30B-A3B</td>
+<td>混合专家</td>
+<td>300 亿 / 30 亿</td>
+<td>13.9 GB</td>
+<td>约 100 字/秒</td>
+</tr>
+<tr>
+<td>Qwen3-Coder-30B-A3B</td>
+<td>混合专家</td>
+<td>300 亿 / 30 亿</td>
+<td>17.5 GB</td>
+<td>约 98 字/秒</td>
+</tr>
+<tr>
+<td>Qwen3-Next-80B-A3B</td>
+<td>混合专家</td>
+<td>800 亿 / 30 亿</td>
+<td>42.9 GB</td>
+<td>约 59 字/秒</td>
+</tr>
+<tr>
+<td>gpt-oss-120b</td>
+<td>混合专家</td>
+<td>1200 亿 / 50 亿</td>
+<td>63.4 GB</td>
+<td>约 55 字/秒</td>
+</tr>
+<tr>
+<td>Llama 4 Scout</td>
+<td>混合专家</td>
+<td>1090 亿 / 170 亿</td>
+<td>60.9 GB</td>
+<td>约 18 字/秒</td>
+</tr>
+<tr>
+<td>Llama 3.1-70B</td>
+<td>密集</td>
+<td>700 亿 / 700 亿</td>
+<td>42 GB</td>
+<td>约 5 字/秒</td>
+</tr>
+</tbody></table>
+<p>注意最后两行的对比：1200 亿参数的 gpt-oss 每秒 55 个字，700 亿参数的 Llama 密集模型每秒不到 5 个字。模型大了七成，速度反而是它的十一倍。</p>
+<p>再看一个更干净的对照：同样是 4 位量化，300 亿的 Qwen3 混合专家版每秒 100 个字，700 亿的 Llama 密集版每秒 5 个字——密集版总参数是它的两倍多，速度却只有它的二十分之一。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/chart-strix-active-vs-speed-2026-06-04.png" alt="同一台 Strix Halo 上五个模型的生成速度柱状图，混合专家模型用绿色、密集模型用红色，激活参数越多速度越低，1200 亿的混合专家比 700 亿的密集快十倍"></p>
+<p><em>来源：社区实测 hogeheer499 strix-halo-guide 与 llm-tracker.info 的公开跑分（llama.cpp Vulkan 后端，Ryzen AI Max+ 395），按每字激活参数排列</em></p>
+<p>更耐人寻味的是中间那行 Llama 4 Scout：它总参数 1090 亿，比 gpt-oss 还小一点，速度却只有 18 字/秒，只有 gpt-oss 的三分之一上下。原因藏在「每字激活」那一列——Scout 每生成一个字要动用 170 亿参数，而 gpt-oss 只动用 50 亿。<strong>总大小相近，激活多的那个就慢。</strong> 这正好把那句核心判断坐实了。</p>
+<h2>为什么？带宽受限的机器，只认&quot;每个字要搬多少参数&quot;</h2>
+<p>这一节解释那个反常，而且这个道理你自己用一道除法就能验证。</p>
+<p>混合专家模型的特点是：它有很多参数，但每生成一个字，只会&quot;点亮&quot;其中一小撮专家参与计算，其余的参数原地不动。Qwen3-30B-A3B 总共 300 亿参数，但每个字只激活 30 亿；gpt-oss-120b 总共 1200 亿，每个字只激活 50 亿。密集模型没有这个机制，每生成一个字，全部 700 亿参数都得参与一遍。</p>
+<p>而在 Strix Halo 这种机器上，生成速度几乎被一件事卡死：内存带宽。每生成一个字，处理器都得把&quot;这个字要用到的参数&quot;从内存里完整读一遍。所以速度大致等于：</p>
+<pre><code>每秒能生成的字数 ≈ 内存带宽 ÷ 每个字要读取的参数字节数
+</code></pre>
+<p>代入这台机器的数字算一遍：内存带宽约每秒 215GB。一个每字激活 30 亿参数的 4 位模型，每个字大约要读 1.7GB，215 ÷ 1.7 ≈ 每秒 126 个字——和实测的 100 字/秒基本对得上。换成每字激活全部 700 亿参数的密集模型，每个字要读约 40GB，215 ÷ 40 ≈ 每秒 5.4 个字——又和实测的 5 字/秒对上了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/source-strix-halo-dense-vs-moe-2026-06-04.png" alt="Strix Halo 上各模型的实测速度表，明确标出每个模型是密集还是混合专家架构，以及对应的生成速度，密集小模型反而比混合专家大模型慢"></p>
+<p><em>来源：社区实测指南「这台机器能跑什么」一节，逐行标注模型架构（密集 / 混合专家）与生成速度</em></p>
+<p>这道除法就是整件事的钥匙：带宽是固定的，谁每个字要搬的参数少，谁就快。混合专家把&quot;每个字要搬的量&quot;压到很小，所以哪怕总盘子很大也跑得动；密集模型每个字都得把整个盘子搬一遍，再小也快不起来。所以这类机器和混合专家是天作之合，碰上密集大模型就立刻露怯。</p>
+<h2>和 4090、DGX Spark 摆在一起，它的位置就清楚了</h2>
+<p>光看自己不够，得把它放进消费级跑模型的版图里。社区把几台常见机器的带宽、速度、能装下的模型上限列在了一起。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/source-strix-halo-bandwidth-table-2026-06-04.png" alt="RTX 4090、RTX 3090、苹果 M4 Max、Strix Halo、NVIDIA DGX Spark 五台机器的内存带宽与混合专家模型速度对比表，4090 带宽最高但容量只有 24GB，Strix Halo 带宽最低但能装下 120GB 以上的模型"></p>
+<p><em>来源：社区实测指南的硬件横向对比表，列出各机型实测内存带宽、30B 级混合专家生成速度与可装载模型上限</em></p>
+<p>把这张表读透，结论很干脆：</p>
+<ul>
+<li><strong>跑一个能塞进 24GB 的混合专家模型</strong>，RTX 4090 每秒 100 到 122 个字，是这里最快的，而 Strix Halo 每秒 63 到 100 个字。单看这一档，4090 更快、还更便宜（二手 3090 甚至只要 800 美元就有接近的速度）。</li>
+<li><strong>可一旦模型超过 24GB</strong>，4090 直接装不下，这场比较就结束了。能继续往下跑 1200 亿参数模型的，只剩 Strix Halo、DGX Spark 和高配苹果这几台有大内存的机器。</li>
+<li><strong>同样是大内存机器</strong>，NVIDIA 的 DGX Spark 带宽每秒 273GB，比 Strix Halo 的 215GB 略高，跑 1200 亿参数模型每秒 52 到 56 个字，和 Strix Halo 的 55 字/秒几乎打平；但 DGX Spark 官方价 4699 美元，比两千出头的 GMKtec 贵了一大截。</li>
+</ul>
+<p>换句话说，Strix Halo 卡的不是&quot;最快&quot;那个位置，而是&quot;在能装下大模型的前提下，最便宜&quot;那个位置。</p>
+<h2>那这台机器到底值不值得买？</h2>
+<p>把账算到底，答案其实很坦白。</p>
+<p>先说不该有的期待：别指望它快。在它擅长的混合专家这一档，一张 4090 同样能跑到每秒一百来个字，价格还更低；真要论单纯的速度，独立显卡始终更划算。社区把本地自建和云端 API 的成本摊开算过一笔账：如果你只是偶尔用用，按一台四千多美元的整机折算，对比每月二十美元的订阅，要好多年才能回本——纯从省钱角度，本地跑模型几乎永远算不过云端。</p>
+<p>那它的价值在哪？在三件云端给不了、4090 也给不了的事上：</p>
+<ul>
+<li><strong>装得下别人装不下的模型</strong>。128GB 统一内存能完整跑 1200 亿参数的开源大模型，这是 24GB 显卡物理上做不到的事，也是这台机器存在的最大理由。</li>
+<li><strong>数据不出本地</strong>。所有推理都在这台小盒子里完成，敏感代码、内部文档、个人资料不经过任何第三方服务器，这对介意隐私的人是硬需求。</li>
+<li><strong>安静、省电、随时待命</strong>。一台不到三升的盒子，功耗只有几十瓦，没有显卡满载的轰鸣，可以一直开着当本地推理服务用。</li>
+</ul>
+<p>把这台机器用对的姿势很清楚：装一个混合专家架构的大模型当本地助手。配置上有几条社区反复验证的经验——优先用 Vulkan 后端而不是 ROCm，能快出近一成；推理时带上几个关键参数能再榨出一些速度：</p>
+<pre><code class="language-bash"># llama.cpp 上跑混合专家模型的常用参数（Strix Halo）
+llama-bench -m 你的模型.gguf \
+  -fa 1        # 开启 Flash Attention，提示处理快约 13%
+  -ngl 999     # 所有层都丢给集成显卡
+  -mmp 0       # 关掉内存映射，更稳、提示处理更快
+
+# 用 Ollama 的话，这两个环境变量值得设上
+OLLAMA_VULKAN=1            # 强制走 Vulkan，比 ROCm 快约 9%
+OLLAMA_FLASH_ATTENTION=1  # 开启 Flash Attention
+</code></pre>
+<p>显存够不够也很好估：一个 4 位量化的混合专家模型，显存占用大致就是它的&quot;文件大小&quot;再加一点上下文开销。300 亿的 Qwen3 占 14GB 上下，1200 亿的 gpt-oss 占 63GB 上下，128GB 内存留足了余量。</p>
+<h2>结尾：买的不是速度，是只有混合专家才跑得动的那批大模型</h2>
+<p>回到开头那个反常的对比：1200 亿的模型比 700 亿的快十倍。它不是什么玄学，而是这类统一内存机器的本性——带宽固定，谁每个字搬的参数少谁就快，混合专家正好把这个量压到了最小。</p>
+<p>所以一句话能说清这台 AMD 迷你主机的位置：<strong>它买的不是速度，而是 128GB 内存能装下、并且只有混合专家架构才跑得动的那批千亿大模型。</strong> 想在本地养一个又大又安静、数据不出门的开源助手，它是眼下两千美元价位里少有的选择；但要是冲着&quot;跑得飞快&quot;去，或者想拿它硬扛密集大模型，那就找错对象了。</p>
+<p>看懂&quot;激活参数决定速度&quot;这一条，你不光看懂了这台机器，也顺手看懂了这一年开源大模型集体转向混合专家的原因——它让原本只有数据中心才跑得动的大模型，第一次能塞进一台放在书桌上的小盒子里。这件事本身，就挺值得高兴。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

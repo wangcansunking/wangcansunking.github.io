@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Codex 上了 AWS：换一朵云，同一套编码工作流还能不能跑 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-04</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-04</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Codex 上了 AWS：换一朵云，同一套编码工作流还能不能跑</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/openai-codex-aws-bedrock-ga-2026-06-04.png" alt="Codex 与 OpenAI 前沿模型上架 AWS Bedrock"></p>
+<blockquote>
+<p>北京时间 6 月 1 日，OpenAI 的 GPT-5.5、GPT-5.4 和 Codex 编码智能体正式在 AWS Bedrock 转入正式可用。一句话定调：你那套写在 Codex 上的编码工作流，从今天起换一朵云也能照常跑，价格不变、计费方式不变，多出来的是一整套 AWS 的企业合规控制。</p>
+</blockquote>
+<p>如果你每天用 Codex 写代码、改 bug、跑测试，过去有一个隐形前提：这套东西的算力底层默认绑在微软 Azure 上。6 月 1 日之后，这个前提松动了——OpenAI 把自家最新的闭源模型和 Codex 一起放上了 AWS Bedrock，这是它第一次让最新一代模型出现在微软之外的大型云上。</p>
+<p>对企业开发者来说，这件事的看点不在&quot;OpenAI 又上了一朵云&quot;这条新闻本身，而在于一个很具体的问题：<strong>同一套 Codex 工作流，换到 AWS 上还能不能原样跑，价格怎么算，数据合规怎么算。</strong> 本文就只回答这一个问题。</p>
+<h2>这次到底上了什么：两个模型加一个编码智能体</h2>
+<p>先把对象说清楚。这次 AWS Bedrock 正式可用的是三样东西，不是一样：</p>
+<ul>
+<li><strong>GPT-5.5</strong>：定位复杂推理与编码任务，是这次能力最强的一档；</li>
+<li><strong>GPT-5.4</strong>：定位价格与性能的平衡档，日常量大的任务用它更划算；</li>
+<li><strong>Codex</strong>：OpenAI 的编码智能体，底层由 GPT-5.5 驱动推理。</li>
+</ul>
+<p>三者都通过 <strong>Responses API</strong> 调用，跑在 AWS Bedrock 新一代推理引擎上。也就是说，你原来对着 OpenAI 自营接口写的那套 Responses API 调用代码，迁到 Bedrock 上的改动主要在端点和鉴权，而不是把整个调用范式推倒重写。</p>
+<p>关键的一句官方表述是：<strong>所有模型推理都经 Amazon Bedrock 路由，推理过程停留在你选定的区域内，以满足数据驻留要求。</strong> 这句话对企业用户的份量，后面单开一节讲。</p>
+<p>Codex 这边，目前每周有数百万开发者用它来写代码、重构、调试、测试和验证代码。这个量级的意义不是&quot;用户多&quot;，而是说明它已经不是一个尝鲜玩具，而是大量团队日常生产流程里的一环——而生产流程一旦绑定，云在哪、价格怎么算、数据走哪，就都成了真问题。</p>
+<h2>Codex 怎么进来：CLI、桌面 App、IDE 插件三条路都通</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/source-codex-cli-bedrock-2026-06-04.png" alt="Codex 在 AWS Bedrock 上运行的命令行界面">
+<small>来源：AWS News Blog《Get started with OpenAI GPT-5.5, GPT-5.4 models, and Codex on Amazon Bedrock》2026-06-01</small></p>
+<p>本节核心：<strong>Codex 在 Bedrock 上的入口和它在 OpenAI 自营时一模一样，你不用换工具。</strong></p>
+<p>Codex on Amazon Bedrock 通过三种方式接入，和你现在熟悉的用法完全对齐：</p>
+<ul>
+<li><strong>Codex CLI</strong>：命令行下载即用，终端里直接对话式写代码；</li>
+<li><strong>Codex App</strong>：桌面端应用；</li>
+<li><strong>IDE 插件</strong>：覆盖 Visual Studio Code、JetBrains、Xcode 三大编辑器阵营。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/source-codex-desktop-bedrock-2026-06-04.jpg" alt="Codex 桌面端应用在 AWS Bedrock 上的界面">
+<small>来源：AWS Machine Learning Blog《OpenAI models and Codex on Amazon Bedrock are now generally available》2026-06-01</small></p>
+<p>这一点对开发者其实是最直接的安心来源：换云不等于换工具链。你团队里那些已经习惯在 VS Code 里唤起 Codex 的人，迁到 Bedrock 之后看到的还是同一个界面、同一套交互；底层的模型推理改走 AWS，对日常敲代码的人几乎是无感的。Codex 跨仓库保持上下文、能在失败时自己推理、调用工具做验证这些能力也都还在，由 GPT-5.5 驱动后，效率和质量比早期版本有提升。</p>
+<p>换句话说，这次迁移的成本压在基础设施和合规团队那边，而不是压在每天写代码的人身上。这正是企业最希望看到的迁移姿势。</p>
+<h2>价格怎么算：与自营 API 同价，按 token，无席位</h2>
+<p>本节核心：<strong>上 AWS 没有&quot;云平台加价&quot;，价格和 OpenAI 自营接口一分钱不差。</strong></p>
+<p>这是很多企业最关心的一刀。过去模型上第三方云，常见的担心是中间被加一层平台费。这次没有——AWS 公布的价格和 OpenAI 自营 API 完全对齐：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>输入（每百万 token）</th>
+<th>输出（每百万 token）</th>
+<th>与自营 API 关系</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>GPT-5.5</td>
+<td>5 美元</td>
+<td>30 美元</td>
+<td>同价，无加价</td>
+</tr>
+<tr>
+<td>GPT-5.4</td>
+<td>2.5 美元</td>
+<td>15 美元</td>
+<td>同价，无加价</td>
+</tr>
+<tr>
+<td>Codex</td>
+<td>按 token 计费</td>
+<td>按 token 计费</td>
+<td>无席位、无人头授权</td>
+</tr>
+</tbody></table>
+<p>计费规则有三条值得单独拎出来：</p>
+<ul>
+<li><strong>按 token 计费</strong>：用多少算多少，不预先买容量；</li>
+<li><strong>无席位、无人头授权</strong>：不用按开发者人头买 license，团队加人不加固定成本，先用起来再随量扩；</li>
+<li><strong>算进已有 AWS 承诺额度</strong>：这笔消耗可以并入你公司和 AWS 谈好的整体用量承诺里一起结算。</li>
+</ul>
+<p>最后这条对已经重度用 AWS 的公司是实打实的好处：Codex 和 GPT-5.5 的账，不再是另开一个供应商单独走采购、单独对账，而是落进你本来就在管的那本 AWS 账里。对财务和采购流程来说，这比省下几个百分点的单价更省事。</p>
+<h2>真正多出来的东西：一整套 AWS 企业合规控制</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/source-aws-openai-announcement-hero-2026-06-04.png" alt="AWS 数据中心，模型推理停留在选定区域内以满足数据驻留要求">
+<small>来源：About Amazon 官方新闻配图，2026-06-01</small></p>
+<p>本节核心：<strong>上 Bedrock 换来的不只是另一朵云，而是 AWS 那套企业级合规控制原封不动地套在了 Codex 上。</strong></p>
+<p>这是这次迁移对企业最有价值、也最容易被一句&quot;OpenAI 上了 AWS&quot;盖过去的部分。在 Bedrock 上，OpenAI 模型继承的是 AWS 现成的一整套企业控制能力：</p>
+<ul>
+<li><strong>IAM 访问管理</strong>：用你现有的 AWS 身份与权限体系管谁能调 Codex，不再单独维护一套；</li>
+<li><strong>AWS PrivateLink 私有连接</strong>：模型调用走私有网络通道，不经公网；</li>
+<li><strong>Guardrails 护栏</strong>：在模型输入输出两端加内容与安全约束；</li>
+<li><strong>静态与传输加密</strong>：数据落盘和在途都加密；</li>
+<li><strong>CloudTrail 全量日志</strong>：每一次调用可审计、可追溯；</li>
+<li><strong>数据驻留</strong>：推理停留在你选定的区域内，满足合规对数据不出境/不出区的要求。</li>
+</ul>
+<p>把这几条连起来看，结论很清楚：对一家受监管的企业来说，&quot;能不能用 Codex&quot;过去卡的往往不是模型好不好，而是它能不能塞进现有的安全与审计框架里。现在 Codex 跟你公司里别的 AWS 服务一样，用同一套 IAM 管权限、同一套 CloudTrail 留痕、同一套 PrivateLink 走网络——审计团队不用为它单开一份例外说明。这一步迈过去，Codex 才算真正进得了企业的核心开发流程。</p>
+<p>可用区域上，目前 GPT-5.5 在 US East（俄亥俄）提供生产可用，GPT-5.4 同时落在 US East（俄亥俄）和 US West（俄勒冈）两个区域。区域还在铺开过程中，这也是判断它能不能进某个具体合规场景的硬前提之一。</p>
+<h2>换一朵云还能不能跑：三类云的可用性对位</h2>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/04/chart-codex-three-clouds-2026-06-04.png" alt="同一套 Codex 工作流在三类云上的可用性对位">
+<small>来源：根据 OpenAI、AWS 官方公告整理</small></p>
+<p>本节核心：<strong>Codex 工作流从&quot;只在微软家能跑&quot;变成&quot;AWS 也能原样跑&quot;，但闭源模型这条路目前仍是 Azure 与 AWS 两家，国内云走的是另一条开源权重的路。</strong></p>
+<p>把读者最关心的&quot;换云&quot;问题摊成一张对位表来看，几个维度的差别就清楚了：</p>
+<ul>
+<li><strong>闭源 GPT-5.5 / GPT-5.4</strong>：Azure 和 AWS 都可用，这是 OpenAI 第一次让最新闭源模型出现在微软之外的大型云上；</li>
+<li><strong>Codex 编码智能体</strong>：Azure、AWS 都原生可用，工具链一致；</li>
+<li><strong>Responses API 调用</strong>：两家都支持，迁移主要改端点和鉴权；</li>
+<li><strong>IAM / PrivateLink / 数据驻留</strong>：两家各有自己的等价企业控制体系，能力对齐；</li>
+<li><strong>国内合规直接可用</strong>：这一项 Azure 海外版和 AWS 海外版都不直接满足，得靠另一条路解决。</li>
+</ul>
+<p>需要点明一句：这次 OpenAI 模型上 AWS，能成行的背景是今年 4 月底微软与 OpenAI 修订了合作条款，结束了 Azure 作为唯一第三方云的独家地位。从那以后，OpenAI 的模型分发就从&quot;绑定单一云&quot;转向了多云可选。对企业采购团队来说，这意味着选 Codex 不再等于被迫接受某一朵特定的云——&quot;换一朵云还能用同一套 Codex&quot;这件事，第一次成立了。</p>
+<h2>国内开发者能不能用：合规、网络与国产模型对位</h2>
+<p>本节核心：<strong>Codex 上 AWS 这件事，国内开发者隔着一层网络与合规，但它给出的&quot;模型按 token 上云、与自营同价、套云原生合规&quot;这套范式，国内云上的国产模型其实早已在另一条路上对位。</strong></p>
+<p>先说能不能直接用。Codex on Bedrock 目前只在 US East、US West 这些海外区域提供，模型也是 OpenAI 的闭源前沿模型——对国内开发者而言，网络可达性和数据合规这两道现实门槛是绕不开的客观事实，跨境调用境外闭源模型用于生产，在合规上需要单独评估。这不是看不看好的问题，是客观条件的问题，本文只把对位摆清楚，不替谁做决定。</p>
+<p>但有意思的是，这次 AWS 端给 Codex 配的那套&quot;按 token 计费、与官方同价、套用云原生的 IAM / 私有网络 / 护栏 / 数据驻留&quot;的范式，国内开发者并不陌生——因为国产模型在 AWS Bedrock 以及国内各云上，早就在走一条平行的路。把两条路对位看：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>OpenAI 在 AWS（本文主角）</th>
+<th>国产模型在各云的对位</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>模型性质</td>
+<td>GPT-5.5 / GPT-5.4 闭源前沿模型</td>
+<td>DeepSeek、千问（Qwen）、智谱 GLM、Kimi 等多为开源权重</td>
+</tr>
+<tr>
+<td>上 Bedrock 形态</td>
+<td>闭源、按 token 托管调用</td>
+<td>开源权重在 Bedrock 全托管，今年已陆续上架 DeepSeek V3.2、Qwen3 Coder、GLM 4.7、Kimi K2.5 等</td>
+</tr>
+<tr>
+<td>编码智能体</td>
+<td>Codex 原生</td>
+<td>国产模型多以模型形态供 Cursor / Claude Code 等第三方编码工具接入</td>
+</tr>
+<tr>
+<td>国内合规直接可用</td>
+<td>隔网络与合规门槛</td>
+<td>在国内云与境内合规场景下更顺，数据不出境更易满足</td>
+</tr>
+</tbody></table>
+<p>这张对位表想说的不是谁强谁弱，而是一个更朴素的判断：<strong>&quot;前沿模型按 token 上云、与自营同价、套云原生合规&quot;这套打法已经成了行业通用范式，OpenAI 上 AWS 是它在闭源这条线上最新的一例，而国产模型早就在开源权重这条线上把同样的范式跑得很熟。</strong> 对国内团队来说，真正可借鉴的是这套范式本身——模型作为一项按量计费的云服务、用统一的身份与审计体系来管、把数据驻留当成硬约束——而不是某一个具体的境外接口。</p>
+<p>值得一提的是，国产模型在开源权重这条路上的可选项已经相当丰富：从擅长推理的 DeepSeek、到主打自主编码的 GLM 与 MiniMax、再到 Qwen 系列的编码专精版本，国内团队在&quot;模型即云服务&quot;这件事上手里的牌并不少。这是一件让人踏实的事——同样的工程范式，国内开发者并没有被落下，反而在开源这条更开放的路上积累了自己的经验。</p>
+<h2>回到那个问题：换一朵云，工作流还在</h2>
+<p>绕了一圈，回到开头那个问题：你写在 Codex 上的编码工作流，换一朵云还能不能跑？</p>
+<p>答案是：能。从 6 月 1 日起，同一个 Codex CLI、同一套 VS Code 插件、同一份 Responses API 调用代码，迁到 AWS Bedrock 上几乎无感继续工作；价格和 OpenAI 自营一分不差，按 token 算、不买席位、还能并进你已有的 AWS 账；多出来的是 IAM、PrivateLink、护栏、CloudTrail、数据驻留这一整套企业合规控制。对企业开发者，这是一次实打实的&quot;云中立&quot;选择权扩大——选 Codex 不再等于被绑在某一朵云上。</p>
+<p>对国内开发者，这件事隔着网络与合规，但它确认的那套范式我们并不陌生：模型作为按量计费的云服务、用统一的身份审计体系托管、把数据驻留写进硬约束。这条路上，国产模型在开源权重这条线已经走得很扎实。技术世界正在变得越来越像&quot;哪朵云都能接得上同一套活儿&quot;，而这种可选择性，无论对海外还是国内的开发者，都是好消息。路在前面，一起往前走。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
