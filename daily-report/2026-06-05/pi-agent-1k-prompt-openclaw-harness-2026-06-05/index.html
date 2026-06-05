@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw 底层的编码代理 Pi：系统提示词压到不足千字 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-05</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-05</span><span class="tag-pill">Daily Report</span></div>
+      <h1>OpenClaw 底层的编码代理 Pi：系统提示词压到不足千字</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/05/pi-agent-1k-prompt-openclaw-harness-2026-06-05.png" alt="OpenClaw 底层 Pi agent 极简 prompt harness 封面"></p>
+<p>一句话先说结论：当大多数编码代理把系统提示词堆到一万 token 时，Pi 把它压到了不到一千。</p>
+<p>这不是抠门，而是一次很值得国内开发者细看的设计选择。Pi 是一个极简的编码代理骨架，作者是 Mario Zechner 和 Armin Ronacher（Flask、Jinja2 的作者）。截至 2026-06-05 凌晨核对，它在 GitHub 上已经积累约 5.97 万星，并在 2026 年 5 月迁入名为 Earendil 的项目组织。更要紧的是，它正是用户日常在用的 OpenClaw 的底层骨架——OpenClaw 由 Peter Steinberger 开发，跑在 Pi 这套极简代理之上。</p>
+<p>本文要回答的核心问题只有一个：<strong>为什么前沿模型不再需要又长又重的系统提示词，少掉的那九成上下文又换来了什么。</strong> 想清楚这件事，把通义灵码、Trae、千问 Code 接 DeepSeek、千问、GLM 的人，都能直接借到这套思路。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/05/pi-agent-1k-prompt-openclaw-harness-2026-06-05/source-armin-pi-blog-2026-06-05.png" alt="Pi 项目社交配图，来源：Armin Ronacher 博客 lucumr.pocoo.org 2026-01-31"></p>
+<h2>别人一万，它不到一千</h2>
+<p>先看这张体量对照，差距比想象中更直白。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/05/pi-agent-1k-prompt-openclaw-harness-2026-06-05/chart-pi-token-compare-2026-06-05.png" alt="四款编码代理系统提示词体量对照：Pi 不到 1000 token，Cline 约 7000，OpenCode 约 1 万以上，Claude Code 约 1 万"></p>
+<p>主流编码代理的系统提示词体量大致是这样：</p>
+<table>
+<thead>
+<tr>
+<th>代理</th>
+<th>系统提示词常驻 token</th>
+<th>与 Pi 的差距</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Claude Code</td>
+<td>约 10000</td>
+<td>Pi 是它的约 1/10</td>
+</tr>
+<tr>
+<td>OpenCode</td>
+<td>约 10000 以上</td>
+<td>Pi 是它的约 1/10</td>
+</tr>
+<tr>
+<td>Cline</td>
+<td>约 7000</td>
+<td>Pi 是它的约 1/7</td>
+</tr>
+<tr>
+<td><strong>Pi</strong></td>
+<td><strong>不到 1000</strong></td>
+<td>—</td>
+</tr>
+</tbody></table>
+<p>数字背后的意思是：Pi 的系统提示词只有别家的约十分之一，相当于在每个任务上多留出约十倍的上下文窗口给真正的代码和对话。这组对照来自 Tensorlake 的技术博客和 Armin Ronacher 本人 1 月 31 日的长文，两边口径一致。</p>
+<p>为什么敢这么压？Armin 给的理由很硬：前沿模型已经经过大量强化学习训练，它们本来就知道什么是编码代理、知道怎么推理、怎么调工具、怎么遵守工程惯例。再写一万 token 去教它&quot;你是一个乐于助人的助手、请一步步思考、请遵守代码规范&quot;，多半是浪费。</p>
+<blockquote>
+<p>Pi 的系统提示词里，约四分之一是教它怎么读自己的说明书。</p>
+</blockquote>
+<p>这句出自 Mario 在 Syntax.fm 第 976 期播客里的原话。换句话说，剩下不到一千 token 里，真正用来约束行为的部分更少——大头是告诉模型&quot;你可以自己扩展自己&quot;。</p>
+<h2>只留四件核心工具</h2>
+<p>Pi 的工具清单短到可以一口气念完：<strong>读（Read）、写（Write）、编辑（Edit）、命令行（Bash）</strong>。就这四件。</p>
+<p>对照一下就知道这有多克制：</p>
+<ul>
+<li>很多代理内置了网页抓取、子代理调度、专用搜索、向量检索等十几种工具，每一种都要在系统提示词里写清楚调用规范；</li>
+<li>Pi 干脆不内置这些，连 MCP（模型上下文协议）支持都没有；</li>
+<li>它的判断是——有了命令行这一件，模型就能自己调系统里任何现成的程序，剩下的能力没必要预先塞进提示词。</li>
+</ul>
+<p>这里有个很关键的取舍。Mario 做 Pi 的直接动因，是他发现 Claude Code 变得越来越难预测。Armin 在播客里转述过他的观察：Claude Code 本身是一大坨转译过的 JavaScript，团队为了追迭代速度不断加功能，结果系统提示词里一个细微改动、或者新加一个工具，整套行为就跟着变，哪怕底层模型根本没换。</p>
+<p>Mario 想要的是一个<strong>行为稳定、可预期</strong>的骨架。所以他给 Pi 定了一条近乎偏执的原则：能不加的功能就不加。功能越少，行为越可控，开发者对&quot;到底有什么内容被送进了上下文窗口&quot;也越有把握。</p>
+<p>这条原则落到具体使用上，是一种很&quot;干净&quot;的手感：</p>
+<ul>
+<li>你看得清每一轮到底发生了什么，没有藏在背后的子代理黑盒、没有偷偷注入的上下文；</li>
+<li>缺什么能力，不是去翻一长串内置工具文档，而是直接让代理现写一个；</li>
+<li>整个骨架小到可以通读源码——在编码代理这个领域，&quot;能一眼看懂自己在用什么&quot;本身就是稀缺品。</li>
+</ul>
+<p>HN 上有人把 Pi 形容成&quot;编码代理里的 Vim 或 Emacs&quot;，说的就是这种把控制权完全交还给使用者的取向。</p>
+<h2>按需技能：描述常驻，调用才展开</h2>
+<p>只留四件工具，那复杂能力从哪来？答案是 Pi 最精巧的一招——<strong>按需技能（lazy skills）</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/05/pi-agent-1k-prompt-openclaw-harness-2026-06-05/chart-pi-lazy-skills-2026-06-05.png" alt="按需技能机制示意：每一轮只带技能的一行描述，用到某个技能时才临时载入完整说明和工具清单 · pi lazy skills"></p>
+<p>机制拆开看是这样：</p>
+<ol>
+<li><strong>每一轮对话，每个技能包只往上下文里放一行描述。</strong> 比如&quot;技能 B：负责数据库迁移&quot;——就这么一句，告诉模型这件事它会做。</li>
+<li><strong>真正用到某个技能时，才把它的完整说明和专用工具清单临时载入。</strong> 触发方式有两种：开发者手动用 <code>/skill:name</code> 点名，或者模型根据任务自动识别该用哪个。</li>
+<li><strong>用完即移出，不长期占着上下文。</strong></li>
+</ol>
+<p>这一招的价值，放到 MCP 的对照里最清楚。MCP 的做法是会话一开始就把所有工具的完整清单全部载入，哪怕这次任务只用到其中一小部分，剩下的也照样占满上下文窗口。Pi 反过来——平时只带一行描述，按需展开，于是任何只用到一小部分能力的任务，都能省下大量 token。</p>
+<p>把这两件事合起来看，Pi 省 token 的逻辑就完整了：</p>
+<ul>
+<li>系统提示词本身压到不足千字，省下约九成常驻开销；</li>
+<li>技能用按需载入，进一步避免&quot;工具清单全堆在上下文里却只用一个&quot;的浪费。</li>
+</ul>
+<p><strong>省下来的上下文不会凭空消失，它直接变成了每个任务可用的工作空间。</strong></p>
+<p>这套机制和 MCP 不是对立关系，但路线明显不同。MCP 的设计目标是&quot;标准化地把外部工具接进来&quot;，代价是会话起始就要把工具清单全量铺开；Pi 的设计目标是&quot;把上下文用在刀刃上&quot;，代价是放弃了即插即用的标准协议，改让代理自己写工具。对国内自建工作流的团队来说，这两条路其实可以并存——用 MCP 接必须标准化的外部系统，用按需技能装那些只在特定任务里才用到的能力。</p>
+<p>把四款代理放在同一张表里，差距一眼可见。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/05/pi-agent-1k-prompt-openclaw-harness-2026-06-05/wechat-table-token-2026-06-05.png" alt="四款编码代理系统提示词体量对照表（截至 2026-06-05 核对） · token"></p>
+<h2>省下的十倍上下文，换来了什么</h2>
+<p>这是全文最该回扣的一点。把系统提示词从一万压到不足千、再加上按需技能，最终落到开发者手里的好处有三层：</p>
+<ul>
+<li><strong>更长的任务跑得动。</strong> 上下文窗口是固定预算，常驻开销少了约九成，剩下的额度就能装更多代码、更长的对话历史、更完整的项目背景，复杂任务不容易中途&quot;忘事&quot;。</li>
+<li><strong>更省 token、更省钱。</strong> 每一轮少送约九千 token，长会话累积下来，调用成本的差距相当可观。HN 上不少人就是冲着&quot;比 Claude Code、Codex 省钱&quot;去试 Pi 的。</li>
+<li><strong>更透明、更可控。</strong> 提示词短到能一眼读完，开发者清楚知道每一轮到底有什么被送进了模型，不像功能堆叠的代理那样&quot;在你背后偷偷往上下文里塞东西&quot;。</li>
+</ul>
+<p>这三层好处其实是同一件事的三个侧面。上下文窗口是编码代理最稀缺的预算：模型一次能&quot;看到&quot;的内容是有上限的，常驻开销占得越多，留给当前任务的就越少。过去大家默认&quot;提示词写得越详细，代理越听话&quot;，于是把规范、示例、注意事项一股脑塞进去，结果是任务还没开始，预算先被吃掉一大块。Pi 的反向选择，等于把这块预算还给了任务本身。</p>
+<p>值得说明的是，Pi 并不是靠牺牲能力来省 token。Tensorlake 博客里提到，从一些公开基准看，极简的系统提示词和工具集，并没有明显拖累模型完成任务的能力——这从侧面支持了它的核心赌注：前沿模型不需要厚重的行为约束说明。当然，基准测试覆盖面有限，不能直接等同于真实工作负载，但至少说明&quot;短提示词 = 能力弱&quot;这个直觉，在这一代模型上未必成立。</p>
+<p>还有一层更长远的设计——Pi 能自己改自己，作者管这叫&quot;用 Pi 来造 Pi&quot;。代理可以在同一个会话里现写一个临时工具，热加载之后立刻试，自己看写对没写对、修没修好，整个过程不用重启。这种自我修改能力，正是它敢只留四件核心工具的底气：缺什么，当场让它自己写。</p>
+<p>Armin 在博客里举过一个具体例子：他让 Pi 现写一个分析 GitHub issue 的小工具，代理写完、热加载、立刻用上，发现不对就再改一版，整个循环在同一个会话里转完。这跟&quot;先去找一个现成插件、装好、重启、再试&quot;的传统路子完全不是一种体验——能力是被&quot;长出来&quot;的，不是被&quot;装上去&quot;的。</p>
+<p>对国内做工具链的团队，这一点尤其值得留意：当代理能稳定地为自己写工具，&quot;内置多少功能&quot;这个问题的重要性就下降了，真正要打磨的是那薄薄一层骨架够不够稳、够不够透明。</p>
+<h2>它正是 OpenClaw 的底层骨架</h2>
+<p>对天天用 OpenClaw 的人来说，这一节才是重点。</p>
+<p><strong>Pi 不是一个跟 OpenClaw 平行的小玩具，它就是 OpenClaw 跑在其上的底层骨架。</strong> Pragmatic Engineer 通讯里说得很直接：OpenClaw 由 Peter Steinberger 开发，把 Pi 这套极简自我修改代理当作核心底层来用。Syntax.fm 那期播客的标题干脆就叫《Pi——驱动 OpenClaw 的 AI 骨架》。</p>
+<p>这意味着 OpenClaw 那种&quot;本地优先、可插拔技能、自己扩展自己&quot;的手感，根上来自 Pi 的三条设计：</p>
+<ul>
+<li>极短的系统提示词，让行为稳定可预期；</li>
+<li>四件核心工具加命令行，把&quot;调用系统里任何程序&quot;的能力交还给模型；</li>
+<li>按需技能，让能力可以无限扩展，又不会把上下文撑爆。</li>
+</ul>
+<p>所以你在 OpenClaw 里感受到的&quot;轻、快、能自己长出新本事&quot;，并不是某个花哨功能堆出来的，而是这套极简骨架的自然结果。理解了 Pi，也就理解了 OpenClaw 为什么是现在这个样子。</p>
+<p>换个角度看，这也解释了 OpenClaw 为什么能在短时间里长出大量可插拔技能：底层骨架越薄、越稳定，上面叠技能时要担心的&quot;会不会把整体行为带歪&quot;就越少。一个臃肿的骨架，每加一个能力都要重新评估它对全局的影响；一个极简骨架，技能之间互不打扰，扩展起来反而更从容。这是&quot;少即是多&quot;在工程上的一个实例——克制底层，换来上层更大的自由度。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/05/pi-agent-1k-prompt-openclaw-harness-2026-06-05/source-tensorlake-pi-prompt-2026-06-05.png" alt="Pi 系统提示词效率主题图，来源：Tensorlake 博客 tensorlake.ai 2026-05"></p>
+<h2>这套思路能不能接国产模型</h2>
+<p>好消息是：Pi 的核心设计跟具体用哪个模型基本无关，这给国内开发者留了很大的发挥空间。</p>
+<p>&quot;极简骨架 + 按需技能&quot;这套打法，本质上是把&quot;代理质量&quot;的讨论从&quot;换更大的模型、写更长的提示词&quot;，转回到&quot;骨架够不够薄、技能能不能按需长出来&quot;。这个角度对国内一线工具同样成立：</p>
+<ul>
+<li><strong>通义灵码、Trae、千问 Code</strong> 这类工具，今天大多走的是&quot;内置较多能力 + 较长系统提示词&quot;的路子；按 Pi 的思路，完全可以试着把常驻提示词瘦下来，把不常用的能力改成按需载入；</li>
+<li><strong>底层模型可以接 DeepSeek、千问（Qwen）、GLM。</strong> Pi 本身对模型不挑——它赌的是&quot;前沿模型已经懂编码代理是什么&quot;，而 DeepSeek、千问、GLM 这几家在代码任务上的能力，已经够撑起这个假设；</li>
+<li>对自建工作流的团队来说，&quot;四件核心工具 + 命令行 + 按需技能&quot;是一套可以直接照搬的骨架范式，再把模型换成国产 API 即可。</li>
+</ul>
+<p>具体怎么改，可以分三步走：先把现有工具的系统提示词盘一遍，看哪些是&quot;教模型做事&quot;的冗余内容，能删则删；再把不常用的能力从&quot;内置常驻&quot;改成&quot;按需技能&quot;，平时只留一行描述；最后把底层模型换成 DeepSeek、千问或 GLM 的 API，用真实任务跑一轮，对比 token 消耗和完成质量。整个改造不依赖任何海外服务，国产模型加国产工具就能完整运转。</p>
+<p>需要冷静看的是，极简也有它的代价，HN 上的讨论把两面都摆得很清楚。</p>
+<p>赞成的一派把 Pi 比作&quot;编码代理里的 Vim 或 Emacs&quot;——给爱折腾的高手一块干净的画布，按自己的设计只挂需要的工具，省钱又透明。</p>
+<p>谨慎的一派则提了三个实在的顾虑：</p>
+<ul>
+<li><strong>安全护栏。</strong> 有人担心，从各种来源往骨架里不断加工具，缺少类似应用商店那样的审核机制，风险不小；</li>
+<li><strong>指令遵守。</strong> 有开发者反映，在功能更多的代理里，约定好的项目规范（如 CLAUDE.md）经常不被完整执行，估算只有约七成可靠——极简提示词在&quot;严格照章办事&quot;上是否更稳，还需要更多实战检验；</li>
+<li><strong>受众范围。</strong> 也有人直言，愿意自己改骨架、自己写小工具的开发者终究是少数，大多数人未必用得上这份可扩展性。</li>
+</ul>
+<p>这些顾虑不是否定 Pi，而是提醒：极简骨架更像一把交给高手的称手工具，而不是开箱即用的全自动方案。把控制权交还给开发者，前提是开发者愿意、也有能力用好这份控制权。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/05/pi-agent-1k-prompt-openclaw-harness-2026-06-05/source-syntaxfm-976-pi-openclaw-2026-06-05.png" alt="Syntax.fm 第 976 期《Pi——驱动 OpenClaw 的 AI 骨架》，对谈 Armin Ronacher 与 Mario Zechner，来源：syntax.fm"></p>
+<h2>回到那不足千字的提示词</h2>
+<p>绕了一圈，再回到开头那个数字：不到一千 token。</p>
+<p>Pi 真正提供的，不是又一个编码代理，而是一个被验证过的反例——它证明了在前沿模型这一代，行为可以不靠长提示词来约束，能力可以不靠预装工具来堆砌。系统提示词压到约十分之一，换来约十倍的上下文余量、更低的成本、更高的透明度，再用按需技能把&quot;极简&quot;和&quot;能力强&quot;这对看似矛盾的目标同时拿下。而这套骨架，正撑着我们每天在用的 OpenClaw。</p>
+<p>对国内做编码代理、做个人 AI 助手的同行来说，这是一个特别友好的时间点：底层骨架的范式是公开的、可借鉴的，国产模型在代码能力上也已经站得住，剩下的就是把&quot;薄骨架 + 按需技能 + 国产模型&quot;这条路认真走一遍。前辈已经把方向趟出来了，接下来该轮到我们把它跑得更顺。一起加油。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

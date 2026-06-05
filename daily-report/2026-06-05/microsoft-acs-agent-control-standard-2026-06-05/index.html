@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>微软 ACS：给 AI 智能体装上跨框架的统一权限闸门 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-05</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-05</span><span class="tag-pill">Daily Report</span></div>
+      <h1>微软 ACS：给 AI 智能体装上跨框架的统一权限闸门</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/05/microsoft-acs-agent-control-standard-2026-06-05.png" alt="一个友好的黏土机器人伸手去够工作台上一排工具，机器人与工具之间立着四道小小的黏土关卡，象征给智能体调用工具的过程设权限"></p>
+<p>你现在多半正在用 LangChain、CrewAI、OpenAI Agents SDK、Anthropic Agents SDK 或者 MCP（模型上下文协议）里的某一个搭 AI 智能体。搭的过程里你一定干过同一件事：手写一段系统提示词，告诉模型「这个工具不能随便调」；再写几行检查代码，拦一拦危险参数；可能还挂了个分类器，给输入输出归个类。</p>
+<p>这套东西零零碎碎散在各处，能跑，但你心里清楚——它经不起审计，更经不起换框架。哪天从 LangChain 迁到 CrewAI，这堆护栏几乎得从头再写一遍。每写一个新智能体，这道工序就重来一次；每出一次乱调工具的事故，你就得回头翻一遍这些零散规则到底哪一条没拦住。</p>
+<p>当地时间 2026 年 6 月 2 日，微软在 Build 2026 大会上开源了一套东西，正好冲着这件事来：<strong>ACS（Agent Control Specification，智能体控制规范）。它是一个开放、厂商中立的标准，MIT 许可证、公开开发，目标是让 20 多个主流框架第一次共用同一套「运行时权限标准」——你写一份策略文件，到处通用，智能体每走一步都留下证据。</strong> 等于给那个到处调工具的智能体，装上一道跨框架统一的权限闸门。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/05/source-acs-todays-guardrails-2026-06-05.jpg" alt="微软官方配图，展示今天开发者给智能体加护栏的方式很零碎，系统提示词、自定义检查代码、各种分类器各管一段，难以审计也无法跨框架复用"></p>
+<p>这篇文章想讲清楚的核心就是这一句反差：<strong>以前每个框架各修各的护栏，换框架就得重写，出了事难审计；ACS 让一份策略文件到处通用、每一步留证据。</strong></p>
+<p>要把这份掌控感说清楚，得先回到问题的起点：今天我们到底是怎么给智能体立规矩的，又为什么这套做法迟早会让人吃不消。</p>
+<h2>今天给智能体加管控，是各修各的护栏</h2>
+<p>先说清楚这一节的结论：<strong>今天开发者给智能体加管控，全靠临时拼凑，零碎、难审计、且换一个框架就不能复用——这正是 ACS 要替换掉的现状。</strong></p>
+<p>你回想一下自己是怎么给一个智能体「立规矩」的。大概率是这三样东西混着用：</p>
+<ul>
+<li><strong>系统提示词</strong>：在 prompt 里写一段「你不可以删除生产数据库」「调用支付接口前先问我」，靠模型自觉遵守；</li>
+<li><strong>自定义检查代码</strong>：在工具调用前后塞几个 if 判断，手动拦掉危险参数、敏感字段；</li>
+<li><strong>各种分类器</strong>：挂一个模型给用户输入分类，识别是不是越权请求，再挂一个给输出分类，看有没有泄露隐私。</li>
+</ul>
+<p>这三样各管一段，谁也不知道对方在干什么。问题不在于它们不工作，而在于它们的组织方式：</p>
+<ol>
+<li><strong>零碎</strong>：规则散落在提示词、业务代码、分类器三处，没有一个统一的地方能让你一眼看清「这个智能体到底被允许做什么、绝对不能做什么」。</li>
+<li><strong>难审计</strong>：出了事想复盘——它当时为什么调了这个工具、谁批准的、拦没拦——你得翻日志、翻代码、翻提示词，拼不出一条完整的证据链。</li>
+<li><strong>不可复用</strong>：这套护栏是贴着某一个框架写的。换框架，提示词得改，检查代码的钩子位置全变，分类器的接入方式也不一样，基本等于重做。</li>
+</ol>
+<p>把这三点放到一起看，你会发现它们其实是同一个问题的三个侧面：管控规则没有一个统一、独立、能被工具读懂的存身之处。它寄生在提示词里、寄生在业务代码里、寄生在分类器的接入逻辑里——哪个框架变了、哪段代码改了，它就跟着碎一次。规则越多、智能体越复杂，这种碎裂就越难收拾。一个真正成熟的做法，应该是把「这个智能体被允许做什么」从具体框架里抽出来，变成一份独立的、谁都能读、到处都认的东西。这正是 ACS 切入的位置。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/05/source-acs-policy-interception-2026-06-05.png" alt="微软 ACS 官方文档截图，列出智能体一次任务中的多个拦截点与钩子，从收到输入、调用模型前后到调用工具前后，每一步都能挂上策略检查"></p>
+<p>这里要说句公道话：临时拼凑不是开发者偷懒，而是过去确实没有一个现成的、框架无关的标准可用。每个智能体框架都有自己的护栏机制，但彼此不通——你在 LangChain 里学会的那套，到了 CrewAI 用不上。能力先跑起来、权限的管控收得不够统一，是这一代智能体工具演进里很自然的一个阶段。ACS 想做的，就是把这个阶段往前推一步。</p>
+<p><strong>这一节记住一句话：管控不是不存在，而是散在三处、贴着框架、留不下证据——ACS 要把这三件事一次性收齐。</strong></p>
+<h2>ACS 的做法：把管控写进一份可移植的策略文件</h2>
+<p>这一节的结论很直接：<strong>ACS 把所有管控收进一份可移植的「策略文件」，文件里定义智能体可以做什么、一定不能做什么、什么时候要人来批准、要记录哪些证据。</strong></p>
+<p>过去散在提示词、代码、分类器里的规则，现在统一写进这一份文件。它定义的就是四件事：</p>
+<table>
+<thead>
+<tr>
+<th>策略管的事</th>
+<th>它回答的问题</th>
+<th>举个例子</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>可以做什么</td>
+<td>哪些工具、哪些操作默认放行</td>
+<td>读取文档、查询只读接口</td>
+</tr>
+<tr>
+<td>一定不能做什么</td>
+<td>哪些操作无论如何都拦掉</td>
+<td>删除生产数据、对外转账</td>
+</tr>
+<tr>
+<td>什么时候要人批准</td>
+<td>哪些操作要停下来等人点头</td>
+<td>发送邮件、提交代码、调用支付</td>
+</tr>
+<tr>
+<td>要记录哪些证据</td>
+<td>每一步留下什么可供审计</td>
+<td>调了什么工具、参数是什么、判定结果</td>
+</tr>
+</tbody></table>
+<p>这份文件最关键的属性是<strong>可移植</strong>。它不绑定任何一个框架——你给 LangChain 写的这一份，搬到 CrewAI、搬到 AutoGen，规则不用重写。这正是它和「在 prompt 里写规矩」的根本区别：prompt 里的规矩是给某一个模型、某一个框架看的，换一个就失效；策略文件是给 ACS 这个标准看的，而 ACS 在很多框架上都认同一份文件。</p>
+<p>它的工作时机也很明确：<strong>这些策略不是写完就摆在那，而是在智能体执行任务的过程中、在若干个「拦截点」上被实际检查。</strong> 智能体每走到一个关键时刻，ACS 就把策略文件翻出来对一遍，决定这一步放不放行。</p>
+<p>值得留意的是「策略」和「证据」这两件事被放进了同一份文件里。过去你写护栏，多半只想着「拦住坏的」，很少同时想「拦的过程怎么留痕」。ACS 把「要记录哪些证据」也当成策略的一部分来声明——这意味着审计不是事后补的动作，而是在你写下规则的那一刻就一并定义好的。每一次放行、每一次拦截、每一次转人工，都会按你声明的格式落下记录。出事之后想复盘，你面对的不再是一地散落的日志，而是一条沿着策略文件长出来的、结构清晰的证据链。</p>
+<p>ACS 和微软这次一起发布的 ASSERT 同属一个叫「open trust stack（开放信任栈）」的东西，但两者管的不是一回事——ASSERT 管的是「评测智能体表现有没有退化」，是回归测试那一类；ACS 管的是「运行时权限控制」，是这篇文章的主角。一句话区分清楚就够了，不展开。</p>
+<p><strong>这一节记住一句话：ACS 把零碎的管控收成一份可移植的策略文件，写一次、到处通用，并在智能体跑任务时的拦截点上逐一兑现。</strong></p>
+<h2>四道关卡：智能体一次任务里被检查的几个时刻</h2>
+<p>这一节的结论是：<strong>ACS 在智能体一次任务里设了几个关键的拦截点，每一步都能挂上策略检查——这是它把「写下来的规则」变成「跑起来的约束」的地方。</strong></p>
+<p>从概念层面看，最关键的是四个时刻：</p>
+<ol>
+<li><strong>收到用户输入前</strong>——用户的话还没进模型，先查一遍这个请求该不该处理；</li>
+<li><strong>调用工具前</strong>——智能体决定要调某个工具了，调之前拦一道，看这个工具该不该调、参数对不对；</li>
+<li><strong>工具返回后</strong>——工具把结果吐回来了，先检查这个结果里有没有要脱敏、要拦的内容；</li>
+<li><strong>回复用户前</strong>——最终答复要发出去了，发之前再过一道，确认没有越界、没有泄露。</li>
+</ol>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/05/chart-acs-interception-flow-2026-06-05.png" alt="自制流程图：ACS 在智能体一次任务里设四道关卡，收输入前、调工具前、工具返回后、回复前，每道关卡都能放行、拦截、脱敏或转人工审批"></p>
+<p>这四个时刻是给人理解用的概念骨架。落到官方文档里，钩子分得更细，一共七个：<code>agent_startup</code>（智能体启动）、<code>input</code>（收到输入）、<code>pre_model_call</code>（调用模型前）、<code>post_model_call</code>（调用模型后）、<code>pre_tool_call</code>（调用工具前）、<code>post_tool_call</code>（调用工具后）、<code>agent_shutdown</code>（智能体关闭）。从启动到关闭，智能体的整段生命周期都有钩子可挂。</p>
+<p>把概念上的「四个时刻」和文档里的「七个钩子」对一下，你会发现后者只是把前者拆得更细、更贴近代码：「调用工具前 / 后」被明确成了 <code>pre_tool_call</code> 和 <code>post_tool_call</code> 两个独立的挂载点，连智能体一开机、一关机这两个时刻也单独留了钩子。这种细分的好处是，你想在哪一步加约束，就能精准挂到哪一个钩子上，而不必把所有检查都堆在一个笼统的位置。哪怕只想在「调工具前」这一个点上做文章，其余六个钩子留空也完全可以——划分得细，但用多用少由你定。</p>
+<p>每一道关卡上，策略能做的不只是「拦」或「不拦」，而是四类动作：</p>
+<ul>
+<li><strong>放行</strong>：检查通过，这一步照常进行；</li>
+<li><strong>拦截</strong>：这一步不允许，直接挡下；</li>
+<li><strong>脱敏（redact）</strong>：内容可以过，但把里面的敏感信息——身份证号、密钥、隐私字段——抹掉再放行；</li>
+<li><strong>转人工审批</strong>：智能体停在这一步，等一个真人来点头才继续。</li>
+</ul>
+<p>这四类动作的意义在于，它给了你比「全有或全无」细得多的控制。很多操作不是非黑即白：一封邮件不一定要拦，但里面的客户手机号该脱敏；一笔转账不一定要禁，但得有人批。<strong>放行、拦截、脱敏、转人工——这四档让管控贴合真实业务的灰度，而不是粗暴地一刀切。</strong></p>
+<p>尤其值得说的是「脱敏」和「转人工」这两档。在只有「拦」和「不拦」的世界里，开发者常常被逼到一个两难：拦得太狠，智能体什么都干不成，处处碰壁；放得太松，敏感信息又随时可能漏出去。脱敏给了第三条路——内容照样流转，只是把里面不该露的部分先抹掉；转人工又给了第四条路——拿不准的事不替你做主，停下来交给真人拍板。这两档加进来，智能体才既能放手干活，又不至于在关键处失控。</p>
+<p>围绕这几道关卡，ACS 官方还列了一组能力点，把「在拦截点上能干什么」讲得更全：</p>
+<ul>
+<li><strong>生命周期拦截</strong>：从启动到关闭，每个钩子都能挂检查；</li>
+<li><strong>输入规范化（canonical input shaping）</strong>：把各种形态的输入先整理成统一格式再判断，避免同一个意图换个写法就绕过规则；</li>
+<li><strong>证据收集</strong>：每一步留下可审计的记录；</li>
+<li><strong>信息流检查</strong>：盯住敏感信息在智能体内部怎么流动；</li>
+<li><strong>判定归一化</strong>：把不同来源的判断结果统一成一个标准答案；</li>
+<li><strong>最终强制执行</strong>：在回复用户前做最后一道兜底；</li>
+<li><strong>失败即关闭（fail-closed）</strong>：检查万一没法完成，默认就是拦——这一条单独拎出来讲。</li>
+</ul>
+<p><strong>这一节记住一句话：ACS 把智能体的整段生命周期切成若干个拦截点，每个点上都能放行、拦截、脱敏或转人工，让写下来的规则真正在运行时生效。</strong></p>
+<h2>失败即关闭，和把大模型请来当裁判</h2>
+<p>这一节的结论是：<strong>ACS 的默认姿态是「失败即关闭」——检查无法完成时默认拦截；同时它允许你用分类器、用大模型当裁判、用专门的工具校验来做出这些判断。</strong></p>
+<p>先说「失败即关闭（fail-closed）」。这是安全工程里一个很重要的默认选择。它的意思是：当一道检查由于某种原因没能正常完成——分类器超时了、判定服务挂了、规则没覆盖到这种情况——ACS 不会因为「没查出问题」就放行，而是默认拦下来。</p>
+<p>这和它的反面「失败即放行」正好相反。失败即放行图省事，检查一出岔子就当作通过，但风险全留给了用户；失败即关闭则把安全放在便利前面：宁可这一步先停下、等人确认，也不让一个没被验证过的操作溜过去。<strong>对一个能调工具、能动真实系统的智能体来说，失败即关闭是更让人安心的那个默认。</strong></p>
+<p>那么这些「放不放行」的判断具体怎么做出来？ACS 给了几种可以叠着用的方式：</p>
+<ol>
+<li><strong>自定义分类器</strong>：你训练或接入一个分类器，给输入、输出归类，识别它是不是越权、是不是含敏感内容；</li>
+<li><strong>用大模型当裁判（LLM-as-judge）</strong>：直接请一个大模型来当「策略裁判」，让它读着策略文件去判断这一步该不该放行——规则太复杂、写不成死板的 if 判断时，这一招尤其有用；</li>
+<li><strong>校验工具调用</strong>：专门盯住工具调用这件事，逐项查——这个工具该不该调、选得对不对、参数准不准、返回的结果接下来怎么用。</li>
+</ol>
+<p>第三种值得多说一句，因为它正对着开发者最头疼的场景。智能体出乱子，很多时候就出在工具调用上：该调只读接口却调了写接口、参数里塞了不该有的值、把工具返回的内容不加判断就接着用。ACS 把「该不该调、选得对不对、参数准不准、输出怎么用」这四个问题单独拎出来逐项校验，正好卡在最容易出事的那一环。</p>
+<p>这四个问题各自对应一类常见事故。「该不该调」管的是越权——一个本该只查数据的智能体，突然要调一个能改数据的工具，这一关就该把它截下来。「选得对不对」管的是用错工具——明明该用查询接口，它却挑了删除接口。</p>
+<p>「参数准不准」管的是参数注入——用户输入里夹带的恶意指令，顺着参数溜进了工具调用。「输出怎么用」管的是信任工具返回值——工具吐回来的内容里可能藏着新的指令，智能体不加判断就照单全收，就被牵着走了。把这四关逐一守住，等于在智能体最薄弱的那道接缝上加了四重检查。</p>
+<p>这几种判定方式还可以叠着用：先让分类器快速过滤一遍，拿不准的再交给大模型裁判细判，关键的工具调用单独走校验。它们不是互斥的选项，而是可以按风险高低自由组合的几层防护。</p>
+<p><strong>这一节记住一句话：ACS 默认失败即关闭，把安全摆在便利前面；而具体的判定可以交给分类器、交给大模型裁判、也可以是对工具调用的逐项校验。</strong></p>
+<h2>它框架无关、MIT 开源，谁都能直接拿来用</h2>
+<p>这一节的结论是：<strong>ACS 是一个 SDK（开发套件），自带覆盖 8 套主流框架的插件，MIT 许可证、框架无关、可自托管——这意味着它不是某一家的专属能力，谁都能直接装上用。</strong></p>
+<p>ACS 不是一份只能看的文档，它带着能直接装进项目的插件，覆盖的框架是这一串：</p>
+<ul>
+<li><strong>LangChain</strong>——开源智能体框架，国内开发者用得最多的之一；</li>
+<li><strong>OpenAI Agents SDK</strong>——OpenAI 自家的智能体开发套件；</li>
+<li><strong>Anthropic Agents SDK</strong>——Anthropic 自家的智能体开发套件；</li>
+<li><strong>AutoGen</strong>——微软的多智能体协作框架；</li>
+<li><strong>CrewAI</strong>——把多个智能体编成「团队」分工的框架；</li>
+<li><strong>Semantic Kernel</strong>——微软的智能体编排套件；</li>
+<li><strong>Microsoft.Extensions.AI</strong>——微软给 .NET 生态准备的 AI 接入层；</li>
+<li><strong>MCP（模型上下文协议）工具</strong>——智能体调用外部工具的开放协议。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/05/source-techcrunch-acs-2026-06-05.png" alt="科技媒体对微软 ACS 的报道页面，标题大意是微软给开发者一种更好的方式来控制 AI 智能体行为，发布于六月二日"></p>
+<p>这串名单里，LangChain、CrewAI、AutoGen、MCP 都是国内开发者每天在用的东西。也就是说，你现在手上的智能体项目，大概率正好落在 ACS 覆盖的范围里，装上插件就能接。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/05/chart-acs-frameworks-2026-06-05.png" alt="自制示意图：ACS 的开发套件自带 LangChain、OpenAI Agents SDK、Anthropic Agents SDK、AutoGen、CrewAI、Semantic Kernel、Microsoft.Extensions.AI、MCP 工具八套框架的插件，写一份策略文件即可跨框架通用"></p>
+<p>更要紧的是它的开放属性。ACS 是 MIT 许可证、厂商中立、公开开发，而且可以自托管——你不必把数据交给谁的云、不必绑定某一家的服务，就能在自己的环境里跑这套权限标准。对国内团队来说，这一点很实在：<strong>它不是「微软的智能体才有的安全能力」，而是一个谁都能拿、谁都能改、谁都能在自己机器上跑的开放标准。</strong> 国内团队拿来用，门槛和海外开发者是一样的。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/05/source-acs-hero-2026-06-05.png" alt="微软 Command Line 官方页面，介绍 ACS 是一套面向 AI 智能体的可移植运行时治理标准"></p>
+<p>它真正帮你解决的，是把一团模糊的安全焦虑收成一个清清楚楚的工程动作。「我的智能体会不会乱调工具」这种悬在心里的担忧，过去无处下手；现在它变成了一件具体的事——<strong>写一份策略文件</strong>，定义清楚可以做什么、不能做什么、什么时候要人批准、要留哪些证据。焦虑一旦变成一份能写、能审、能复用的文件，就从心头的石头变成了手上的活儿。</p>
+<p><strong>这一节记住一句话：ACS 框架无关、MIT 开源、可自托管，国内团队和海外开发者站在同一条起跑线上，装上就能用。</strong></p>
+<h2>写在最后：从此你对智能体多了一份掌控</h2>
+<p>回到开头那个反差。以前我们给智能体加护栏，是各修各的——提示词里写一段、代码里塞几行、再挂个分类器，零碎、难审计，换个框架就得推倒重来。现在 ACS 把这件事收成了一份可移植的策略文件：写一次，在 LangChain、CrewAI、OpenAI Agents SDK、AutoGen 这些框架上通用——它们都在 ACS 覆盖的那一长串框架之列；智能体每走一步都在拦截点上被检查，每一步都留下证据。</p>
+<p>这件事对正在搭智能体的我们意味着什么？意味着「它会不会乱调工具」这个一直让人心里没底的问题，第一次有了一个统一、可操作、可审计的答案。你不再需要为每个框架重发明一遍护栏，也不再需要在出事之后从一地日志里拼证据。你要做的，就是坐下来写清楚一份策略——这是工程师最擅长、也最踏实的那种工作。</p>
+<p>这一代做智能体的开发者其实挺幸运。框架在快速成熟，开放标准也在一个个补齐，前面的人已经把「该在哪里设关卡、该留哪些证据」这些问题想明白、并且开源了出来。我们接手的，是一套越来越完整、越来越可控的工具。把一份策略文件写好，给你的智能体装上那道闸门，剩下的，就放心交给它去跑——这份掌控感，正是这件事最让人踏实的地方。一起加油。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
