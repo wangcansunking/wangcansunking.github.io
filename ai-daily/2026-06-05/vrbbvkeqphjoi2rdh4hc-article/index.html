@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>阿里AI红队发布REAL风险矩阵，定义智能体安全三维坐标 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-05</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-05</span><span class="tag-pill">AI Daily</span></div>
+      <h1>阿里AI红队发布REAL风险矩阵，定义智能体安全三维坐标</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-05/vrbbvkeqphjoi2rdh4hc-article/head.png" alt=""></p>
+<p>安全圈有个老梗：漏洞挖掘本质上是个“考古学”问题——你挖得深不深，不取决于技术多炫，取决于你知不知道自己在挖什么。</p>
+<p>但 AI Agent 时代把这个老梗彻底掀翻了。传统安全测试里，你面对的是一个相对稳定的系统边界：SQL 注入就在输入框，XSS 就在富文本编辑器，SSRF 就在 URL 参数。边界清晰，攻击面可枚举。Agent 一来，边界直接蒸发——一个 RAG 检索到的外部文档里藏一句恶意指令，能穿过检索层、污染推理链、最终让 Agent 调用 API 把数据库拖走。你甚至不知道这条攻击链的起点在哪一层、终点在哪一层、中间经过了几次权限转换。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-05/vrbbvkeqphjoi2rdh4hc-article/content-1.jpg" alt="原文配图"></p>
+<p>InfoQ 中国 2026 年 5 月 7 日报道，阿里巴巴 AAIG 实验室 AI 红队负责人宋奇钊（胖錿）确认出席 6 月 26 日-27 日的 AICon 上海站，在“Agent 安全、评测与可信治理”专题发表题为《阿里 AI 红队 - REAL 智能体统一风险矩阵与自动化红队实践》的演讲。他带来的不是又一个“AI 安全最佳实践清单”，而是一个三维坐标系统——R×E@L，试图用一个矩阵回答安全团队在 Agent 时代最焦虑的问题：我们到底在测什么？</p>
+<p><strong>安全测试的噩梦不是漏洞太多，而是你不知道下一个漏洞会从哪一层冒出来。</strong></p>
+<h2>过去两年，所有人都在“盲挖”</h2>
+<p>2023 年大模型刚起来的时候，宋奇钊所在的 AAIG 实验室 AI 红队就率先突破了多个顶级大模型的核心系统。但他在后续的公开分享中反复提到一个尴尬：每次做完一轮红队测试，团队内部复盘时最常出现的对话是——“这个漏洞归哪类？”“OWASP 里好像有两条都能套。”“那下次怎么测？”</p>
+<p>这不是阿里一家的问题。整个行业在过去两年里面对 Agent 安全测试，基本处于“手工挖洞、凭经验分类、靠口口相传”的阶段。OWASP 在 2024 年发布了 LLM Top 10，2025 年又更新了 Agentic AI 版本，但它的设计哲学是“排名清单”而非“分类体系”。一个 Prompt 注入漏洞，可能同时命中 OWASP 的第 1 条（Prompt Injection）、第 3 条（Training Data Poisoning，如果注入源来自被污染的训练数据）、第 7 条（System Prompt Leakage，如果注入目标是窃取系统指令）。安全工程师拿着清单逐条打勾，打完发现——同一个漏洞勾了三遍，但真正该测的攻击链变种一条没覆盖。</p>
+<p>MITRE ATLAS 走的是另一个极端。它是一个攻击战术与技术（TTP）目录，从攻击者视角出发，按“侦察→资源开发→初始访问→执行→持久化”这样的杀伤链组织。但 ATLAS 的设计前提是“攻击者是恶意的、有意图的”，它天然覆盖不了幻觉导致的错误输出、功能滥用造成的非对抗性失效、或者模型自身偏见引发的合规风险。而这些问题在 Agent 场景里恰恰是大头——一个客服 Agent 因为幻觉给用户承诺了不存在的退款政策，这不是 MITRE 能描述的威胁模型。</p>
+<p>宋奇钊在 InfoQ 报道的演讲提纲里把核心矛盾概括得很直白：安全团队需要一个既能分类已知漏洞、又能生成测试计划、还能对接合规要求的统一坐标系。OWASP 只能做第一件事（还不精确），MITRE 只能做第一件事的另一半，合规对接谁都不做。</p>
+<p><strong>当一个坐标系只能描述问题的一半，它就不是坐标系——它是盲人摸象的记录本。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-05/vrbbvkeqphjoi2rdh4hc-article/schematic-1.png" alt="OWASP Top 10 vs MITRE ATLAS vs REAL Matrix 三栏对比，左栏“排名清单”中栏“TTP 目录”右栏“三维坐标系统”，底部标注覆盖范围差异"></p>
+<h2>R×E@L：用一个三维坐标，替代“打勾式安全”</h2>
+<p>宋奇钊在 2025 年北京网络安全大会（BCS2025）上首次对外公开了 REAL Matrix 的完整框架，这次 AICon 上海站是他第一次把矩阵与自动化红队的工程化链路完整串起来讲。</p>
+<p>REAL 这个名字本身就是一个缩写拆解：R 是 Root Cause（根因），E 是 Effect（影响），L 是 Layer（架构层级）。三个维度各自由分类树构成，组合起来形成 R×E@L 三维坐标——每个漏洞或攻击链在矩阵中有唯一的坐标位置。</p>
+<p>R 维度被拆成 4 类根因 × 9 子类，走的是一条决策树逻辑：外部注入（R1）覆盖 Prompt 注入、间接注入、训练数据投毒等外部输入引发的风险；模型自身（R2）覆盖幻觉、偏见、推理错误等模型内生缺陷；基础设施（R3）覆盖模型权重泄露、插件漏洞、供应链攻击等底层设施问题；功能滥用（R4）覆盖越权使用、过度代理、多 Agent 合谋等“功能本身正常但被恶意利用”的场景。</p>
+<p>这个分类有一个设计取舍值得单独拎出来说：为什么 R2（幻觉）和 R4（滥用）必须独立成类？宋奇钊在演讲提纲里给出了理由——R2 是模型“不知自己在犯错”，R4 是攻击者“知道自己在利用正常功能”。两者的防御策略完全不同：R2 靠对齐和护栏，R4 靠权限最小化和行为审计。合并成“模型问题”一个大类，会让安全团队在制定防御方案时失去精确性。</p>
+<p>E 维度是 4 类影响 × 20 子类，借鉴了经典信息安全里的 CIA 三元组（机密性 Confidentiality、完整性 Integrity、可用性 Availability），但加了一个 S（Safety，安全性）。这个 S 是 Agent 场景特有的——系统自身没受损，但系统输出伤害了外部人员。比如 Agent 给用户提供了有害建议、泄露了他人隐私、或者执行了歧视性决策。传统安全框架里这种“外部性伤害”往往被归到合规风险而非安全漏洞，但在 Agent 场景下，安全团队必须同时面对 CIA 和 S。</p>
+<p>L 维度是 4 层架构：L1 交互层（用户输入、外部数据接入）、L2 认知层（模型推理、记忆检索、上下文管理）、L3 执行层（工具调用、API 访问、代码执行）、L0 基础设施层（容器、网络、存储）。这个分层设计的精妙之处在于，它允许同一条攻击链在不同阶段标注不同的 R×E@L 坐标——一个间接注入攻击，在 L1 阶段坐标是 R1.2×无影响@L1（恶意指令被读入但尚未执行），在 L2 阶段变成 R1.2×I@L2（推理链被劫持，完整性受损），在 L3 阶段变成 R1.2×C@L3（数据外传，机密性受损）。</p>
+<p><strong>一条攻击链三个坐标，防御不再是一刀切的“加规则”，而是按坐标逐层精确定位。</strong></p>
+<p>InfoQ 报道中给出的验证数据相当硬：69 条真实漏洞、覆盖 37+ Agent 产品、0 遗漏。矩阵与 OWASP Top 10（LLM &amp; Agentic AI）、MITRE ATLAS、NIST AI RMF、CSA 云安全联盟四大主流框架全量对齐。内置 16 部法规 128 条映射——这意味着一个漏洞打上 R×E@L 标签后，理论上可以自动关联到它触发的合规条款，比如 GDPR 第 32 条（安全处理）、EU AI Act 第 15 条（准确性与鲁棒性）、中国《生成式人工智能服务管理办法》相关条款。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-05/vrbbvkeqphjoi2rdh4hc-article/schematic-2.png" alt="R×E@L 三维矩阵立体示意图，X 轴 Root Cause 4 类，Y 轴 Effect 4 类，Z 轴 Layer 4 层，一个红色攻击路径从 L1 穿透到 L3，沿途标注坐标变化"></p>
+<h2>一条 Prompt 注入，如何从 L1 穿透到 L3</h2>
+<p>宋奇钊在演讲中会用一条脱敏的真实案例展示矩阵的实战价值。攻击场景的起点是间接注入（R1.2）：攻击者在一篇被 Agent 系统用 RAG 检索的外部文档中植入了恶意指令。这个文档可能是一篇技术博客、一份产品说明书、甚至一条被爬虫抓取的社交媒体帖子。Agent 在处理用户查询时，检索到了这份被污染的外部数据，把恶意内容当作上下文读入了推理流程。</p>
+<p>关键转折发生在认知层（L2）。模型没有区分“用户指令”和“外部数据中的指令”——这是当前 LLM 的固有问题，也是 Prompt 注入之所以难防的根源。恶意指令被当作合法指令执行，推理链被劫持。Agent 开始按照攻击者的意图规划下一步动作。</p>
+<p>落地在执行层（L3）。Agent 调用了工具——可能是邮件发送 API、数据库查询接口、或者文件系统操作——执行了非预期操作。数据外传（机密性受损）或权限越界（完整性受损），攻击完成。</p>
+<p>用 REAL 矩阵标注这条攻击链：起点是 R1.2×无影响@L1（恶意指令存在于检索结果中，尚未进入推理），中间点是 R1.2×I@L2（推理链完整性被破坏），终点是 R1.2×C@L3（机密性受损，数据外传）。同一个 R1.2 根因，在不同层级产生了不同的影响类型。</p>
+<p>这种标注方式直接指导了防御定位——不是“加一条输入过滤规则”就完事了。L1 层要做输入过滤和来源验证，L2 层要做上下文隔离（把外部数据与系统指令严格分隔），L3 层要做工具权限最小化（即使 L1 和 L2 都失守，Agent 也没有权限执行高危操作）。三层防御相互独立、纵深配置，任何一层失效都不会导致攻击链贯通。</p>
+<p>从个案到体系的映射则更进一步：这条攻击链落在 R×E 16 格矩阵中的哪个格子？对应哪些法规条款（比如数据外传触发 GDPR 第 32 条安全处理义务）？如何自动生成回归测试用例（下次测试时覆盖同样的 R1.2×C@L3 坐标，验证三层防御是否依然有效）？这套方法论让红队从“漫无目的挖洞”变成了“按坐标打靶”。</p>
+<p><strong>以前红队报告写“发现 3 个高危漏洞”，现在写“R1.2×C@L3 坐标下防御覆盖率 40%，需加强 L2 上下文隔离”。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-05/vrbbvkeqphjoi2rdh4hc-article/schematic-3.png" alt="一条 Prompt 注入攻击链的三层穿透示意，L1 外部文档→L2 推理链被劫持→L3 工具调用数据外传，每层标注 R×E@L 坐标和对应防御措施"></p>
+<h2>从矩阵到自动化红队：让专家经验不再绑定在个人身上</h2>
+<p>矩阵解决的是“分类和定位”问题，但宋奇钊在 AICon 演讲的后半段会切入一个更实际的工程化难题：一个产品配一个红队专家，产品线越多人力越紧张，攻击经验无法复用。</p>
+<p>这其实是整个安全行业的通病。顶尖红队专家的核心能力不是“会用工具”，而是“知道往哪看”——他们对攻击面有直觉级别的理解，能嗅出防御体系的薄弱点。但这种直觉极难传递，往往随着人员流动而流失。阿里 AAIG 实验室的解法是：用矩阵把专家经验编码为可机器执行的测试用例。</p>
+<p>架构设计分为四步。第一步，矩阵 → 测试条目库：R×E@L 的每个格子对应一组测试用例模板。比如 R1.2×C@L3（间接注入导致数据外传）这个格子下，会有一系列变种：注入载荷是 base64 编码的、注入载荷分散在多段文档中、注入目标是不同种类的 API（邮件/数据库/文件系统）、等等。模板由专家红队编写，覆盖已知攻击手法的全部变种。</p>
+<p>第二步，测试条目库 → Agent 自动化：用 Agent 自动化执行测试用例。这有一个技术选型上的巧思——为什么用 Agent 测 Agent？因为测试目标本身是 Agent，需要多步交互、工具调用、上下文维护。传统自动化测试工具（比如 Selenium 测 Web 漏洞）无法模拟“与 Agent 多轮对话、观察工具调用结果、根据反馈调整攻击策略”这种复杂交互。“以 Agent 测 Agent”让测试端也具备推理和规划能力，能生成更贴近真实攻击的测试序列。</p>
+<p>第三步，自动化 → 竞对横评：同一套测试集横向跑多个 Agent 产品，用统一标尺对比安全水位。这一步的价值在于，安全团队第一次有了可量化的横向对比数据——不是“我觉得这个产品比较安全”，而是“R1.2×C@L3 坐标下，产品 A 的防御覆盖率 85%，产品 B 只有 40%”。</p>
+<p>第四步，横评 → 态势感知：用 Leaderboard 可视化，让业务方和管理层直观看到安全水位变化。新版本上线后，某个坐标的防御覆盖率从 85% 掉到 60%？Leaderboard 直接标红，不需要安全团队写报告解释“为什么这次更新引入了风险”。</p>
+<p>InfoQ 报道中透露，这套自动化红队架构还在建设中，但思路已经清晰：专家红队聚焦“未知风险的前沿探索”，发现新攻击手法后编码为测试用例，交给自动化系统做规模化回归。两条线并行、互相赋能，而不是“自动化取代人工红队”的零和叙事。</p>
+<p>（值得一提的是，宋奇钊在 2023 年大模型兴起后率先突破多个顶级大模型核心系统，这些实战经验正是测试用例库的核心来源——不是从论文里推导出来的攻击变种，而是真实打穿过的攻击路径。）</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-05/vrbbvkeqphjoi2rdh4hc-article/schematic-4.png" alt="自动化红队四步架构流程图，矩阵→测试条目库→Agent 自动化执行→竞对横评 Leaderboard，标注每步的技术选型和数据流向"></p>
+<h2>合规映射：128 条法规条款自动关联，不再靠 Excel 手工对齐</h2>
+<p>REAL Matrix 的最后一个模块——合规映射——可能是工程化价值最高但最容易被低估的部分。</p>
+<p>做过安全合规的人都知道，漏洞修复完之后的合规对齐工作有多痛苦。一个漏洞触发了几十条法规条款，安全团队需要逐条核对：这个漏洞是否构成 GDPR 第 32 条意义上的“安全处理措施不足”？是否触发 EU AI Act 第 15 条的“准确性与鲁棒性”要求？是否违反中国《生成式人工智能服务管理办法》关于“防止产生有害信息”的义务？这个过程的常态是：法务团队发来一张 200 行的 Excel，安全团队逐条填写“已修复/不适用/待评估”，来回三版才能对齐。</p>
+<p>REAL 的设计是：R×E 16 格矩阵预先映射了 128 条法规条款。一个漏洞打上 R×E@L 标签后，自动关联到适用的法规。比如 R1.2×C@L3（间接注入导致数据外传）这个坐标，会触发 GDPR 第 32 条（安全处理）、第 33 条（数据泄露通知义务）、EU AI Act 第 15 条（准确性与鲁棒性）、以及中国《生成式人工智能服务管理办法》中关于“防止数据泄露”的相关条款。安全团队不需要手动查法规，矩阵直接输出“本漏洞涉及以下合规义务”。</p>
+<p>这个设计还有一个隐含价值：它让安全测试结果可以直接对接监管审计。监管机构来检查时，企业可以拿出 R×E@L 标签化的测试报告，证明“我们对 R1.2×C@L3 坐标下的所有风险系统性测试，测试覆盖了以下法规条款”。相比“我们做了安全测试”这种笼统表述，标签化报告的可审计性高出不止一个量级。</p>
+<p><strong>合规不是安全测试的副产品——合规是安全测试的坐标自带属性。</strong></p>
+<p>宋奇钊在 InfoQ 报道中提到，矩阵内置的 16 部法规覆盖了国内外主流监管框架，128 条映射经过逐一核对。考虑到 2025 年以来全球 AI 立法加速——EU AI Act 进入执行阶段、中国生成式 AI 管理办法持续细化、美国各州 AI 法案陆续出台——这个映射工作本身就是一个需要持续维护的工程任务。阿里 AAIG 实验室显然打算把合规映射做成矩阵的“活模块”，随法规更新而迭代。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-05/vrbbvkeqphjoi2rdh4hc-article/schematic-5.png" alt="R×E 16 格矩阵 × 128 条法规映射示意图，每个格子连接 3-8 条法规条款，用不同颜色标注 GDPR/EU AI Act/中国法/美国法"></p>
+<p>AICon 2026 上海站这次把“构建可信赖、可规模化、可商业化的 Agentic 操作系统”作为核心命题，2 天、13 大专题、近 60 场议题，清华、复旦教授加上阿里、腾讯、蚂蚁、字节、快手、小红书、华为、Google Cloud 的技术专家扎堆登台。宋奇钊的演讲被放在“Agent 安全与可信治理”专题里，同专题应该还有其他公司的一线安全实践——毕竟 Agent 安全已经不是“要不要做”的问题，而是“怎么做、怎么规模化做、怎么向监管证明做了”的问题。</p>
+<p>我看到这个演讲提纲时，第一反应是：安全行业终于有人把“分类学”问题当成正经工程来做了。过去十年，安全框架要么是清单（OWASP），要么是目录（MITRE），要么是评估模型（NIST）。REAL Matrix 的野心显然更大——它想当一个“操作系统级”的坐标系，让安全测试、防御定位、合规对齐、自动化执行全部跑在同一个坐标系统上。能不能成不知道，但这个方向本身，比“又一个 Top 10”有价值得多。</p>
+<p>毕竟，当 Agent 已经开始调用你的 API、访问你的数据库、替你发邮件的时候，你还用“对着 OWASP 逐条打勾”的方式做安全测试——这事儿本身，就是一个安全风险。</p>
+<p>#AI #科技</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

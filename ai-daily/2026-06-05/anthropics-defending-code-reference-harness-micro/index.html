@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anthropic开源7阶段流水线：用Claude Code技能自动挖掘C/C++漏洞 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-05</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-05</span><span class="tag-pill">AI Daily</span></div>
+      <h1>Anthropic开源7阶段流水线：用Claude Code技能自动挖掘C/C++漏洞</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-05/anthropics-defending-code-reference-harness-micro/head.png" alt=""></p>
+<p>Claude 能自己找漏洞了，但 Anthropic 没把它包装成一个“产品”来卖。</p>
+<p>GitHub 上一个叫 <code>defending-code-reference-harness</code> 的仓库，star 数在 Hacker News 上被顶到首页时还不到 200。没有发布会，没有产品页，甚至连 README 第一行就写着“此仓库不接受贡献”。但如果你点进去仔细看，会发现在这层“这不是产品”的免责声明底下，藏着一整套 Anthropic 从 Claude Mythos Preview 时期积累下来的安全攻防方法论——从威胁建模、静态扫描、到用 ASAN 做动态验证、再到自动生成补丁并验证修复，七个阶段一条流水线，全给你开源了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-05/anthropics-defending-code-reference-harness-micro/content-1.png" alt="Anthropic's open-source framework for AI-powered vulnerability discovery"></p>
+<p><strong>Anthropic 把安全团队最核心的漏洞挖掘工作流，拆成了可以复制粘贴的 Claude Code skills。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-05/anthropics-defending-code-reference-harness-micro/schematic-1.png" alt="defending-code-reference-harness 仓库 README 截图，左侧是 7 个 Claude Code skills 列表，右侧是 7 阶段流水线架构图"></p>
+<p>但事情远不止“又开源了个工具”这么简单。</p>
+<h2>一个不收 PR 的仓库，为什么值得写两千字</h2>
+<p>先看这个仓库到底给了你什么。它不是那种“装好就能扫出漏洞”的成品工具。Anthropic 在 README 里反复强调两件事：第一，这是个 reference implementation，参考做到，不是产品；第二，它的默认配置只对 C/C++ 内存漏洞，用 Docker 打包目标代码，靠 ASAN（AddressSanitizer）捕获崩溃信号来判断是否找到了漏洞。</p>
+<p>七阶段流水线是这样的：Build 阶段把目标编译进带 ASAN 的 Docker 镜像；Recon 阶段派一个轻量 agent 读源码，把代码按“输入解析子系统”拆成 N 个独立攻击面，避免后续并行扫描的 agent 全挤在同一个 bug 上；Find 阶段启动 N 个并行 agent，各自在隔离容器里读源码、构造恶意输入、反复运行 ASAN 二进制，直到同一个输入连续 3 次触发崩溃才算命中；Verify 阶段用一个全新的 grader agent 在干净容器里复现崩溃，确保 poc 不是 Find agent 的环境污染产物；Dedupe 阶段由 judge agent 判断新发现的崩溃是不是已知 bug 的重复；Report 阶段生成结构化的可利用性分析报告，包括漏洞原语类型、可达性、提权路径和严重程度；最后的 Patch 阶段生成修复建议，再由 grader 验证修复后的代码能编译用、原有 poc 不再崩溃、测试套件依然全绿、甚至再跑一轮 Find agent 确认没有绕过修复。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-05/anthropics-defending-code-reference-harness-micro/schematic-2.png" alt="7 阶段流水线数据流示意图，从 Build → Recon → Find → Verify → Dedupe → Report → Patch，每个阶段标注输入输出格式"></p>
+<p>这里有一个细节让我愣神了很久：Anthropic 在文档里专门写了一个 <code>docs/agent-sandbox.md</code>，描述每个 Find agent 跑在独立的 gVisor 容器里，网络出口被白名单限制到只能访问 Claude API。这意味着什么？意味着 Find agent 在构造恶意输入和执行目标二进制时，即使目标代码里有反沙箱逻辑或者网络回调 payload，也逃不出 gVisor 的隔离——而 gVisor 是 Google 为容器安全写的用户态内核，本身就是防御沙箱逃逸的标杆方案。Anthropic 的安全工程师显然清楚，让一个 LLM agent 去跑可能包含漏洞的 C/C++ 代码，本身就是一件危险的事。</p>
+<p>再看他们给出的上手时间线：Day 1 用交互式 skills 做威胁建模和静态扫描，全程不需要沙箱，因为 skills 只读写文件不执行目标代码；Day 2 跑完整的自主流水线，用 <code>bin/vp-sandboxed</code> 命令在 gVisor 里执行；Day 3-5 用 <code>/customize</code> skill 把流水线移植到自己的技术栈；Week 2 开始规模化扫描、跨批次去重、按威胁模型排序修复优先级。Anthropic 在文档里甚至给出了“把漏洞修复掉之后，模型就不会重复发现同一个 bug，下次扫描会自动挖出更深层的问题”这种经验之谈——这句话背后意味着他们已经在多家合作企业的真实代码库上跑过足够多的轮次，观察到了漏洞发现的“深度递增”效应。</p>
+<p>Hacker News 评论区有一条高赞回复点破了关键：“这不是在卖安全扫描工具，这是在教你怎么用 Claude 造自己的安全扫描工具。”Anthropic 的商业模式在这里变得极其清晰：Claude Security 是托管产品，按月收费帮你扫代码、去误报、生成修复；而这个开源仓库是给那些不想或不能把代码交给第三方的团队用的，你用自己的 Claude API key（不管是 Anthropic 直连、AWS Bedrock、GCP Vertex 还是 Azure），自己搭沙箱，自己定制流水线。Anthropic 赚的是 API 调用费，不是工具授权费。</p>
+<p><strong>“参考做到”这四个字，翻译过来就是：我们教你钓鱼，但鱼竿和鱼饵都得从我们家买。</strong></p>
+<h2>Claude Mythos Preview 的暗线，和没被写进 README 的那些事</h2>
+<p>这个仓库的 README 里有一行很容易被忽略的话：“based on our learnings from partnering with security teams at several organizations since launching Claude Mythos Preview”。Claude Mythos Preview 是什么？如果你去翻 Anthropic 的官方博客，会发现这是他们在 2025 年下半年低调推出的一个安全研究预览项目，几乎没有公开宣传，只在安全圈子里小范围邀请试用。Mythos 的定位是用 Claude 做自主漏洞发现和修复，当时 Anthropic 的说法是“我们跟几家大型企业的安全团队合作，验证了 LLM 在漏洞挖掘上的可行性”。</p>
+<p>现在回头看，Mythos Preview 就是 <code>defending-code-reference-harness</code> 的前身——那些合作企业的反馈被沉淀成了这个仓库里的七阶段流水线设计、<code>/threat-model</code> 的 bootstrap-then-interview 工作流、以及“先跑静态扫描再跑动态验证”的分层策略。Anthropic 在博客里提到的一个关键发现是：让 LLM 直接看代码找漏洞，误报率高得离谱；但如果让 LLM 先读代码构造输入、再实际运行目标二进制看会不会崩溃，误报率能压到接近人工渗透测试的水平。这就是为什么这个流水线把“执行验证”放在了核心位置——Find agent 不是靠静态分析判断“这里可能有漏洞”，而是靠“我构造的输入真的让程序崩了”来确认。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-05/anthropics-defending-code-reference-harness-micro/schematic-3.png" alt="静态扫描 vs 动态验证的误报率对比，左侧是纯静态分析的高误报柱状图，右侧是执行验证后的低误报柱状图"></p>
+<p>但这里有一个 Anthropic 没有明说、但文档里处处暗示的约束：这套流水线目前最成熟的目标是 C/C++ 内存漏洞。为什么？因为 ASAN 给了 LLM agent 一个明确的、可编程判断的“成功信号”——程序崩溃了，ASAN 输出里带了内存错误类型和调用栈，agent 可以直接解析这些结构化信息来判断漏洞的严重程度和可利用性。如果换成 Java 的异常栈、Python 的 traceback、或者 Web 应用的 DNS 外带回调，信号的清晰度会断崖式下降。Anthropic 在 <code>docs/customizing.md</code> 里列了一张表，问你要移植流水线必须回答三个问题：什么算“发现”？PoC 长什么样？目标怎么构建和运行？这三个问题看似简单，实际上每一个都对应着巨大的工程挑战——Java 应用的一个 NullPointerException 可能只是业务逻辑的边界情况，而不是安全漏洞；Web 应用的 PoC 可能是一串 HTTP 请求序列，agent 需要自己维护会话状态和 Cookie；Go 服务的构建方式跟 C 项目完全不同，Dockerfile 里要配的不是 clang+ASAN 而是 go build + race detector。</p>
+<p>这恰恰解释了为什么 Anthropic 选择把这个仓库标成“不接受贡献”——它不是不想开源协作，而是这套流水线的泛化问题还远没解决，随便接 PR 只会让维护成本爆炸。Anthropic 的策略很聪明：我给你一个在 C/C++ 领域跑通了的参考做到，你自己去改。改得好你自己受益，改的过程中消耗的 Claude API token 还是我在赚。</p>
+<p>结尾说一句不太好听但很真实的话：Anthropic 正在做一件 Google 和 Microsoft 都想过但没做成的事——让 LLM 成为安全工程师的日常工具，而不是偶尔用来问“这段代码安全吗”的聊天机器人。<code>defending-code-reference-harness</code> 不是终点，它更像一个信号弹：AI 驱动的自主漏洞挖掘，已经从论文里的 benchmark 数字，走进了企业安全团队的 Day 1 工作计划表。至于那些还在争论“LLM 到底能不能做安全”的人，Anthropic 已经把你的反驳理由写进了他们的威胁模型里。</p>
+<p>#Anthropic #AIpowered #AI #科技</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

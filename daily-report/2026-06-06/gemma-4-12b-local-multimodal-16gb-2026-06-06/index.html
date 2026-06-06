@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gemma 4 12B 本地实测：16GB 笔记本跑原生多模态 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-06</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-06</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Gemma 4 12B 本地实测：16GB 笔记本跑原生多模态</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/06/gemma-4-12b-local-multimodal-16gb-2026-06-06.png" alt="Gemma 4 12B 在 16GB 笔记本与单卡 GPU 上本地运行文字图片声音多模态的等距示意图"></p>
+<p>一个能同时读文字、看图片、听声音的开源模型，4-bit 量化后只占 7.5GB 显存——这意味着一台 16GB 内存的笔记本，或者一张二手 4090，就能在完全离线的情况下把它跑起来。这是 Google 于 2026-06-03 放出的 Gemma 4 12B 给本地用户的第一句话。</p>
+<p>它以 Apache 2.0 许可证开源。发布三天，它成了 Hacker News 上讨论最密的开源模型，原因不是某个跑分，而是它把「原生多模态」第一次压进了消费级硬件的甜点区间。过去想在自己机器上跑能看图、能听音的模型，要么显存不够，要么得拆成「一个视觉编码器 + 一个语音编码器 + 一个语言模型」三件套，配置一晚上。Gemma 4 12B 把这三件并成了一件，而且小到 16GB 就装得下。</p>
+<p>下面这篇全部围绕一件事：<strong>这个模型在你自己的机器上，到底跑不跑得动、好不好用、什么时候值得跑</strong>。所有显存数字来自 Unsloth 的部署文档，运行命令可以照抄，速度是社区在消费级卡上跑出来的真实读数。</p>
+<p>先看一眼它在 Unsloth 部署文档里的真实样子——一行直链就能拉起 4-bit 量化版，参数照抄即可：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/06/gemma-4-12b-local-multimodal-16gb-2026-06-06-source-unsloth-run.png" alt="Unsloth 部署文档里 Gemma 4 12B 的 llama.cpp 运行命令与 Q4_K_XL 量化直链"></p>
+<h2>4-bit 只要 7.5GB：先把本地的账算清楚</h2>
+<p>显存够不够，是本地能不能跑的第一道也是唯一一道硬门槛。Gemma 4 12B 在三档常见精度下的占用是这样的：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/06/gemma-4-12b-local-multimodal-16gb-2026-06-06-chart-vram.png" alt="Gemma 4 12B 三档量化显存占用对比，4-bit 约 7.5GB 在 16GB 与 24GB 硬件红线之内"></p>
+<ul>
+<li><strong>4-bit（Q4_K_XL）：约 7.5GB。</strong> 一张 8GB 显存的入门卡刚好够本体，16GB 笔记本或 24GB 的 4090 还能留出大半空间放上下文。</li>
+<li><strong>8-bit：约 13.5GB。</strong> 16GB 这档机器还能上，但留给长上下文的余量就紧了。</li>
+<li><strong>BF16 原始精度：约 25GB。</strong> 单卡 4090 已经装不下，要么换 32GB 以上的卡，要么老老实实量化。</li>
+</ul>
+<p>结论很直接：<strong>想在 16GB 这条线上跑，4-bit 是默认选择，而且它本来就够用。</strong> 这也是 Unsloth 给出的实战建议——Q4 量化是把 12B 舒服塞进 16GB 的标准做法。</p>
+<p>运行命令本身没有门槛，下载好 llama.cpp 之后，一行 GGUF 直链就能拉起来：</p>
+<pre><code class="language-bash">export LLAMA_CACHE=&quot;unsloth/gemma-4-12B-it-GGUF&quot;
+
+./llama.cpp/llama-cli \
+    -hf unsloth/gemma-4-12B-it-GGUF:UD-Q4_K_XL \
+    --temp 1.0 \
+    --top-p 0.95 \
+    --top-k 64
+</code></pre>
+<p>温度、top-p、top-k 这几个值是官方推荐的起始参数，照抄即可。模型发布当天就被 Hugging Face Transformers、llama.cpp、MLX、vLLM、SGLang、Ollama、LM Studio、Unsloth、NVIDIA NIM 一并接住，所以无论你习惯哪个引擎，基本都能当天跑通，不用等社区适配。</p>
+<h2>12B 卡在 16GB 甜点线上：家族里唯一的「刚刚好」</h2>
+<p>Gemma 4 这次一口气放了五个尺寸，把 12B 放回家族里看，才能明白它为什么是本地用户最该关注的那一档：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/06/gemma-4-12b-local-multimodal-16gb-2026-06-06-chart-family.png" alt="Gemma 4 家族 E4B、12B、26B-A4B、31B 四档在 4-bit 下的显存阶梯，12B 卡在 16GB 甜点线"></p>
+<table>
+<thead>
+<tr>
+<th>尺寸</th>
+<th>定位</th>
+<th>4-bit 显存</th>
+<th>上下文</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>E2B / E4B</td>
+<td>端侧、手机与轻薄本</td>
+<td>约 5.5–6GB（E4B）</td>
+<td>128K</td>
+</tr>
+<tr>
+<td><strong>12B</strong></td>
+<td><strong>本地多模态主力</strong></td>
+<td><strong>约 7–8GB</strong></td>
+<td><strong>256K</strong></td>
+</tr>
+<tr>
+<td>26B-A4B</td>
+<td>混合专家、工作站</td>
+<td>约 16–18GB</td>
+<td>256K</td>
+</tr>
+<tr>
+<td>31B</td>
+<td>稠密旗舰</td>
+<td>约 17–20GB</td>
+<td>256K</td>
+</tr>
+</tbody></table>
+<p>12B 上面那两档，26B-A4B 和 31B，4-bit 都要 16GB 以上、最高到 20GB，已经压满甚至跨出了 16GB 这条线；下面的 E4B 虽然只要 6GB，但能力又弱一截。<strong>只有 12B 同时满足「显存进得了 16GB」和「能力撑得起真实任务」两个条件</strong>，这就是它被叫做甜点档的原因。</p>
+<p>官方给的说法是，12B 的综合表现已经逼近两倍大的 26B，而显存占用还不到后者一半；横向比上一代，它明显越过了 Gemma 3 27B——一个新的、更小的模型，反过来压住了旧的、更大的模型。官方也给了若干学术跑分，但那是背景参考，本地用户真正该认的是上面那张显存阶梯：<strong>你的机器卡在哪一档，决定了你能跑哪个尺寸，这件事比任何榜单都实在。</strong></p>
+<h2>去掉编码器，到底为本机省了什么</h2>
+<p>Gemma 4 12B 最值得拆的不是分数，而是它的结构改动——这次它把「多模态」做成了一个单独的解码器，没有任何独立的视觉或语音编码器。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/06/gemma-4-12b-local-multimodal-16gb-2026-06-06-source-google-blog.png" alt="Google 官方博客介绍 Gemma 4 12B 是统一的、去编码器的多模态模型"></p>
+<p>具体改了两处：</p>
+<ul>
+<li><strong>看图：</strong> 过去要先过一个多层视觉变换器把图片编码成向量，现在换成一个约 3500 万参数的轻量投影——原始 48×48 的像素块，直接投进语言模型的隐藏维度。</li>
+<li><strong>听声：</strong> 过去要挂一个专门的语音编码器，现在整个去掉，原始 16kHz 音频被切成 40 毫秒一帧，每帧 640 个浮点数，线性投影后和文字 token 进同一个输入空间。音频目前支持到 12B、E2B、E4B 三个尺寸，单次最长 30 秒。</li>
+</ul>
+<p>这套改动对云端意义有限，对本机却很关键：<strong>少了两个独立编码器，就少了两份显存占用、两份加载时间、两套对齐麻烦。</strong> 整模型并成一个解码器，量化的时候也只用对付一种结构。这正是它能把原生多模态压进 7.5GB 的底层原因——不是参数砍得多狠，而是把「三件套」从结构上合成了「一件」。</p>
+<p>对本地用户来说，这带来一个过去要折腾很久才能搭起来的能力：在完全离线的机器上，喂它一张截图问里面写了什么，或者丢一段 30 秒的录音让它转写、总结，都是同一个模型、同一次加载完成的事，不用再拼三个组件。256K 的上下文也够把一份长文档连着图一起塞进去。</p>
+<h2>速度与量化：消费级卡上跑出来的真实读数</h2>
+<p>本地能跑通之后，第二个问题是快不快。社区在消费级硬件上的实测给了一个参考区间：</p>
+<ul>
+<li><strong>RTX 4060 + llama.cpp：约 21 tokens/秒。</strong> 这是一张入门级卡的读数，日常问答、改文档完全够用；换成 4090 显存余量更大，可以上更长上下文或更高精度。</li>
+<li><strong>Apple Silicon + MLX：社区反馈本地运行顺滑</strong>，MacBook 这类统一内存机器是 Gemma 4 的另一条主路，MLX 是 Mac 上最快的那条。</li>
+</ul>
+<p>速度会随量化档、上下文长度、输入模态浮动，没有一个放之四海的固定值，但 4-bit 在消费级卡上跑到二十几 tokens/秒这个量级，对个人使用来说是「能用」的线。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/06/gemma-4-12b-local-multimodal-16gb-2026-06-06-source-hn-thread.png" alt="Hacker News 上 Gemma 4 12B 的讨论线程，社区聚焦本地运行与量化表现"></p>
+<p>量化这块，Google 在 2026-06-05 又补了一组 QAT（量化感知训练）权重，专门优化移动端和笔记本：</p>
+<ul>
+<li>端侧的 E2B 在移动格式下被压到 <strong>1GB</strong> 占用，塞进手机也跑得动。</li>
+<li>QAT 的思路是训练阶段就让模型适应低精度，所以压缩后的质量比训练后再量化（PTQ）的同档更稳，官方说整体质量反而更高。</li>
+<li>移动格式里还做了分层精度：生成层用 2-bit，推理相关的层留更高精度，在「省」和「准」之间各让一步。</li>
+</ul>
+<p>对要在本机长期跑的人，这条路线意味着以后量化不再是「压一压凑合用」，而是「官方专门为低精度调过」——这是本地体验和云端体验拉近的一个信号。</p>
+<h2>什么情况下值得在自己机器上跑</h2>
+<p>把账算到这里，结论可以收成一句对照：</p>
+<table>
+<thead>
+<tr>
+<th>你的情况</th>
+<th>更合适的选择</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>数据敏感、要离线、不想把图片和录音传到云上</td>
+<td>本机跑 Gemma 4 12B，4-bit / 16GB 起步</td>
+</tr>
+<tr>
+<td>要批量处理大量图文，按云 API 计费会肉疼</td>
+<td>本机跑，一次性硬件成本摊下来更划算</td>
+</tr>
+<tr>
+<td>偶尔用一下、追求最强效果、不在乎数据出本机</td>
+<td>直接调云端旗舰 API 更省心</td>
+</tr>
+<tr>
+<td>手机、轻薄本等端侧场景</td>
+<td>换 E2B / E4B，QAT 版本压到 1–6GB</td>
+</tr>
+</tbody></table>
+<p>Gemma 4 12B 没有改写「最强模型」的排名，它改写的是「原生多模态的最低门槛」——把过去要工作站、要拼三个组件才能跑的能力，压到了一台 16GB 笔记本、一张 4090 就能复现的程度。4-bit 7.5GB 这个数字，就是它递给本地用户的入场券。</p>
+<p>如果你手里正好有一台 16GB 的机器，这是这个夏天最值得花半小时装来试的开源模型：下一个能看图、能听声、还完全在你硬盘里跑的助手，门槛第一次降到了「随手就能开」。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

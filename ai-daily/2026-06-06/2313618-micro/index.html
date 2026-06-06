@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>为何pi agent的编辑工具不如Claude Code稳定？开发者实测GPT-5.5也出错 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-06</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-06</span><span class="tag-pill">AI Daily</span></div>
+      <h1>为何pi agent的编辑工具不如Claude Code稳定？开发者实测GPT-5.5也出错</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-06/2313618-micro/head.png" alt=""></p>
+<p>过去两周，AI 编程工具的叙事主线被 Claude Code、Codex CLI、Cursor 这些「全能型选手」牢牢占据。但 Linux.do 上一个只有 7 条回复、2 位参与者的帖子，把我拉回了另一个平行宇宙——那个世界里，开发者不指望一个模型搞定整个代码库，他们只想要一个能精准编辑片段的小工具。</p>
+<p>帖子标题是：<strong>pi agent 有没有好用的编辑扩展工具</strong>。</p>
+<p>发帖人已经试过了 npm 上的 <code>pi-mono-multi-edit</code>，但接入 OpenAI 模型时频繁报错。他的诉求很具体：有没有类似 Claude Code 或 Codex 那种<strong>片段编辑工具</strong>，能精准 apply diff、替换代码块，而不是每次都让模型重写整个文件。</p>
+<p>这个问题本身，就是当下 AI 编程工具分裂现状的一个切片。</p>
+<p><strong>不是所有开发者都需要一个全知全能的 AI 同事。有时候，他们只需要一把够快的手术刀。</strong></p>
+<h2>pi 的哲学：别给我塞一个黑盒，让我自己拼</h2>
+<p>pi 这个项目，在中文 AI 圈子的讨论度远不如 Cursor 或 Copilot，但在 Linux.do 这种硬核开发者社区里，它有一批死忠。原因很简单：pi 不是一个「产品」，它是一个<strong>可编程的 agent 框架</strong>。</p>
+<p>你可以在 pi 里定义工具、覆盖系统提示、注入自定义逻辑。发帖人提到的「让 pi 自己写扩展做到你想要的效果覆盖原有的 edit 工具」，就是这种哲学的终极体现——连编辑工具本身都可以被模型重新生成。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-06/2313618-micro/schematic-1.png" alt="pi agent 架构示意，核心引擎 + 可插拔工具层 + 用户自定义扩展的对比"></p>
+<p>这在其他工具里几乎不可想象。Claude Code 的编辑能力是 Anthropic 团队精心调校的，Codex CLI 的 <code>apply_patch</code> 机制是 OpenAI 内部打磨过的，你没法让它们「自己重写自己」。但 pi 可以。</p>
+<p>代价也很明显：灵活性换来了不稳定性。<code>pi-mono-multi-edit</code> 这个第三方扩展，接 OpenAI 模型就报错。发帖人没细说是哪种错误，但社区里另一位参与者提到一个关键信息——「gpt5.5 用起来有时候也会失败不知道为什么」。</p>
+<p>注意这个表述。GPT-5.5，不是 GPT-4o，不是 o3。这意味着发帖人已经在用 OpenAI 最新的模型做测试了，但<strong>片段编辑这个看起来「简单」的任务，依然不稳定</strong>。</p>
+<h2>片段编辑为什么这么难？</h2>
+<p>如果你让一个模型「把第 47 行的 <code>const</code> 改成 <code>let</code>」，人类会觉得这是世界上最简单的任务。但对 LLM 来说，它要同时完成三件事：定位目标行、理解修改意图、输出一个能被工具精确执行的 diff 格式。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-06/2313618-micro/schematic-2.png" alt="片段编辑的三步流程，定位→理解→输出 diff，每一步的可能失败点"></p>
+<p>Claude Code 和 Codex CLI 解决这个问题的方式完全不同。</p>
+<p>Claude Code 走的是「模型原生理解 + 工具辅助」路线。Anthropic 在训练 Claude 时专门强化了它输出 <code>search_replace</code> 块的能力，配合文件读写工具，形成一个闭环。OpenAI 的 Codex CLI 则更依赖 <code>apply_patch</code> 这种结构化工具——模型输出统一的 diff 格式，CLI 层负责解析和应用。</p>
+<p>pi 的生态里，这些都得自己拼。原生的 edit 工具能用，发帖人也说「原生的我感觉挺好的，而且我测试下来他也会批量调用 edit」。但一旦你想换模型、换工具链，兼容性的坑就来了。</p>
+<p>最有意思的是帖子里这句话：「我之前让 pi 像素级复刻过 codex 的 apply_patch」。<strong>一个 AI 编程框架的用户，用这个框架去克隆另一个 AI 编程工具的核心机制</strong>。这种 meta 感，只有 pi 社区才能产出。</p>
+<h2>小工具的大问题</h2>
+<p>回到发帖人的原始诉求。他想要的是一个「类似 Claude Code 或 Codex 那种片段编辑工具」。但 Claude Code 和 Codex CLI 的编辑能力，不是独立存在的——它们是整个 agent 系统的一部分。</p>
+<p>Claude Code 能精准 edit，是因为它有一个完整的文件系统感知层、一个精心设计的 tool use 协议、以及 Anthropic 在模型层面做的优化。Codex CLI 的 <code>apply_patch</code> 之所以可靠，是因为它跑在 OpenAI 自家的模型上，prompt 和工具定义都经过了大量测试。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-06/2313618-micro/schematic-3.png" alt="Claude Code vs Codex CLI vs pi 的编辑工具对比表，覆盖模型依赖、工具协议、自定义程度、稳定性四个维度"></p>
+<p>pi 的困境在于：它的开放性让它可以接入任何模型、任何工具，但也意味着它没法为「GPT-5.5 + pi-mono-multi-edit」这个具体组合做优化。出问题了，用户只能去社区问，或者自己写扩展覆盖。</p>
+<p>这让我想起一个更大的趋势。2025 年到 2026 年，AI 编程工具正在经历一场「整合 vs 模块化」的路线之争。Cursor 和 Copilot 走整合路线，给你一个开箱即用的 IDE 体验；Claude Code 和 Codex CLI 走半开放路线，终端里跑 agent 但核心能力自己掌控；pi 走的是彻底模块化路线，框架给你，剩下自己拼。</p>
+<p>三种路线没有绝对优劣，但<strong>模块化路线的用户，注定要花更多时间在「修水管」上</strong>。</p>
+<p>帖子里一共 7 条回复，2 位参与者。没有厂商官方人员出来答疑，没有维护者贴 GitHub issue 链接。这就是小工具生态的真实面貌——你需要的东西可能有人写过，但它可能只维护了三个月就停了，或者只适配了某几个特定模型。</p>
+<p>发帖人最后可能会走上那条路：用 pi 的扩展机制，让模型自己写一个新的 edit 工具，覆盖掉那个不稳定的 <code>pi-mono-multi-edit</code>。用 AI 解决 AI 工具的问题——这大概就是 pi 社区最迷人的地方，也是最累人的地方。</p>
+<p>#AI #科技</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

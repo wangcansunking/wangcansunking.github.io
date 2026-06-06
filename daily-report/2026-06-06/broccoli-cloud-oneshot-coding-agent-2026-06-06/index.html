@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>云端一发即走的编程 agent，和 Claude Code 是两条路 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-06</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-06</span><span class="tag-pill">Daily Report</span></div>
+      <h1>云端一发即走的编程 agent，和 Claude Code 是两条路</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/06/broccoli-cloud-oneshot-coding-agent-2026-06-06.png" alt="云端一发即走的编程 agent 与本地交互式 agent 两条路线 封面"></p>
+<blockquote>
+<p>一个叫 Broccoli 的开源项目最近在海外开发者社区被讨论。它的卖点只有一句话：把工单交给它，它在云端一个独立沙箱里自己 checkout 仓库、写代码、跑测试、来回评审，最后开一个 PR 等你看。它不需要你坐在屏幕前盯着——这恰好和国内开发者每天用 Claude Code、Codex CLI 的姿势，是反过来的。</p>
+</blockquote>
+<p>先把本文的核心判断摆出来：<strong>「云端一发即走」和「本地交互式」不是谁取代谁，而是把人放在了流程里的不同位置</strong>。一个把人放在最后一道关（任务隔离、可以并行、但发出去就不能中途插手）；一个把人放在每一步（实时操控、随时纠偏，但一次基本只能盯一件）。看清楚这一点，下面所有的取舍都顺着推下来了。</p>
+<p>国内读者熟悉的是后一条路：在自己电脑的终端里跟 Claude Code 对话，它每改一处你都看得见，不对就立刻打断。Broccoli 代表的是前一条路——海外这两年正热的方向，从 OpenAI 把 Codex 搬上云端、到 Claude 推网页版可以关掉笔记本继续跑，都是同一个方向。Broccoli 的特别之处在于：它不是又一个新模型，而是一层把 Claude 和 Codex 包在云端沙箱里替你跑完整流程的协作框架。</p>
+<p>下面分五块讲：Broccoli 到底是什么、它的工作流长什么样、和本地交互式 agent 的七个取舍维度、这套打法适合什么活不适合什么活，以及国内现在有哪些能用的对位。</p>
+<h2>一、Broccoli 是什么：不是新模型，是一层云端协作框架</h2>
+<p>先把这个项目本身讲清楚，避免误会。Broccoli 是一个开源项目，定位是「one shot coding agent on the cloud」——直译过来是「云端一发即走的编程 agent」。它由一个叫 besimple-oss 的团队开源，本文核对时仓库 280 颗 star、9 个 fork、1 位主要贡献者，规模还很小，是个新项目。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/06/broccoli-cloud-oneshot-coding-agent-2026-06-06-source-github-card.png" alt="Broccoli 项目介绍卡片：把 Linear 工单变成已合并的 PR，由 Claude 和 Codex 驱动，跑在你自己的 Google Cloud 或 Blaxel 容器里"></p>
+<blockquote>
+<p>来源：Broccoli 项目社交预览卡片（besimple-oss 公开仓库，2026-06-06 核对）</p>
+</blockquote>
+<p>关键的一句官方描述是：<strong>「Broccoli 把 Linear 工单变成已合并的 PR——由 Claude 和 Codex 驱动，跑在你自己的 Google Cloud 或 Blaxel 容器里。」</strong> 这句话里藏着三个对国内读者最值得注意的设计：</p>
+<ul>
+<li><strong>它不带自己的模型</strong>。真正干活的是 Claude Code 和 Codex CLI，Broccoli 只是把这两个 CLI agent 放进云端沙箱（sandbox，隔离的临时运行环境）里调度起来；</li>
+<li><strong>它不带自己的控制台</strong>。整套东西部署在你自己的 Google Cloud 项目里、连你自己的 Postgres 数据库，官方原话是「你的基础设施、你的钥匙、你的数据，没有第三方控制平面，数据不离开你的租户」；</li>
+<li><strong>它的活从工单来</strong>。任务的上下文（context）不是另外手写的 prompt，而是直接读工单（ticket）的描述——团队用 Linear 当唯一的事实来源（source of truth）。</li>
+</ul>
+<p>所以更准确的说法是：Broccoli 不是来跟 Claude、Codex 抢生意的，作者在讨论里也明确澄清了这一点。它是一层「编排框架」——把「人写工单 → agent 在云端独立沙箱里干完 → 开 PR 回来」这条流程自动串起来。作者给的理由很实在：他们自己被多个并发编程任务来回切换搞得很累，干脆做一个能替自己一口气跑完单个任务的工具。</p>
+<p>这里第一次出现的几个词给个中文对照：<strong>sandbox（沙箱）</strong> 是一个隔离的临时运行环境，agent 在里面折腾不会碰到你本机；<strong>ticket / 工单</strong> 是项目管理工具里的一条任务；<strong>PR（pull request）</strong> 是把改动提交给团队检视、合并进主仓库的请求。这三个词后文直接用。</p>
+<h2>二、工作流：从工单到 PR，人只在最后看一眼</h2>
+<p>Broccoli 这类「一发即走」agent 的工作流，和本地交互式 agent 摆在一起看，差别一眼就出来。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/06/broccoli-cloud-oneshot-coding-agent-2026-06-06-chart-workflow.png" alt="两条编程 agent 路线的工作流对照：云端一发即走（工单→独立沙箱→自动实现→跑测试互评→开 PR）vs 本地交互式（本机终端→你盯着改→随时纠偏→实时跑→自己提交）"></p>
+<p>云端一发即走这条路，五步走完，人基本不出现在中间：</p>
+<ol>
+<li><strong>拿活</strong>：从 Linear 工单里读出一条任务，工单描述就是它的全部上下文；</li>
+<li><strong>进沙箱</strong>：为这条任务单独开一个云端沙箱，在里面 checkout 仓库——每个任务一个独立环境，互不打扰；</li>
+<li><strong>自动实现</strong>：在沙箱里调 Claude Code 和 Codex CLI 写代码。Broccoli 这里有个有意思的设计——让两个模型互相挑对方的毛病，跑一种「互评一遍」的循环，比只用一个模型的结果更稳；</li>
+<li><strong>跑测试和评审</strong>：自动执行测试、来回评审，直到这条任务自认为做完；</li>
+<li><strong>开 PR</strong>：开一个 pull request，停下来，等人检视。</li>
+</ol>
+<p>整条路里，人只在第一步写工单、最后一步看 PR——中间那段它是关着门自己跑的。这就是「one shot（一发）」的含义：任务发出去，你就去忙别的，结果会以一个 PR 的形式回来。</p>
+<p>作者团队给了一组自己用下来的数字：<strong>他们团队里非开发岗同事提交的 PR，100% 是通过 Broccoli 跑出来的；开发岗同事则约 60% 走 Broccoli</strong>，剩下约四成因为需要更多设计上的来回，还是自己上手。这组数字本身就说明了它的适用边界——活越明确、越不需要设计层面的反复权衡，它越顶用。</p>
+<p>本地交互式那条路（图的下半行）刚好相反：你在本机终端说一句，agent 改一处你盯一处，看着不对随时打断、调头、纠偏，跑测试也是在你自己的环境里实时跑，满意了你自己提交。人在每一步都在场。</p>
+<p><strong>两条路的根本差别，就在「人站在流程的哪一段」。</strong> 这一句是本文的轴，下面的取舍全是它的展开。</p>
+<h2>三、七个维度的取舍：各擅胜场，不是一个比另一个强</h2>
+<p>把这两条路放到七个具体维度上比，会发现它们几乎是互补的——一方强的地方，正好是另一方弱的地方。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/06/broccoli-cloud-oneshot-coding-agent-2026-06-06-chart-tradeoff.png" alt="云端一发 vs 本地交互：七个维度各擅胜场的横向条形对照，任务隔离/多任务并行/适合明确小任务云端强，中途介入/实时操控/起步成本低/适合探索性改本地强"></p>
+<p>逐条说清楚：</p>
+<ul>
+<li><strong>任务隔离干净（云端强）</strong>：每个任务一个独立沙箱，互不串味，跑完即焚，不会污染你的本机环境或别的任务；</li>
+<li><strong>多任务并行跑（云端强）</strong>：既然每个任务都在自己的云端沙箱里，那就可以同时开好几个，你一边写新工单、几个旧任务一边在云上各跑各的；</li>
+<li><strong>中途能否介入（本地强）</strong>：本地交互式可以随时打断、改方向；一发即走的发出去就只能等结果，中途想插一句基本插不进；</li>
+<li><strong>实时操控手感（本地强）</strong>：本地是你看着它一行一行改，手感直接；云端是黑箱里跑完给你个 PR，过程你看不见；</li>
+<li><strong>起步部署成本低（本地强）</strong>：Claude Code、Codex CLI 装上就能用；Broccoli 这类要你自己准备 Google Cloud 项目、配 Postgres、搭沙箱，起步门槛实打实更高；</li>
+<li><strong>适合明确小任务（云端强）</strong>：工单写得清楚、范围收得住的活，一发即走最省心，作者那组「非开发岗 100%」的数字就是证据；</li>
+<li><strong>适合探索性改（本地强）</strong>：需要边想边试、方案要反复推敲的活，还是人盯着实时调更靠谱。</li>
+</ul>
+<p>把这张表读一遍，结论很清楚：<strong>它们不在同一条赛道上分高下，而是把同一件「让 agent 写代码」的事，按「人要不要全程在场」切成了两半。</strong></p>
+<p>这也解释了为什么海外不少团队的做法是两条路一起用：明确的小任务批量丢给云端 agent 并行跑，复杂的、要反复推敲的活留在本机用 Claude Code 一步步带。不是二选一，是分工。</p>
+<h2>四、什么活适合一发即走，什么活别勉强</h2>
+<p>顺着上面的取舍，能给出比较实在的判断——哪些活适合丢给 Broccoli 这类云端一发 agent，哪些活硬塞进去只会更累。</p>
+<p><strong>适合一发即走的活：</strong></p>
+<ul>
+<li>工单写得清楚、验收标准明确的功能小改、bug 修复、补测试、加字段这类「目标单一、路径不绕」的任务；</li>
+<li>一批彼此独立、可以并行铺开的零碎任务——把人从「一个个排队盯」里解放出来，正是它的长处；</li>
+<li>团队里非开发岗同事想自己提交点小改动：他们不熟悉本地开发环境，写一条工单交给云端 agent 反而最顺，作者那组「非开发岗 100% 走 Broccoli」就是这个场景；</li>
+<li>对数据驻留有要求的团队：Broccoli 整套跑在你自己的云项目里，数据不离开自己的租户，这一点对在意合规边界的团队很重要。</li>
+</ul>
+<p><strong>别勉强塞进去的活：</strong></p>
+<ul>
+<li>需要边想边改、方案要反复推敲的探索性开发——发出去就插不上手，等它跑完一版再推倒重来，反而比本地实时带更慢；</li>
+<li>牵涉大量设计权衡、要在好几种实现之间反复比较取舍的任务——作者团队那约四成「开发岗没走 Broccoli」的活，多半就卡在这里；</li>
+<li>起步阶段、还没有自己云基础设施的个人开发者：为了跑几个小任务先搭一套 Google Cloud 加 Postgres，性价比不划算，这种情况本机一个 Claude Code 更省事。</li>
+</ul>
+<p>一句话收一下这一节：<strong>一发即走 agent 是「批处理明确任务」的利器，不是「陪你做难题」的搭子。</strong> 把它用在对的活上，它替你省的是「盯」的时间；用错地方，它省下的时间会从「反复返工」里加倍还回去。</p>
+<p>海外讨论里也有人提了实在的顾虑：「one shot」这个说法听着像是一锤子买卖，但很多人更想要的是能来回协作的流程；也有人希望它支持更多工单系统（目前只接 Linear，有人想要 Jira）、支持多仓库和预览环境。这些都是这类工具走向成熟要补的功课，倒也印证了它现在更适合「明确、独立、收得住范围」的任务这个定位。</p>
+<h2>五、对位对比：扣子编程、无影 AgentBay、通义灵码</h2>
+<p>国内开发者最关心的一问：这种「云端一发」的能力，有没有能用的国产对位？答案是有，而且方向上对得相当齐。下面把海外项目和国产产品放进同一张对比地图里看。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/06/broccoli-cloud-oneshot-coding-agent-2026-06-06-chart-map.png" alt="编程 agent 对位地图：横轴从「人全程盯着改」到「一发即走」，纵轴从「套本地 CLI、自带钥匙」到「平台全托管、自带模型」，标出 Claude Code、Codex CLI、OpenClaw、Broccoli、Codex 云端、字节扣子编程、阿里无影 AgentBay、通义灵码各自的位置"></p>
+<p>把海外和国内、云端和本地放进同一张对位地图，国内这边至少有三个值得说的对位：</p>
+<p><strong>字节跳动·扣子编程（Coze）</strong>。扣子在 2025 年底把开发平台升级为「扣子编程」，主打用自然语言把意图说清楚，平台就能生成带前端界面、后端逻辑、API 接口、部署脚本的完整应用。它和 Broccoli 的相通之处，是都把「人说需求、平台在云端把活干完」当成产品形态；它更偏向全托管、面向不写代码或少写代码的人，是国内「云端一发」方向里离 Broccoli 那一象限最近的产品之一。</p>
+<p><strong>阿里云·无影 AgentBay 与 Agent Sandbox</strong>。如果说 Broccoli 最硬的底子是「云端独立沙箱」，那阿里云这边对位的就是无影 AgentBay——一套面向 AI agent 的云端执行基础设施，以沙箱为核心。它底下的 Agent Sandbox 提供 MicroVM 级别的隔离运行环境，支持内存级休眠唤醒、Checkpoint 克隆，号称最高每分钟弹起 15K 个沙箱，还兼容 E2B 的 SDK 调用方式。换句话说，Broccoli 用 Google Cloud 容器搭的那层「每个任务一个隔离沙箱」，在国内有 AgentBay 这样的现成沙箱底子可以接。</p>
+<p><strong>阿里云·通义灵码</strong>。这一个的位置和前两个不太一样——它更靠近「本地交互」那一侧，是 IDE 里的智能编码助手，提供代码智能生成、智能问答、多文件修改，也带编程 agent 能力。它对位的不是 Broccoli，而是更接近你在编辑器里实时用的那条路，和 Claude Code、Codex CLI 站在地图的同一侧。</p>
+<p>把这张地图看明白，国内开发者其实不缺对位：</p>
+<ul>
+<li>想要「云端一发、平台全托管」那种体验——看扣子编程；</li>
+<li>想自己搭一套「每个任务一个隔离沙箱」的云端执行底子——看无影 AgentBay 和它的 Agent Sandbox；</li>
+<li>想要 IDE 里实时盯着改的本地手感——通义灵码，或者直接在本机接 Claude Code、Codex CLI。</li>
+</ul>
+<p>值得一提的是，Broccoli 这种「不带模型、只做编排，把 Claude 和 Codex 当后端」的思路，国内也越来越常见——比如把本地常用的 CLI agent 接进云端项目协作流程，正是国内 agent 平台这一年在补的方向。这说明「编排层和模型层分开、人只管最后一道关」这套打法，海内外想到一块去了。</p>
+<h2>写在最后</h2>
+<p>回到开头那句核心判断：云端一发即走和本地交互式，差别从来不在「谁更聪明」，而在「人站在流程的哪一段」。</p>
+<p>Broccoli 这样的项目还很小、还在补课，但它代表的方向值得国内开发者抬头看一眼——当明确的小任务可以被一批批丢进云端沙箱并行跑完、人只在收尾看一眼 PR 的时候，我们手里的工具箱就多了一格。而这一格，国内并不空白：扣子编程、无影 AgentBay、通义灵码已经在各自的位置上站好了。</p>
+<p>更让人踏实的是，这两条路不是要你选边。最舒服的姿势，是把明确、独立、范围收得住的活交给云端 agent 替你跑，把需要反复推敲的难题留给本机的 Claude Code 陪你一步步啃。工具越来越多、分工越来越清楚，这本身就是一件让人对接下来的开发节奏更有底气的事。路在前面，慢慢都会顺起来。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
