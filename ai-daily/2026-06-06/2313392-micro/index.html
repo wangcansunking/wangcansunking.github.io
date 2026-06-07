@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>警惕套壳与超发：揭秘DeepSeek V4中转服务的三大陷阱 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-06</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-06</span><span class="tag-pill">AI Daily</span></div>
+      <h1>警惕套壳与超发：揭秘DeepSeek V4中转服务的三大陷阱</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-06/2313392-micro/head.png" alt=""></p>
+<p>你打开 L 站的那个帖子，看到一句“70m 收了我 500 元软妹币”的时候，第一反应可能跟我一样——这数字是不是少了个零？</p>
+<p>不是。原文作者在阿里云上跑了一次 DeepSeek V4，70 million tokens，账单 500 元人民币。折算下来，每百万 token 要 7 块多，比 DeepSeek 官方 API 的定价（缓存命中 0.1 元/百万 token、未命中 1 元/百万 token）贵了 7 到 70 倍。被割完之后，这位开发者做了一个正常人都会做的决定：逃离官方，投奔中转站。</p>
+<p>然后他就掉进了另一个坑。试了六七家，发现有人拿 DeepSeek V3 冒充 V4，有人拿 Qwen 套壳，唯一一家验明正身是 V4 的，并发标称 10 却动不动 503，塞进 Claude Code 当 subagent 还学会了一本正经地胡说八道。</p>
+<p><strong>你以为你在买算力，其实你在买一场俄罗斯轮盘赌。</strong></p>
+<h2>中转站的“三重原罪”：套壳、超发、幻觉</h2>
+<p>这段经历其实把一个灰色地带的运转逻辑摊开了。</p>
+<p>先看套壳。DeepSeek V4 的 1M 上下文窗口是 2025 年 5 月前后放出来的，当时整个开源社区都在测它的长文本召回率。中转站商家很清楚这个卖点值钱，但真跑 V4 的成本不低——官方 API 虽然便宜，可中转站要做的是差价生意，利润空间就压在“以次充好”上。帖子里提到的“有人用 DeepSeek V3、有人用 Qwen 来赖于充数”，本质上是一个信息不对称套利：大部分用户没有能力在 API 层面验证模型身份，发过去的 prompt 返回一段看起来像样的文本，很难判断背后是 V4 还是 V3 还是 Qwen-72B 微调。等你真拿长文本任务去压榨——比如丢一个 50 万 token 的代码仓库进去要求跨文件重构——V3 的 128K 窗口直接露馅，但到那时候你已经付了一个月的钱。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-06/2313392-micro/schematic-1.png" alt="中转站套壳检测流程图，用户请求→中转站→实际调用的模型身份对比表，V4/V3/Qwen 三列对照"></p>
+<p>再看超发。帖子里提到的那家“并发 10、动不动 503”的中转站，大概率在做 GPU 超售。原理跟机票超卖一样：商家赌你不会同时用满并发，于是把 5 路并发当 10 路卖。一旦几个用户同时压上来，算力池直接炸，HTTP 503 往外喷。更隐蔽的问题在后面——“他经常回假消息”。这不是 V4 本身的问题，而是超发导致的截断。当并发超出容量，中转站可能会偷偷缩短上下文窗口、降低采样精度、甚至提前截断输出，模型根本没读完你的 prompt 就开始编。这就是为什么帖主把它挂进 Claude Code 当 subagent 时“幻觉率有点高，波动大”。一个正经的 V4 不会这样。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-06/2313392-micro/schematic-2.png" alt="中转站超发机制示意，10 路并发标记 vs 实际 5 路算力池，超载时截断/降质箭头"></p>
+<p>第三个问题最讽刺：帖主本人也加入了这场套娃游戏。他发现中转站 V4 在 Claude Code 里表现还行（至少他的非技术朋友分辨不出来），于是转手以月费 140 元的价格卖给了朋友，而朋友之前用计费式中转每月要花 300 到 400 元。朋友用完之后表示“不愧是正版的 Claude Code，比他之前的强多了”——这句话的黑色幽默在于，他用的既不是正版 Claude Code，也不是正版 DeepSeek V4，而是一个中转的 V4 套了一层 Claude Code 的壳，中间可能还夹着帖主自己写的 sub2api 转发逻辑。三层套娃，每一层都在收智商税。</p>
+<h2>官方的“隐形围墙”：充值优惠与封号风险</h2>
+<p>所以帖主问的那个问题很合理：既然中转站这么坑，为什么不直接用官方 API？</p>
+<p>他怕的是两件事。第一，阿里云的账单 PTSD——“70M 收 500 元”这件事让他对“官方渠道”四个字产生了生理性恐惧。但这里要区分清楚：阿里云上的 DeepSeek 是第三方云厂商的转售服务，定价权在阿里云手里，跟 DeepSeek 官方 API 是两码事。DeepSeek 官方 API 的价格表在官网明码标价，V4 的输入价格是每百万 token 1 元（缓存命中 0.1 元），输出价格另计。同样的 70M token，走官方 API 的费用大约在几十到一百元之间，不是 500。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-06/2313392-micro/schematic-3.png" alt="DeepSeek 官方 API vs 阿里云转售 vs 中转站三方价格对照表，标注 70M token 各渠道实际费用"></p>
+<p>第二，他担心充值有没有优惠活动，以及“挂到自己的 sub2api 里面会封号吗”。这里需要把目前已知的情况摊开——虽然原文没有给出官方活动细节，但从 DeepSeek 过去的运营节奏来看，官方 API 在 2025 年 5 月到 7 月期间确实有过几波充值赠送活动，主要面向开发者生态，赠金比例在 10%-50% 不等，具体要看注册时间和账号类型。至于封号风险，DeepSeek 的 ToS 对 API 转售有明确限制，sub2api 这种二次分发的行为如果被检测到异常调用模式（比如同一个 API key 在多个 IP 之间高频切换、请求间隔不符合人类操作节奏），确实存在封号可能。帖子里他朋友被封过一次号——“今天 Claude max20 已经搞定，中途还遇上点其他插曲，封了一次号”——虽然说的是 Claude，但中转站的账号风控逻辑类似：官方对异常流量非常敏感，尤其是当你的 sub2api 下游用户开始跑自动化 agent 时，请求模式很容易触发风控。</p>
+<p>那 search 功能呢？帖主问“正版的能 search 吗”。DeepSeek 官方 API 目前支持联网搜索，但需要单独开通，不是默认开启。而中转站为了省成本，通常会把 search 能力砍掉——每次搜索都要额外消耗 token 和网络请求，对中转站的利润模型不友好。帖主吐槽“也不能 search”大概率就是这个原因。</p>
+<p><strong>便宜的东西，总是在你算不清账的地方最贵。</strong></p>
+<p>回头看这整件事，帖主从阿里云逃到中转站，从中转站逃到“要不要用官方”的纠结，每一步都是理性选择，但每一步都在为信息不对称买单。阿里云赚的是他对云厂商定价的不了解，中转站赚的是他对模型身份的无能力验证，他自己转手赚朋友的那 60 块钱差价，赚的是朋友对“正版 Claude Code”的朴素信任。</p>
+<p>而真正能跑通生产业务的方案，帖主其实在帖子末尾已经摸到了——“正规的东西，肯定不一样嘛”。这句话是他拼车搞定 Claude Max 20 之后发的感慨，封号插曲过去了，正经订阅跑起来了，体验跟中转站完全两个世界。</p>
+<p>所以答案其实很简单：如果你在拿 DeepSeek V4 跑生产任务，别省那点 API 费用。70M token 被坑 500 块的教训已经够贵了，再搭上每次调整使用策略的时间成本、503 波动导致的业务中断、套壳模型产生的幻觉污染数据——这笔账，怎么算都是亏的。</p>
+<p>#AI #科技</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

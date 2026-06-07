@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeepSeek V4 自己部署：两张 4090 塞不下，官方接口更省 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-07</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-07</span><span class="tag-pill">Daily Report</span></div>
+      <h1>DeepSeek V4 自己部署：两张 4090 塞不下，官方接口更省</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/deepseek-v4-flash-selfhost-vram-wall-2026-06-07.png" alt="DeepSeek V4 自托管显存墙示意：夜色机房里一名工程师盯着桌上仅装两张消费级显卡的小主机，身后是一整面发光的多卡服务器机柜，凸显 284B 模型放不进个人机器"></p>
+<p>DeepSeek V4-Flash 有 2840 亿参数，是一个 MoE 架构的开源旗舰，权重公开、许可证宽松，谁都能下载。于是很多人下意识地以为：开源就等于「我自己机器也能跑」。</p>
+<p>但真把它请回家，第一道门槛不是会不会配环境，而是一道纯粹的显存账。官方推荐的 FP4+FP8 精度要 170GB 显存才装得下；就算用社区最激进、明显掉点的 INT4 量化压一压，也得 90-100GB。两张 RTX 4090 加起来 48GB，连「质量有风险」的极限 Q2 量化都塞不下。</p>
+<p>而同一个模型，官方接口的定价是每百万 token 输入 0.14 美元、输出 0.28 美元——便宜到你很难给「自己买卡跑」算出一笔划算的账。</p>
+<p>所以这篇文章只回答一件事：<strong>DeepSeek V4-Flash 这个国产开源旗舰，你确实能下载到本地，但你的桌子放不下它，而且绝大多数情况下也没必要自己扛。</strong> 把显存账和接口账都算清楚，你反而会更有把握——知道什么时候该调接口、什么时候该在本地换一个小模型。所有显存数字来自三份公开显存表交叉核对，接口定价是官方现价，成本测算的假设我都写在图里，你可以照着自己的用量重算。</p>
+<h2>先看它到底有多大：284B 全都要进显存</h2>
+<p>理解这道显存墙，得先搞清楚 V4-Flash 的体量。它的关键参数是这样的：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/deepseek-v4-flash-selfhost-vram-wall-2026-06-07-source-openrouter.png" alt="OpenRouter 上 DeepSeek V4-Flash 的模型页，标注 2840 亿总参数、130 亿激活、100 万 token 上下文与按量单价"></p>
+<ul>
+<li><strong>总参数 2840 亿，每个 token 只激活 130 亿。</strong> 这是 MoE（混合专家）的典型结构：算的时候确实只动用 130 亿参数，所以推理的计算量和一个中型模型差不多。</li>
+<li><strong>上下文窗口 100 万 token。</strong> 这是它的卖点之一，但长上下文意味着巨大的 KV 缓存开销，后面算显存时这是一笔不能省的账。</li>
+<li><strong>架构上用了一套压缩注意力的混合设计</strong>，目标是在保住百万上下文能力的同时，把每个 token 的推理计算量和 KV 缓存都压下去——这也是它「计算量像中型模型」的由来。</li>
+</ul>
+<p>这里有个最容易被忽略、却决定成败的点：<strong>MoE 模型「只激活 130 亿」省的是算力，不是显存。</strong> 推理时虽然每个 token 只走 130 亿参数那条路，但你永远不知道下一个 token 会被路由到哪些专家，所以全部 2840 亿参数必须同时驻留在显存里待命。换句话说，显存占用是按 2840 亿这个总数算的，不是按 130 亿。</p>
+<p>这就是为什么一个「计算量像中型模型」的东西，显存胃口却是旗舰级的。</p>
+<h2>显存墙：各精度到底要多少 GB</h2>
+<p>把不同量化精度下的最低显存需求排出来，这道墙的高度就一目了然了。下面这张表是公开显存账里写得最细的一份，它的「最低显存」一栏已经把 100 万上下文的 KV 缓存和运行余量都算进去了：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/deepseek-v4-flash-selfhost-vram-wall-2026-06-07-source-vram-table.png" alt="codersera 整理的 DeepSeek V4-Flash 各量化精度显存需求表，从 Q2 到 FP8 逐档列出权重大小与含缓存的最低显存"></p>
+<p>我把它和另外两份独立显存表交叉核对后，画成了一张更直观的阶梯图，并把两张、四张 4090 的显存上限标成了红线：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/deepseek-v4-flash-selfhost-vram-wall-2026-06-07-chart-vram-ladder.png" alt="DeepSeek V4-Flash 各精度最低显存阶梯图，叠加两张与四张 4090 的显存红线，显示连极限量化都越过两张 4090"></p>
+<p>各精度的最低显存如下：</p>
+<ul>
+<li><strong>FP4+FP8 官方推荐精度：约 170-175GB。</strong> 这是 DeepSeek 自己发布的检查点精度，质量无损。需要两张 H200，或者四张 A100。</li>
+<li><strong>Q5 / Q6 量化：约 128-160GB。</strong> 质量损失小，但显存还是专业级集群的量级。</li>
+<li><strong>Q4 / INT4（社区 AWQ 方案，约掉 5% 分数）：约 90-100GB。</strong> 这是「还能接受」的最激进档，要四张 4090（96GB）勉强够，且要牺牲一部分上下文长度和精度。</li>
+<li><strong>Q3 量化：约 80-96GB。</strong></li>
+<li><strong>Q2 极限量化（有明显质量风险）：约 48-64GB。</strong> 哪怕压到这个会掉智商的程度，最低也要 48GB 起步，刚好踩在两张 4090 的红线上甚至越过去。</li>
+</ul>
+<p>结论很干脆：<strong>两张 4090（48GB）这个不少人心里的「本地旗舰配置」，跑 V4-Flash 连门都摸不到。</strong> 真要用消费级卡硬上，最现实的也是四张 4090 跑 INT4，而那已经是「接受掉点 + 砍上下文」的妥协方案了。</p>
+<h2>那到底要什么机器才跑得动</h2>
+<p>换个问法：手里有多少显存，能对 V4-Flash 做什么？另一份独立整理的显存对照表回答得很清楚：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/deepseek-v4-flash-selfhost-vram-wall-2026-06-07-source-knightli-vram-scale.png" alt="KnightLi 博客整理的显存档位对照表，按 24GB 到 1TB 逐档列出 V4-Flash 与 V4-Pro 在各显存下的可行量化与不要期待的范围"></p>
+<p>把它翻译成大白话：</p>
+<ul>
+<li><strong>24GB（一张 4090 / 一张 3090）：</strong> 适合跑小模型或当接口客户端，别想 V4-Flash。</li>
+<li><strong>80GB（一张 H100 / 四张 4090 凑）：</strong> 「理论上可以试试 V4-Flash 的 Q2/Q3，或者大量内存换显存式的卸载」——注意用词是「理论上」「试试」。</li>
+<li><strong>128GB：</strong> V4-Flash 的 Q4 才开始变得现实，Q5/Q6 仍然紧张。</li>
+<li><strong>192-256GB：</strong> V4-Flash 的 FP8 才算住得舒服。</li>
+</ul>
+<p>这张表里专门有一句点题的话：DeepSeek V4 和那些 26B、31B 的中型开源模型「根本不在一个本地部署的量级」——中型模型还能讨论怎么塞进 24GB、32GB 的卡，V4 这种庞大的 MoE，完整本地部署很快就进入「多卡工作站乃至服务器」的领域。</p>
+<p>所以现实的自托管最低配置，是两张 H200，或者两张 RTX Pro 6000 Blackwell 这类专业卡。引擎层面，社区和官方都推荐用 vLLM 或 SGLang——它们支持 MoE 的专家并行和这套混合注意力的核，能把 100 万上下文的 KV 缓存管好；而 Ollama 这类工具虽然上手简单，跑这种 MoE 会丢掉专家路由的效率，只适合原型验证，不适合正经服务。</p>
+<h2>社区的共识：别自己扛这堵墙</h2>
+<p>这件事最有说服力的，不是某张显存表，而是真正天天在本地折腾模型的那群人的态度。在 r/LocalLLaMA 这类聚集了大量本地部署玩家的社区里，关于 V4 自托管的共识相当一致，而且很冷静：</p>
+<ul>
+<li><strong>不要试图完整自托管 DeepSeek V4。</strong> 需要 DeepSeek V4 这一档能力的时候，就直接调官方接口。</li>
+<li><strong>手里只有 24GB 到 48GB 显存做本地私有部署，</strong> 更实际的选择是 7B、14B、32B、70B 这些量级的量化模型——Qwen、Gemma、Llama 系列里都有称手的。</li>
+<li>一句被反复提起的话是：<strong>如果你的目标是在个人电脑上跑一个模型，DeepSeek V4 就不是那个目标。</strong></li>
+</ul>
+<p>这不是泼冷水。它其实把选择讲清楚了：本地小模型解决「随时能用、数据不出门」的需求，旗舰能力交给接口，两条路各司其职。真正会折腾的人，早就不纠结「什么都要本地跑」了。</p>
+<h2>接口便宜到什么程度：算一笔账</h2>
+<p>既然反复说「接口更省」，那就把账算到底。DeepSeek V4-Flash 的官方接口定价是这样的：</p>
+<ul>
+<li><strong>输入：每百万 token 0.14 美元</strong>（命中缓存的部分只要 0.0028 美元，便宜到几乎可以忽略）。</li>
+<li><strong>输出：每百万 token 0.28 美元。</strong></li>
+<li>输入输出混合下来，一个粗略的均价大约是每百万 token 0.21 美元。</li>
+</ul>
+<p>这是什么概念？按每天 5000 万 token 的不小用量算，一天的接口费用大约 7 到 14 美元。一个月撑死几百美元。</p>
+<p>再看自托管这边的账。要稳定跑 V4-Flash，前面说了，得是两张 H200 这一档。把硬件按三年摊销，加上一天 24 小时不停机的电费，每月固定成本大约 1800 美元——而且这是机器闲着也要付的钱。我把两条成本线随用量的变化画在一起，交点很说明问题：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/deepseek-v4-flash-selfhost-vram-wall-2026-06-07-chart-cost.png" alt="自托管与官方接口的月成本随用量变化对比图，接口按量线性增长，自托管约 1800 美元每月固定，持平点在每天近 3 亿 token"></p>
+<p>按每百万 token 0.21 美元的接口均价、每月 1800 美元的自托管固定成本算，两者的持平点在<strong>每月约 86 亿 token</strong>——折算下来要每天近 3 亿 token、而且机器接近满载连轴转，自托管才开始比接口便宜。</p>
+<p>这个量级是什么水平？一个中等规模的产品，全天候不间断地把这台机器喂满，才勉强够到这条线。绝大多数个人、团队、甚至不少创业公司，全月的真实用量离这个数字都差着一两个数量级。也就是说，<strong>对大多数人，接口不只是省心，是实打实地省钱。</strong></p>
+<h2>那什么时候才轮到自托管</h2>
+<p>把账算这么清楚，不是说自托管一无是处。它在三种情况下依然成立，而且这三条要同时满足才划算。下面这份自托管指南给的三个理由，和这里要说的几乎一一对应——它也直接点明，每天用量没到几十亿 token，接口几乎总是更省：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/deepseek-v4-flash-selfhost-vram-wall-2026-06-07-source-lushbinary-selfhost.png" alt="Lushbinary 自托管指南列出值得自托管 DeepSeek V4 的三个理由：数据主权、超大用量下的成本、可定制；并指出每天用量没到几十亿 token 时接口几乎总是更省"></p>
+<p>具体到三条：</p>
+<table>
+<thead>
+<tr>
+<th>条件</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>数据绝对不能出门</td>
+<td>合规、隐私或行业监管要求推理全程留在自己机房，这时候省不省钱是次要的</td>
+</tr>
+<tr>
+<td>已经有多卡专业机器</td>
+<td>手里本来就有 H200 / A100 这类卡在做别的事，边际成本才低</td>
+</tr>
+<tr>
+<td>用量大且稳定满载</td>
+<td>接近前面算的每天数亿 token、且常年跑满，摊销才摊得动</td>
+</tr>
+</tbody></table>
+<p>只要这三条缺一条，结论基本都会倒向接口。尤其是「我想买两张 4090 在家自己跑 V4」这个最常见的念头——从显存这关就已经走不通了。</p>
+<p>值得一提的是，这并不是 DeepSeek 做得不好，恰恰相反。一个国内团队能把 284B 的开源旗舰做出来、还把接口价格压到每百万 token 一毛多美元，本身是件了不起的事。它真正打破的，是「开源 = 人人都能自托管」这个想当然的等式：开源给了你下载和审视权重的自由，但能不能跑在你自己的机器上，是另一道由显存决定的物理题。</p>
+<h2>写在最后：把卡用在该用的地方</h2>
+<p>回到开头那句话——DeepSeek V4-Flash 你能下载，但你的桌子放不下它。</p>
+<p>这件事其实让人踏实：你不用纠结要不要为了一个 284B 的模型去攒一台多卡工作站。更聪明的配置是两条腿走路——<strong>需要顶尖能力的时候调官方接口，按量付费、便宜到离谱；需要数据不出门、随时离线可用的时候，在本地跑 7B 到 70B 的量化小模型</strong>，一张 4090 甚至一台 16GB 的笔记本就够。各自的账都算得清，各自的活也都干得漂亮。</p>
+<p>显存墙不是坏消息，它只是帮你把「什么该本地、什么该上接口」这条线划清楚了。把这条线划清楚的人，手里的每一张卡都用在了刀刃上。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

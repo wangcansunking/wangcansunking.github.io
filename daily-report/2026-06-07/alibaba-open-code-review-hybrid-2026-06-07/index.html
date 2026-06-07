@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>阿里开源代码审查：确定性流水线兜底，能当 Claude Code 插件 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-07</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-07</span><span class="tag-pill">Daily Report</span></div>
+      <h1>阿里开源代码审查：确定性流水线兜底，能当 Claude Code 插件</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/alibaba-open-code-review-hybrid-2026-06-07.png" alt="阿里开源的代码审查工具 Open Code Review：确定性流水线把改动文件全量选出来，大模型只负责判断每一段写得对不对"></p>
+<p>6 月 5 日，阿里开源的一个命令行代码审查工具 Open Code Review 冲到了 Hacker News 前排，海外开发者讨论得很热闹。它用 Go 写成，2026 年 5 月 18 日建仓，到 6 月 6 日还在持续更新。阿里官方说这套东西在内部已经用了约两年，服务过数万开发者、识别出数百万处代码缺陷，这次把它整个拿出来开源了。</p>
+<p>但真正值得看的不是「阿里又开源了一个工具」，而是它给 AI 代码审查这件事换了一个做法。</p>
+<p><strong>一句话先把核心论点说清楚：AI 代码审查最难的地方，从来不是「判断一段代码对不对」，而是「不漏审、不漂移」——该看的文件一个都不能漏，标出来的问题要稳稳挂在出错的那一行。</strong> 纯靠大模型一把过的审查方案，恰恰在这两件事上最容易翻车。Open Code Review 的做法是把「确定性的工程兜底」和「大模型的判断」分开来，让工程逻辑保覆盖率、让大模型管对错，正好补上了纯大模型审查的覆盖率短板。</p>
+<p>下面把这件事拆开讲：为什么纯大模型审查会漏、确定性流水线加隔离子 Agent 怎么保住覆盖率、国内开发者怎么零门槛上手当 Claude Code 插件用，最后和大家每天接触的 Claude Code 自带审查、CodeRabbit 这些放在一起横着比一下。</p>
+<h2>海外为什么讨论它：一个被认真争论的代码审查工具</h2>
+<p>先把这件事的来龙去脉说清楚。Open Code Review 的定位很直接——一个 AI 驱动的代码审查命令行工具。你在本地提交代码前跑一下，它会把这次改动逐文件审一遍，在出问题的具体行号上留下评论。</p>
+<p>它在海外开发者社区里被讨论得很充分，争论的焦点也很真实：代码审查工具到底该追求「召回率」（把所有可能有问题的地方都找出来）还是「准确率」（找出来的确实是问题、不误报）。有人认为召回最重要，宁可多报也别漏；也有人说误报一多，开发者就会把所有提示当成噪音直接忽略，那再高的召回也没意义。</p>
+<p>这个争论本身，恰恰说明了代码审查这件事的难点所在。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/source-ocr-github-og-2026-06-07.png" alt="Open Code Review 在 GitHub 上的项目页"></p>
+<p>用 <code>gh api</code> 核对了一下项目的真实数据：截至 6 月 6 日，约 3421 颗 star、155 个 fork，主语言 Go，5 月 18 日建仓后保持着活跃更新。项目描述里明确写着混合架构、行级评论、内置微调规则集、兼容 OpenAI 与 Anthropic 接口这几个关键点。</p>
+<p>这一节的结论：一个国内团队拿出来的代码审查工具，能在海外开发者里引发关于「召回 vs 准确」的认真讨论，说明它触到了这件事的真问题，而不是又一个套壳大模型的玩具。</p>
+<h2>纯大模型一把过审查，为什么总会漏</h2>
+<p>要理解 Open Code Review 的价值，得先看清楚「直接把改动丢给大模型审一遍」这条路会在哪里出问题。</p>
+<p>直觉上，现在大模型上下文窗口这么大，把整个 diff 甚至整个项目塞进去，让它挑毛病不就行了？但实际用起来，会在几个地方反复栽跟头。</p>
+<ul>
+<li><strong>该看的文件会漏</strong>：靠大模型自己决定「这次改动里哪些文件需要重点看」，改动一多，它就可能跳过某些文件，覆盖率没有保证。</li>
+<li><strong>行号会漂移</strong>：大模型生成的行号是「猜」出来的，经常把评论挂到错误的行，读的人得自己对半天才知道说的是哪句。</li>
+<li><strong>上下文塞不下就截断</strong>：窗口再大也有上限，改动一大，相邻的关联改动看不全，判断就不准。</li>
+<li><strong>结果不稳定</strong>：大模型采样本身带随机性，同一份代码跑两次，给出的意见可能不一样，复跑结果会飘。</li>
+</ul>
+<p>这四件事里，前两件最致命。<strong>漏审和行号漂移，直接动摇了开发者对审查工具的信任</strong>——一旦发现它漏了东西、或者评论老挂错地方，人就不会再认真看它的输出了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/ocr-pipeline-vs-llm.png" alt="Open Code Review 对照图 ocr-pipeline-vs-llm：纯大模型审查（pure llm）和确定性流水线加 Agent，在「文件不漏审」和「定位不漂移」两件事上的差别"></p>
+<p>这一节的结论很清楚：纯大模型审查不是不能用，而是它把「该看哪些文件、评论挂在哪一行」这种本该确定的事，也交给了一个带随机性的模型去做。问题不在模型聪不聪明，在于分工错了。</p>
+<h2>确定性流水线加隔离子 Agent，覆盖率是怎么保住的</h2>
+<p>Open Code Review 的核心思路，就是把刚才那几件「该确定的事」从大模型手里拿回来，交给工程逻辑，让大模型只做它擅长的判断。官方把这套做法叫混合架构——确定性工程加 Agent。</p>
+<p>它内部一次审查，大致走三段路。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/ocr-architecture.png" alt="Open Code Review 架构图 ocr-architecture：一次审查在内部走的三段路，确定性流水线选文件、智能打包分组、隔离子 Agent 逐组判断"></p>
+<p><strong>第一段，确定性流水线。</strong> 这一步不交给大模型：用确定的工程逻辑把本次改动涉及的文件全量选出来，一个都不漏；该报的行号，也由工程逻辑和外置定位回填，而不是让大模型生成。官方原文的说法是，对于那些「绝对不能出错」的审查步骤，由工程逻辑而非语言模型来保证正确性。</p>
+<p><strong>第二段，智能打包。</strong> 把相关的文件分到同一组，每一组单独作为一次审查任务。这样既能让关联改动一起看，又能控制单次喂给大模型的上下文体量，不至于一股脑塞进去被截断。</p>
+<p><strong>第三段，隔离子 Agent。</strong> 每一组打包好的内容，交给一个上下文相互隔离的子 Agent 去执行。这个子 Agent 不是只看一段 diff——它能读完整文件、能搜索整个代码库、还能看其他被改动的文件来补充上下文。官方强调，这样做出来的是「深度审查，而不是只盯着 diff 表面给反馈」。</p>
+<p>把这三段连起来看，逻辑就通了：</p>
+<ul>
+<li>覆盖率由确定性流水线保证，<strong>文件不漏审</strong>这件事不依赖大模型的发挥；</li>
+<li>行号由工程逻辑回填，<strong>评论不漂移</strong>，稳稳挂在出错那一行；</li>
+<li>大模型的精力全部用在它真正擅长的地方——判断这一段代码逻辑对不对、有没有隐患。</li>
+</ul>
+<p>除此之外，它还内置了一套经过微调的规则集，针对几类高频且危险的问题做了专门优化：空指针、线程安全、XSS、SQL 注入。这几类问题命中了就会提示，相当于在大模型判断之外又加了一层确定性的兜底。</p>
+<p>输出形式是行级评论——直接挂在出问题的那一行，读起来一目了然。</p>
+<p>这一节回到核心论点：Open Code Review 没有去比谁的大模型更聪明，而是重新划分了工程和大模型的分工。<strong>该确定的地方用工程逻辑兜死，覆盖率和定位就稳了；该判断的地方才交给大模型。</strong> 这正是纯大模型审查方案缺的那一块。</p>
+<h2>怎么用起来：换个模型 endpoint，再选一种接入方式</h2>
+<p>对国内开发者来说，这工具最实在的一点是上手没有门槛——它兼容 OpenAI 和 Anthropic 两套接口，也支持自定义 endpoint。换句话说，你完全可以把背后的大模型换成国产模型的接口地址，DeepSeek、千问（Qwen）这类只要提供兼容接口，配上去就能用。</p>
+<p>它支持三种用法，覆盖了从个人到团队的不同场景。</p>
+<table>
+<thead>
+<tr>
+<th>用法</th>
+<th>适用场景</th>
+<th>大致做法</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>本地提交前跑</td>
+<td>个人开发，推代码前自查一遍</td>
+<td>在工作区直接跑审查命令</td>
+</tr>
+<tr>
+<td>接 GitHub Actions</td>
+<td>团队用 GitHub 协作</td>
+<td>仓库里配好示例里的工作流</td>
+</tr>
+<tr>
+<td>接 GitLab CI</td>
+<td>团队用 GitLab 协作</td>
+<td>按示例接进持续集成流程</td>
+</tr>
+</tbody></table>
+<p>本地用法最简单：在你的工作区里跑一下它的审查命令，它就会把当前改动审一遍，把意见按行标出来。团队场景则可以接进 GitHub Actions 或 GitLab CI，让每次提交、每个合并请求自动过一遍审查。</p>
+<p>更有意思的是，它能直接装成 Claude Code 的插件。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/source-ocr-highlights-zh-2026-06-07.png" alt="Open Code Review 官方 highlights 页展示的几项核心能力：约两万活跃用户、累计运行过百万次真实场景代码评审任务"></p>
+<p>装成 Claude Code 插件之后，它会注册一个斜杠命令 <code>/open-code-review:review</code>。你在 Claude Code 里写完一段代码，直接敲这个命令，就能让它用确定性流水线加隔离子 Agent 的这套方式过一遍审查——相当于给 Claude Code 自带的能力补了一层专门为代码审查调优的工序。对每天用 Claude Code 写代码的人来说，这个接入方式几乎是零成本的。</p>
+<p>接入路径整理一下：</p>
+<ul>
+<li>克隆下来，按文档配置好大模型接口（可以换成国产模型的兼容 endpoint）；</li>
+<li>个人用就在本地提交前跑一下；团队用就接进 GitHub Actions 或 GitLab CI；</li>
+<li>想和 Claude Code 配合，就装成插件，用 <code>/open-code-review:review</code> 这个斜杠命令唤起。</li>
+</ul>
+<p>这一节的结论：它的接入设计很友好，国内开发者不需要任何特殊条件就能用起来——换个模型接口、选一种接入方式，就能把这套审查能力接到自己每天的写代码流程里。</p>
+<h2>和 Claude Code 自带审查、CodeRabbit 横着比</h2>
+<p>把它放进大家熟悉的坐标系里看，会更清楚它的位置。现在做代码审查这件事，大致有三类做法。</p>
+<table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th>Open Code Review（阿里）</th>
+<th>Claude Code 自带审查 / 直接问大模型</th>
+<th>CodeRabbit 等托管服务</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>核心做法</td>
+<td>确定性流水线 + 隔离子 Agent</td>
+<td>大模型一把过</td>
+<td>托管平台 + 大模型</td>
+</tr>
+<tr>
+<td>文件覆盖</td>
+<td>工程逻辑全量选取，不漏审</td>
+<td>靠模型自己挑，可能漏</td>
+<td>平台侧规则保证</td>
+</tr>
+<tr>
+<td>行级定位</td>
+<td>工程逻辑回填，稳定</td>
+<td>模型生成，可能漂移</td>
+<td>平台侧保证</td>
+</tr>
+<tr>
+<td>模型选择</td>
+<td>自带接口，可换国产模型 endpoint</td>
+<td>跟随所用工具</td>
+<td>平台指定为主</td>
+</tr>
+<tr>
+<td>是否开源</td>
+<td>开源</td>
+<td>工具内置</td>
+<td>多为商业托管</td>
+</tr>
+<tr>
+<td>接入方式</td>
+<td>本地 / CI / Claude Code 插件</td>
+<td>工具内直接用</td>
+<td>接仓库 webhook</td>
+</tr>
+</tbody></table>
+<p>三类各有各的位置：</p>
+<ul>
+<li><strong>直接问大模型 / Claude Code 自带审查</strong>：最轻便，写代码顺手就让它看一眼，胜在即时；短板就是前面说的覆盖率和定位不稳。</li>
+<li><strong>CodeRabbit 这类托管服务</strong>：体验完整、接进仓库就能用，适合不想自己维护的团队；代价是商业托管、模型和数据要走第三方平台。</li>
+<li><strong>Open Code Review</strong>：把覆盖率和定位用工程逻辑兜死，又完全开源、模型可换国产接口、能本地跑也能当 Claude Code 插件——它补的正是「想要稳定覆盖率，又想自己掌控模型和数据」这一档需求。</li>
+</ul>
+<p>对国内团队来说，最后这一点尤其值得留意：开源加上模型接口可换，意味着代码不必出本地、模型可以用自己信得过的，这在很多对代码保密有要求的场景里是硬需求。</p>
+<p>这一节回到核心：选哪个不取决于谁的大模型更强，而取决于你最在意哪件事——要即时顺手选自带审查，要省心托管选 CodeRabbit，要稳定覆盖率加自主可控就看 Open Code Review。</p>
+<h2>写在最后</h2>
+<p>回到开头那个核心论点：AI 代码审查最难的不是判断对错，而是不漏审、不漂移。Open Code Review 的聪明之处，在于它没有一头扎进「让大模型更聪明」的内卷，而是冷静地把工程和大模型的分工重新划了一遍——该确定的交给工程逻辑兜底，覆盖率和定位就稳了；该判断的才交给大模型，把算力用在刀刃上。</p>
+<p>这套思路其实给所有做 Agent 工具的人提了个醒：很多时候，可靠性不是靠把大模型堆得更大换来的，而是靠想清楚「哪些事根本不该让模型来做」。一个在阿里内部打磨了约两年的工具，把这个判断落进了开源代码里，国内开发者克隆下来、换个模型接口就能用，这是件挺让人踏实的事。</p>
+<p>我们这一代开发者其实很幸运——前辈们已经把这些工程经验趟出来，还愿意开源出来共享。想试的话，本地跑一遍、或者装成 Claude Code 插件敲一下 <code>/open-code-review:review</code>，几分钟就能感受到这套混合做法和纯大模型审查的差别。路在前面，一起加油。</p>
+<p>参考资料：Open Code Review 官方站 alibaba.github.io/open-code-review；Hacker News 讨论 news.ycombinator.com/item?id=48406358。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

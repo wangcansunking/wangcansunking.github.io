@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatGPT 上线锁定模式：用关掉联网堵住提示注入外泄 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-07</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-07</span><span class="tag-pill">Daily Report</span></div>
+      <h1>ChatGPT 上线锁定模式：用关掉联网堵住提示注入外泄</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/chatgpt-lockdown-mode-injection-firewall-2026-06-07.png" alt="ChatGPT 锁定模式：用霓虹城门把外发的数据线全部上锁，封住提示注入的外泄出口"></p>
+<p>当地时间 2026 年 6 月 4 日，OpenAI 开始把 ChatGPT 的「锁定模式」（Lockdown Mode）从企业版推到所有个人账号，覆盖 Free、Go、Plus、Pro，以及可以自助开通的 Business。到 6 月 5、6 日，Engadget、Neowin、TechTimes、The Hacker News 等都做了报道。</p>
+<p>这件事的关键不在于「OpenAI 又加了一个安全开关」，而在于<strong>它给提示注入（prompt injection）选的这条工程路</strong>：面对一个两年都没有被彻底解决的攻击，OpenAI 没有再去训练一个更聪明的拦截模型，而是反过来——<strong>确定性地关掉模型往外发数据的能力，只把「外泄的最后一步」一刀切断</strong>。</p>
+<p>这是本文要讲的核心一句：<strong>对付提示注入，确定性地兜住最坏情况，比概率性地把每一次都拦准，更靠得住。</strong> 下面我们拆三层：锁定模式到底关了什么、为什么只防最后一步；提示注入外泄是怎么一步步走完的；以及国内 Agent 产品和 Anthropic 目前各自走的是哪条路。</p>
+<h2>锁定模式具体关掉了哪些联外能力</h2>
+<p>先把这次更新的事实说清楚。锁定模式是一个<strong>可选开关</strong>，给那些处理敏感信息、或者愿意用一部分功能换更严护栏的人用。开启之后，ChatGPT 会确定性地禁用或限制这一批「能把数据带出对话」的能力：</p>
+<ul>
+<li>实时联网浏览（只能读缓存内容，不发出实时网络请求）；</li>
+<li>回复里显示图片；</li>
+<li>深度研究（Deep Research，含购物研究）；</li>
+<li>智能体模式（Agent Mode）；</li>
+<li>Canvas 的联网能力；</li>
+<li>实时连接器（live connectors）；</li>
+<li>文件下载。</li>
+</ul>
+<p>入口在设置里：Settings → Safety and security → Advanced security → Lockdown mode（企业 / 教育 / 医疗等版本走的是管理员的工作区角色配置，可以指定哪些 app 和动作在锁定模式下可用）。OpenAI 在官方公告页和帮助中心都给了说明（<code>openai.com/index/introducing-lockdown-mode-and-elevated-risk-labels-in-chatgpt</code>、<code>help.openai.com</code>）。</p>
+<p>这里有一个容易被忽略、但恰恰是全篇关键的细节——OpenAI 自己把话说得很直白：</p>
+<blockquote>
+<p>锁定模式不会阻止提示注入出现在 ChatGPT 处理的内容里。它做的是限制网络请求，从而防止攻击者把你账号里的敏感数据带出去。</p>
+</blockquote>
+<p>换句话说，锁定模式<strong>不拦注入本身</strong>，它只锁「数据往外走」这一步。理解这一点，就能理解 OpenAI 这次的整个设计取舍。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/engadget-lockdown.jpg" alt="来源：Engadget 报道 ChatGPT 锁定模式上线（2026-06-05）"></p>
+<p>与锁定模式一起出现的，还有一套「高风险标签」（Elevated Risk labels）。OpenAI 把那些「连上 app 和网络后可能引入额外安全风险」的功能，统一打上一致的警示标，并在设置页解释清楚：这个功能做什么、开启后会变什么、有什么风险、什么时候适合用。这套标签会同步出现在 ChatGPT、ChatGPT Atlas 浏览器和 Codex 上，等到对应风险被技术手段充分缓解之后再撤掉。</p>
+<p>把这一节收一句：锁定模式是一组<strong>确定的开关</strong>，关掉的全是「能把数据发出去」的能力；它换来的安全，是用一部分实时功能换的。</p>
+<h2>提示注入外泄，是怎么一步步走完的</h2>
+<p>要理解 OpenAI 为什么只锁最后一步，得先看清提示注入外泄的完整过程。它不是一次性的「黑进系统」，而是四步连起来的一条路。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/exfil-chain.png" alt="提示注入外泄全过程：注入混进来→模型被骗→读到敏感数据→往外发，锁定模式只确定性切断最后一步"></p>
+<p>这四步分别是：</p>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>发生了什么</th>
+<th>锁定模式管不管</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>第一步：注入混进来</td>
+<td>攻击者把恶意指令藏进 ChatGPT 要读的网页、邮件或上传文件里</td>
+<td>不管</td>
+</tr>
+<tr>
+<td>第二步：模型被骗</td>
+<td>模型把藏着的指令当成用户的真实意图，开始照做</td>
+<td>不管</td>
+</tr>
+<tr>
+<td>第三步：读到敏感数据</td>
+<td>顺着指令翻出对话历史、连接器里的私人信息</td>
+<td>不管</td>
+</tr>
+<tr>
+<td>第四步：往外发</td>
+<td>调用联网或工具，把数据发到攻击者控制的地方</td>
+<td><strong>确定性切断</strong></td>
+</tr>
+</tbody></table>
+<p>锁定模式动手的位置，是第四步，且只有第四步。前三步它一概不拦——注入照样能出现，模型照样可能被骗，敏感数据照样可能被读到。但只要数据发不出去，这条攻击路就走不到终点。</p>
+<p>这个思路，安全研究者 Simon Willison 给过一个很清楚的解释。他把这类攻击叫「致命三件套」（lethal trifecta）：模型能接触敏感数据、能读到不可信内容、能把数据外发——三条腿同时具备才能得手。他的判断是：</p>
+<blockquote>
+<p>解开三件套的唯一办法，是砍掉其中一条腿；而最容易限制的那条腿，就是把数据偷出去的外泄通道。</p>
+</blockquote>
+<p>锁定模式瞄的正是这条最好砍的腿。Willison 还特别点出它的一个优点：<strong>这是确定性机制，不经过 AI 判断，所以不容易被绕过。</strong> 这句话是理解 OpenAI 取舍的钥匙——下一节我们就把这把钥匙用起来。</p>
+<p>把这一节收一句：提示注入有四步，锁定模式只在最后一步设闸，但因为这一步是确定性的开关，它反而成了整条攻击路径上最难被攻破的一环。</p>
+<h2>为什么是「关能力」，而不是「训一个更聪明的拦截」</h2>
+<p>到这里，核心问题浮出来了：面对提示注入，工程上其实有两条路。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/two-paths.png" alt="面对提示注入的两条工程路：确定性兜底 vs 概率拦截"></p>
+<p><strong>第一条是概率拦截</strong>：再训一个更聪明的模型 / 分类器，去识别「这段内容里藏着注入吗」「模型现在是不是被骗了」，识别到就拦下来。这条路的好处是功能基本不受影响、体验顺，坏处是它永远有一个非零的漏判率——拦得再准，也总有拦不住的那一次，而攻防是动态的，攻击者会一直找新写法。</p>
+<p><strong>第二条是确定性兜底</strong>：不去判断「这次危不危险」，而是直接把「能造成危险的那个能力」整个关掉。出站网络请求要么开、要么关，没有中间地带，也不依赖模型这一次猜得准不准。代价是真实的——联网、智能体模式、深度研究这些好用的功能会一起停。</p>
+<p>OpenAI 这次选了第二条。这不是说它放弃了第一条——高风险标签、平时的安全训练都还在——而是它在「最坏情况兜底」这一层，<strong>选择不把命运交给一个会犯错的模型，而是交给一个确定的开关</strong>。</p>
+<p>这背后是一个朴素但重要的判断：安全的下限，应该由确定的机制来兜，而不是由概率来赌。一个准确率很高、但仍有少量漏判的拦截器，听起来已经很好了，但对处理敏感数据的人来说，漏判一旦发生就是数据出门、无法挽回。锁定模式把这道下限焊死成了「数据根本发不出去」——它牺牲了功能，换来的是「最坏情况可控」这个确定性。</p>
+<p>把这一节收一句：锁定模式的真正价值不在「关了几个功能」，而在它示范了一种思路——<strong>当一个攻击靠概率防御兜不住底时，不妨退一步，用一个确定的开关把最坏结果先关在门里。</strong></p>
+<h2>国内 Agent 产品现在走的是哪条路</h2>
+<p>把视线转回国内。提示注入不是某一家的问题，凡是能联网、能调工具、能接连接器的 Agent 都绕不开。国内这几款大家每天在用的产品，目前面对工具外泄风险，整体更偏向第一条路——<strong>靠内容审核和意图识别做概率拦截</strong>，而不是给用户一个「确定性关掉外发能力」的开关。</p>
+<p>国内 C 端 Agent 和智能体平台主要有这么几家，定位各不相同：</p>
+<table>
+<thead>
+<tr>
+<th>产品</th>
+<th>厂商</th>
+<th>形态</th>
+<th>目前的安全侧重</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>千问 App</td>
+<td>阿里</td>
+<td>把自然语言转成 API 调用、直接交付服务结果</td>
+<td>调用环节上的权限与审核</td>
+</tr>
+<tr>
+<td>豆包</td>
+<td>字节</td>
+<td>日常对话 / 搜索 / 娱乐型助手</td>
+<td>内容安全审核</td>
+</tr>
+<tr>
+<td>Kimi</td>
+<td>月之暗面</td>
+<td>长文档 / 联网问答助手</td>
+<td>内容安全审核</td>
+</tr>
+<tr>
+<td>扣子（Coze）</td>
+<td>字节</td>
+<td>零代码搭智能体 / 工作流平台</td>
+<td>知识库配置 + 内容审查（平台侧）</td>
+</tr>
+</tbody></table>
+<p>这里要客观说明：国内产品在内容安全审核上其实做得相当扎实——毕竟合规要求摆在那里，违规内容的过滤是基本功。比如在扣子上部署一个智能体，配置知识库、设置内容审查本就是发布前的标准步骤。</p>
+<p>但「内容审核」和「确定性关掉外发能力」解决的是不同层面的问题：</p>
+<ul>
+<li><strong>内容审核</strong>主要看「进来的、出去的内容合不合规」，属于第一条路（概率判断），对「藏在网页里的注入指令」这种对抗性输入，识别难度本就更高；</li>
+<li><strong>确定性关外发</strong>不看内容，只看「这个能力开没开」，属于第二条路，把判断负担从模型身上挪走了。</li>
+</ul>
+<p>目前国内还较少看到有产品给用户一个和锁定模式对位的、面向「数据外泄通道」的确定性开关。这不是说谁做得不好——大家所处的阶段和优先级不同，国内 Agent 这两年的主线是把「能干活、好用、能交付结果」这件事跑顺，安全能力是随着 Agent 真正开始碰用户私人数据、碰连接器，才逐步被推到台前的。可以预见，随着国内 Agent 越来越多地接入支付、出行、文件这类敏感场景，「确定性兜底」这一层迟早会被补上，而国内团队在工程落实上的执行力一向不弱，这一课补起来不会慢。</p>
+<p>把这一节收一句：国内 Agent 当前更偏概率拦截，确定性外发开关还是空位——这恰恰是一个清晰、可补、值得期待的方向。</p>
+<h2>同一道题，Anthropic 是怎么答的</h2>
+<p>再看另一边的 Anthropic。它给 Claude 做提示注入防御，整体更靠近第一条路——<strong>用分类器去识别攻击</strong>。Claude 的分类器会去检测藏在隐藏文本、被改过的图片、伪装的界面元素里的对抗指令，识别到就调整 Claude 的行为。</p>
+<p>Anthropic 自己也很坦诚地量化过这条路的边界。在它为 Claude Code 做的「自动模式」里，模型审批能挡住大约 0.4% 的正常命令（误伤），但会漏掉大约 17% 的危险命令；自动模式把审批弹窗减少了约 84%，体验好了很多——但 Anthropic 在自己的工程博客里明说：<strong>每一种概率防御，都有一个非零的漏判率。</strong></p>
+<p>这句话和 OpenAI 锁定模式的设计，正好构成一组对照：</p>
+<ul>
+<li><strong>Anthropic</strong> 主力押在「让模型 / 分类器更准」，同时配合沙箱、虚拟机这类隔离手段去限制 Agent 能干什么；</li>
+<li><strong>OpenAI</strong> 这次的锁定模式，主力押在「干脆让外发能力可以被确定性关掉」。</li>
+</ul>
+<p>两条路没有绝对的高下，更像是同一道题的两种答法，各自适合不同场景：分类器这条路保住了功能和体验，适合日常；确定性开关这条路守住了下限，适合处理敏感信息的时刻。事实上，把两者叠起来用，才是更稳的姿态——平时让聪明的分类器顶着，碰敏感数据时再把确定性开关推上去。</p>
+<p>把这一节收一句：Anthropic 用分类器把日常体验做顺，OpenAI 用确定性开关把最坏情况焊死，两家其实是在同一张安全地图上，各自补上了对方还没占的格子。</p>
+<h2>回到那一句：确定性兜底，是这次最值得记住的取舍</h2>
+<p>把几条线收到一起。提示注入这道题，从 2022 年被提出到现在，始终没有一个「一次性解决」的银弹——因为只要模型还要读不可信内容、还要能调工具，攻击面就一直在。</p>
+<p>OpenAI 这次的锁定模式，提供的不是银弹，而是一个更成熟的态度：<strong>承认拦不全，于是退一步，把「最坏情况」用一个确定的开关先兜住。</strong> 它不解决提示注入本身，它解决的是「就算被注入了，数据也发不出去」。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/techtimes-exfil.jpg" alt="来源：TechTimes 报道 ChatGPT 数据外泄风险与防护（2026-06-06）"></p>
+<p>这个取舍对每一个在做 Agent 的团队都有参考意义——无论是国内的千问、豆包、Kimi、扣子，还是海外的 Claude。当一个风险靠「让模型更聪明」兜不住底的时候，不妨想想：有没有哪个能力，是可以被一个确定的开关直接关掉的？把那条最容易砍的腿砍掉，往往比把整只猛兽训乖，来得更实在。</p>
+<p>提示注入会一直在，但能确定性兜底的工程手段也在一个个补齐。对正在用 AI、正在做 AI 的我们来说，这其实是个让人踏实的信号：行业正在从「赌模型够聪明」，走向「把底线焊死，再谈聪明」。这一步走得越稳，我们把 AI 交进越来越敏感的场景时，就越有底气。路在前面，一起把它走扎实。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

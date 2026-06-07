@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude 把 rsync 写出更多 bug 了吗：数据给反直觉答案 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-07</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-07</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Claude 把 rsync 写出更多 bug 了吗：数据给反直觉答案</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/rsync-claude-bugrate-data-2026-06-07.png" alt="Claude 把 rsync 写出更多 bug 了吗：数据给反直觉答案"></p>
+<blockquote>
+<p>一个争论烧到几百层评论：rsync 用了 Claude 写代码，质量是不是变差了？有人真的把 36 个版本的 bug 全数出来排了一遍，结论很反直觉——rsync 史上最烂的那一版，恰恰在 Claude 进来之前。</p>
+</blockquote>
+<p>「AI 写代码到底让软件质量变差了没有」，这个问题最近又被吵上了热搜。这一次的主角是 rsync——几乎每个 Linux 工程师都用过的文件同步工具，它的作者公开承认用了 Claude、Codex、Gemini 来干活，社区瞬间炸开。</p>
+<p>但争论吵到几百层，几乎没有一个人去做一件最朴素的事：<strong>把每个版本的 bug 数和严重度真正数出来，摆成一张分布图看看</strong>。</p>
+<p>直到一位开发者真去数了。本文的核心论点只有一句：<strong>「AI 写代码让质量变差了吗」这种问题，靠情绪能吵三百层楼，但只有把版本和 bug 的分布摊成数据才看得清——而数据给出的答案，跟骂战的方向正好相反。</strong></p>
+<p>下面我们分四步把这件事讲清楚：骂战怎么烧起来的，这位开发者用了什么量化方法（以及它自己的局限），关键数据说了什么，最后落到我们每天用 Claude Code、Cursor 的国内开发者身上——怎么用「分布加严重度」而不是「印象」来判断 AI 辅助代码的质量。</p>
+<h2>一场围攻是怎么从一条没证据的帖子烧起来的</h2>
+<p>先把事件的来龙去脉理清楚。</p>
+<p>rsync 是开源世界里最老牌的文件同步工具之一，官网把它定义为「一个提供快速增量文件传输的开源工具」。它的作者是 Andrew Tridgell——业内昵称 tridge，写过 Samba，有 40 年软件工程经验。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/rsync-official-logo.png" alt="rsync 官方标识"></p>
+<p>事情的起点其实很普通：有用户升级到 rsync 3.4.3 之后，发现增量备份不工作了——只有全量备份正常。这是一个真实的回归问题，Tridgell 后来也承认，它影响的是「一些合法但不常见的用法」，恰好没被现有测试覆盖到。</p>
+<p>真正点燃情绪的，是有人翻了一下提交记录，发现从 3.4.1 开始，有几十个提交署名是「tridge and claude」。于是事件的性质，从「一个备份回归 bug」变成了「这软件被 AI 污染了」。</p>
+<p>导火索是一条 Mastodon 帖子。它把这次回归和「Claude 辅助发布」直接挂钩——<strong>没有给出任何技术证据</strong>，纯粹是把两件事放在一起暗示因果，却拿了好几千个赞。紧接着，事件升级成一个 GitHub issue，标题非常激烈：「Please Do Not Vibe (F) Up This Software」（请别用随手糊的方式把这软件搞坏，vibe coding 指把编码任务整个甩给 AI、不审查就信任结果）。这个 issue 攒了三百多条评论，但几乎没有一条带技术内容。</p>
+<p>随后争论蔓延到 Reddit 和 Hacker News，热度居高不下，连一张带威胁意味的画都被贴了出来。可以说，<strong>这是一场情绪远远跑在证据前面的围攻</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/rsync-analysis-github-issue.png" alt="GitHub issue 截图：Please Do Not Vibe (F) Up This Software"></p>
+<p>Tridgell 没有退让。他在 Medium 上写了一篇《Rsync and Outrage》（rsync 与众怒）回应。几个关键表态值得逐条看：</p>
+<ul>
+<li>「我没有只是随手糊一句『把测试套件转成 Python』就完事」（I did not just vibe-code &#39;convert test suite to python.&#39;）</li>
+<li>「我是一个有 40 年经验的软件工程师」</li>
+<li>那次最显眼的 AI 辅助工作，是把 rsync 老旧的 shell 脚本测试套件重写为 Python，目的是改进安全测试、加固代码</li>
+<li>框架是他自己设计的，Claude、Codex、Gemini 只用来干「grunt work」（杂活、苦力活），所有产出他都人工审查过</li>
+<li>「在面对海量漏洞报告的洪流下，维护 IT 安全软件的世界已经彻底变了」</li>
+</ul>
+<p>他不仅没打算收手，反而表示在 rsync 走向以安全为重点的 3.5 版本时，会继续用这些工具。他还补了一句对比：作为替代方案的 openrsync，同样跑出了几十个测试失败。</p>
+<p>到这里，一边是几百层楼的情绪，一边是作者一句句的澄清。但双方谁也说服不了谁——<strong>因为大家争的是「印象」，不是「分布」</strong>。</p>
+<h2>把 36 个版本的 bug 数出来：这位开发者的量化方法</h2>
+<p>僵局是被一位叫 Alexis Purslane 的开发者打破的。他没有去 issue 里再吵一轮，而是做了一件笨功夫的事：<strong>把 rsync 历史上的 bug 全量统计了一遍，做成可比较的数据</strong>。</p>
+<p>下面这张分布图，是我们用他公开的口径复刻出来的，便于直观看清各版本的位置。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/rsync-bugrate-distribution.png" alt="rsync 各版本 bug 严重度分布：史上最烂的一版恰恰在 Claude 之前"></p>
+<p>他的方法可以拆成三块，我们一块块讲清楚。</p>
+<p><strong>第一块，统计范围。</strong> 他取了 36 个 rsync 版本，从很老的 v2.4.6 一路到出事的 v3.4.3，覆盖了这个项目相当长的一段历史。这一点很关键——只有把时间拉长，才能看出「有没有 Claude」前后的对比，而不是只盯着出事的那一版。</p>
+<p><strong>第二块，核心指标。</strong> 他定义了一个叫「每 10 次提交的严重度加权 bug 数」的指标，英文是 severity-weighted bugs per 10 commits，简称 sev/10c。为什么不直接数 bug 个数？因为版本之间提交量差很多，直接比 bug 总数不公平；而且一个会丢数据的严重 bug 和一个拼写错误，不能算一样重。所以他做了两件事：</p>
+<ul>
+<li>按提交数归一化——算的是「每 10 次提交里有多少 bug」，不是 bug 绝对数</li>
+<li>给每个 bug 加权——严重的 bug 权重高，轻微的权重低</li>
+</ul>
+<p><strong>第三块，也是最需要谨慎对待的一块：严重度由谁来打分。</strong> 他用的是 Qwen 3 35B 这个模型，按一套 0 到 100 的评分标准给每个 bug 自动打分。评分标准大致是：</p>
+<table>
+<thead>
+<tr>
+<th>分数段</th>
+<th>严重程度</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>90-100</td>
+<td>数据丢失</td>
+</tr>
+<tr>
+<td>70-89</td>
+<td>崩溃 / 卡死</td>
+</tr>
+<tr>
+<td>50-69</td>
+<td>功能回归</td>
+</tr>
+<tr>
+<td>10-49</td>
+<td>轻微问题</td>
+</tr>
+<tr>
+<td>0-9</td>
+<td>仅外观 / 文案</td>
+</tr>
+</tbody></table>
+<p>这里必须把话说在前面：<strong>这套严重度评分是作者自己定的量化口径，不是客观真值。</strong> 用一个语言模型给 bug 打严重度分，本身就带主观成分——同一个 bug，换一套评分标准、换一个模型，分数可能不一样。所以这套数据的意义，不在于「v3.4.3 的严重度精确等于 3.29」这种绝对值，而在于<strong>同一把尺子量所有版本之后，各版本之间的相对位置</strong>。</p>
+<p>换句话说，作者这套方法的价值是「用统一口径横向比」，不是「给出绝对真理」。把这一点想清楚，再去看下面的数据，才不会走偏。</p>
+<h2>关键数据：两个 Claude 版本，一个垫底一个中游，最烂的那一版不沾 Claude</h2>
+<p>现在看结论。整套数据里，和这次争论直接相关的有三个版本，我们用一张表摆清楚。</p>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>bug 数</th>
+<th>提交数</th>
+<th>Claude 提交数</th>
+<th>sev/10c</th>
+<th>百分位</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>v3.4.1</td>
+<td>59</td>
+<td>9</td>
+<td>0</td>
+<td>39.39</td>
+<td>第 97 百分位</td>
+<td>全数据集最烂，无 Claude</td>
+</tr>
+<tr>
+<td>v3.4.2</td>
+<td>0</td>
+<td>50</td>
+<td>9</td>
+<td>0.00</td>
+<td>第 0 百分位</td>
+<td>含 Claude，最干净</td>
+</tr>
+<tr>
+<td>v3.4.3</td>
+<td>17</td>
+<td>34</td>
+<td>28</td>
+<td>3.29</td>
+<td>第 77 百分位</td>
+<td>含 Claude，中上</td>
+</tr>
+</tbody></table>
+<p>把这张表读三遍，反直觉的地方就出来了。</p>
+<p><strong>第一，两个真正含 Claude 提交的版本，表现一个天上一个地下。</strong> v3.4.2 含 9 个 Claude 提交，结果是 0 个 bug、sev/10c 为 0.00，排在全数据集最干净的第 0 百分位；而 v3.4.3 含 28 个 Claude 提交，sev/10c 是 3.29，排在第 77 百分位，算中上。同样都「有 Claude」，一个垫底（最好）一个中游——这说明「有没有 Claude」根本不是决定质量的那个变量。</p>
+<p><strong>第二，也是最扎眼的一点：全数据集里最烂的版本，是 v3.4.1，sev/10c 高达 39.39，排在第 97 百分位。而这一版,一个 Claude 提交都没有。</strong> v3.4.1 是 Claude 进入 rsync 之前的版本。它当年比出事的 v3.4.3 烂了一个数量级——3.29 对 39.39——却没人为它吵上几百层楼。原因很简单：那时候还没有 AI 可以拿来背锅。</p>
+<p>这正是整件事最值得回味的地方。同样是回归、同样是 bug，<strong>有了 AI 之后，bug 突然有了一个现成的「凶手」</strong>；而在没有 AI 的年代，更严重的同类问题只是被当作「软件维护的日常」默默修掉了。</p>
+<p><strong>第三，统计检验说：差异不显著。</strong> 作者还做了几个标准的统计检验，结论一致——</p>
+<ul>
+<li>置换检验（permutation test，把含 Claude 的版本和历史分布反复随机重排对比）：p 值约 46%</li>
+<li>Fisher 精确检验（Fisher exact test，比较含 Claude 版本是否更多落在中位数以上）：p 值约 74%</li>
+<li>优势比（odds ratio）：约 1.06</li>
+</ul>
+<p>这几个数字翻译成人话就是：<strong>在统计意义上，含 Claude 的版本和不含 Claude 的版本，bug 表现没有可检测到的显著差异。</strong> p 值 46% 和 74% 都远高于通常用的 5% 显著性门槛；优势比 1.06 几乎就是 1（1 代表完全没区别）。</p>
+<p>当然，前面说过的那个前提依然成立——这套严重度是作者用 Qwen 自动打的分，是主观量化口径。但即便把这个口径的误差也考虑进去，<strong>「Claude 让 rsync 质量明显变差」这个结论，在这份数据里是站不住的</strong>。能站住的反而是它的反面：rsync 历史上最糟的一版，跟 Claude 没有半点关系。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/07/rsync-analysis-hn-thread.png" alt="Hacker News 上 rsync analysis 数据分析的讨论 thread"></p>
+<h2>给天天用 Claude Code、Cursor 的我们：怎么用「分布」而不是「印象」判断质量</h2>
+<p>讲到这里，国内每天用 Claude Code、Cursor、千问（Qwen）写代码的开发者，最该带走的不是「rsync 这件事谁对谁错」，而是一套判断方法。</p>
+<p>这场风波其实给我们示范了两种截然不同的判断方式：一种是凭印象——「我看到提交里有 claude，所以这版本肯定有问题」；另一种是凭分布——「我把所有版本的 bug 按统一口径排一遍，看含 Claude 的版本到底落在哪个位置」。前者吵了几百层楼，后者一张图就讲清楚了。</p>
+<p>那么，落到我们自己的项目上，怎么用「分布加严重度」而不是「印象」来判断 AI 辅助代码的质量？这里有几条可以直接上手的思路：</p>
+<ul>
+<li><strong>数分布，不数个案</strong>。不要因为某一次 AI 写的代码出了 bug，就给整个 AI 辅助流程判死刑。要看的是「AI 参与的提交」整体上 bug 率落在什么区间，和「人手写的提交」比是高是低</li>
+<li><strong>给 bug 分严重度，不要一刀切</strong>。一个丢数据的 bug 和一个日志拼写错误，对项目的意义天差地别。统计代码质量时，按严重度加权，比单纯数 bug 个数有意义得多</li>
+<li><strong>按提交量归一化</strong>。AI 通常能让人在同样时间里产出更多提交，提交多了 bug 绝对数自然可能上升。比「每 10 次提交多少 bug」，比比「总共多少 bug」公平</li>
+<li><strong>拉长时间窗口</strong>。只看出事的那一版会被幸存者偏差带偏。把项目历史拉长，才能看出引入 AI 前后到底有没有真实变化</li>
+<li><strong>把「人工审查」当成方法的一部分</strong>。Tridgell 反复强调他设计框架、人工审查每一行——这才是 AI 辅助和「vibe coding」的真正分界线。AI 干杂活、人把质量关，和「整段甩给 AI 不看」是两回事</li>
+</ul>
+<p>这套思路其实不新鲜——它就是工程上一直在用的「用数据说话」，只是这一次被一个争议话题放大了。对我们这一代开发者来说，这是个挺幸运的处境：我们手里既有 Claude Code 这样的好工具，也有把它的产出量化、复盘、持续改进的方法。工具和方法都现成，剩下的就是踏踏实实用起来。</p>
+<h2>回到那句反直觉的结论</h2>
+<p>绕了一圈，回到开头那句核心论点：<strong>「AI 写代码让质量变差了吗」这种问题，靠情绪能吵三百层楼，但只有把版本和 bug 的分布摊成数据才看得清——而数据给出的答案，跟骂战的方向正好相反。</strong></p>
+<p>rsync 这件事里，骂得最凶的方向是「Claude 把软件搞坏了」，但把 36 个版本一字排开之后，最烂的那一版偏偏不沾 Claude；两个真正用了 Claude 的版本，一个还是全数据集最干净的。统计检验也明明白白：差异不显著。</p>
+<p>这不是说 AI 写代码就一定没问题，也不是说严重度评分这套口径就完美无缺——它确实是作者主观定的量化方式。但它至少示范了一件事：<strong>当一个技术争论开始靠情绪驱动、靠「我觉得」推进时，最有用的不是再加一层情绪，而是有人愿意去把数据数出来、把分布摆出来。</strong></p>
+<p>理性比情绪有用——这句话听起来很朴素，但在 AI 辅助开发越来越普遍的今天，它恰恰是最值钱的工程素养。我们这一代开发者赶上了好工具，也该配得上好方法。下一次再看到「AI 是不是把 X 搞坏了」的争论时，不妨先别急着站队，问一句：<strong>有人把分布数出来了吗？</strong></p>
+<hr>
+<p>参考资料：</p>
+<ul>
+<li>The Register 报道：theregister.com/ai-and-ml/2026/06/04/please-do-not-vibe-f-up-this-software-broken-backups-spark-ai-coding-row-in-rsync-project</li>
+<li>Alexis Purslane 数据分析：alexispurslane.github.io/rsync-analysis</li>
+<li>rsync 官网：rsync.samba.org</li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

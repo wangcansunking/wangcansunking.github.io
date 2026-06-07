@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>288核CPU卷AI算力：英特尔新芯片功耗仅H100三分之一 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-06</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-06</span><span class="tag-pill">AI Daily</span></div>
+      <h1>288核CPU卷AI算力：英特尔新芯片功耗仅H100三分之一</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-06/431045-html-micro/head.png" alt=""></p>
+<p>量子位这篇报道的标题有个词特别扎眼——“猛药”。英特尔这家公司，过去两年在 AI 芯片战场上几乎被当成透明人。GPU 吃肉，ASIC 喝汤，FPGA 连盘子都没摸到。现在突然跳出来说，你们的 Agent 跑不动了？用我的 CPU 试试。</p>
+<p><strong>这家芯片巨头正试图用一台双路服务器，把一张 H100 干到沉默。</strong></p>
+<h2>至强 6 能效核：一台服务器跑四个 Agent，功耗不到 H100 三分之一</h2>
+<p>量子位在 2026 年 6 月这篇报道里，把英特尔至强 6 能效核（Sierra Forest-AP）的定位讲得很直白：它不是来跟 GPU 比训练速度的，它是来抢推理吞吐量的。具体数字被反复提及——一台双路至强 6 能效核服务器，能同时跑 4 个 Agent 应用，每个 Agent 延迟控制在毫秒级，整机功耗不到 300 瓦。对比一张 H100 跑类似负载时动辄 700 瓦以上的功耗，能效比直接拉出三倍差距。</p>
+<p>这个数字让我愣神了几秒。因为过去行业默认的叙事是“推理也要上 GPU”，尤其是 Agent 这种需要多轮决策、工具调用、记忆检索的复杂负载，大家觉得 CPU 那点并行能力根本不够看。但英特尔这次打的牌很刁钻——它说 GPU 推理是在浪费晶体管。</p>
+<p>至强 6 能效核的架构逻辑完全不同。它砍掉了超线程、砍掉了大核那些为单线程峰值性能设计的臃肿前端，全部换成小核心堆密度。一颗芯片塞 288 个核心，双路就是 576 个物理核心。Agent 推理的负载特征是什么？是高并发、低延迟、单次计算量不大但上下文窗口极长。这种“宽而浅”的任务，恰好撞在能效核的枪口上。GPU 的 SM 单元处理长序列时，显存带宽和 KV 缓存管理才是瓶颈，计算单元反而在空转。而 CPU 这边，576 个核心各领一段上下文，DDR5 内存带宽虽然不如 HBM，但胜在容量大、成本低，跑长上下文 Agent 时反而不会频繁触发显存溢出。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-06/431045-html-micro/schematic-1.png" alt="至强 6 能效核双路服务器 vs H100 推理负载对比，左侧 288 核 CPU 架构示意，右侧 GPU 显存瓶颈示意，中间标注功耗 300W vs 700W"></p>
+<p>量子位的报道里还提到一个容易被忽略的细节：英特尔这次不是只卖芯片，它打包了一整套 Agent 推理框架。OpenVINO 2026 版专门对能效核做了算子重排，把 Transformer 的注意力计算拆成细粒度线程映射到小核心上。PyTorch 官方也给了背板——2.6 版本开始原生支持至强 6 的 AMX 指令集扩展，矩阵乘法直接走片上加速器，不走 AVX-512 那套老路。这意味着开发者不需要改代码，模型原样导出就能吃满 576 核。</p>
+<p><strong>“无痛迁移”这四个字，比任何跑分都更有杀伤力。</strong></p>
+<h2>推理市场的算力账本：GPU 贵在买得起，CPU 贵在养得起</h2>
+<p>这里得拉一笔经济账。量子位原文没给具体售价，但英特尔官方之前公布过至强 6 能效核的千颗批发价——顶配 288 核型号大概在 1.2 万美元左右。双路服务器整机加内存加存储，按企业采购价算，大概 3 到 4 万美元能拿下。一张 H100 现在现货价还在 2.5 万到 3 万美元浮动，而且只能跑推理不能当服务器用（你得配主机、配网络、配散热）。一台 8 卡 H100 服务器，裸机成本轻松突破 30 万美元。</p>
+<p>更狠的是运营成本。300 瓦的双路 CPU 服务器，扔到机房一年电费大概 3000 块人民币。3000 瓦的 GPU 服务器（8 卡 H100 满载），一年电费接近 3 万块。十倍差距。Agent 应用的特点是 7×24 小时在线，用户随时发指令，推理负载持续不断。GPU 跑 Agent 不是不行，是太奢侈——相当于雇一个 F1 赛车手每天给你送外卖。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-06/431045-html-micro/schematic-2.png" alt="CPU 推理 vs GPU 推理三年总拥有成本对比柱状图，横轴硬件采购+电费+运维，纵轴万元，CPU 方案三年 TCO 约为 GPU 方案的 1/5"></p>
+<p>量子位的报道点到为止地提了一句“Agent 时代的算力焦虑”，但没展开说这个焦虑的根源是什么。在我看来，焦虑不是买不到 GPU，而是买了 GPU 之后发现推理成本根本扛不住商业化。Anthropic 的 Claude Agent 模式按 token 计费，复杂任务跑一次能烧掉几美元。企业客户试用完直呼好用，一看账单直接劝退。如果能把推理成本压到原来的五分之一甚至十分之一，Agent 商业化的死结就松了一大截。</p>
+<p>英特尔显然闻到了这个味道。它不打训练市场——那是英伟达的护城河，CUDA 生态二十年积累，至强再怎么堆核也追不上。但它盯上了推理这个更大、更碎、更吃运营成本的市场。AMD 的 EPYC 也在做类似的事，Bergamo 系列 128 核已经证明 CPU 跑推理的可行性。但英特尔这次步子更大，288 核直接翻倍，而且时间点卡得很准——正好是 Agent 应用从 Demo 走向生产环境的拐点。</p>
+<p><strong>训练是军备竞赛，推理才是印钞机。英特尔想当那个印钞机里的齿轮。</strong></p>
+<p>有一件事值得玩味。量子位这篇报道的标题关键词是“Agentic AI”，不是“大模型推理”。这个措辞选择很精准。传统的大模型推理是“一问一答”，用户发 prompt，模型吐结果，结束。Agent 推理是“一问多答多调”，模型要自己分解任务、调用工具、读取记忆、多轮纠错，一次用户请求背后可能触发几十次模型前向传播。这种负载对吞吐量的要求远超对单次延迟的要求，天然适合多核心并行处理。英特尔敢喊出“一台服务器跑四个 Agent”，说明内部已经压测过真实 Agent 框架（大概率是 LangGraph 或 AutoGen 这类多步编排工具）的端到端性能，而不是只跑了个孤零零的 transformer decoder。</p>
+<p>结尾说点好玩的。2023 年英特尔在 AI 芯片市场被英伟达打得鼻青脸肿，Gaudi 加速器叫好不叫座，Habana 团队一度传出裁员。两年后它不跟你拼训练了，换个赛道拿 CPU 打推理，反而打出了一条差异化路径。这让人想起当年 ARM 在服务器市场的逆袭——不是正面硬刚 x86 的单核性能，而是用多核密度和能效比重新定义游戏规则。至强 6 能效核是不是 AI 推理界的 ARM？现在下结论太早，但至少它让那些被 GPU 账单压得喘不过气的 Agent 创业者，多了一个可以认真考虑的选项。英伟达的护城河还在，但护城河外面，有人开始修自己的路了。</p>
+<p>#AI #科技</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
