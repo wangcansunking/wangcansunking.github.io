@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>京东开源 JoyAI-Echo：把五分钟长视频做成一条流水线 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-08</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-08</span><span class="tag-pill">Daily Report</span></div>
+      <h1>京东开源 JoyAI-Echo：把五分钟长视频做成一条流水线</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/joyai-echo-jd-long-video-agent-2026-06-08.png" alt="京东开源的长视频生成框架 JoyAI-Echo：一段剧本进、一段五分钟成片出，中间靠记忆库锁住同一个角色"></p>
+<p>6 月 7 日，京东把一个叫 JoyAI-Echo 的长视频生成框架放到了 GitHub 上，仓库在 6 月 2 日建立，几天就攒到了八百多颗 star，主语言 Python。它瞄准的是一件大多数视频模型都绕着走的难事——一次生成五分钟、多镜头、同一个角色从头到尾不变样的长视频。</p>
+<p>这件事真正的看点，不是「又一个能出视频的模型」。</p>
+<p><strong>它最值得讲清楚的地方，是把长视频从「调一个生成模型」变成了「跑一整条流水线」。</strong> 从一句剧本拆成分镜，到记忆库锁住人物的长相和声音，再到蒸馏后的快速生成，最后用对话式的导演智能体改稿——策划、生成、改稿四段串成一条端到端的路。对照 Sora 2、可灵（Kling）、Veo 这些以「秒」为单位、一段画面拼一段的纯生成模型，这条流水线补上的恰恰是长视频最难的那块：镜头一长，角色还认得出是同一个人。</p>
+<p>下面分四件事来看：长视频为什么是另一道题、记忆库怎么把角色锁住五分钟、约 7.5 倍提速和一步超分让它能实时跑起来、以及一个国内开发者把仓库 clone 下来能拿到什么、又有哪些边界要先看清。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/joyai-echo-official-gallery.png" alt="JoyAI-Echo 官方放出的生成画面合集，涵盖写实人像、定格动画、街头实拍、卡通动物等多种风格（来源：JoyAI-Echo 官方仓库 assets/image.png）"></p>
+<h2>长视频为什么是另一道题：秒级模型撑不到分钟级</h2>
+<p>先把这件事的难点说清楚。今天大家熟悉的几个顶尖视频模型，单次能稳定生成的时长其实都不长。</p>
+<ul>
+<li><strong>Sora 2</strong>：单段画面上限约 15 秒，角色一旦在画面里立住，身份、衣着、微表情保持得很好，但时长卡得很死。</li>
+<li><strong>谷歌 Veo</strong>：单段上限约 8 秒，靠的是画质和物理真实感。</li>
+<li><strong>可灵 3.0（Kling）</strong>：把单次时长推到了 3 分钟，是这几家里最长的，但公开反馈里角色一致性大约到 90 秒之后开始出现降级。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/joyai-echo-duration-v2.png" alt="单次成片的时长与一致性对照：JoyAI-Echo 把五分钟做成可控目标，Sora 2、Veo、可灵都还在秒级到分钟级之间"></p>
+<p>为什么差这么多？因为长视频不是「短视频接力拼长」那么简单。镜头越长、镜头越多，模型每往后生成一帧，前面的微小偏差就累积一点，角色的脸会慢慢走样、衣服颜色会飘、声音音色会变。这就是长视频生成里最经典的三个老问题：误差累积、时序一致性弱、延迟高到没法交互。</p>
+<p>还有一层容易被忽略的难处：长视频往往不是一个镜头一镜到底，而是多个镜头切换的一段故事。镜头一切，画面里的人、场景、机位全变了，模型怎么知道「下一个镜头里这个人」和「上一个镜头里那个人」是同一个？纯生成模型在镜头之间是断开的，每段各画各的，跨镜头的身份全靠提示词反复描述，描述稍有出入，人就变了。再加上很多长视频还要带同步的对话和音效，画面对不对得上声音、声音是不是同一把嗓子，又是一层考验。</p>
+<p>JoyAI-Echo 把目标直接定在了五分钟、多镜头、音画同出。这一节的结论很清楚：长视频是一道独立的题，它考的不是单帧画质有多惊艳，而是「走了五分钟、切了好几个镜头，角色还是不是同一个人、声音还是不是同一把嗓子」。</p>
+<h2>记忆库怎么锁住角色：把长相和声音存下来，每个新镜头都回看</h2>
+<p>JoyAI-Echo 解决一致性的核心，是一个叫「跨模态音视频记忆库」的设计。</p>
+<p>它的做法不复杂，但很对症。生成一段多镜头故事时，每个新镜头不是凭空开始画，而是要回看之前所有镜头留下的记忆——人物的外观特征存了一份，声音的音色也存了一份，视觉和听觉两条线一起绑定。这样下一个镜头里出现的同一个角色，长相能接上、嗓音也能接上。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/joyai-echo-pipeline.png" alt="JoyAI-Echo 端到端流水线：策划、记忆、生成、编辑四段串成一条，对照纯生成模型少了跨工具搬运和角色对不上两道坎"></p>
+<p>具体到怎么写一段长视频，仓库里给的输入方式是一个 JSON 文件，里面是一串提示词，每一条字符串就是一个完整镜头。一条字符串生成一个镜头，多条就生成一段多镜头故事，后面的镜头通过这个配对的音视频记忆库接住前面的镜头。每条镜头提示词要按顺序写清楚六个部分：</p>
+<ul>
+<li><strong>角色与主体</strong>：所有出场人物的长相，年龄、身形、发型、五官、服装，需要说话时还要描述音色；</li>
+<li><strong>动作与台词</strong>：主体做什么、说什么；</li>
+<li><strong>风格</strong>：整体视觉和情绪基调，比如写实赛车电影质感、冷调日光；</li>
+<li><strong>运镜</strong>：景别和镜头运动，比如稳定的面部特写，或腰部以上的中景；</li>
+<li><strong>背景</strong>：人物身后的场景细节；</li>
+<li><strong>音效与配乐</strong>：场景里的声音和背景音乐。</li>
+</ul>
+<p>官方还在仓库里放了提示词增强器（长故事和短故事各一份系统提示），把一句简单的想法扩写成结构完整的镜头提示，并明确建议先过一遍增强器再生成，否则效果会明显变弱。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/joyai-echo-frames-mid.png" alt="JoyAI-Echo 生成的人像与人物场景画面，写实质感下人物表情、服装、光线连贯（来源：JoyAI-Echo 官方仓库画面合集）"></p>
+<p>为了验证记忆库真的有用，团队做了一组 GSB 人类偏好评测，用了 100 个故事、跑出 3000 个评测镜头。在长视频任务上对照一个导演模式的基线方案：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/joyai-echo-gsb.png" alt="JoyAI-Echo 的 GSB 人类偏好评测：长视频任务在视觉美学、音频质量、提示词遵循、角色一致四项上都明显领先"></p>
+<p>长视频四项里，视觉美学 63.6%、音频质量 81.7%、提示词遵循 80.6%、角色一致 59.4% 的用户更偏好 JoyAI-Echo；在人像短视频的视觉美学上，对照阿里的通义万相（Wan 2.6），偏好率也到了 58.8% 对 26.5%。官方还给出语音一致性的量化指标约 0.8646。</p>
+<p>值得一提的是，JoyAI-Echo 并不是从零造一个视频模型。它的基座视频生成器用的是 Lightricks 的 LTX-2.3，文本编码器用的是谷歌的 Gemma-3-12B，记忆库、记忆驱动后训练、超分这些才是京东团队在上面加的新东西。这种「站在成熟基座上加关键模块」的路子，对开发者其实是好事——基座的画质和稳定性有保障，团队的精力集中在长视频最难的一致性和速度上，整套东西也更容易被读懂和复现。</p>
+<p>这一节的结论：记忆库这一招，把「角色一致」从一个靠运气的副产品，变成了一个有机制保证、还能被人类评测验证的能力。音画两条线一起记、一起对齐，正是它和那些只拼单镜头画质的模型最不一样的地方。</p>
+<h2>约 7.5 倍提速 + 一步超分：让长视频能实时跑、能边改边看</h2>
+<p>长视频的第二道坎是慢。五分钟、几千帧，如果每一步都老老实实多步去噪，生成时间会长到没法交互。JoyAI-Echo 在这里做了两件事。</p>
+<p>第一件是记忆驱动的后训练。它把基于记忆的强化学习，和一种叫 DMD（分布匹配蒸馏）的技术结合起来，把原本需要很多步的生成流水线蒸馏成少数几步就能出图，官方给出的数字是相比原始多步流水线快了约 7.5 倍。提速的同时，画质和音画对齐还得到了增强，不是单纯用质量换速度。</p>
+<p>第二件是一个轻量的实时超分模块。它直接集成在生成路径里，先在较低分辨率上生成，再一步前向推理把画面拉到高清，在流式输出的延迟下也能保持清晰度。</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>公开口径</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>长视频连贯时长</td>
+<td>5 分钟</td>
+</tr>
+<tr>
+<td>相对原始多步流水线提速</td>
+<td>约 7.5 倍</td>
+</tr>
+<tr>
+<td>评测故事数</td>
+<td>100 个</td>
+</tr>
+<tr>
+<td>评测镜头数</td>
+<td>3000 个</td>
+</tr>
+<tr>
+<td>每镜头帧数</td>
+<td>241 帧 @ 25 fps</td>
+</tr>
+<tr>
+<td>默认分辨率</td>
+<td>1280 × 736</td>
+</tr>
+</tbody></table>
+<p>这两件事加在一起，长视频从「生成完等渲染」变成了「能实时看、能边看边改」。这也是为什么 JoyAI-Echo 在策划和生成之外，还规划了第三段——对话式的改稿。官方介绍里，导演智能体会把一个想法自动拆成剧本、角色、场景和镜头，你用自然语言提要求，它支持局部重生成，哪一段不满意只重做那一段，不用整条推倒重来。需要说明的是，这个导演智能体和实时超分模块（仓库里叫 Echo-SR）在本次发布里还列在「待发布」清单上，当前开源的是推理代码和模型权重，后续会补上。</p>
+<p>这一节的结论：速度不是锦上添花，它是「对话式改稿」这件事能成立的前提——快到能交互，人才坐得住、改得动。</p>
+<h2>国内开发者能拿到什么：能 clone 跑，但先看清三条边界</h2>
+<p>对一个想动手的开发者来说，最实在的问题是：这东西现在能跑吗、跑起来要什么、有什么限制。把仓库读一遍，答案相当清楚。</p>
+<p><strong>先看怎么跑起来。</strong> 参考环境是 Python 3.11 加 PyTorch 2.8、CUDA 12.8，用 conda 或 uv 建好环境，再装上做镜头拼接用的 ffmpeg。模型权重单独下载：一个约 46 GB 的完整模型文件（含 transformer、VAE、声码器），外加约 24 GB 的 Gemma-3-12B 指令模型当文本编码器。放进 checkpoints 目录，写好提示词 JSON，跑一条命令就开始推理，模型只加载一次、把 prompts 目录下所有文件都处理掉。</p>
+<p><strong>再看硬件门槛。</strong> 官方说推理流水线是按低显存优化过的，默认 25 fps、241 帧、1280×736 这档设置下，显存峰值约 46 到 50 GB，一张 H100 或 A100 这一级（80 GB），或者一张 48 GB 的卡就够。显存更小的卡可以降分辨率和帧数，比如降到 480×832、121 帧。社区还做了一个 ComfyUI 的节点包，支持每个镜头单独改提示、即时预览，并通过三段式的显存热交换在 48 GB 显存上跑全精度推理。</p>
+<p><strong>最后是三条必须先看清的边界，这比参数更重要。</strong></p>
+<ul>
+<li><strong>当前只支持文生视频（T2V）</strong>，图生视频（I2V）这次没放出来，官方说在做、后续版本会发；</li>
+<li><strong>导演智能体和实时超分（Echo-SR）还没发布</strong>，当前是推理代码加权重的版本，对话式改稿要等后续；</li>
+<li><strong>许可证不是宽松开源</strong>。JoyAI-Echo 是在 Lightricks 的 LTX-2 基础上改的，基座视频生成器用的是 LTX-2.3、文本编码器用的是谷歌的 Gemma，明确标注仅供学术研究和非商业用途，要商用得另外联系 Lightricks。</li>
+</ul>
+<p>这一节的结论也直白：现在 clone 下来，你能完整跑通五分钟多镜头文生视频这条主线、能验证记忆库锁角色的效果；但如果你想图生视频、想要对话式改稿、或者想拿去做商业产品，得再等一等、或者先把许可证看清楚。把能做的和暂时不能做的分清楚，反而是这个发布最让人放心的地方——它没有把「计划中」说成「已实现」。</p>
+<h2>写在最后：长视频这道题，国内团队给了一个完整的解法</h2>
+<p>回到开头那句话。JoyAI-Echo 真正的价值，不在于某一项指标多漂亮，而在于它把长视频当成一整条流水线来设计——记忆库管一致性、后训练管速度、超分管清晰度、导演智能体管改稿，每一段都在为「一次生成五分钟、角色不走样、还能边改边看」这个目标服务。</p>
+<p>这背后是一支阵容不小的研究力量：京东的研究院牵头，联合了北大、清华、中科大、北航、复旦，以及香港科技大学、香港大学、香港中文大学等多家高校。把这样一套完整的长视频框架开源出来，对国内做视频生成、做数字人、做内容创作工具的开发者来说，是一份可以直接读源码、跑实验、接着往前推的底子。</p>
+<p>短视频已经被卷得很充分，长视频这道更难的题才刚刚被认真对待。能在这个节点看到一个国内团队拿出端到端的完整解法，并且坦诚地标出哪些已经能用、哪些还在路上，是件让人挺有底气的事。剩下的图生视频、导演智能体，官方已经写进了清单——值得我们接着往下看。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

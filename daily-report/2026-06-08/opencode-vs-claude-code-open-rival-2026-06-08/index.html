@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenCode 对标 Claude Code：开源接本地但慢 78% — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-08</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-08</span><span class="tag-pill">Daily Report</span></div>
+      <h1>OpenCode 对标 Claude Code：开源接本地但慢 78%</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/opencode-vs-claude-code-open-rival-2026-06-08.png" alt="黏土定格风格的两条岔路场景：左边一条窄而快的轨道上 Claude Code 的机器人飞驰而过只留下少量痕迹，右边一条更宽的轨道上 OpenCode 的开源机器人走得慢一些但身后铺开了通往多家模型和一台本地服务器的支线，象征一个为速度而生一个为全面而生"></p>
+<p>过去一年，要在终端里用一个编程 agent 帮你写代码、跑测试、改 bug，大多数人脑子里只有一个名字：Claude Code。它好用、稳，但它是 Anthropic 自家的闭源产品，只能用 Anthropic 自家的模型，换不了别家。</p>
+<p>现在有了一个正经的对手，叫 OpenCode。它开源（MIT 许可证），GitHub 上已经攒到 17 万颗 star，能接 75 家以上的模型 provider，还能把你本机上的 Ollama 端点配进来自己跑。第三方拿同一个模型、同一个任务把两者放一起测，结论很干脆：<strong>OpenCode 同任务比 Claude Code 慢约 78%，但它开源、能接本地模型、核心免费——你押注的，是一种不被一家厂商锁死的工作方式。</strong></p>
+<p>慢是真的慢，这点我不替它遮。但慢换来的东西也很实在。一个工具能不能进你的日常，从来不是只看它跑得多快，还要看它会不会哪天突然用某一家厂商的限速、涨价、或者「这个区域不可用」把你卡住、又下不来。开发者这一年给 OpenCode 的关注，恰恰是冲着「别被一家卡住」这件事来的。</p>
+<p>这篇就把这笔账一格一格摆开：17 万 star 是怎么来的、同任务实测里快的一边和全的一边各让出了什么、两条路各自怎么花钱，最后给一个明确判断——什么团队该上 OpenCode，什么场景留在 Claude Code 更省心。看完你不需要立刻换工具，但你手里会多一个清楚的判断：自己这摊活儿，到底该押哪一条路。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/opencode-source-github-repo.png" alt="OpenCode 在 GitHub 上的仓库主页，顶部显示 17 万颗 star、MIT 许可证标识，简介写明这是一个开源的终端编程 agent"></p>
+<h2>17 万 star 是怎么来的：开源 + 接 75+ provider + 本地模型</h2>
+<p>先说它凭什么能在一年里攒到这个量级的关注。OpenCode 出自海外团队 terminal.shop 背后那拨人之手，它不是又一个套壳客户端，而是把「换一个编程 agent」这件事重新定义了一遍。</p>
+<p>过去你说「我用某某编程 agent」，意思其实是「我用某某厂商的模型 + 某某厂商的客户端」，两件事是焊死的，换模型就得换工具，换工具又得重学一套用法。OpenCode 做的第一件事，就是把这两件事拆开：客户端（也就是终端里那个 agent 外壳）归 OpenCode，模型归你自己挑。这个拆分听起来朴素，但它正是后面所有差异的根。</p>
+<p>它的硬底子是三条，每一条 Claude Code 都做不到：</p>
+<ul>
+<li><strong>开源，MIT 许可证。</strong> 源码全公开，你可以读、可以改、可以自己部署。Claude Code 是闭源的，你只能用 Anthropic 给你的那个二进制。</li>
+<li><strong>接 75 家以上模型 provider。</strong> Anthropic、OpenAI、Google Gemini、AWS Bedrock、Azure OpenAI、Groq、OpenRouter 全在列。同一个 agent，今天用 Claude，明天换 Gemini，后天走 OpenRouter 找最便宜的，一行配置的事。</li>
+<li><strong>能接本地模型。</strong> 在 opencode.json 里，你可以把任意一个本地 Ollama 端点、或任何 OpenAI 兼容端点配成自定义 provider。代码、提示词、上下文全程不出你自己的机器。</li>
+</ul>
+<p>再加一条：它支持 MCP（模型上下文协议），社区里给别的 agent 写的那套工具接入方式，它也吃得下。这意味着你给 Claude Code、给别的 agent 配过的那些外部工具，挪到 OpenCode 上不用从头再来一遍。</p>
+<p>这三条单看都不算稀奇，但叠在一起就组成了一个完整的「不锁死」姿态：模型层你能切（75 家 provider），运行位置你能选（云端或本机 Ollama），工具层你能复用（MCP）。哪一层你都不被某一家攥着。</p>
+<p>对比 Claude Code 这边，路子是另一个方向：它只能用 Anthropic 自家模型，不支持切换 provider——顺带说一句，OpenAI 的 Codex CLI 同样不支持切 provider，这是闭源自家产品的共同选择。这不是它们做不到，而是它们选择把从模型到客户端整套都握在自己手里：模型、客户端、调优全是一家的，这样才能把体验打磨到极致。代价就是你也跟着被握住了。</p>
+<p>Claude Code 的更新节奏是按周往里加能力，skills、hooks、plugins、subagents 这些工程化的扩展点一层层叠上去，越用越顺手，但前提是你接受「只在 Anthropic 这一家的池子里玩」。你投进去的学习成本越多，将来想换的迁移成本也越高——这是闭源、只能用一家这套做法的一体两面，省心和绑定是同一枚硬币。</p>
+<p>所以 17 万 star 不是靠某个炫技功能堆出来的，是这条产品路线本身击中了一类真实需求：<strong>有一拨开发者，就是不想把自己的编程 agent 绑死在一家模型厂商身上。</strong> OpenCode 早在今年 3 月就被开发者拿出来做了一次公开展示，登上了 Hacker News 首页，之后口碑一路滚到现在的量级。</p>
+<p>star 数有时候虚，但下载量不太会骗人——收藏只要点一下，下载是真的装到机器上用。OpenCode 在 npm 上每周的下载量大约 138 万次，这个量级说明它不只是被收藏在「以后看看」的列表里，是真有相当一批人把它放进了每天的工作流。一个开源项目能从「值得 star」走到「每周百万次下载」，中间隔着的就是好不好用这道坎，它显然迈过去了。</p>
+<p>值得点明的是，这套路线不是凭空冒出来的实验品。它背后是 terminal.shop——一个本来就在终端工具这件事上较劲的团队，对「开发者天天盯着的那块黑底白字的窗口」该是什么样有自己的主意。把编程 agent 做成开源、可切换、能接本地，对他们来说是顺理成章的延伸，而不是赶时髦。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/opencode-source-homepage.png" alt="OpenCode 官网首页，展示终端里运行的编程 agent 界面，强调开源、可接入多家模型 provider 与本地模型"></p>
+<h2>同任务实测：快 vs 全（9 分 vs 16 分、73 vs 94 测试）</h2>
+<p>光说开源、能切模型，落到活儿上到底差多少？这种对比最怕一边用强模型、一边用弱模型，测出来的其实是模型差距，跟工具本身没关系。Builder.io 这次做的第三方对照测，恰好把这个变量摁住了：<strong>同一个模型（Claude Sonnet 4.5）、同一个任务，分别交给 Claude Code 和 OpenCode 跑</strong>，看完成时间和产出质量。</p>
+<p>模型一样、任务一样，剩下的差异就全来自两个 agent 自己的工作方式——它怎么拆任务、怎么决定写多少测试、怎么判断「这事算干完了」。这才是我们真正想看的东西。结果是这样：</p>
+<table>
+<thead>
+<tr>
+<th>对照项</th>
+<th>Claude Code</th>
+<th>OpenCode</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>完成同一任务耗时</td>
+<td>9 分 09 秒</td>
+<td>16 分 20 秒</td>
+</tr>
+<tr>
+<td>写出的测试数量</td>
+<td>73 个</td>
+<td>94 个</td>
+</tr>
+<tr>
+<td>模型</td>
+<td>Claude Sonnet 4.5（相同）</td>
+<td>Claude Sonnet 4.5（相同）</td>
+</tr>
+</tbody></table>
+<p>把秒数换算一下：980 秒 ÷ 549 秒约等于 1.78，也就是 <strong>OpenCode 慢约 78%</strong>。但同一趟下来，它多写了 21 个测试。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/opencode-chart-headtohead.png" alt="Builder.io 同任务对照实测的耗时与测试数量对比图，Claude Code 9 分 09 秒写出 73 个测试、OpenCode 16 分 20 秒写出 94 个测试"></p>
+<p>这两个数字放一起看，才是这次对照测真正有意思的地方。如果只看耗时，OpenCode 像是输了；但把测试数量摆进来，画风立刻变了：它不是单纯地慢，是把那多出来的七分钟花在了多写 21 个测试上。Builder.io 给的判断也很到位：<strong>一个为速度而生，一个为周全而生。</strong></p>
+<ul>
+<li>Claude Code 快，是因为它在 Anthropic 自家闭环里高度调优过，少绕弯，判断「够了」的阈值更靠前，干完就交活儿。</li>
+<li>OpenCode 慢，是因为它更倾向于多铺一层验证——多写出来的那 21 个测试，不是凑数，是它对「周全」的偏好。它更晚才认为一件事算做完。</li>
+</ul>
+<p>这里要提醒一句：78% 是这一次、这个任务、这个模型下的结果，不是一个刻在石头上的固定倍数。换个任务、换个模型，差距会浮动。但这次对照足够说明一个方向性的事实——两个 agent 的「性格」不一样，一个偏快、一个偏稳，这个差别不会因为换任务就消失。</p>
+<p>慢 78% 听着刺眼，但要落到你自己的判断上，得先问一句：<strong>这趟任务你更在乎几分钟交活儿，还是更在乎交出来的东西被测试网兜得更密？</strong> 写一个临时脚本、改个小 bug，9 分钟和 16 分钟的差别你大概懒得管谁；但如果是给一个要长期维护的模块补测试覆盖，多出来的 21 个测试，可能比省下的 7 分钟值钱得多。同一个差距，放在不同的活儿上，可能是劣势，也可能正好是优势。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/opencode-source-firecrawl-compare.png" alt="第三方对 OpenCode 与 Claude Code 的功能对照评测页面，逐项列出开源与否、可切换 provider、是否支持本地模型、定价等差异"></p>
+<p>说回那条慢的代价：它不是无脑慢，是用时间换了一层更厚的周全。这跟它的产品路线是一脉相承的——OpenCode 整条路都在用一点速度，换更多的选择权和更密的兜底。</p>
+<h2>两条路怎么花钱</h2>
+<p>工具好不好用是一回事，每月掏多少钱是另一回事。这两者最容易被人放到一张表里比单价，但其实它们卖的根本不是同一种东西，收费逻辑根上就不一样，得分开看。</p>
+<p>Claude Code 是订阅制，按档位包月：</p>
+<ul>
+<li><strong>Pro：每月 20 美元。</strong></li>
+<li><strong>Max：每月 100 到 200 美元。</strong></li>
+</ul>
+<p>你交的是订阅费，用的是 Anthropic 自家模型，省心，但天花板和地板都由这一家定。</p>
+<p>OpenCode 这边是另一套逻辑，核心一句话：<strong>自带 API 钥匙时，核心功能免费</strong>——你只为各家模型接口的实际用量付钱，OpenCode 这层不额外抽成。在这之上它还有两档可选：</p>
+<ul>
+<li><strong>自带钥匙：核心功能免费</strong>，只按你调用各家模型接口的实际用量计费。</li>
+<li><strong>Go 档：每月 10 美元</strong>（首月 5 美元）。</li>
+<li><strong>Zen 档：按量付费。</strong></li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/opencode-chart-cost-tiers.png" alt="两条路的成本档对照图，Claude Code 走 Pro 每月 20 美元、Max 每月 100 到 200 美元订阅，OpenCode 走自带钥匙核心免费、Go 档每月 10 美元、Zen 档按量付费"></p>
+<p>这两套定价不能简单比谁便宜，因为它们卖的是不一样的东西。Claude Code 卖的是一套打磨到位的自家组合，模型、客户端、限额一口价打包，钱花得明白、用得省心，你不用知道一次调用烧了多少 token 也能照常干活；OpenCode 卖的是选择权——你自带钥匙、自己挑模型、自己控成本，省下的是中间这层的钱，换来的是要自己操心模型和账单这点麻烦。</p>
+<p>换句话说，订阅制是「我多付一点，换不操心」，自带钥匙是「我自己操心一点，换可控和透明」。哪种划算，取决于你愿不愿意自己管模型这摊事，也取决于你的用量——重度用户自带钥匙按量付费未必比包月便宜，轻度或波动大的用户则可能省不少。</p>
+<p>但有一种情况几乎是白赚：如果你本来就有 OpenAI、Gemini 或某家国内模型的 API 钥匙，OpenCode 核心免费这条对你就特别实在。模型钱你本来也要付，OpenCode 这层不抽成，等于白送你一个能接本地模型、能切 75 家 provider 的终端 agent 外壳。对已经手握一堆钥匙的开发者，这道门槛基本等于没有。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/opencode-source-hn-showhn.png" alt="Hacker News 上 OpenCode 的开发者展示帖，位于首页，标题介绍这是一个开源的终端编程 agent，下方有大量讨论"></p>
+<h2>什么团队该用哪个</h2>
+<p>把上面三笔账——开源能切、慢但周全、自带钥匙免费——并起来看，其实选哪个不难，关键看你最在乎哪一头。下面给一个能直接对号入座的判断。</p>
+<p><strong>这几种情况，OpenCode 的优势是 Claude Code 给不了的：</strong></p>
+<ul>
+<li><strong>数据和合规敏感的团队。</strong> 这条是 OpenCode 最硬的一张牌。因为开源 + 能切 75 家 provider + 能接本地模型，你完全可以把源码和提示词留在自己的基础设施里跑，全程不出公司内网。对金融、医疗、政企这类对「代码不能出门」有硬要求的场景，这不是加分项，是能不能用的前提。这一条 Claude Code 和 Codex CLI 都做不到——它们的模型调用必须走厂商的云，源码和提示词必然要发出去一趟。</li>
+<li><strong>想自己控模型和成本的人。</strong> 你已经有一堆 API 钥匙，想哪个便宜用哪个、哪个强用哪个，OpenCode 核心免费、随手切 provider，正合适。</li>
+<li><strong>更在乎周全而不是几分钟快慢的活儿。</strong> 给长期维护的模块补测试、做需要密集验证的改造，多出来的那层兜底值这个时间。</li>
+<li><strong>不想被一家厂商锁死的团队。</strong> 哪天某家模型涨价、限速、或者你想换，改一行配置就走，不用把整套工作方式重学一遍。</li>
+</ul>
+<p><strong>这几种情况，留在 Claude Code 更省心：</strong></p>
+<ul>
+<li><strong>就图一个快、一个稳。</strong> 临时脚本、小修小补、日常起手，9 分钟比 16 分钟舒服，自家打磨到位的东西少操心。</li>
+<li><strong>已经吃透了 Anthropic 那套工程化扩展。</strong> skills、hooks、plugins、subagents 你都用顺了，迁移成本对你来说是实打实的损失。</li>
+<li><strong>不想自己操心模型和账单。</strong> 订阅一交，模型、限额、稳定性都有人兜着，你只管写代码。</li>
+</ul>
+<p>还有一种很现实的情况：你不必二选一。同一台机器上两个都装着，日常起手、临时活儿用 Claude Code 图快，碰到要全程不出内网的项目、或者想拿便宜模型批量跑的活儿就切到 OpenCode。它们不打架，OpenCode 也不要求你卸掉谁。多一个工具不等于多一份焦虑，前提是你清楚什么时候该用哪个——而这恰恰是上面这两份清单想帮你理清的事。</p>
+<p>说白了，这不是「谁取代谁」，是终端编程 agent 终于有了第二个正经选项。OpenCode 用慢换全面、用开源换选择权，它没打算在每一项上都赢 Claude Code，它赢的是「你不用只有一个选择」这件事本身。在它出现之前，你在终端里要一个好用的编程 agent，基本只能接受闭源、只能用一家这一条路；现在不是了。</p>
+<p>对今天的开发者来说，多这一个选项是好事：你押注 OpenCode，押的不是它比 Claude Code 快——它确实慢约 78%——你押的是一种不被一家厂商锁死、能随时把活儿挪到本地、能自己挑模型的工作方式。哪条路更适合你手上这摊活儿，现在你心里应该有数了。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

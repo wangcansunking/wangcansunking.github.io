@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>华为开源 openJiuwen：给 Agent 一个能记得住事的运行环境 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-08</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-08</span><span class="tag-pill">Daily Report</span></div>
+      <h1>华为开源 openJiuwen：给 Agent 一个能记得住事的运行环境</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/huawei-openjiuwen-agent-memory-2026-06-08.png" alt="华为开源 openJiuwen 与 Agent 长期记忆，给智能体装上跨会话记得住事的运行环境，温暖科技风格示意"></p>
+<p>写过 Agent 的人都撞过同一堵墙：让它跑一个跨好几天的任务，或者隔一周再回来接着上次的活，它一脸茫然——上次查到什么、和你商量过哪条方案、哪个坑已经踩过，全忘了。<strong>Agent 真正卡住产品化的，往往不是模型不够聪明，而是它没有一份能跨会话、跨天、跨任务留得住的长期记忆。</strong> 上下文窗口再大也填不平这个坑，因为窗口是临时草稿纸，关掉就清空。</p>
+<p>6 月 5 日，华为云在上海的 Agentic AI 大会上，把一批面向智能体的基础组件摆了出来。发布会本身料很多，但对开发者最有嚼头的其实是收窄后的两件事：一个叫 <strong>openJiuwen</strong> 的开源 Agent 运行环境正式上线，官方说它和企业版 AgentArts 的内核同源度超过 90%；配套还有一套叫 <strong>AMS</strong> 的记忆方案，号称用 NPU 直通存储硬件，把 Agent 的长期记忆做到 PB 级。</p>
+<p>这篇不复述发布会的全套口径。我们只挖两个开发者能上手、能拿来对照自己技术选型的点：<strong>一个真能自己跑起来的开源 Agent 运行环境到底给了什么，以及把记忆从硬件往上做这条路，和大家熟悉的 mem0、Letta、Zep 那条应用层的路，差在哪。</strong> 结论先放这儿——openJiuwen 是国内少见的把&quot;运行环境 + 记忆&quot;一起开源、还能自托管的一套东西，对想把 Agent 真正跑长、跑稳的团队值得认真看一眼；记忆做到硬件层是它最有想象空间也最需要时间验证的一手。</p>
+<h2>长期记忆为什么是 Agent 工程现在最难啃的那块</h2>
+<p>先把痛点说透：<strong>Agent 缺的不是&quot;能装下多少历史&quot;，而是&quot;在海量历史里，此刻该记起关于这个任务、这个用户的哪几条&quot;。</strong> 这两件事是完全不同的工程。</p>
+<p>很多人第一反应是：现在模型动不动上百万 token 上下文，把历史全塞进去不就行了？真到生产里这条路走不通，原因很实在：</p>
+<ul>
+<li><strong>塞历史会撑爆窗口、也会拖慢响应。</strong> 一个长程任务跑上几天，对话、工具返回、中间结论早就超出任何窗口；硬塞进去，每一轮推理都在为一大堆用不上的历史付 token 和延迟的账。</li>
+<li><strong>塞进去不等于用得对。</strong> 模型看到一大段历史，未必能从里面挑出此刻真正相关的那几条；上下文越长，关键事实越容易被淹没，这就是大家常说的&quot;注意力被稀释&quot;。</li>
+<li><strong>历史是无限增长的，窗口是有限的。</strong> 这是个结构性矛盾，不是换个更大窗口的模型就能绕过去的。</li>
+</ul>
+<p>所以&quot;记忆&quot;要解决的，是<strong>在无限增长的历史里，把此刻该用的那一小块事实准确地拎出来注入</strong>。这条路上有几个 RAG（检索增强生成）天生不管的信号，恰恰是 Agent 长期记忆的难点所在。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/window-vs-memory-2026-06-08.png" alt="上下文窗口再大也不等于有记忆：把半年历史全塞进窗口 vs 记忆层只取该用的几条"></p>
+<p>把这几个难点摊开看：</p>
+<ul>
+<li><strong>时序。</strong> 用户上个月说&quot;项目数据库从 MySQL 迁到 Postgres 了&quot;，纯向量检索很可能反而把旧的&quot;MySQL&quot;翻出来，因为它和&quot;数据库&quot;这个词更像。记忆必须知道一条事实&quot;何时生效、何时作废&quot;。</li>
+<li><strong>用户与任务隔离。</strong> 同一个问题，对不同用户、不同任务该记起的东西不一样；记忆必须先圈到正确的范围再做相似度，不能让两个任务的上下文互相串味。</li>
+<li><strong>重要性。</strong> &quot;这个接口上次因为超时炸过&quot;该比&quot;用户喜欢深色主题&quot;排得更靠前，哪怕后者和当前问题字面更像。</li>
+<li><strong>写入路径。</strong> RAG 是只读的：索引一次然后查。记忆需要一条写入路径——从对话和工具返回里抽事实、判断和已有记忆有没有矛盾、该更新还是该作废，而不是简单追加一条打架的新记录。</li>
+</ul>
+<p>一句话收住这节：<strong>Agent 长期记忆是一套&quot;带时序、带隔离、带写入&quot;的事实管理系统，比&quot;把文档塞进窗口&quot;或&quot;做一层 RAG&quot;都要重得多。</strong> 这也是为什么 2026 年这一年，专门做 Agent 记忆的方案集中冒头——它确实是块独立的、绕不过去的硬骨头。</p>
+<h2>openJiuwen 是什么：一个能自己跑起来的开源 Agent 运行环境</h2>
+<p>搞清楚痛点，再看 openJiuwen 这套东西落在哪一层就清楚了。<strong>它不是又一个记忆库，而是一个开源的 Agent 运行环境——把开发、编排、记忆、部署收进一套可以自托管的栈里。</strong> 华为云这次的定位是：企业版叫 AgentArts，开源版叫 openJiuwen，官方称两者内核同源度超过 90%，意思是开源版不是个阉割演示，而是和商用内核基本同一套底子。</p>
+<p>实查一下它在国内代码托管平台上的真实状态——这套东西主仓托管在 GitCode（<code>gitcode.com/openJiuwen</code>），GitHub 上的 <code>openJiuwen-ai</code> 是只读镜像，组织简介写得很直白：「Read-only mirrors of all openJiuwen code repositories hosted at gitcode.com/openJiuwen」，公开仓库 13 个，全套 Apache-2.0 许可证。下面这些 star 数以 6 月 8 日核对的 GitCode 主仓为准：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/openjiuwen-repo-matrix-2026-06-08.png" alt="openJiuwen 开源仓库矩阵：全套 Apache-2.0，主仓托管于 GitCode，国内可直接拉取"></p>
+<p>几个开发者会直接用到的核心仓库：</p>
+<table>
+<thead>
+<tr>
+<th>仓库</th>
+<th>语言</th>
+<th>GitCode star</th>
+<th>干什么的</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>agent-core</td>
+<td>Python</td>
+<td>约 2520</td>
+<td>Agent 开发运行的全套 SDK</td>
+</tr>
+<tr>
+<td>agent-studio</td>
+<td>TypeScript</td>
+<td>约 2890</td>
+<td>零码 / 低码可视化编排</td>
+</tr>
+<tr>
+<td>jiuwenswarm</td>
+<td>Python</td>
+<td>约 1940</td>
+<td>多智能体 + 华为小艺接入</td>
+</tr>
+<tr>
+<td>agent-protocol</td>
+<td>C++</td>
+<td>约 1880</td>
+<td>智能体协议层</td>
+</tr>
+<tr>
+<td>agent-store</td>
+<td>Python</td>
+<td>约 1760</td>
+<td>应用 / 智能体市场</td>
+</tr>
+<tr>
+<td>deepsearch</td>
+<td>Python</td>
+<td>约 1610</td>
+<td>深度检索能力</td>
+</tr>
+<tr>
+<td>agent-core-java</td>
+<td>Java</td>
+<td>约 1380</td>
+<td>SDK 的 Java 版</td>
+</tr>
+</tbody></table>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/source-openjiuwen-github-og-2026-06-08.png" alt="openJiuwen agent-core 仓库社交卡片：AI Agent 开发运行的全套 SDK，Apache-2.0">
+<small>来源：github.com/openJiuwen-ai/agent-core 仓库社交卡片（GitCode 主仓的只读镜像）</small></p>
+<p>上手成本是真低。核心 SDK 直接从 PyPI 装：<code>pip install -U openjiuwen</code>，要求 Python 3.11 到 3.13。README 里写得很清楚，接口覆盖「Agent 实例创建、工作流设计与编排、大模型调用与输出解析、提示词模板构造与动态填充」，预置了意图识别、提问器、工具组件这些现成块，编排上给了两种 Agent：<strong>ReActAgent</strong>（走&quot;思考 → 行动 → 观察&quot;循环）和 <strong>WorkflowAgent</strong>（跑多步任务流程自动化）。这套接口设计对用过 LangChain、用过别家 Agent 框架的人来说几乎是零迁移成本。</p>
+<p>更接地气的是 jiuwenswarm（仓库里产品名叫 JiuwenClaw）。它把自己定位成一个跑在你常用聊天应用里的 AI 助手，<code>pip install jiuwenclaw</code> 之后 <code>jiuwenclaw-init</code>、<code>jiuwenclaw-start</code> 就能起。两条特性对国内开发者尤其实用：</p>
+<ul>
+<li><strong>原生接华为小艺开放平台</strong>，华为手机用户能直接用小艺把它唤起；</li>
+<li><strong>支持自托管部署，数据完全自主</strong>——这一条是国内团队最在意的，记忆和数据留在自己手里，不用把对话历史交给第三方托管服务。</li>
+</ul>
+<p>这节收一句：<strong>openJiuwen 难得的地方在于它把&quot;运行环境 + 编排 + 记忆 + 部署&quot;一起开源，而且是 Apache-2.0、能自托管的那种开源</strong>，不是放个 demo 仓库做样子。对想自己掌控整条栈的国内团队，这是一个可以拉下来真跑的起点。</p>
+<h2>AMS 这套记忆方案，是从硬件往上做的</h2>
+<p>记忆是 openJiuwen 这次最有想象空间的一块。配套放出的 <strong>AMS 记忆方案</strong>（Agentic 记忆存储），走的是一条和海外应用层记忆库不太一样的路——<strong>它从存储硬件往上做。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/source-qbitai-zhouyuefeng-keynote-2026-06-08.jpeg" alt="华为云 CEO 周跃峰 zhouyuefeng 在 Agentic AI 大会 keynote 主题演讲，6 月 5 日上海，来源量子位 qbitai">
+<small>来源：量子位现场报道，华为云 Agentic AI 大会 2026-06-05 上海</small></p>
+<p>华为云官方对 AMS 的描述（口径如下，标注清楚是官方宣称值）：</p>
+<ul>
+<li><strong>通过 NPU 直通 CMS（上下文记忆存储）硬件</strong>——让记忆的读写绕开常规路径，直接吃到 NPU 旁边的存储；</li>
+<li><strong>打造 PB 级超大记忆空间</strong>——目标是让单个 Agent 的长期记忆不再受内存和窗口约束；</li>
+<li><strong>支持 KV Cache 分层池化</strong>——把推理时的键值缓存按冷热分层放，目的是在长程任务里省推理成本；</li>
+<li><strong>支持天级长程任务</strong>——也就是让 Agent 能连续跑上几天还记得住前因后果。</li>
+</ul>
+<p>配合 openJiuwen 的上下文引擎，官方还提到「异步压缩与动态卸载」——简单说，就是在长时、复杂的多智能体任务里，把暂时用不上的上下文压缩、卸载下去，需要时再调回来，保持任务执行的一致性。再往上的记忆管理层，企业版描述里提到「多层知识图谱与双时间轴建模」，做记忆的智能提取、按需失效与动态重排序——这套概念和海外记忆库讲的&quot;时序知识图谱&quot;是同一类思路，区别在于 AMS 把底下的存储这一层也一起接管了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/memory-route-compare-2026-06-08.png" alt="两条记忆路线对照：往硬件里扎的系统层 AMS vs 往应用层做的 mem0 / Letta / Zep"></p>
+<p>这里得给读者一个诚实的提醒：<strong>PB 级、分层池化、天级长程这些都是华为云的官方宣称口径，第三方独立实测的数据目前还没出来。</strong> 硬件直通能带来多少真实收益、在非昇腾环境下还能剩多少，都要等社区把它真跑起来才知道。把它当成一个有明确工程取向的方案来看，而不是一组已经验证的基准数字，这个分寸要拿捏住。</p>
+<p>这节收一句：<strong>AMS 的取向是&quot;把记忆做成系统能力，而不是应用上的一个库&quot;</strong>——它赌的是当 Agent 要跑得足够长、记得足够多时，瓶颈最终会落到存储和缓存这一层，所以干脆从硬件往上接管。这个判断有它的道理，能不能兑现，要看落地。</p>
+<h2>和 mem0、Letta、Zep 横着比：两条路线的分工</h2>
+<p>国内开发者做记忆选型，绕不开几个海外的成熟方案。把它们和 openJiuwen + AMS 放一起，能看清这其实是<strong>两条分工不同的路线</strong>，不完全是替代关系。</p>
+<p>先认识一下对照组里这几位，它们代表了应用层记忆的三种主流思路：</p>
+<ul>
+<li><strong>mem0</strong>——社区里最热的开源记忆层，GitHub star 已经到 5 万量级。它给 Agent 一套&quot;用户 / 会话 / 智能体&quot;三层记忆，底下混用向量、图关系和键值，主打 <code>add</code> / <code>search</code> / <code>delete</code> 三件套，开发者自己决定何时写、何时读，控制粒度很细。</li>
+<li><strong>Letta</strong>——就是 MemGPT 的产品化版本。它最核心的思路借自操作系统：把大模型的上下文当成虚拟内存，按需把信息&quot;换页&quot;进来、换出去，而不是被动地把什么都堆着。主上下文放当前活跃记忆，外部再分&quot;近期对话&quot;和&quot;长期归档&quot;两个库。</li>
+<li><strong>Zep</strong>——围绕一个叫 Graphiti 的时序知识图谱引擎来做，强项是追踪事实随时间怎么变，把结构化业务数据和对话历史一起编进图里，适合企业里那种关系复杂、时间敏感的场景。</li>
+</ul>
+<p>把它们和 openJiuwen + AMS 摆成一张表：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>openJiuwen + AMS</th>
+<th>mem0</th>
+<th>Letta（MemGPT）</th>
+<th>Zep</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>所在层</td>
+<td>系统层 / 运行环境</td>
+<td>应用层记忆库</td>
+<td>应用层 + 上下文调度</td>
+<td>应用层时序图谱</td>
+</tr>
+<tr>
+<td>记忆核心思路</td>
+<td>硬件直通存储 + 多层图谱 + 上下文压缩卸载</td>
+<td>向量 + 图 + 键值混合三层</td>
+<td>上下文当虚拟内存按需换页</td>
+<td>时序知识图谱（Graphiti）</td>
+</tr>
+<tr>
+<td>跟硬件的关系</td>
+<td>与昇腾 NPU 直通绑得紧</td>
+<td>与硬件无关，跨云通用</td>
+<td>与硬件无关</td>
+<td>与硬件无关</td>
+</tr>
+<tr>
+<td>开源 / 部署</td>
+<td>Apache-2.0，可自托管整条栈</td>
+<td>开源核心，可自托管</td>
+<td>开源核心，有托管版</td>
+<td>开源核心，有托管版</td>
+</tr>
+<tr>
+<td>最适合谁</td>
+<td>想自己掌控运行环境 + 数据自主、跑超长任务的国内团队</td>
+<td>想快速给现有 Agent 接一层轻量记忆</td>
+<td>要长会话连贯叙事、做对话型 Agent</td>
+<td>关系复杂、时间敏感的企业场景</td>
+</tr>
+</tbody></table>
+<p>读这张表的正确姿势是——<strong>它们的差异不在&quot;谁记得更准&quot;，而在&quot;在哪一层解决记忆&quot;</strong>：</p>
+<ul>
+<li>mem0、Letta、Zep 是<strong>应用层</strong>方案，好处是跟底座、跟云解耦，换模型、换 GPU 都不绑死，几行 SDK 就能接进现有 Agent，记忆图谱和时序这些细活也打磨得久、做得细；代价是上下文调度、超大规模长程任务这些重活，还得应用自己往上堆。</li>
+<li>openJiuwen + AMS 是<strong>系统层</strong>方案，把运行环境和记忆一起接管，长程任务里的上下文压缩、卸载、缓存分层都内置了，还能自托管做到数据自主；代价是 AMS 那部分硬件直通的收益和昇腾栈绑得更紧，跨环境的通用性要打个问号。</li>
+</ul>
+<p>所以现实里更可能的组合不是二选一。一个国内团队完全可以用 openJiuwen 当运行环境，记忆这层先用 mem0 这类成熟库把业务跑起来，等 AMS 的实测数据和生态成熟了，再决定要不要切到系统层的方案。<strong>多一个能自托管、从硬件往上做的开源选项，本身就是好事。</strong></p>
+<h2>给国内开发者的几条务实判断</h2>
+<p>把上面的东西收拢成几条可以直接拿去用的判断：</p>
+<ul>
+<li><strong>想自己掌控整条 Agent 栈、又要数据留在自己手里</strong>，openJiuwen 值得拉下来真跑一遍。<code>pip install -U openjiuwen</code> 起 SDK，jiuwenswarm 那条线还能顺手接华为小艺，自托管这条特性对国内团队是实打实的加分。</li>
+<li><strong>记忆选型别急着信单一口径。</strong> AMS 的 PB 级、天级长程目前都还是官方宣称，先把它和 mem0、Letta、Zep 放进同一个坐标系——你的痛点是&quot;接一层轻量记忆快速上线&quot;，还是&quot;跑超长任务、要数据自主、愿意往系统层走&quot;，答案不一样选法就不一样。</li>
+<li><strong>别拿 RAG 当长期记忆用。</strong> 这是最常见的坑：用向量检索去做记忆，然后纳闷 Agent 为什么总记错。记忆要的是时序、隔离、重要性和写入路径，这四样 RAG 天生不管，无论你选哪家方案，先把这件事想清楚。</li>
+</ul>
+<p>回到开头那堵墙——<strong>Agent 长期记忆这块硬骨头，2026 年正在被一群人从不同方向一起啃。</strong> 海外那条应用层的路已经跑出了 mem0、Letta、Zep 这些扎实的方案，现在国内也有了一套把运行环境和记忆一起开源、还能自托管、敢往硬件层扎的东西。对每天和 Agent 打交道的我们来说，可选的好工具又多了一个，而且是能拉下来自己跑、自己改的那种。这件事本身，就挺让人有底气的。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>告别系统提示词：三层记忆架构如何让Claude Code记住用户？ — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-08</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-08</span><span class="tag-pill">AI Daily</span></div>
+      <h1>告别系统提示词：三层记忆架构如何让Claude Code记住用户？</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-08/2319896-article/head.png" alt=""></p>
+<p>你是一个 AI 记忆系统。你的硬盘里存着 200 条 JSON 文件，每一份都记着用户说过什么、决定过什么、对什么价格敏感。你不需要联网，不依赖任何外部 API，你跑在一台 Android 手机的 Termux 终端里，Python 3.8+，零外部包依赖。用户打开 Claude Code，说了一句“之前聊过什么关于定价的话题”，你在 0.3 秒内扫完索引，吐出五条带标签和置信度的回忆。用户说“帮我把刚才的讨论记住”，你在 <code>.memory/episodic/</code> 下新建一个 <code>sess-20260607-143022.json</code>，把决策、痛点、用户画像全写进去。</p>
+<p>这就是 Memory Agent——一个在 linux.do 社区上由开发者放出完整源码、附 28.9 KB 压缩包和两张 Termux 终端截图的本地 AI 记忆系统。它做的事听起来平平无奇：让 LLM 记住跨会话的信息。但如果你仔细看它的架构设计和集成方式，你会发现，这可能是 2026 年上半年最被低估的 AI 基础设施实验。</p>
+<p><strong>一个只有 28.9 KB 的 zip 包，正在重新定义“AI 记忆”这个词在工程上的含义。</strong></p>
+<h2>三层记忆架构：不是“存下来”，是“提炼出来”</h2>
+<p>Memory Agent 的数据模型非常清晰，分三层：工作记忆、情景记忆、语义记忆。工作记忆就是 LLM 的上下文窗口，每次会话自动携带，没什么好说的。真正有意思的是后两层。</p>
+<p>情景记忆（Episodic Memory）对应每一次对话。每当你跟 AI 说“帮我记住”，系统会在 <code>.memory/episodic/</code> 下生成一个文件，命名规则是 <code>sess-YYYYMMDD-HHMMSS.json</code>。打开这个 JSON，你会看到 11 个字段：<code>summary</code> 是必填的一句话概括，<code>user_intent</code> 记录用户的核心诉求，<code>solution</code> 记录给出的方案，<code>key_points</code> 是数组形式的关键信息点，<code>decisions</code> 记录达成的决策，<code>open_items</code> 记录待跟进事项，<code>user_context</code> 是一个嵌套对象，可以存行业、规模、痛点、预算范围、决策角色。还有一个 <code>feedback_score</code> 字段，默认 null，等用户反馈后再填。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-08/2319896-article/schematic-1.png" alt="情景记忆 JSON 结构图，展示 summary / user_intent / solution / key_points / decisions / user_context 的层级关系和示例数据"></p>
+<p>这意味着什么？意味着 Memory Agent 记住的不只是“用户说了什么”，而是“用户在什么背景下、带着什么诉求、我们给了什么方案、做了什么决策、还有什么没做完”。这跟 ChatGPT 那种“记住我”功能完全不是一回事——后者只是在系统提示词里塞了几条用户偏好，而 Memory Agent 存的是结构化的、可检索的、带时间戳和标签的会话档案。</p>
+<p>语义记忆（Semantic Memory）更进一层。当情景记忆积累到 5-10 条后，系统可以从多条会话里提炼出跨会话的规律和知识，存成 <code>km-xxxxxxxx.json</code>。每条语义记忆有 <code>confidence</code> 字段，初始值 0.5，随着用户反馈上下浮动。还有 <code>source_sessions</code> 数组，指向它来自哪些情景记忆，以及 <code>applicable_scenarios</code> 数组，标明这条知识在什么场景下适用。</p>
+<p>举个例子：你在三周内分别跟三个不同的 SaaS 客户聊过定价，AI 从这三条情景记忆里提炼出一条语义记忆：“中小企业 SaaS 客户对 per-seat 定价接受度低，偏好 usage-based + tiered 混合，对封顶价格敏感”，confidence 0.85。这条知识会在你第四次跟新客户聊定价时自动注入上下文，AI 直接说“根据历史经验，你的客户群体大概率不喜欢 per-seat”——不用你再说一遍。</p>
+<p><strong>这本质上是一个轻量级的知识图谱引擎，只是它用 JSON 文件而不是 Neo4j 做到。</strong></p>
+<h2>三种集成方式：Skill、CLI、MCP，以及一个隐藏的第四种</h2>
+<p>Memory Agent 的设计哲学是“数据格式即接口”。它不强迫你用一种方式访问记忆，而是提供了三种集成路径，外加一个隐藏的第四种。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-08/2319896-article/schematic-2.png" alt="三种集成方式对照图，Skill 自动触发 / CLI 终端操作 / MCP 外部工具调用，中间共享 .memory/ 数据目录"></p>
+<p>第一种是 Claude Code Skill，已经注册在 <code>.claude/skills/memory-agent/SKILL.md</code>。开发者在 SKILL.md 里定义了六个触发条件：你说“帮我记住”，AI 走工作流 A，生成摘要存情景记忆；你说“之前说过”，AI 走工作流 B，查询记忆注入上下文；你说“总结一下”，AI 走工作流 C，批量提炼存语义记忆；你说“这个建议对不对”，AI 走工作流 D，更新置信度。整个过程对用户完全透明——你只需要用自然语言说话，AI 自己判断什么时候该存、什么时候该查。</p>
+<p>第二种是 CLI 命令行。<code>python3 memory.py store session &#39;{&quot;summary&quot;:&quot;...&quot;,&quot;tags&quot;:[&quot;...&quot;]}&#39;</code> 这种最原始的调用方式，反而暴露了这个项目最硬核的一面：它支持管道模式，支持从文件读取 JSON，支持在 shell 脚本里用 heredoc 传数据。你可以写一个每日自动总结脚本，用 crontab 定时跑，把当天所有会话摘要批量写入。你也可以用 <code>jq</code> 直接查 <code>.memory/episodic/*.json</code>，完全不经过 Python——因为数据就是纯 JSON 文件。</p>
+<p>第三种是 MCP 协议。Memory Agent 用 <code>.mcp.json</code> 注册了一个 MCP 服务，由 <code>memory_mcp.py</code> 拉起。任何支持 MCP 的客户端——Claude Desktop、Cursor、以及未来可能出现的各种 AI 工具——都可以调用 7 个标准工具：<code>memory_store_session</code>、<code>memory_store_knowledge</code>、<code>memory_query</code>、<code>memory_list</code>、<code>memory_get</code>、<code>memory_stats</code>、<code>memory_update_confidence</code>。配置简单到只有三行 JSON：</p>
+<blockquote>
+<p>&quot;memory-agent&quot;: { &quot;command&quot;: &quot;python3&quot;, &quot;args&quot;: [&quot;.claude/skills/memory-agent/scripts/memory_mcp.py&quot;] }</p>
+</blockquote>
+<p>（值得一提的是，这个 MCP 服务不需要手动启动——当 MCP 客户端启动时，会自动拉起进程。这比很多需要手动配置环境变量和端口号的 MCP 方案优雅得多。）</p>
+<p>第四种方式是隐藏的，也是最激进的：直接读文件。Memory Agent 的官方文档里专门有一节叫“方式四：直接读文件（数据消费模式）”，给出了 Python 和 jq 的示例代码。这意味着你可以用任何语言、任何工具消费这些记忆数据，不需要用 Memory Agent 的任何接口。你可以用 <code>cat .memory/episodic/*.json | jq &#39;[.summary, .tags]&#39;</code> 一行命令提取所有摘要和标签，也可以写一个 RAG 管道直接把 <code>.memory/</code> 目录当作文档库做向量检索。Memory Agent 不锁定数据，这是它跟绝大多数 AI 记忆方案最本质的区别。</p>
+<p><strong>数据格式即接口——这六个字说出来容易，真正做到的产品，整个 AI 生态里不超过五个。</strong></p>
+<h2>0.2.0 的思维导图记忆：从“记住对话”到“记住进度”</h2>
+<p>Memory Agent 的 0.2.0 版本新增了一个叫“思维导图记忆”的模块，这个模块的野心比基础记忆功能更大——它要记住的不是对话，而是“项目开发到哪了”。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-08/2319896-article/schematic-3.png" alt="思维导图记忆的三位一体表示：JSON（可检索）/ Unicode 树（终端渲染）/ Mermaid（图片渲染），展示同一个项目快照的三种视图"></p>
+<p>这个模块的入口脚本是 <code>mindmap.py</code>，数据落在 <code>~/.memory/mindmap/&lt;项目名&gt;.{json,md,mmd}</code>。每条快照包含项目名、进度百分比、摘要、节点树（每个节点有 label、status、可选的 note 和 children）、踩过的坑（pitfalls）、下一步计划（next）。节点状态有五种：done ✅、doing 🔄、todo ⏳、bug 🐛、blocked ⛔。</p>
+<p>最妙的是它的三位一体渲染机制。同一个快照可以以三种形态呈现：JSON 文件可检索（<code>memory.py query --tag 项目快照</code> 可以直接召回），Unicode 树可以在终端直接看（<code>mindmap.py show</code> 渲染成带 emoji 的树状图），Mermaid 源码可以渲染成真正的思维导图图片（<code>mindmap.py mermaid</code> 输出 Mermaid 代码，贴到任何支持 Mermaid 的工具里就能出图）。</p>
+<p>更激进的是它的 SessionStart hook 设计。你可以在 <code>~/.claude/settings.json</code> 里配置一个 hook，让 Claude Code 每次开新窗口时自动运行 <code>mindmap.py hook</code>，输出一个 JSON，把当前所有项目的进度树注入到新会话的上下文中。这意味着你打开 Claude Code，还没说话，AI 就已经知道你的项目 A 卡在模块 B 的某个子任务上——它会在第一句问候里直接说“上次模块 B 卡在 Y，要不要继续？”</p>
+<p><strong>这个功能让 Memory Agent 从一个“会话记忆工具”变成了一个“项目上下文引擎”。</strong></p>
+<p>我看到这个设计的时候第一反应是：这不就是 Notion 的数据库视图 + GitHub Projects 的进度看板 + Mermaid 的渲染能力，全部塞进一个本地 Python 脚本里了吗？而且它没有后端，没有数据库，没有同步服务——所有数据都在本地 JSON 文件里，用 Git 就能做版本控制和多设备同步。</p>
+<h2>商业模型场景：当记忆系统变成 CRM</h2>
+<p>Memory Agent 的文档里有一整章讲“商业模型场景”，这部分内容暴露了开发者的真实意图——他不仅仅是在做一个开发者工具，而是在做一个轻量级的、本地化的、AI 原生的 CRM 系统。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-08/2319896-article/schematic-4.png" alt="商业模型场景的标签体系图，展示客户画像 / 定价策略 / 竞品情报 / 决策历史 / 增长策略 / 商业模式 / 技术评估 七大标签及其子分类"></p>
+<p>文档给出了三个完整的使用场景。第一个是客户画像管理：每次跟客户交互后，存储包含 <code>user_context</code> 的会话摘要，user_context 里可以填公司名、行业、规模、痛点、预算范围、决策角色。之后用 <code>memory.py query --tag 客户 A</code> 就能拉出这个客户的所有历史对话，用 <code>--tag 客户画像 --tag SaaS</code> 就能拉出所有 SaaS 客户的画像信息。</p>
+<p>第二个是定价策略追踪：记录每次定价讨论的方案、竞品价格、用户倾向、最终决策。当定价讨论积累到 3 条以上，提炼为语义记忆，之后新客户聊定价时自动注入历史经验。</p>
+<p>第三个是竞品情报积累：<code>memory.py store knowledge &#39;{&quot;content&quot;:&quot;竞品 X：per-seat $29/月，集成能力弱，客户抱怨多&quot;,&quot;tags&quot;:[&quot;竞品情报&quot;,&quot;竞品 X&quot;],&quot;confidence&quot;:0.6}&#39;</code>——这条知识的置信度只有 0.6，因为只有一条来源。当第二个客户也提到竞品 X 的集成问题时，置信度会更新到 0.75。当第五个客户提到时，置信度可能到 0.9，AI 会在后续对话中直接说“竞品 X 的集成能力在业内评价较低”——而这句话背后是五条独立来源的交叉验证。</p>
+<p>文档还给出了一个推荐标签体系，包含七个核心标签：客户画像、定价策略、竞品情报、决策历史、增长策略、商业模式、技术评估。每个标签下还可以自定义子标签，比如客户名、项目名、竞品名。</p>
+<p>（说实话，这个标签体系的设计比很多收费的 CRM 软件都要清晰。而且它不需要任何 onboarding 流程——你不需要先建客户档案、填一堆字段、设置权限，你只需要在跟 AI 对话时说一句“帮我把刚才的讨论记住，标签用：商业模型、定价策略、客户 A”，系统就自动归档了。）</p>
+<p><strong>当你的 AI 助手记得每个客户的预算范围和决策角色，它就不再是一个聊天机器人——它是一个销售副总裁的硅基分身。</strong></p>
+<h2>数据安全与零依赖：一个反潮流的架构选择</h2>
+<p>在整个 AI 行业都在往云端迁移、往 API 经济靠拢的 2026 年，Memory Agent 做了一个完全相反的架构选择：本地运行，纯文本存储，零外部包依赖（CLI 模式下），零网络请求。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-08/2319896-article/schematic-5.png" alt="Memory Agent 的目录结构树，展示 .memory/ 根目录、_index.json 索引文件、episodic/ 和 semantic/ 子目录、以及 JSON 文件的命名规则"></p>
+<p>数据目录是 <code>.memory/</code>，结构极其简单：一个 <code>_index.json</code> 轻量索引文件，一个 <code>episodic/</code> 子目录存情景记忆，一个 <code>semantic/</code> 子目录存语义记忆。每个记忆是一个独立的 JSON 文件，命名规则清晰（<code>sess-YYYYMMDD-HHMMSS.json</code> 和 <code>km-xxxxxxxx.json</code>）。备份只需要 <code>cp -r .memory .memory.backup-$(date +%Y%m%d)</code>，迁移只需要设置 <code>$MEMORY_DIR</code> 环境变量指向新路径，清空只需要 <code>rm -rf .memory/</code> 然后 <code>reindex</code>。</p>
+<p>文档里明确写了一句：“数据是本地纯文本 JSON 文件。没有网络请求，没有外部依赖。”在 FAQ 里还补了一句：“1000 条以内无性能问题。超过后可考虑定期归档旧数据。”——这意味着开发者对性能边界有清醒的认知，不吹牛，不画饼。</p>
+<p>这种架构选择在当下显得格外反潮流。OpenAI 的 Memory 功能跑在云端，数据存在 OpenAI 的服务器上；ChatGPT 的“记住我”功能需要联网，依赖 OpenAI 的 API；绝大多数 AI 记忆方案要么是 SaaS 产品（Mem、Rewind），要么是云服务（Pinecone、Weaviate）。Memory Agent 偏偏选择了一条最原始的路：本地 JSON 文件 + Python 脚本 + 零依赖。它的卖点不是“更聪明”，而是“你完全掌控你的数据”。</p>
+<p>（这让我想起 2024 年 Obsidian 和 Logseq 掀起的本地优先运动——用户开始对云端锁定的 AI 工具产生抵触，转而寻求数据主权。Memory Agent 的出现，可能标志着本地优先运动从笔记软件蔓延到了 AI 基础设施层。）</p>
+<h2>一个社区开发者的野心：从 Skill 到标准</h2>
+<p>Memory Agent 的发布帖发在 linux.do，一个中文开发者社区。帖子里打了 <code>#开源推广</code> 标签，声明了完整开源、零未开源部分、已链接认可社区。附件是一个 28.9 KB 的 zip 包，两张截图显示 Termux 终端上的命令执行结果。</p>
+<p>但如果你仔细看这个项目的文件结构和文档完整度，你会发现它不像是一个随手的 side project。它有完整的 README、REFERENCE、SKILL.md，有 CLI 命令大全（覆盖 store、query、list、get、update confidence、stats、reindex 七个子命令），有 MCP 工具大全（七个标准工具，每个都有参数说明），有故障排除 FAQ（六个常见问题和解决方案），有最佳实践指南（五条建议，从标签规范到定期备份）。甚至附录里还有一张文件路径参考表，把 CLI 脚本、MCP 脚本、Skill 指令、参考文档、MCP 配置、数据目录的路径全部列了出来。</p>
+<p>这种文档完整度，在开源项目里属于前 5% 的水平。更关键的是，它的设计思路非常清晰：先定义数据格式（情景记忆和语义记忆的 JSON schema），再定义访问接口（CLI、MCP、Skill），最后定义集成方式（Claude Code、Claude Desktop、Cursor、shell 脚本、直接读文件）。这种“格式优先、接口次之、集成最后”的设计顺序，说明开发者想的不是“做一个好用的工具”，而是“定义一个可以跨工具、跨平台、跨模型使用的记忆标准”。</p>
+<p><strong>如果 Memory Agent 的数据格式被更多 AI 工具采纳，它可能成为 AI 记忆层的“Markdown”——一个简单、可读、可迁移、不受任何厂商锁定的开放标准。</strong></p>
+<p>当然，现在还远没到那一步。Memory Agent 目前只支持 Claude Code 生态（Skill 注册在 <code>.claude/skills/</code>，MCP 配置在 <code>.mcp.json</code>），对 ChatGPT、Gemini、开源模型的支持还停留在“直接读 JSON 文件”的原始阶段。它的思维导图记忆模块还是 0.2.0 版本，SessionStart hook 还依赖 Claude Code 的环境支持。它的数据量上限是 1000 条，超过后需要手动归档——对于重度用户来说，这个上限可能在三个月内就会触及。</p>
+<p>但这些问题都不致命。致命的问题是：当你的 AI 助手开始记得每一个客户的预算范围、每一个项目的卡点、每一个竞品的弱点，你还敢把它托管在别人的服务器上吗？Memory Agent 给出的答案是：不用托管，数据在你自己的硬盘上，用 Git 做版本控制，用 <code>$MEMORY_DIR</code> 做跨设备迁移，用 <code>rm -rf</code> 做彻底删除。这可能是 2026 年最朴素、也最激进的 AI 记忆方案——它不承诺更聪明，它承诺你说了算。</p>
+<p>#Memory #Agent #AI #科技</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

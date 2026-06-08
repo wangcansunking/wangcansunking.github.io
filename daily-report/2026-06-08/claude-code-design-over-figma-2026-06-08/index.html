@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>在 Claude Code 里做设计，比 Figma 还顺手 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-08</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-08</span><span class="tag-pill">Daily Report</span></div>
+      <h1>在 Claude Code 里做设计，比 Figma 还顺手</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/claude-code-design-over-figma-2026-06-08.png" alt="从 Figma 静态稿到 Claude Code 里能跑的原型"></p>
+<p>做产品的人这两年大概都隐约感觉到一件事：设计稿和真实界面之间，那条缝越来越窄了。以前画一版 Figma 高保真稿，标好间距、定好颜色，交给工程师照着实现——这套流程跑了十几年。现在有人开始跳过画稿这一步，直接在编辑器里让大模型把界面写成能点能用的原型。</p>
+<p>2026 年 6 月 7 日，Jane Street 期权交易部门的一位设计师 Edwin Morris 把这件事写成了一篇博客，标题很直白：《现在我用 Claude 做设计，比用 Figma 还多》。文章一上线就冲到了 Hacker News 首页，两百多条评论吵成一片——有人说这正是设计该有的样子，也有人担心这条路会把设计师的判断力交给模型。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/source-janestreet-figma-claude-hero.png" alt="博客头图：左边是 Figma 的组件网格静态稿，右边是 Claude Code 终端，写着「Project: add LLM prompting to the JSQL input」">
+<small>来源：Edwin Morris 博客 <code>blog.janestreet.com</code> 头图，2026-06-07</small></p>
+<p>这篇文章想讲清楚三件事：Morris 这套「在代码里做设计」到底怎么运作、它替掉了 Figma 的哪一段又留下了哪些没替掉、争议究竟在争什么。最后再落到国内读者最关心的问题上——Claude 直连在国内不方便，这套方法换成国产工具能不能照着做。</p>
+<p>先把核心结论摆在前面：<strong>代码原型替掉的是「画稿」这个动作，不是设计判断本身。</strong> 它让设计师能更快地把想法变成真东西、拿给真人用，但也带来一个新麻烦——一个看着就像成品的原型，太容易被当成已经敲定的方案。理解了这层，后面的争议就都顺了。</p>
+<h2>他到底在做什么：把想法直接写成能跑的原型</h2>
+<p>Morris 的主张可以浓缩成一句话：<strong>一个跑在真实代码库里的原型功能，几乎在每个方面都比静态稿和说明文档更好用。</strong></p>
+<p>这话听着抽象，他给了一个很具体的例子。Jane Street 内部有一套自己的 SQL 方言，叫 JSQL，配了一个查询输入框。他想给这个输入框加一个能力——让用户用大白话描述需求，由大模型翻译成查询语句。换成过去的做法，他会在 Figma 里画几张图：输入框长什么样、提示文字摆哪、按钮什么状态。画完交评审，再交工程实现。</p>
+<p>这次他没画图。他打开编辑器，起好本地服务，把需求描述直接喂给 Claude Code 当作提示，让它先把基本功能跑起来，然后开始一版一版地调。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/source-janestreet-jsql-prompt.png" alt="Morris 在 JSQL 输入框里加的原型：上面是 SELECT 查询，下面一行用大白话写「给我看看新员工随时间的变化」，点右边箭头交给大模型翻译">
+<small>来源：Edwin Morris 博客 <code>blog.janestreet.com</code> 配图，2026-06-07</small></p>
+<p>上面这张就是他做出来的原型实拍。上半部分是 JSQL 的查询框，写着 <code>SELECT *</code>；下面多出来一行输入框，里面是一句大白话——「给我看看新员工随时间的变化」，右边一个蓝色箭头按钮，点一下就把这句话交给模型去翻译成查询。这不是一张图层叠出来的假界面，而是一个真能点、能输入、能跑出结果的东西。</p>
+<p>关键在于他后面那句话——他说自己<strong>花了好几天时间「住在这个原型里」反复用它、测它</strong>，做了一大堆细调：提交按钮怎么改、键盘快捷键怎么设、文案怎么措辞、给模型的提示词怎么写。这些细节，画在静态稿上你是感觉不到别扭的，只有真的上手用，手指点上去那一下，才知道顺不顺。</p>
+<p>他做的事情范围还不止小功能。从抠一两个体验上的小毛病，到动辄两千多行改动的数据模型和库改造，再到一些干脆全新的小应用——这些场合他都直接跳过 Figma，在代码里把原型搭出来。他特别提到 Claude 给了他一种「免费、无限次的迭代」：当他「第五十次改主意」的时候，重做一遍的成本几乎为零。</p>
+<p>这一点是整套方法成立的根基。<strong>设计的本质是反复试错，而过去试错的成本主要卡在「每改一次就得重画一次」上。</strong> 当重画的成本被压到接近于零，试错的次数自然可以放开，设计师就能在更多版本里挑出真正好的那个。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/source-janestreet-jsql-error.png" alt="同一个原型的报错状态：模型把大白话翻成查询后类型对不上，下面给出一行提示并附「Fix my Query」修复入口——这种「出错了长什么样」的细节，画在静态稿上是体会不到的">
+<small>来源：Edwin Morris 博客 <code>blog.janestreet.com</code> 配图，2026-06-07</small></p>
+<p>上面这张是同一个原型的报错状态。为什么这张图重要？因为一个功能真正难做对的，往往不是它顺利时长什么样，而是出岔子时怎么提示用户。这种边角状态，画静态稿时很容易漏掉，只有真的把原型跑起来、故意输点模型翻译不出来的东西，才会逼着你把报错体验也设计到位。这正是「住进原型里」比「盯着图看」多出来的那部分价值。</p>
+<h2>它替掉了 Figma 的哪一段，又没替掉哪一段</h2>
+<p>很多人看到标题第一反应是「Figma 要被取代了」，但 Morris 自己说得很清楚，他替掉的是很具体的一段，不是全部。把这件事拆开看最清楚。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/design-figma-compare.png" alt="同一个原型的两种做法对照：Figma 静态稿和在代码里做原型，各自管哪一段">
+<small>依据 Edwin Morris 博客公开内容整理，2026-06-07</small></p>
+<p><strong>被替掉的，是「画稿 + 写说明文档」这一段。</strong> 过去为了把一个想法讲清楚，设计师要画 Figma 稿、写提案文档、和工程师来回沟通好几轮。Morris 现在用一个能跑的原型把这几样东西合并了——他把原型称作「活的提案文档」，想法直接以可运行的形态摆在所有人面前，不需要再靠图加文字去描述。</p>
+<p><strong>没被替掉的，是真正的生产实现。</strong> 这一点容易被忽略，但 Morris 讲得很明确：原型是<strong>用完即弃</strong>的。它的使命是把设计讲清楚、验证对不对，一旦这个目的达到，工程师会在一个单独的功能里重新实现一遍，把原型当参照。换句话说，原型代码本身不进生产，它是一张「能跑的设计稿」，不是最终产品。</p>
+<p>所以这套流程的完整样子是这样的：</p>
+<ul>
+<li><strong>写清楚问题</strong>：先把要解决的问题和提案描述出来；</li>
+<li><strong>起原型</strong>：打开编辑器、起本地服务，把描述喂给 Claude，先让基本功能能跑；</li>
+<li><strong>住进去调</strong>：自己反复用，想改就改，免费无限次迭代；</li>
+<li><strong>给真人试</strong>：推到开发环境，让真实用户用一用、提反馈；</li>
+<li><strong>交付实现</strong>：最终由工程师照着原型实现一个和设计意图严丝合缝的生产版本。</li>
+</ul>
+<p>还有一段是这套方法明显不擅长、Figma 依然更强的——<strong>搭设计系统、统一规范、批量出图</strong>。HN 上有评论者一针见血地指出，对于要在多个产品之间维护一致设计语言的团队来说，「Figma 才是那个唯一可信的源头」。一个个写出来的代码原型各管各的，没法替代一套集中维护的组件库和设计规范。这不是谁高谁低，而是两条路各管一段。</p>
+<h2>争议在争什么：会跑的原型，会不会绑架设计判断</h2>
+<p>如果只是「换了个画原型的工具」，这篇文章不会在 HN 上吵到两百多条评论。真正让人坐不住的，是 Morris 自己也坦承的两个隐忧——而这恰恰是这篇文章最值得认真读的地方。</p>
+<p><strong>第一个隐忧：一个看着像成品的原型，太容易被当成已经敲定的方案。</strong> Morris 说，当原型做得足够完整，评审的人就很容易从「设计协作者」滑成单纯的「代码评审者」——大家不再讨论「这个设计该不该这么做」，而是默认它已经定了，只挑代码上的毛病。一份还在征求意见的提案，因为长得太像成品，反而堵住了「我们要不要换个方向」这类更根本的讨论。这就是他强调「原型是活的提案文档，代码是用完即弃的」的原因——他在反复提醒自己和团队别把原型当结论。</p>
+<p><strong>第二个隐忧更微妙，关乎创作状态。</strong> Morris 的原话是，用 Claude 做设计会让他「困在一种迭代的心态里，出不来那种流动的、创造性的心态，被局限在我以为 Claude 能做出来的那些结果里」。这句话值得多品一下：当你习惯了「描述需求—模型生成—微调」这个循环，你想要的东西会不知不觉被「模型大概能做出什么」给框住。你不再先海阔天空地想「最好的方案长什么样」，而是先盘算「怎么描述模型才能给我」。</p>
+<p>HN 上的讨论基本就沿着这两条隐忧展开，正反两面都讲得在理。</p>
+<p>支持的一方，很多是被「快」和「真实」说服的。有评论者说，<strong>人往往更擅长说「我不想要什么」，而不是凭空想清楚「我想要什么」</strong>——快速做出能用的原型，正好能把这种「看到了才知道不对」的判断逼出来。还有从事工程的评论者补了一刀，说很多被随手写出来的原型，其实比大家以为的更接近能上线的状态，工程师有时候低估了「直接把它放进生产」的可能性。</p>
+<p>质疑的一方，担心的是更长远的东西。有评论者说得很重：<strong>「我们在这条路上弄丢了一些东西——思考，被外包给了一个语言模型。」</strong> 他的意思是，过去手动做设计时，那些卡壳、那些必须停下来想清楚的地方，恰恰逼着你把问题想透；模型太顺滑了，反而把这些「该卡一下」的地方悄悄抹平了。</p>
+<p>还有一位做前端的评论者讲了个很实在的麻烦：当原型代码混着「设计意图」和模型随手生成的部分，接手的工程师要多花一层心思去分辨——<strong>哪些改动是设计师真想要的，哪些只是模型顺手写的</strong>。这层额外的辨认成本，在交付时是真实存在的摩擦。</p>
+<p>也有人提出一个更根本的区分：这篇文章其实把「设计」和「快速做原型」当成一回事了，但两者并不完全等同。模型在处理视觉和空间布局这类问题上，能力还相当有限；它擅长的是把一个已经想清楚的交互快速变成能跑的东西，而不是替你想清楚「这个界面该长什么样」。</p>
+<p>把这些声音放在一起，争议的核心其实就一句话：<strong>代码原型让「把想法变成真东西」变快了，但「想法本身好不好」这件事，还得设计师自己负责。</strong> 工具能替你画，但替不了你判断。理解到这一层，前面那两个隐忧就不再是要不要用这套方法的理由，而是用的时候要时刻拎清的两根弦。</p>
+<h2>换成国产工具怎么用：国内开发者照着做的可行性</h2>
+<p>讲完这套方法，落到国内读者最实在的问题上：Claude 直连在国内确实不方便，那这套「在代码里做设计」的思路，换成国产工具能不能复刻？</p>
+<p>答案是能，而且拼图其实已经凑齐了。这套方法论本身不依赖某一个特定产品，它依赖的是两类能力：<strong>一个能听懂大白话、直接把界面写成可运行原型的编程助手，加一个能把粗想法快速变成界面的设计工具。</strong> 这两类，国产阵营今天都有成熟的选择。</p>
+<p>先看编程助手这一类。国内主流的 AI 编程工具已经普遍具备「一句话生成可运行原型」的能力：</p>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>厂商</th>
+<th>与「代码里做设计」相关的能力</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>通义灵码</td>
+<td>阿里云</td>
+<td>Quest 模式能理解整个项目，把复杂需求拆成多个子步骤，由多个子智能体分别执行</td>
+</tr>
+<tr>
+<td>Trae</td>
+<td>字节跳动</td>
+<td>国内较早的 AI 原生编辑器，SOLO 智能体可自主完成需求拆解到编码，Builder 模式一句话起项目框架</td>
+</tr>
+<tr>
+<td>CodeBuddy</td>
+<td>腾讯云</td>
+<td>Craft 智能体模式能听懂自然语言需求，自动生成并部署全栈应用</td>
+</tr>
+<tr>
+<td>文心快码（Comate）</td>
+<td>百度</td>
+<td>在 Figma 转代码这类前端还原场景上有专门支持</td>
+</tr>
+<tr>
+<td>CodeGeeX</td>
+<td>智谱</td>
+<td>免费可用，适合配合主力工具做轻量原型</td>
+</tr>
+</tbody></table>
+<p>这几家的共同点是：你可以像 Morris 用 Claude Code 那样，把一句需求描述喂进去，让它先把能跑的界面搭起来，再一版版调。流程是一样的，换的只是引擎。</p>
+<p>再看设计工具这一类。国产 AI 设计工具这两年进展很快，已经能承接「从粗想法到界面」这一段：</p>
+<ul>
+<li><strong>MasterGo（莫高设计）</strong>：火山引擎旗下的产品，它的 AI 能依据文字描述生成 UI 设计图和交互原型，还推出了能基于团队已有设计规范做「文生 UI」的设计智能体，正好补上前面说的「搭设计系统、统一规范」那一段——这恰恰是纯代码原型最不擅长的部分；</li>
+<li><strong>Motiff（妙多）</strong>：支持用 AI 获取设计灵感、在云端协作、创建高保真原型；</li>
+<li><strong>即梦、即时设计</strong> 等工具：也在往「文字描述直接出界面」的方向走。</li>
+</ul>
+<p>把两类工具拼起来，国内开发者完全可以走一条本地化的同款路线：<strong>用国产编程助手把交互原型写成能跑的东西、住进去反复调，用国产设计工具守住设计系统和规范这一头。</strong> 一个管「快速试」，一个管「成体系」，分工和 Morris 那套是一致的。</p>
+<p>更值得高兴的是，国内这条路还有一个先天的便利——这些工具大多对国内网络友好、中文场景适配到位，不用为直连发愁。Morris 在博客里反复打磨的那些细节（按钮怎么改、文案怎么措辞、提示词怎么写），国内开发者用中文描述去调，沟通成本只会更低。</p>
+<h2>结尾：工具替你画，但替不了你判断</h2>
+<p>回到开头那句话：<strong>代码原型替掉的是「画稿」这个动作，不是设计判断本身。</strong></p>
+<p>Morris 这篇文章之所以值得国内做产品、做设计、写代码的人认真看一眼，不是因为它宣布了「Figma 要被取代」——它没有，Figma 在搭设计系统这一头依然牢靠。它的价值在于，诚实地把一套正在发生的工作流变化讲清楚了：当「把想法变成能跑的真东西」的成本被压到接近于零，设计这件事的重心，正在从「画得多准」往「想得多清楚」挪。</p>
+<p>他坦承的那两个隐忧——别把原型当结论、别让模型框住你的想象——不是劝你别用，而是提醒你用的时候手别松。工具越顺手，越要守住那个只有人能负责的部分：这个东西到底该不该这么做。</p>
+<p>对国内开发者来说，这是个挺好的时间点。趁手的国产编程助手和设计工具都已经备齐，这套方法不需要等任何条件成熟，今天就能上手试。前辈把路趟出来了，工具也摆在面前，剩下的就是动手把自己的想法变成能点能跑的东西——然后在一次次试错里，把那个「该长什么样」的判断，练得越来越准。一起加油。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>实测 Agent 编程的 token 烧在哪：六成花在反复改 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-08</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-08</span><span class="tag-pill">Daily Report</span></div>
+      <h1>实测 Agent 编程的 token 烧在哪：六成花在反复改</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/agent-coding-token-cost-breakdown-2026-06-08.png" alt="黏土定格风格的开发者工作室：一个开发者在桌前写代码只攒了一小堆金币，旁边两个机器人在放大镜代码评审台前把代码传来传去，脚下堆着一大堆金币，象征 Agent 编程的钱主要烧在反复精修验证而非第一次生成"></p>
+<p>如果让你猜，一套多 agent 系统从头帮你写一个程序，钱主要花在哪个环节，你大概会说「写代码那一步」。</p>
+<p>加拿大康考迪亚大学（Concordia University）的四位研究者做了一次实测，答案恰好相反。他们用 GPT-5 推理模型驱动一个叫 ChatDev 的多 agent 框架，跑完 30 个真实开发任务，把每一次模型调用消耗的 token 全部记下来。结论是这样的：<strong>第一次写代码只占总 token 的 8.6%，而代码评审——也就是两个 agent 反复把代码传来传去精修的那一步——平均吃掉了 59.4%。</strong></p>
+<p>这篇论文叫《Tokenomics: Quantifying Where Tokens Are Used in Agentic Software Engineering》，1 月 20 日挂到 arXiv，最近在 Hacker News 上引起了不少讨论。它的价值不在于某个惊人的数字，而在于它给了开发者一张「成本地图」——<strong>多 agent 编程贵，不贵在让模型生成代码，而贵在让一群 agent 反复商量着改代码、验代码。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/agent-coding-token-cost-breakdown-2026-06-08-source-arxiv-abstract.png" alt="arXiv 论文首页：标题 Tokenomics，作者 Mohamad Salim 等四人，来自康考迪亚大学，摘要点明研究多 agent 系统在软件开发全流程中的 token 消耗分布"></p>
+<p><em>来源：arXiv:2601.14470 论文首页，2026 年 1 月 20 日提交，收录于 MSR &#39;26（软件仓库挖掘会议）</em></p>
+<p>这件事为什么对国内开发者格外要紧？因为国内跑多 agent 最大的痛点就是费用。MetaGPT、通义、DeepSeek 这些框架和模型大家都在用，多个 agent 你来我往一轮下来，token 账单涨得飞快。论文这套记账方法不挑框架，谁都能套上去，先看清自己的钱烧在哪一格，才谈得上省。</p>
+<p>下面分三步说清楚：这套实测怎么做的、各阶段的 token 到底怎么分布、国内读者能怎么用。</p>
+<h2>一、这套记账方法是怎么做的</h2>
+<p>先把实验设置摆清楚，因为论文所有数字都建立在这套设置上，看懂它才知道这些数字能推广到哪、不能推广到哪。</p>
+<p>研究用的三个核心选择：</p>
+<ul>
+<li><strong>框架选 ChatDev。</strong> 这是一个模拟「虚拟软件公司」的多 agent 框架——产品经理、架构师、程序员、测试员都由各自的 GPT agent 扮演，通过多轮对话协作走完整个开发流程。论文选它，是因为它的「对话链」是清晰的瀑布式结构（设计 → 编码 → 测试），各阶段界限分明，方便把内部环节对应到通用的开发阶段。</li>
+<li><strong>模型选 GPT-5 推理模型。</strong> 具体版本是 gpt-5-2025-08-07，上下文窗口 40 万 token，最大输出 12.8 万 token，温度参数固定为 1.0（这个模型不支持调温度）。所有 agent 都用这一个模型当大脑。</li>
+<li><strong>任务选 30 个。</strong> 题目来自 ProgramDev 数据集，从简单的斐波那契数列生成，到复杂一点的国际象棋游戏都有，难度有梯度。论文用「模型分配的推理 token 数」当任务复杂度的代理指标，这 30 个任务的推理 token 从 17,280 到 40,000 不等，说明难度分布足够散。</li>
+</ul>
+<p>记账的关键一步，是把 ChatDev 内部那些框架专属的环节，映射到所有人都认识的六个通用开发阶段。这一步是论文的方法论核心——映射做完，结论就能推广到别的框架。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/agent-coding-token-cost-breakdown-2026-06-08-source-arxiv-fig2.png" alt="arXiv 论文 Table 2：把 ChatDev 内部环节映射到六个通用开发阶段，设计对应需求分析与选语言，编码对应写源码，评审对应程序员与评审 agent 的迭代对话"></p>
+<p><em>来源：arXiv:2601.14470 Figure 2，各阶段平均 token 占比，误差棒为 ±1 个标准差</em></p>
+<p>六个阶段是这么对应的：</p>
+<table>
+<thead>
+<tr>
+<th>开发阶段</th>
+<th>这一步在干什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>设计 Design</td>
+<td>理解需求、做高层技术决策（选什么语言、什么架构）</td>
+</tr>
+<tr>
+<td>编写代码 Coding</td>
+<td>第一次写出源代码</td>
+</tr>
+<tr>
+<td>代码补全 Code Completion</td>
+<td>补上前一步留下的占位符或没写完的文件</td>
+</tr>
+<tr>
+<td>代码评审 Code Review</td>
+<td>程序员 agent 和评审 agent 反复对话，审查并修改代码</td>
+</tr>
+<tr>
+<td>测试 Testing</td>
+<td>动态跑起来，找可执行的 bug 并修</td>
+</tr>
+<tr>
+<td>文档 Documentation</td>
+<td>生成用户手册、说明环境依赖</td>
+</tr>
+</tbody></table>
+<p>记下来的每一次模型调用，都拆成输入、输出、推理三类 token 分别统计，再按 30 个任务汇总。<strong>整套方法的好处是它不报告「这个程序花了多少钱」，而是报告「钱按比例怎么分」</strong>——比例不挑模型也不挑题目，换成别的框架、别的模型，方法照样能用。</p>
+<h2>二、各阶段的 token 分布说明了什么</h2>
+<p>这是全文的核心。论文有三个发现，一个比一个值得国内做多 agent 的人记住。</p>
+<h3>发现一：代码评审一家独大，占去近六成</h3>
+<p>把六个阶段的 token 占比画出来，分布极不均匀。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/agent-coding-token-cost-breakdown-2026-06-08-chart-phase-share.png" alt="自制趋势示意图：六个开发阶段占总 token 的平均份额，代码评审 59.4% 一骑绝尘，代码补全 26.8%、文档 20.1%、测试 10.3%、编写代码 8.6%、设计 2.4%"></p>
+<p>逐项看（占该任务总 token 的平均份额）：</p>
+<ul>
+<li><strong>代码评审 59.4%</strong>——最大头，30 个任务全部触发；</li>
+<li><strong>代码补全 26.8%</strong>——也很贵，但只在 30 个任务里的 6 个触发；</li>
+<li><strong>文档 20.1%</strong>——生成手册和依赖说明；</li>
+<li><strong>测试 10.3%</strong>——30 个里有 12 个触发；</li>
+<li><strong>编写代码 8.6%</strong>——第一次生成源代码，意外地便宜；</li>
+<li><strong>设计 2.4%</strong>——最省，理解需求加选技术栈。</li>
+</ul>
+<p>注意一个细节：图里每个阶段标了 n 值，因为多 agent 系统会自己决定要不要跑某个阶段，不是每个任务都走全六步。代码补全只在 6 个任务里出现，测试只在 12 个里出现——所以这两项的占比是「在它真发生的那些任务里」算的。</p>
+<p><strong>这一发现把直觉彻底翻了过来：Agent 编程的主要成本，不在第一次生成代码，而在事后那个反复商量、反复改的精修验证过程。</strong></p>
+<h3>发现二：六成 token 花在「读」，不是「写」</h3>
+<p>第二个发现关于 token 的类型。论文把每次调用拆成输入、输出、推理三类，结果是除了「编写代码」这一个阶段，其他所有阶段都呈现同一个规律：<strong>输入 token 远远超过输出和推理 token。</strong></p>
+<p>平均到每个任务，整体的 token 构成是：</p>
+<ul>
+<li><strong>输入 token 53.9%</strong></li>
+<li><strong>输出 token 24.4%</strong></li>
+<li><strong>推理 token 21.6%</strong></li>
+</ul>
+<p>输入对输出大约 2:1。论文把这个现象叫「沟通税」（communication tax，这个概念来自更早的 AGENTTAXO 研究）——agent 之间反复传递大段上下文，每传一次，上文都要重新作为输入喂给模型读一遍。换句话说，<strong>大部分 token 不是花在生成新东西上，而是花在反复「读」彼此已经说过的话。</strong></p>
+<p>这正好解释了发现一：代码评审之所以贵，就是因为两个 agent 一轮轮把完整的代码上下文传来传去，每一轮都得把整份代码当输入重新读进去。论文给它起了个很贴切的名字——<strong>「对话的成本」（Cost of Conversation）。</strong></p>
+<h3>发现三：每个阶段的 token 画像不一样</h3>
+<p>第三个发现更细，论文按阶段拆了输入/输出/推理的比例，发现不同开发活动的 token 画像差别很大。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/08/agent-coding-token-cost-breakdown-2026-06-08-chart-token-type.png" alt="自制趋势示意图：各阶段输入/输出/推理三类 token 占比的堆叠图，编写代码阶段输出占 58% 是唯一的异类，评审和文档则是输入主导"></p>
+<p>完整数据（每个阶段内 输入 / 输出 / 推理 的占比）：</p>
+<table>
+<thead>
+<tr>
+<th>开发阶段</th>
+<th>输入 %</th>
+<th>输出 %</th>
+<th>推理 %</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>设计</td>
+<td>60.4</td>
+<td>3.6</td>
+<td>36.0</td>
+</tr>
+<tr>
+<td>编写代码</td>
+<td>6.9</td>
+<td>58.0</td>
+<td>35.1</td>
+</tr>
+<tr>
+<td>代码补全</td>
+<td>47.7</td>
+<td>41.7</td>
+<td>10.5</td>
+</tr>
+<tr>
+<td>代码评审</td>
+<td>51.4</td>
+<td>24.7</td>
+<td>23.9</td>
+</tr>
+<tr>
+<td>测试</td>
+<td>60.8</td>
+<td>20.7</td>
+<td>18.4</td>
+</tr>
+<tr>
+<td>文档</td>
+<td>80.2</td>
+<td>8.3</td>
+<td>11.5</td>
+</tr>
+<tr>
+<td>总体（每任务）</td>
+<td>53.9</td>
+<td>24.4</td>
+<td>21.6</td>
+</tr>
+</tbody></table>
+<p>看几个有意思的点：</p>
+<ul>
+<li><strong>编写代码是唯一的异类</strong>——输出占 58%、输入只占 6.9%。这很合理：它是从一份简短的设计说明里生成一大段冗长的源代码，自然是「写」多于「读」。</li>
+<li><strong>代码评审和文档是典型的「读」密集型</strong>——评审输入占 51.4%，文档输入更是高达 80.2%。这两步都要把大量已有代码当上下文吞进去，产出却是小段的分析性结论。</li>
+<li><strong>设计阶段推理占比最高</strong>——36.0%，因为它是在做高层决策，思考多于读写。</li>
+</ul>
+<p>论文把这套画像称为不同工程活动的「成本地图」。它的实用价值是：<strong>你大概能根据项目的工作类型，预判它的成本结构。</strong> 一个从零开始、写代码为主的新项目，和一个改老代码、调 bug 为主的项目，token 账单的形状完全不同——后者会被昂贵的、输入密集的评审循环主导。</p>
+<h2>三、国内读者能怎么用这套账</h2>
+<p>论文是拿 ChatDev 加 GPT-5 跑的，但它反复强调，方法本身不挑框架。论文讨论部分就直接点了 MetaGPT 的名——把 ChatDev 这种「层级式对话」工作流，和 MetaGPT 那种「标准作业流程式流水线」工作流放在一起比效率，正是作者建议的下一步研究方向。</p>
+<p>对国内开发者来说，这套账能落到几件具体的事上。</p>
+<h3>先给自己的多 agent 流程做一次 token 记账</h3>
+<p>论文最可复现的部分，是这套记账动作本身。无论你在用 MetaGPT、通义的 agent 编排，还是拿 DeepSeek 的接口自己拼多 agent，都可以照着做：</p>
+<ul>
+<li><strong>给每一次模型调用打日志</strong>，记下它属于哪个环节（设计/编码/评审/测试），以及输入、输出 token 数各是多少；</li>
+<li><strong>按环节汇总</strong>，算出每个环节占总 token 的比例；</li>
+<li><strong>找出你自己的那个「代码评审」</strong>——也就是吃掉最大份额、且大头在输入侧的那个环节。</li>
+</ul>
+<p>国内主流模型的接口都按输入、输出 token 分别计价，且大多输入比输出便宜，账单本身就把两类 token 分开列了。把它和环节对上，你的成本地图就出来了。</p>
+<h3>把钱花在刀刃上：盯住输入密集的循环</h3>
+<p>既然大头是「沟通税」、是反复传递上下文，那省钱的方向就清楚了：</p>
+<ul>
+<li><strong>给评审循环设一个人工检查点。</strong> 论文明确建议，在进入昂贵的代码评审阶段之前，插一个「人在环」的检查点，先由人把明显的问题挑掉，避免 agent 陷进代价高昂的反复修改循环。这一条对国内团队尤其实在——一次人工扫一眼，可能省下后面一长串 agent 对话。</li>
+<li><strong>善用上下文缓存。</strong> 评审阶段每轮都把整份代码当输入重读，正是缓存能发挥作用的地方。国内主流模型接口大多支持对重复的输入 token 走缓存折扣，命中缓存的部分价格会明显低于首次读取——评审这种反复读同一份代码的场景，恰好最吃这个红利。</li>
+<li><strong>按项目类型预判预算。</strong> 写新代码为主的项目，成本压在输出侧；改存量代码为主的项目，成本压在输入密集的评审侧。接活、报价、配额度之前，先判断手头是哪一类，心里就有谱。</li>
+</ul>
+<h3>把它当成选型和优化的参照</h3>
+<p>论文给研究者留了一个清晰的课题：设计更省 token 的协作协议，别再傻乎乎地每轮都把完整上下文整个传一遍。这件事国内同样在发生——大家都在想办法让多个 agent 之间少传点废话、多传点要紧的。这篇论文的意义，是把「该优化哪里」用数字标了出来：<strong>先优化评审环节的上下文传递，回报最大。</strong></p>
+<h2>写在最后</h2>
+<p>这篇论文规模不大，作者自己也老实标了局限：只测了 ChatDev 一个框架、GPT-5 一个模型、30 个任务，代码补全和测试两个阶段只在小部分任务里触发，样本有限。这些都不影响它最核心的那句判断站得住——</p>
+<p><strong>Agent 编程的钱，不是花在让模型把代码写出来，而是花在让一群 agent 反复商量着把代码改对。</strong></p>
+<p>对天天在跟 token 账单打交道的国内开发者，这是个挺好的消息。它意味着省钱不靠玄学：先给自己的多 agent 流程做一次诚实的记账，找到那个吞掉六成 token 的评审循环，在它前面放一道人工检查、给它配上上下文缓存，账单就能实打实地降下来。</p>
+<p>更让人踏实的是，国内做多 agent 的基础设施已经相当齐全——框架有 MetaGPT 这样成熟的开源选择，模型有通义、DeepSeek 这些按 token 精细计价、还带缓存折扣的接口。趁手的工具都在手边，剩下的就是把这套账认真算一遍。看清楚钱烧在哪，才谈得上把每一分都花在该花的地方。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
