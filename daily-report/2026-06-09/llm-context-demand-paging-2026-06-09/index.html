@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>上下文窗口被当成虚拟内存来管：vLLM 分页之后，海外推理圈在补缺页调度这一层 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-09</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-09</span><span class="tag-pill">Daily Report</span></div>
+      <h1>上下文窗口被当成虚拟内存来管：vLLM 分页之后，海外推理圈在补缺页调度这一层</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/llm-context-demand-paging-2026-06-09.png" alt="封面：把 LLM 上下文窗口画成一台机器的内存层级，L1 是发光的小窗口，往下逐级是分页内存、压缩归档、跨会话长存"></p>
+<p>有一篇 3 月挂上 arXiv 的论文，开头第一句话很冲：「大模型的上下文窗口不是内存，它是 L1 缓存。」</p>
+<p>这句话不是修辞。作者 Tony Mason 真的拿操作系统那套内存管理的术语，去对照今天一个 agent 在多轮长任务里的上下文，然后得出一个让人有点不安的结论：我们现在管上下文的方式，相当于一台只有 L1 缓存、没有二级缓存、没有虚拟内存、没有缺页调度的电脑。东西塞满了，就只能往外扔，扔错了就得从头再算一遍。</p>
+<p>过去两年，海外推理系统圈一直在补这一层。从 2023 年 vLLM 把 KV cache 当分页内存管，到今年缺页调度、按注意力头解析式压缩、神经网络压缩 KV 缓存接连冒出来，一条线越来越清楚：<strong>上下文管理正在从「一招省显存的技巧」，长成「一整套内存层级加缺页调度的系统范式」。</strong> 这件事对每天用 Claude Code、用 vLLM 或 SGLang 跑 agent 的人，不是论文里的远景，而是直接关系到长任务跑得起跑不起、跑一轮要花多少钱。</p>
+<p>这篇就把这条线从头讲清楚：它怎么来的、解决 agent 长任务的什么真实痛点、国内开发者现在用 vLLM / SGLang 能吃到哪些、哪些还停在论文阶段。</p>
+<blockquote>
+<p>说明：本文聚焦推理系统这一层——也就是 KV cache 怎么存、怎么换、怎么压。它和「模型自己的注意力架构怎么设计（稀疏注意力那一路）」是两回事，前者改的是推理引擎，后者改的是模型本身，本文不碰后者。</p>
+</blockquote>
+<h2>先看一组数字：上下文里到底有多少是白占的</h2>
+<p>把所有论点摊开之前，先把几个被反复引用的数字摆出来，它们是这套范式存在的理由。</p>
+<table>
+<thead>
+<tr>
+<th>来源</th>
+<th>关键数字</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PagedAttention（vLLM，2023）</td>
+<td>旧式系统浪费 KV cache 显存的 60%–80%</td>
+<td>连续显存分配导致的碎片，vLLM 把这块压到 4% 以下</td>
+</tr>
+<tr>
+<td>Demand Paging 论文（2026-03）</td>
+<td>857 个生产会话里有 21.8% 是结构性浪费</td>
+<td>上下文里塞着用不到、却占着位置的内容</td>
+</tr>
+<tr>
+<td>Baseten STILL（2026）</td>
+<td>128k token 上下文在部分开源模型里要占数百 GB 状态</td>
+<td>而且每生成一个 token 都要把这数百 GB 全过一遍</td>
+</tr>
+<tr>
+<td>Attention Matching（2026-02）</td>
+<td>在部分数据集上做到 50 倍压缩、耗时以秒计</td>
+<td>按每个注意力头解析式构造紧凑的 K 和 V</td>
+</tr>
+</tbody></table>
+<p>这四个数字串起来其实是一个故事：上下文不光贵，而且贵得很冤。冤在两处——一处是显存被碎片白占（PagedAttention 解决的），一处是内容本身有大半用不上却还占着窗口（缺页调度和压缩要解决的）。下面就顺着这两处往下拆。</p>
+<h2>第一处冤：显存碎片，vLLM 七年前就动手了</h2>
+<p>要理解今天这套范式，得先回到 KV cache 是什么。</p>
+<p>大模型生成文字是一个 token 一个 token 往外吐的。每吐一个，都要回头看前面所有 token 算出来的 Key 和 Value 向量——这堆向量缓存下来，就是 KV cache。不缓存的话每步都要重算前文，慢到没法用；缓存了，它就成了显存里最占地方的一坨东西。</p>
+<p>问题出在怎么给它分显存。2023 年之前的主流做法，是给每个请求<strong>预留一整块连续显存</strong>，按这个请求可能用到的最大长度来留。这就像给每位客人都按「万一他要点满整桌」来订包厢——绝大多数请求根本用不到那么长，预留的显存就那么空着，谁也不能用。vLLM 那篇拿到 SOSP 2023 最佳论文的工作给出的测算是：旧式系统里 <strong>60% 到 80% 的 KV cache 显存是被白白浪费掉的</strong>。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/llm-context-demand-paging-2026-06-09-img1.png" alt="PagedAttention 示意：左边是旧式连续显存分配，大片留白；右边把 KV cache 切成固定大小的页，非连续存放，再用页表映射回逻辑位置"></p>
+<p>vLLM 的解法，名字就叫 PagedAttention，思路直接借自操作系统的虚拟内存分页：<strong>不再要求一个请求的 KV cache 连续摆放，而是切成固定大小的「页」，哪里有空往哪儿放，再用一张「页表」记录逻辑位置到物理页的映射。</strong> 操作系统几十年前就是这么治内存碎片的，vLLM 把它搬到了显存上。效果是显存浪费从 60%–80% 压到 4% 以下，同样延迟下吞吐提升到原来的 2 到 4 倍。</p>
+<p>这一步的意义，今天回头看已经不只是「省了点显存」。它真正立住的是一个隐喻：<strong>KV cache 可以、而且应该被当成一种带分页机制的内存来管。</strong> 这个隐喻一旦成立，后面所有事情就顺理成章了——既然是分页内存，那操作系统里关于内存的其他那套东西，缺页、换页、工作集、多级缓存，凭什么不能也搬过来？</p>
+<p>到 2026 年的今天，PagedAttention 已经不是什么前沿技巧，而是生产推理栈的默认底座。这是国内开发者第一件「现在就能吃到」的红利——只要你在用 vLLM，分页这层是默认开着的，不用配置、不用调参。</p>
+<h2>第二处冤：内容白占，缺页调度补上了 OS 那套的下半场</h2>
+<p>分页解决了显存碎片，但没解决另一件事：<strong>上下文窗口里那些内容，本身就有一大半是用不上的。</strong></p>
+<p>这正是 3 月那篇《The Missing Memory Hierarchy》盯上的地方。作者干了一件很实在的事——不是空谈理论，而是去扒了 857 个真实生产会话、合计 445 万有效输入 token，然后量出来：这些上下文里有 <strong>21.8% 是结构性浪费</strong>。所谓结构性浪费，就是那些塞在窗口里、当前这一步生成根本不会去看、却实实在在占着位置、还得花钱的内容。</p>
+<p>一个 agent 跑多轮长任务时，这种浪费几乎是必然的。它前面探过的几条死路、读过又用不上的文件、早就过期的中间结论，全堆在上下文里。窗口满了就得往外扔，扔的时候又没有章法——扔早了，等下要用又得重新塞进来从头算（这在操作系统里就叫一次「缺页」）；扔晚了，白占着位置花着钱。</p>
+<p>论文的解法叫 Pichay，做成一个夹在客户端和推理接口之间的透明代理。透明的意思是，你的应用代码一行都不用改，它在中间替你管上下文。它干三件事，全是操作系统课本里的老概念：</p>
+<ul>
+<li><strong>驱逐过期内容</strong>：把当前用不到的内容请出窗口；</li>
+<li><strong>侦测缺页</strong>：被请出去的内容又要用了，识别出这次「缺页」，把它取回来；</li>
+<li><strong>钉住工作集</strong>：把高频访问的那批内容钉在窗口里不动，这就是操作系统里的「工作集」概念。</li>
+</ul>
+<p>效果有两个数字值得记：在 140 万次模拟驱逐的离线回放里，缺页率只有 <strong>0.0254%</strong>——也就是说它扔出去的东西，几乎都是真用不上的，扔错回头重取的情况万里挑一。而在真实生产部署里，一段 681 轮的长会话，上下文占用从 5038KB 一路压到 339KB，<strong>最高省下 93%</strong>。</p>
+<p>省 93% 是相对什么？是相对「什么都不管、全堆在窗口里」的朴素做法。对一个要连续跑几百轮的 agent 来说，这个差距直接决定了它能不能在固定的窗口预算里把任务跑完，以及每跑一轮 API 账单是多少。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/llm-context-demand-paging-2026-06-09-img2.png" alt="四级内存层级示意：L1 当前生成窗口（最小最快最贵）→ L2 工作集（按需分页+钉住）→ L3 会话历史（压缩，明示有损）→ L4 跨会话长存（建索引可检索）"></p>
+<p>这篇论文真正补全的，是那个内存层级的完整形状。它提出上下文该分成四层来管：</p>
+<table>
+<thead>
+<tr>
+<th>层级</th>
+<th>对应什么</th>
+<th>在 agent 里是什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>L1 当前生成窗口</td>
+<td>CPU 的 L1 缓存，最小、最快、最贵</td>
+<td>这一步真正要喂给模型的内容</td>
+</tr>
+<tr>
+<td>L2 工作集</td>
+<td>按需分页 + 钉住</td>
+<td>近期高频访问、值得留在手边的内容</td>
+</tr>
+<tr>
+<td>L3 会话历史</td>
+<td>压缩存放，明示是有损的</td>
+<td>由模型自己发起的对话压缩归档</td>
+</tr>
+<tr>
+<td>L4 跨会话长存</td>
+<td>建好索引、可检索</td>
+<td>跨会话的持久记忆，作者自己也说这是下一道难关</td>
+</tr>
+</tbody></table>
+<p>把这张表和前面 vLLM 那一步并排看，整件事就清楚了：vLLM 把 L1 这一层的显存管好了，而缺页调度这一路，是在往下补 L2、L3、L4——补的正是操作系统内存层级里 vLLM 没碰的下半场。</p>
+<h2>第三条线：与其换页，不如把页压小——神经网络上场</h2>
+<p>缺页调度是在「该留谁该扔谁」上做文章。还有一条平行的线在想另一件事：<strong>与其纠结扔谁，不如把每一页本身压小。</strong></p>
+<p>这条线今年有两个代表性工作，都很硬核，方向却不一样。</p>
+<p>一个是 2 月挂出来的 Attention Matching（作者 Adam Zweiger、Xinghong Fu、Han Guo、Yoon Kim）。它的角度很「数学」：既然 KV cache 存在的意义是为了算注意力，那压缩它的「正确目标」就该是——压完之后，每个注意力头算出来的结果尽量和压之前一样。于是它<strong>按每一个注意力头，去构造一组紧凑的 K 和 V，让注意力输出和注意力质量在这个头上都尽量保住</strong>。这个目标能拆成一串小的子问题，其中一些还有解析的闭式解，所以算得快。论文给的结果是：在部分数据集上做到 50 倍压缩，耗时以秒计，质量损失很小。作者 Zweiger 自己的说法是，这「在某种意义上是做隐空间上下文压缩的正确目标，因为它直接对准了压缩后保住每个注意力头的行为」。</p>
+<p>另一个是推理服务商 Baseten 的研究，代号 STILL，走的是另一条路：<strong>训练一个小神经网络专门来压。</strong> 他们做了一个约 700 万参数（每层 ~7M，只占基座模型的 0.18%）的 perceiver，在 Qwen3-4B 上把 8192 个 token 的上下文压成 1024 个隐向量——8 倍压缩，保住 85% 以上的事实准确率。最关键的卖点是快：<strong>一次前向就压完，耗时以毫秒计。</strong></p>
+<p>这个「一次前向」是有讲究的。Baseten 自己把三种方法摆在一起比，差别全在时间成本上：</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>压缩方式</th>
+<th>每段上下文耗时</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Cartridges</td>
+<td>端到端梯度优化</td>
+<td>数秒到数分钟、乃至数小时</td>
+</tr>
+<tr>
+<td>Attention Matching</td>
+<td>按注意力头解析式求解</td>
+<td>以秒计</td>
+</tr>
+<tr>
+<td>Baseten STILL</td>
+<td>训好的小网络一次前向</td>
+<td>以毫秒计</td>
+</tr>
+</tbody></table>
+<p>为什么这个时间这么要紧？因为它决定了压缩能不能放进在线服务的关键路径上。Cartridges 那种质量很好但要算几分钟的，只适合离线把一份固定文档（比如一份产品手册）预先压成「弹药」、反复复用；而毫秒级的，理论上能在一次对话进行中实时压缩。Baseten 把这件事说得更远——他们把这个能压缩的中间记忆层，看成模型「从经验里学习」的前置条件：先有了可压缩的工作记忆，才谈得上后面让模型学会自己管理上下文、再往后把记忆固化进权重。这一步是真实做出来了的，后两步还是他们画的方向。</p>
+<blockquote>
+<p>一个需要标清楚的存疑点：有海外媒体报道 Attention Matching 配合常规文本摘要能叠到 200 倍压缩，但这个数字没有出现在论文摘要里，本文不把它当作论文结论，只记 50 倍这个有据可查的值。</p>
+</blockquote>
+<h2>把三条线并到一张表：上下文管理的范式演进</h2>
+<p>到这里，三条线都铺开了。把它们按时间和层级并到一张表，这套范式的形状就完整了。</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>代表工作</th>
+<th>借的是 OS 哪个概念</th>
+<th>解决的冤</th>
+<th>现在是什么状态</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>分页</td>
+<td>PagedAttention（vLLM，2023）</td>
+<td>虚拟内存分页</td>
+<td>显存碎片（白占 60%–80%）</td>
+<td>生产默认，vLLM / SGLang 都内置</td>
+</tr>
+<tr>
+<td>复用</td>
+<td>RadixAttention（SGLang）、自动前缀缓存（vLLM）</td>
+<td>缓存命中复用</td>
+<td>相同前缀重复算</td>
+<td>生产默认，命中即省</td>
+</tr>
+<tr>
+<td>缺页调度</td>
+<td>Demand Paging / Pichay（2026）</td>
+<td>缺页、工作集、换页</td>
+<td>内容白占（结构性浪费 21.8%）</td>
+<td>论文 + 原型，未进主流引擎</td>
+</tr>
+<tr>
+<td>压缩</td>
+<td>Attention Matching、Baseten STILL（2026）</td>
+<td>把页本身压小</td>
+<td>长上下文状态太大</td>
+<td>论文 / 研究，部分可离线用</td>
+</tr>
+</tbody></table>
+<p>这张表里有一栏「复用」前面没单独讲，但它恰恰是国内开发者第二件「现在就能吃到」的红利，值得单拎出来说。</p>
+<h2>国内开发者现在能吃到的：分页和前缀复用，都是默认开的</h2>
+<p>讲了半天论文，落到实处：用 vLLM 或 SGLang 的人，今天能直接享受到这套范式的哪一部分？</p>
+<p>答案是前两层——分页和前缀复用——而且基本是开箱即用、默认开着的。</p>
+<p><strong>分页</strong>前面说过了，PagedAttention 是 vLLM 的底座，SGLang 也内置了同等机制，不用你操心。</p>
+<p><strong>前缀复用</strong>这一层更直接关系到 agent 的成本。它解决的是这样一个场景：你的 agent 每一轮都带着同一段很长的系统提示、同一份工具说明、同一份背景文档去请求模型。如果每轮都把这段相同的前缀从头算一遍，纯属浪费。前缀缓存做的就是把这段算过的前缀 KV cache 存下来，下一轮发现前缀一样，直接复用，跳过重算。</p>
+<ul>
+<li><strong>SGLang 的 RadixAttention</strong>：把所有请求的 KV cache 存进一棵基数树（radix tree），新请求来了自动匹配最长公共前缀、自动复用，整个过程不用你配置。公开的实测里命中率从 50% 到接近 99% 不等，前缀重叠高的负载上能把吞吐拉到数倍。</li>
+<li><strong>vLLM 的自动前缀缓存（APC）</strong>：默认开启，多轮对话、共享系统提示这类场景下，重复前缀只算一次，后续请求直接复用。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/llm-context-demand-paging-2026-06-09-img3.png" alt="前缀缓存示意：三个 agent 请求带着相同的长系统提示+工具说明前缀，第一次算完存进基数树，后两次命中直接复用，只算各自不同的尾部"></p>
+<p>对一个跑多候选路径的 agent 来说，这一层尤其值钱。它经常要从同一个状态出发试好几条分支——这几条分支的前缀完全一样，前缀缓存命中就意味着这段公共前缀只算一次，几条分支分摊。在前缀占比高的负载下，命中能省掉的正是这段重复前缀的计算，命中率越高省得越多。</p>
+<p>所以现状很清楚：<strong>分页和复用，已经是国内能直接用的成熟能力；缺页调度和神经网络压缩，还在论文和原型阶段，离塞进你日常用的推理引擎还有距离。</strong> 知道这条边界在哪，比记住一堆论文名字有用——它告诉你哪些今天就能靠引擎默认配置吃到，哪些还得自己等或者自己造。</p>
+<h2>这套范式为什么对 agent 特别要紧</h2>
+<p>最后回到开头那句话：上下文不是内存，是 L1 缓存。为什么这件事在 agent 时代才被这么认真地对待？</p>
+<p>因为单轮问答其实不太需要这套东西。你问一句、它答一句，上下文用完即弃，谈不上什么内存管理。真正把问题逼出来的是 agent——它要连续跑几十上百轮，要同时在脑子里盘着好几条候选路径，要带着越来越长的历史往前走。这时候上下文窗口就成了一个被反复争用、不断要做取舍的稀缺内存，而「该留谁、该扔谁、扔出去的怎么取回、能不能压小一点多塞点」——这些恰恰就是操作系统几十年来在内存上反复解决的问题。</p>
+<p>海外推理系统圈这两年做的事，本质上是把这套被验证过几十年的内存管理智慧，一层一层搬到大模型上下文上来。它的可贵不在某一个 50 倍、93% 的具体数字，而在它给出了一个清晰的方向：上下文管理不该是每个 agent 框架各自拿胶水临时粘的逻辑，而该沉到推理引擎里，成为一套像操作系统内存管理那样标准、透明、人人默认就能用的能力。</p>
+<p>这条路才走了一半。分页和复用落地了，缺页调度和压缩还在路上。但方向已经很笃定——而且越往后，跑长任务 agent 的门槛就越低，同样一张卡、同样一笔预算，能让 agent 想得更久、走得更远。对每天在跟这些工具打交道的人来说，这是实打实的好消息。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

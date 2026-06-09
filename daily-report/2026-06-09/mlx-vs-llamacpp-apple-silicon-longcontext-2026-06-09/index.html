@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mac 上 MLX：屏显 57 字每秒，长文实测剩 3 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-09</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-09</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Mac 上 MLX：屏显 57 字每秒，长文实测剩 3</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/mlx-vs-llamacpp-apple-silicon-longcontext-2026-06-09.png" alt="一台 Mac 屏幕上速度表指针指向 57，旁边一份厚厚的长文档压上来后指针猛地回落到 3 附近，桌面摆着苹果芯片造型的处理器，整体明亮干净的等距插画风格，传达屏幕速度与真实长文速度的巨大落差"></p>
+<p>如果你在 Mac 上跑过本地大模型，多半听过一个说法：用苹果自家的 MLX 框架，比老牌的 llama.cpp 快好几倍。</p>
+<p>这个说法不算错，但有个很大的前提没人讲清楚。在 M1 Max（64GB）上跑 Qwen3.5-35B-A3B，MLX 屏幕上确实跳着 57 字每秒（tok/s），同条件下 llama.cpp 的 GGUF 版只有 29。可一旦把一份 8500 词元（token）的长文喂进去，你真正等到的速度只剩约 3 字每秒，反而被 llama.cpp 的 6 字每秒反超。<strong>屏幕上那个亮闪闪的速度，是本地 AI 当下最容易被高估的一个数字。</strong></p>
+<p>差距不在模型生成得快不快，而在生成开始之前那一步——首词元处理（prefill）。本文要说清楚的就一件事：<strong>短文用 MLX 没问题，长上下文（长文件、整仓代码）优先 llama.cpp，判断标准不是峰值速度，而是 prefill 要等多久。</strong></p>
+<h2>屏幕速度和真实速度，差在哪一步</h2>
+<p>先看一组 M1 Max（64GB）上的实测，模型 Qwen3.5-35B-A3B，关掉推理模式（thinking off），温度 0.6。MLX 用 4-bit 量化，llama.cpp 用 GGUF 的 Q4_K_M。</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>MLX（4-bit）</th>
+<th>llama.cpp（GGUF Q4_K_M）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>屏幕报告生成速度</td>
+<td>57 字每秒</td>
+<td>29 字每秒</td>
+</tr>
+<tr>
+<td>1500 词元上下文 · 有效速度</td>
+<td>12 字每秒</td>
+<td>16 字每秒</td>
+</tr>
+<tr>
+<td>8500 词元上下文 · 有效速度</td>
+<td>3 字每秒（屏幕仍报 51）</td>
+<td>6 字每秒</td>
+</tr>
+<tr>
+<td>8500 词元 · prefill 耗时</td>
+<td>49.4 秒</td>
+<td>37.8 秒</td>
+</tr>
+</tbody></table>
+<p><em>数据来源：famstack.dev 的 MLX vs GGUF 实测，M1 Max 64GB</em></p>
+<p>这张表里藏着整篇文章的核心。屏幕报告速度 MLX 几乎是 llama.cpp 的两倍，但只要上下文长到 8500 词元，MLX 的有效速度就掉到 3 字每秒，被 llama.cpp 反超。<strong>屏幕上的数字描述的是模型「开口之后」吐字多快，而你真正等待的，是从按下回车到第一个字出现、再到全部说完的总时间。</strong></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/mlx-source-famstack-prefill.png" alt="famstack 的 MLX vs GGUF prefill 实测表"></p>
+<p><em>来源：famstack.dev《57 tok/s on Screen, 3 tok/s in Practice》实测页</em></p>
+<h2>prefill 是什么，为什么它决定长文体验</h2>
+<p>prefill 指的是模型在吐出第一个字之前，先把你输入的整段提示词读一遍、算一遍，建好注意力缓存。输入越长，这一步越久。它不出现在屏幕速度里，却实打实地占用你的等待时间。</p>
+<p>在上面那组 8500 词元的实测里，MLX 的 prefill 是 49.4 秒。整次回答里，**prefill 一项就吃掉了 MLX 总耗时的 94%。**剩下 6% 才是屏幕上那个 51 字每秒在跑。换句话说，你盯着的那个速度表，只描述了你实际等待时间的零头。</p>
+<p>这就解释了短文和长文的反差。短提示词时，prefill 几乎不耗时，MLX 的生成优势能体现出来；长提示词时，prefill 把账全占了，生成快不快几乎不影响最终体验。同一台机器、同一个模型，结论会随输入长度整个翻转。</p>
+<p>值得单独点出来的是中间那档。在 1500 词元这种不算长也不算短的上下文里，MLX 的有效速度是 12 字每秒，llama.cpp 是 16 字每秒——llama.cpp 已经悄悄领先了。也就是说，反超不是非要等到八千词元才发生，prefill 这笔账从输入刚过一千词元就开始悄悄累积。屏幕上 57 对 29 的两倍优势，到了真实使用里，连一千多词元的中等输入都撑不住。</p>
+<p>还有一个细节容易被忽略：MLX 一旦开始吐字，节奏其实很稳，每个字的间隔大约 11 到 12 毫秒，体感顺滑。它的短板不在「吐字这一段」，而完全集中在「开口之前那一段」。这也是为什么屏幕速度会骗人——它只统计了顺滑的吐字段，把前面那段漫长的沉默藏了起来。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/mlx-chart-effective-tps.png" alt="短文与长文下 MLX 报告速度与有效速度的落差"></p>
+<p>再把这次回答的总耗时拆开看。下面这张图左边是 8500 词元下两个引擎的 prefill 耗时，右边是这次回答里 prefill 在 MLX 总耗时里占了多大比例。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/mlx-chart-prefill-share.png" alt="8500 词元下 prefill 占 MLX 总耗时 94%，且 MLX 的 prefill 比 llama.cpp 还慢"></p>
+<h2>上下文越长，llama.cpp 越占便宜</h2>
+<p>短文里 MLX 的生成优势是真的。对 14B 以下的模型，MLX 在 Apple Silicon 上的生成速度普遍比 llama.cpp 快 20% 到 87%。这也是「快好几倍」说法的来源——它只在短上下文成立。</p>
+<p>转折点出现在上下文变长之后。原因在两者的注意力实现不同：MLX 用的是融合注意力核（fused attention kernel），llama.cpp 则带了完整的 FlashAttention。上下文一长，FlashAttention 这套对显存读写更省的算法就开始占便宜。</p>
+<p>这里有个常被误解的地方：FlashAttention 并不是把注意力算得更「准」，结果完全一样，它优化的是算的过程怎么读写显存。普通实现会把巨大的中间注意力矩阵反复在显存里搬进搬出，上下文越长，这个矩阵越大，搬运越费时间；FlashAttention 把计算切成小块，让中间结果尽量留在更快的片上缓存里，少搬几趟。上下文短时这点差别看不出来，上下文一长，省下的搬运时间就累成了肉眼可见的速度差。</p>
+<p>这不是某一篇评测的孤例。MLX 官方仓库里有一个 2026 年 1 月 15 日提的问题（ml-explore/mlx-lm #763），标题直接写着「长上下文下词元生成速度持续比 llama.cpp 低 50%」。提交者用的是 M3 Ultra（256GB、80 核 GPU），模型 Minimax-m2.1 的 4-bit 版，实测数字如下：</p>
+<table>
+<thead>
+<tr>
+<th>上下文长度</th>
+<th>MLX</th>
+<th>llama.cpp（开 FlashAttention）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>3 万词元</td>
+<td>25 字每秒</td>
+<td>32 字每秒</td>
+</tr>
+<tr>
+<td>14.6 万词元</td>
+<td>5.95 字每秒</td>
+<td>12.12 字每秒</td>
+</tr>
+</tbody></table>
+<p><em>来源：MLX 官方仓库问题 #763，2026-01-15，M3 Ultra 256GB</em></p>
+<p>到 14.6 万词元时，llama.cpp 的速度差不多是 MLX 的两倍。提交者的原话很直接：「在长上下文上，MLX 的词元生成速度持续比开了 FlashAttention 的 llama.cpp 慢，大约只有一半。」这条问题底下，社区把原因归到了 MLX 注意力核还不是完整的 FlashAttention 实现——同仓库一个更早的讨论里，开发者就提议按 FlashAttention 的思路重写，理由正是「有用户反馈，比起带 FlashAttention 的引擎，推理更慢」。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/mlx-source-github-issue763.png" alt="MLX 官方仓库问题 #763 里关于长上下文词元生成速度比 llama.cpp 慢约一半的反馈"></p>
+<p><em>来源：MLX 官方仓库问题 #763 讨论区，2026-01-15 起</em></p>
+<h2>一份长文件，能把首字延迟拉到分钟级</h2>
+<p>把上下文从 8500 词元再往上推到几万词元，prefill 的代价会从「等几十秒」滚成「等几分钟才出第一个字」。前面那组实测里，8500 词元的 prefill 已经要 49.4 秒；词元数再翻几倍，prefill 不是线性增长，这段干等只会更长——一份四万词元左右的长文件，首字延迟落到分钟级是完全可能的。这个数字你不用信我，自己拿一份长文件按下一节的方法量一次就知道。</p>
+<p>道理还是 prefill。一份四万词元左右的代码文件喂进去，模型得先把这四万词元整段读完算完，才肯吐第一个字。这段时间屏幕上什么都不显示，机器只是在默默算注意力缓存。等第一个字出来，屏幕速度可能依然漂亮，但你已经盯着空白等了好一会儿。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/mlx-source-groundy-longctx.png" alt="groundy 对 Apple Silicon 上 MLX 与 llama.cpp 长上下文表现的对比文章"></p>
+<p><em>来源：groundy.com《MLX vs llama.cpp on Apple Silicon: Which Runtime to Use for Local LLM Inference》</em></p>
+<p>有一个反例值得记住：如果你把模型当成编程 agent（智能体）用，一次任务输出很长、要连续生成成千上万个字，那 prefill 的固定开销会被摊薄到后面大量的生成里，MLX 的生成优势又回来了。**判断不在「长还是短」，而在「输入长、输出短」还是「输入适中、输出长」。**聊天问答、长文件总结属于前者，吃 prefill 的亏；长篇代码生成属于后者，MLX 反而合适。</p>
+<p>举个具体的算法：假设 prefill 固定花 40 秒，生成速度 50 字每秒。如果这次任务只让模型回 100 个字，那 prefill 的 40 秒摊到 100 个字上，每个字背的固定成本是 0.4 秒，体验当然糟；可如果这次要它连续写 5000 个字，那 40 秒摊到 5000 个字上，每个字只背 0.008 秒，几乎可以忽略，屏幕速度就是你的真实速度。同一个 prefill 开销，放在不同的输出长度里，结论可以完全相反。</p>
+<p>顺带一提，MLX 也不是没有优势：同一个 Qwen3-Coder-30B-A3B，MLX 版占 34.7GB 显存，GGUF 版占 40GB，省了约 13%。显存紧张的机器上，这点省下来的空间有时是能不能跑起来的区别。</p>
+<h2>自己动手量一下 prefill，只看两个数</h2>
+<p>与其纠结屏幕速度，不如自己花十分钟量一次 prefill。方法很简单，准备一段短提示词和一段长提示词，分别跑一遍，记下两件事：<strong>第一个字出现前等了多久（首词元延迟），以及全部生成完的总耗时。</strong></p>
+<p>MLX 这边可以直接看 mlx_lm 的输出统计：</p>
+<pre><code class="language-bash"># 安装：pip install mlx-lm
+# --max-tokens 控制生成长度；把一份长文件塞进 --prompt
+mlx_lm.generate \
+  --model mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit \
+  --prompt &quot;$(cat your_long_file.txt)&quot; \
+  --max-tokens 256
+
+# 跑完会打印两段速度：
+#   Prompt: N tokens, X tokens-per-sec   ← 这是 prefill 速度
+#   Generation: M tokens, Y tokens-per-sec ← 这才是屏幕上那个数
+# 关键看 Prompt 那行的总耗时 = N / X，长文件下它会远大于生成耗时
+</code></pre>
+<p>llama.cpp 这边用 llama-bench 或者带计时的 llama-cli，重点开 FlashAttention：</p>
+<pre><code class="language-bash"># -p 设输入长度，-n 设生成长度，-fa 开 FlashAttention
+llama-bench \
+  -m qwen3-coder-30b-a3b-q4_k_m.gguf \
+  -p 512,2048,8192,32768 \
+  -n 128 \
+  -fa 1
+
+# 输出里的 pp（prompt processing）就是 prefill 速度，
+# tg（token generation）是生成速度。
+# 看 pp 在 8192、32768 这两档掉得有多狠
+</code></pre>
+<p>读数据时记住一条：**把同一段长输入分别在两个引擎上跑，比的不是 tg / Generation 那个峰值，而是 pp / Prompt 这一段要等多少秒。**8K、32K 两档的 prefill 秒数，才是决定你长文体验的真实数字。</p>
+<h2>什么时候用 MLX，什么时候用 llama.cpp</h2>
+<p>把上面所有实测收成一张判断表，按你的实际用法对号入座：</p>
+<table>
+<thead>
+<tr>
+<th>你的场景</th>
+<th>输入/输出特征</th>
+<th>推荐</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>短问答、随手聊天</td>
+<td>输入短、输出短</td>
+<td>MLX</td>
+<td>prefill 几乎不耗时，生成优势能体现</td>
+</tr>
+<tr>
+<td>长篇代码生成、agent 连续输出</td>
+<td>输入适中、输出很长</td>
+<td>MLX</td>
+<td>prefill 开销被大量生成摊薄</td>
+</tr>
+<tr>
+<td>长文件总结、整仓代码问答</td>
+<td>输入很长、输出短</td>
+<td>llama.cpp（开 FlashAttention）</td>
+<td>长上下文 prefill 与生成都更快</td>
+</tr>
+<tr>
+<td>几万词元以上的超长上下文</td>
+<td>输入极长</td>
+<td>llama.cpp（开 FlashAttention）</td>
+<td>14.6 万词元下速度约为 MLX 的两倍</td>
+</tr>
+<tr>
+<td>显存非常紧张</td>
+<td>任意</td>
+<td>先看 MLX</td>
+<td>同模型省约 13% 显存，可能决定能否跑起来</td>
+</tr>
+</tbody></table>
+<p>回到开头那个反差：MLX 屏幕上的 57 字每秒是真的，长文实测剩 3 字每秒也是真的，两者并不矛盾——它们描述的是同一次回答里完全不同的两段时间。<strong>屏幕速度只管模型开口之后吐字多快，prefill 才管你要等多久才听到第一个字。</strong></p>
+<p>这件事一旦想明白，本地 AI 的选型就清爽了：别再盯着别人晒的峰值速度截图，自己花十分钟量一次 8K、32K 的 prefill 秒数。短文交给 MLX，长上下文交给开了 FlashAttention 的 llama.cpp，剩下的就是按手头机器的显存做个取舍。两个引擎都成熟、都开源、都能在自己的 Mac 上随时复现——把判断标准换对，本地跑大模型这件事，主动权一直在我们自己手里。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

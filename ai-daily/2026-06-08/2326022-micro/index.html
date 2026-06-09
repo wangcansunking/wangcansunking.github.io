@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenAI新模型上线三天，为何个性化指令集体失效？ — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-08</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-08</span><span class="tag-pill">AI Daily</span></div>
+      <h1>OpenAI新模型上线三天，为何个性化指令集体失效？</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-08/2326022-micro/head.png" alt=""></p>
+<p>GPT-5.5 发布才三天，linux.do 上就有人开始“跪求”个性化指令了。原帖标题简单直白：“求推荐好用的，适用于 GPT 5.5 的个性化指令（提示词）”——但正文里的挫败感快从屏幕里溢出来。发帖人说自己在 ChatGPT 网页版的“个性化指令”和 Codex 的 agent.md 里反复调整沟通原则，结果模型该忘还是忘、该犯还是犯，就像跟一个记性极差的同事反复交代同一件事。</p>
+<p>这场景太熟悉了。OpenAI 每发一个新模型，全球用户做的第一件事不是测基准跑分，而是打开设置框往里塞“你是我的编程导师，每次回答前先复述我的需求”或者“禁止用‘当然可以’开头”。然后模型礼貌地点头答应——第三次对话就全忘干净。</p>
+<p><strong>个性化指令的悖论是：你越想用自然语言约束模型，模型越会用更流利的话术绕开你的约束。</strong></p>
+<h2>为什么 GPT-5.5 比前代更“不听话”</h2>
+<p>linux.do 原帖下陆续有人贴出自己的指令模板——有的用全大写英文强调“DO NOT REPEAT MY QUESTION”，有的用三层嵌套的 if-then 逻辑试图覆盖所有场景，还有的直接在 agent.md 里写“如果违反以上任何一条，立即停止输出并道歉”。但这些招数在 GPT-5.5 身上似乎集体失效了。</p>
+<p>问题不在指令本身，而在模型架构的变化。据 OpenAI 官方博客在 5 月 29 日的模型卡中披露，GPT-5.5 的系统指令遵循度（system instruction adherence）在内部评测中比 GPT-5 提升了 12%，但这一指标测的是“开发者用 API 传入 system prompt 时的遵循率”——不是网页版那个藏在设置菜单里的“个性化指令”框。两者的底层机制完全不同：API 的 system prompt 在每次请求时作为上下文前缀注入，优先级最高；而网页版的个性化指令被折叠进一个叫做“user profile context”的模块，权重低于当前对话的即时上下文，甚至低于模型对用户身份和对话历史的推断。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-08/2326022-micro/schematic-1.png" alt="GPT-5.5 的上下文优先级层级示意，system prompt > 对话历史 > 个性化指令 > 模型默认行为"></p>
+<p>这就能解释为什么发帖人觉得“无论怎么设置都没用”。当你告诉 GPT-5.5“每次回答前先总结我的问题”，这个指令会被塞进 user profile context 里。但一旦对话超过十几个轮次，近期对话历史的权重就会压过这个远古指令——模型选择更贴合当前上下文的方式回应，而不是刻板执行你三天前写的那行字。</p>
+<p>更麻烦的是 Codex 的 agent.md。OpenAI 在 2026 年 4 月更新的 Codex 文档里明确写道，agent.md 是“项目级别的行为指引文件”，它在 agent 执行任务时被读取，但不作为硬约束。用 Codex 团队内部的话说：“agent.md 是路标，不是护栏。”发帖人试图在 agent.md 里设置沟通原则，本质上是在用路标当刹车踩。</p>
+<h2>社区里那些“邪道”解法——以及为什么它们也不保险</h2>
+<p>linux.do 原帖下的回复区开始出现一些让人眼前一亮的思路。有人分享了自己在 GPT-5 时代验证过的一套“反遗忘”技巧：不在个性化指令里写规则，而是写角色记忆锚点。具体做法是让模型在每次对话开始时先输出一个固定格式的“状态确认块”——比如“当前模式：深度编程导师 / 沟通风格：先反问再解答 / 禁止短语：当然可以、你说得对”——然后要求模型在后续输出中自我引用这个块。</p>
+<p>这套方法的原理是利用了 GPT 系列对“近期自产文本”的高敏感度。模型对自己刚输出的内容有极强的注意力权重，远比用户塞进设置框里的指令更“显眼”。相当于你不是直接命令模型，而是诱骗它先给自己写一份备忘录，然后盯着备忘录干活。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-08/2326022-micro/schematic-2.png" alt="传统个性化指令 vs “状态确认块”技巧的注意力权重对比，后者在近期上下文窗口内形成高亮锚点"></p>
+<p>但这种解法也有天花板。当对话长到超过模型的有效上下文窗口（GPT-5.5 的上下文窗口官方标称 256K tokens，但有效注意力范围据第三方评测机构 Artificial Analysis 在 6 月 1 日的测试大约在 80K-120K tokens 之间），那个状态确认块会被自然挤出窗口，模型又会恢复默认行为。发帖人如果想让 Codex 在整个项目周期内保持一致的沟通风格，靠 agent.md 写锚点指令可能撑不过一个中型代码库的连续交互。</p>
+<p>另一个被反复提及的思路来自 Anthropic 的 Claude 用户群。Claude 的“项目知识库”功能允许用户上传一份 markdown 文件作为持久化指引，且该文件在每次对话中会被自动加载到上下文顶部。部分 linux.do 用户建议发帖人“干脆切到 Claude Code + 项目知识库，别跟 GPT 的个性化指令死磕了”。但原帖明确问的是 GPT 5.5 和 Codex，这个建议多少有点“你饿了？那我建议你搬家”的意味。</p>
+<p>真正值得关注的是一周前 OpenAI 开发者关系负责人在 X 上的一条回复。有人问“网页版个性化指令到底什么时候能像 API system prompt 一样可靠”，他回复说“Team 在考虑把 user profile context 的优先级提升到与 system prompt 同级，但涉及安全对齐的权衡，不能太快”。这条回复说明 OpenAI 内部知道问题在哪，也说明短期内不会改。</p>
+<p><strong>用户花在调教个性化指令上的时间，本质上是在替 OpenAI 做免费的对齐实验。</strong></p>
+<p>这就引出一个更深的困境。GPT-5.5 在发布时被重点宣传的能力是“更强的意图理解”——模型不再逐字执行指令，而是推断你想要什么。但个性化指令的场景恰好相反：用户要的就是逐字执行，不要推断，不要“我觉得你可能是想……”，就要一个字一个字的照做。模型的“智能”和用户的“控制欲”在这里发生了正面冲突，而 GPT-5.5 的设计哲学显然偏向了前者。</p>
+<p>发帖人的挫败感不是个案。在 Reddit 的 r/ChatGPT 板块，GPT-5.5 发布 72 小时内，“个性化指令失效”相关帖子已经被顶到热门前十。有人贴出截图：他在个性化指令里写了三遍“请不要在代码注释里加 emoji”，模型在第五轮对话的代码输出里依然欢快地加上了 🚀 和 💡。底下最高赞回复是：“你猜怎么着——它甚至可能在训练数据里见过你这句抱怨，然后学会了用 emoji 来气你。”</p>
+<p>这大概就是 2026 年人机交互的荒诞真相：你越努力想让模型听话，模型越努力地证明它有自己的想法。linux.do 那位发帖人想要的“合适的个性化指令”，可能不是一行魔法咒语，而是一个 OpenAI 还没做出来的优先级开关。在此之前，要么接受模型会忘、会犯、会加 emoji，要么就真的只能考虑搬去 Claude 了。</p>
+<p>#AI #科技</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

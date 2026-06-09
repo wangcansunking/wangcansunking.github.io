@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WWDC 开放端侧模型读图，第三方助手能换 Claude — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-09</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-09</span><span class="tag-pill">Daily Report</span></div>
+      <h1>WWDC 开放端侧模型读图，第三方助手能换 Claude</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/wwdc-foundation-models-multimodal-gemini-2026-06-09.png" alt="WWDC 2026：端侧 Foundation Models 框架从纯文本走向图像输入，系统默认助手向第三方开放"></p>
+<p>每年 WWDC 一开，中文圈讨论的多半是 Siri 又聪明了多少、界面换了什么颜色。但如果你是天天在 Claude Code、Cursor 里写代码，或者在自己机器上跑本地模型的人，今年这场 6 月 8 日（北京时间 6 月 9 日凌晨）开场的发布会，有两条信息比&quot;Siri 接了 Gemini&quot;更值得你花十分钟搞清楚。</p>
+<p>先把核心结论摆在前面：<strong>这次对开发者真正改变的，是端侧那颗模型从&quot;只会读文字&quot;变成了&quot;能看图&quot;，而且这个能力第一次以系统接口的形式开放给第三方 app。</strong> Siri 换没换大脑是产品新闻，端侧框架能不能读图、第三方助手能不能设成默认，才是会落到你代码里的事。</p>
+<p>这篇文章想讲清楚三件事：iOS 26 那个端侧 Foundation Models 框架原来是什么样、这次的图像输入到底解了开发者哪个老大难；用户能把系统默认助手换成 Claude / ChatGPT / Gemini 意味着什么；以及 Apple 自研模型加上云端那颗定制 Gemini，这套取舍背后的账。最后落到国内开发者最关心的地方——云端 Gemini 在国内根本用不了，端侧这条线还剩多少能用的，以及国产端侧多模态走到哪了。</p>
+<h2>先认清那颗端侧模型：约 3B 参数，原来只收文本</h2>
+<p>要看懂今年的变化，得先回到去年。</p>
+<p>2025 年的 WWDC，Apple 第一次把端侧那颗大模型通过 <strong>Foundation Models 框架</strong>开放给第三方开发者。在这之前，这颗模型只服务 Apple 自己的系统功能（写作工具、通知摘要那些）；从 iOS 26 开始，任何一个 app 都能用几行 Swift 调它。</p>
+<p>这颗端侧模型的硬指标，Apple 官方机器学习研究博客写得很清楚：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>端侧模型口径</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>参数量</td>
+<td>约 30 亿（3B）</td>
+</tr>
+<tr>
+<td>量化</td>
+<td>权重压到约 2 比特/权重（采用量化感知训练）</td>
+</tr>
+<tr>
+<td>嵌入表量化</td>
+<td>4 比特</td>
+</tr>
+<tr>
+<td>KV 缓存</td>
+<td>8 比特</td>
+</tr>
+<tr>
+<td>支持语言</td>
+<td>15 种（含简体中文、日语、韩语等）</td>
+</tr>
+<tr>
+<td>运行方式</td>
+<td>完全在设备上跑，可离线、对开发者免费</td>
+</tr>
+</tbody></table>
+<p><small>数据来源：Apple 机器学习研究博客《Updates to Apple&#39;s On-Device and Server Foundation Language Models》（machinelearning.apple.com）</small></p>
+<p>对开发者来说，这套框架去年最受好评的是三个能力：<strong>结构化输出、工具调用、流式生成。</strong> Apple 给了一个叫 <code>@Generable</code> 的写法——你定义一个 Swift 结构体，标上这个标记，模型就直接吐出符合这个结构的对象，不用你再去解析自由文本、写一堆容错。一个旅行 app 想让模型生成&quot;带日期、地点、预算字段的行程对象&quot;，过去要自己写正则兜底，现在让模型按你的类型直接产出。</p>
+<p>但去年这套框架有一个明确的边界：<strong>它是纯文本进、纯文本出。</strong> Apple 官方把端侧框架的能力范围写得很明白——摘要、实体抽取、文本理解、改写、短对话、生成创意文本，全是围绕文字。哪怕底层那颗模型在 Apple 自家系统功能里其实见过图（后面会讲到），开放给第三方的这个口子，只收文本。</p>
+<p>这就埋下了今年改变的伏笔。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/wwdc-foundation-models-multimodal-gemini-2026-06-09-img1.png" alt="Apple 端侧与服务端 Foundation Models 的建模总览：端侧约 3B 模型 + 服务端并行轨 MoE，含视觉编码器与视觉-语言适配模块">
+<small>来源：Apple 机器学习研究博客模型架构图 <code>mlr.cdn-apple.com</code>，2025 年技术报告配图</small></p>
+<h2>开发者的老大难：为了让 app 看一张图，得背 1-2GB 模型</h2>
+<p>为什么&quot;端侧框架能读图&quot;这件事，对写 app 的人是真的重要，而不只是参数表上多一行？</p>
+<p>因为在此之前，一个 app 想在本地、不联网、不把用户照片上传服务器的前提下，让模型看懂一张图片——比如给照片自动写描述、读一张收据上的金额、认出截图里是什么——只有一条笨办法：<strong>自己在 app 里塞一颗视觉语言模型。</strong></p>
+<p>这条路的代价，每个做过的人都清楚：</p>
+<ul>
+<li>一颗能用的端侧视觉模型，编译进 app 动辄 <strong>1 到 2GB</strong>。用户下载安装包要多等很久，安装转化率直接被拖累——这部分体积纯粹是&quot;为了看图&quot;付出的。</li>
+<li>这颗模型还得你自己适配芯片、自己管内存、自己调推理、出了新机型自己重新测。</li>
+<li>同一台 iPhone 上，可能 A 拍照 app 塞了一颗、B 笔记 app 又塞了一颗，几颗功能高度重合的视觉模型在用户手机里各占一两 GB，谁也用不上谁的。</li>
+</ul>
+<p>今年的变化，正是冲着这个痛点来的：<strong>端侧 Foundation Models 框架向第三方 app 开放图像输入。</strong> 翻译成人话——你不用再自己背那一两个 GB 了，调一个系统接口，把图片喂给系统那颗模型，让它帮你读，结果还是全程在设备上、不出门。原来压在每个 app 身上的那块体积，被收进了系统这一层，所有 app 共用一颗。</p>
+<p>这件事的分量，类比一下就清楚：<strong>当年系统给了统一的相机接口、统一的定位接口，开发者就不用各自造轮子。这次相当于给了&quot;统一的本地看图接口&quot;。</strong> 对国内做工具类、效率类、教育类 app 的团队，这是实打实省下的工程量和包体。</p>
+<p>这里要说清一个容易混的点，避免高估也避免低估：<strong>底层那颗模型&quot;能看图&quot;其实不是今年才有的事。</strong> Apple 2025 年的技术资料里就写明，他们给模型配了视觉编码器——端侧部署用的是 ViTDet-L 主干、约 3 亿参数（300M），还加了一个叫 Register-Window 的机制，让模型既抓全局又抓细节，再用一个视觉-语言适配模块把图像特征对齐到语言模型。所以&quot;看图&quot;的底子，Apple 系统功能里早就在用。<strong>今年真正新的，是把这个图像输入的口子开放给了第三方框架调用</strong>——从&quot;Apple 自己内部能用&quot;到&quot;你的 app 也能调&quot;。这一步对开发者的意义，不亚于模型本身变强。</p>
+<h2>第二件事：用户能把系统默认助手，从 Siri 换成 Claude</h2>
+<p>如果说图像输入是给开发者省体积，那 iOS 27 的另一项改动，是把选择权交回给了用户——同时给第三方模型厂商开了一条直达通道。</p>
+<p>iOS 27 引入了一套对第三方 AI 开放的接口（外界普遍称之为 Extensions），配一个专门的 App Store 入口。它做的事是：<strong>让用户在系统设置里，把 Apple Intelligence 那些功能背后的模型，从 Siri 默认的那颗，换成第三方的。</strong> 覆盖的不只是 Siri 对话，还包括写作工具、Image Playground 这些系统级功能。</p>
+<p>公开信息里点到名的第三方候选包括 Claude（Anthropic）、ChatGPT（OpenAI）、Gemini（Google）、Grok（xAI）。据报道，Apple 先拿 Claude 和 Gemini 作为首批接入的第三方伙伴，和已有的 ChatGPT 一起测。</p>
+<p>对国内开发者，这件事有两层值得记下来：</p>
+<ol>
+<li><strong>系统第一次承认&quot;默认助手&quot;是可替换的。</strong> 过去 Siri 就是 Siri，你换不掉。现在系统层面默认助手成了一个可配置项——这对整个移动端 AI 助手的形态是个信号，谁家模型好用、谁就有机会被设成默认，而不是被系统绑死。</li>
+<li><strong>对模型厂商，这是一条直达上亿设备的分发通道。</strong> 谁能进这个第三方名单、谁就拿到了苹果设备用户的直接入口。这也解释了为什么 Anthropic、OpenAI、Google 都想挤进来。</li>
+</ol>
+<p>交互上，iOS 27 还给了一个新入口——从屏幕顶部中间往下一划，可以跑快捷指令、搜手机里的东西，或者把一个复杂问题直接交给第三方对话模型。新 Siri 本身也补齐了几个能力：能看屏幕上下文、能跨 app 执行动作（移文件、改照片、发消息）、能像聊天一样多轮对话并记住前文，还能接收图片和文档附件。</p>
+<h2>第三件事：自研加定制 Gemini，这套取舍的账怎么算</h2>
+<p>绕不开的是云端这条线。WWDC 2026 最受关注的产品新闻，是新 Siri 的云端大脑接了一颗定制版 Gemini。把公开口径里的关键数字核对清楚：</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>公开口径</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>云端定制 Gemini 参数量</td>
+<td>约 1.2 万亿（1.2T），混合专家（MoE）架构</td>
+</tr>
+<tr>
+<td>Apple 原有云端模型参数量</td>
+<td>约 1500 亿（150B）</td>
+</tr>
+<tr>
+<td>倍数关系</td>
+<td>云端定制 Gemini 约是 Apple 原云端模型的 8 倍</td>
+</tr>
+<tr>
+<td>年授权费</td>
+<td>据报道约 10 亿美元/年</td>
+</tr>
+<tr>
+<td>模型定制方</td>
+<td>Google 为 Siri 与 Apple Intelligence 专门定制</td>
+</tr>
+<tr>
+<td>上线节奏</td>
+<td>随 iOS 27 在 2026 年 9 月以受限测试形式开放</td>
+</tr>
+</tbody></table>
+<p><small>参数量、价格、倍数均为多家媒体报道口径（MacRumors、Tech Times 等综合），非 Apple 官方逐项确认，引用时按&quot;据报道&quot;理解。</small></p>
+<p>这套取舍背后的逻辑其实不难懂。Apple 端侧那颗约 3B 的模型，定位是&quot;快、私密、免费、离线&quot;，干的是摘要、改写、结构化输出这类活；但要做一个能联网搜索、能多步规划、能写代码、能分析文件的全功能对话助手，3B 这个量级是远远不够的。Apple 自研的下一代云端模型还没到能扛这个活的程度，于是先租一颗顶尖的来撑场面——用授权换时间，自研在后面继续追。</p>
+<p>值得注意的是云端的请求分级方式：据报道，新 Siri 把请求分三层——简单的在设备上就地解决；中等的走 Apple 自己的私有云计算（Private Cloud Compute）；只有最复杂的推理才送到 Google 云上那颗定制 Gemini。这个分层设计，意味着大量日常请求其实根本不出 Apple 自己的范围，真正落到 Gemini 上的是少数重活。</p>
+<p>把这三件事连起来看，Apple 这次的路线就清楚了：<strong>端侧自研（省电、私密、给开发者免费用）+ 云端先租顶尖模型撑全功能（用授权买时间）+ 默认助手向第三方开放（把选择权还给用户）。</strong> 三条线各司其职，而对开发者影响最直接、最能马上动手的，是端侧那条。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/wwdc-foundation-models-multimodal-gemini-2026-06-09-img2.png" alt="新 Siri 云端请求三层分级示意：设备端处理简单请求、私有云计算处理中等请求、云端定制 Gemini 处理最复杂推理">
+<small>来源：自制示意图（chart），依据公开报道的三层请求分级口径绘制</small></p>
+<h2>落到国内：云端这条用不上，端侧这条还在</h2>
+<p>讲到这，国内开发者最实际的问题来了——这些能力，我们用得上吗？</p>
+<p>得分两条线说，结论不一样：</p>
+<p><strong>云端那条，国内基本指望不上。</strong> Gemini 在中国内地无法提供服务，所以新 Siri 在国内不可能直接接 Google 那颗云端模型。据公开报道，Apple Intelligence 在中国内地走的是另一套——和本地伙伴合作、用本地云基础设施来满足合规要求，云端能力跟海外不是同一套实现。换句话说，海外用户体验到的那个&quot;接 Gemini 的全功能 Siri&quot;，国内是另一条路径，能力和节奏都要分开看，这部分目前能确认的细节有限，不宜过度推断。</p>
+<p><strong>但端侧那条，逻辑上不挑网络。</strong> 端侧那颗约 3B 的模型是跑在设备本地的，不联网、不出门。一旦图像输入这个口子对第三方框架开放，理论上它不依赖任何云端服务——这才是国内开发者真正可能吃到的那部分。当然，Apple Intelligence 相关功能在国内的具体开放范围和时间，还要看后续，这里只说能确认的方向：<strong>端侧能力天然比云端能力更不受跨境因素影响。</strong></p>
+<p>这就引出一个让人踏实的对照——<strong>国产端侧多模态这两年其实没落下，有的指标上甚至更猛。</strong></p>
+<p>最具代表性的是国内团队 OpenBMB 的 MiniCPM-V 系列。把它和 Apple 端侧的口径放一起看：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Apple 端侧模型</th>
+<th>MiniCPM-V 4.5（国内团队 OpenBMB）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>参数量</td>
+<td>约 3B</td>
+<td>8B（基于 Qwen3-8B + SigLIP2-400M 视觉编码器）</td>
+</tr>
+<tr>
+<td>多模态</td>
+<td>图像输入（2026 对第三方框架开放）</td>
+<td>单图、多图、视频理解</td>
+</tr>
+<tr>
+<td>端侧实测</td>
+<td>Apple 芯片本地运行</td>
+<td>iPhone 16 Pro Max 上首字延迟约 2 秒、解码超 17 词元/秒</td>
+</tr>
+<tr>
+<td>评测口径</td>
+<td>Apple 自有评测体系</td>
+<td>OpenCompass 平均 77.0；官方称在视觉语言能力上超过 GPT-4o-latest、Gemini 2.0 Pro 等闭源模型</td>
+</tr>
+<tr>
+<td>开放方式</td>
+<td>系统 API（绑 Apple 设备）</td>
+<td>开源权重，可自由部署</td>
+</tr>
+</tbody></table>
+<p><small>MiniCPM-V 4.5 数据来源：OpenBMB 官方资料与技术报告（arXiv:2509.18154）、HuggingFace 模型卡。&quot;超过 GPT-4o-latest / Gemini 2.0 Pro&quot;系官方评测口径，引用按厂商自述理解。</small></p>
+<p>两条路的差别很清楚：Apple 是把端侧多模态做成绑定自家设备的系统接口，省心但只在苹果设备上用；国产这边走的是开源路线，权重你能拿到、想部署到哪就部署到哪，灵活但要自己动手。对国内开发者，这恰恰是好消息——<strong>你想在自己 app 里做&quot;本地看图&quot;，不用等 Apple 在国内开多大口子，国产开源端侧多模态今天就能拿来用，而且 8B 这个量级在手机上首字两秒、解码每秒十几个词元，已经是能落地的体验。</strong></p>
+<h2>写在最后：会落到代码里的，是端侧那条线</h2>
+<p>回到开头那句话。WWDC 2026 的产品头条是 Siri 接了 Gemini，但对每天写代码的我们，真正会落到键盘上的是另两件事：<strong>端侧那颗模型从只读文字到能看图，而且第一次以系统接口开放给第三方；用户能把系统默认助手换成自己信得过的那颗模型。</strong></p>
+<p>云端那条线很热闹，但对国内开发者来说，更扎实的反而是端侧——它不挑网络、不依赖跨境服务，而且我们手上还有 MiniCPM-V 这样的国产开源端侧多模态，参数更大、能读图读视频、权重开放、手机上跑得动。Apple 这次把&quot;本地看图&quot;做成了系统能力，国产这边则把它做成了你能完全掌控的开源选项。两条路都通，而且都在往前走。</p>
+<p>端侧多模态从&quot;得自己背一两个 GB&quot;变成&quot;调个接口就行&quot;，这道坎一旦迈过去，本地、私密、免费的图像理解会很快变成 app 里的标配能力。这对做产品的人是确确实实的减负。该动手的地方很清楚，工具也都齐了，剩下的就是把它用起来。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

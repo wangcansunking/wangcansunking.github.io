@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>长上下文的胜负手，下沉到了注意力这一层：DeepSeek NSA、MiniMax MSA 与国产稀疏注意力路线之争 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-09</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-09</span><span class="tag-pill">Daily Report</span></div>
+      <h1>长上下文的胜负手，下沉到了注意力这一层：DeepSeek NSA、MiniMax MSA 与国产稀疏注意力路线之争</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/cn-sparse-attention-long-context-race-2026-06-09.png" alt="国产大模型稀疏注意力长上下文路线对比封面"></p>
+<p>过去一年，国产大模型在「长上下文」这件事上交出的成绩单，看起来都很像：千问（Qwen）能到 100 万 token、Kimi 能读整本书、DeepSeek 把 12.8 万 token 的推理价格压到了上一代的一半。但如果只盯着「支持多长」这个数字，你会错过真正发生变化的地方。</p>
+<p>真正的分叉发生在更下面一层——注意力（attention）这个 Transformer 最核心、也最贵的部件。当上下文从几千 token 涨到 100 万，标准注意力的计算量是按长度平方涨的（O(L²)），128k token 单这一步就能吃掉整次推理的大头。谁能在这一层把账算明白，谁就能既跑得长、又跑得便宜。</p>
+<p>这一年里，DeepSeek、MiniMax、Kimi（月之暗面）、千问几家团队，恰恰在这一层走出了<strong>几条不同的稀疏注意力（sparse attention）路线</strong>。它们解决的是同一个问题，选的却不是同一条路：有的把稀疏做进训练里让模型自己学会该看哪、有的只在推理时临时筛、有的干脆把线性注意力和全量注意力按比例混着用。MiniMax 更是走了一段有来有回的弯路——M2 退回全量注意力，半年后 M3 又重新押注稀疏。</p>
+<p>这篇文章想带你把这几条路线逐条读懂：各家的机制到底差在哪、为什么这么选、各自拿得出手的真实数字是多少，以及最实在的——当你真要用 100 万 token 的上下文去读一个代码仓库、一份长合同、一条几小时的 agent 轨迹时，这些架构差异会落到你头上的是什么。</p>
+<h2>先说清楚：为什么长上下文的钱，都花在注意力上</h2>
+<p>要理解这场路线之争，得先理解它们共同要对付的敌人。</p>
+<p>标准的全量注意力（full attention）里，序列中的每一个 token 都要和它前面所有 token 算一次相关性。序列长度翻倍，这部分计算量就翻四倍——这就是 O(L²) 的含义。在几千 token 的对话里，这点开销不值一提；可一旦上到 12.8 万、甚至 100 万 token，注意力就从一个小配件变成了整台机器里最烧钱的部位。</p>
+<p>数据先摆出来。DeepSeek 在 NSA 论文里给出的实测是：在 6.4 万（64k）token 的长度上，把稀疏注意力换成全量注意力，前向传播会慢到 9.0 倍、反向传播慢 6.0 倍、解码（decoding，也就是一个字一个字往外吐的阶段）慢 11.6 倍（来源：NSA 论文 arXiv:2502.11089）。换句话说，长上下文场景下，注意力这一块的优化空间，直接决定了模型能不能跑得起、跑得快。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/cn-sparse-attention-long-context-race-2026-06-09-img1.png" alt="长上下文下全量注意力与稀疏注意力的计算量对比示意"></p>
+<p>稀疏注意力的共同思路其实很朴素：人读一本 50 万字的书找某个细节时，不会从头逐字重读，而是先翻目录定位章节，再到那一章里细看。稀疏注意力做的就是这件事——<strong>不让每个 token 都去看前面全部 token，而是只挑出真正相关的那一小撮来算</strong>。难点全在「怎么挑」「什么时候挑」「挑的时候会不会漏掉关键线索」这三个问题上。几家国产团队的路线分叉，本质上就是对这三个问题给出了不同答案。</p>
+<h2>路线一：DeepSeek NSA——把「该看哪」做进训练里</h2>
+<p>DeepSeek 是国产团队里最早把这条路走透的。2026 年初公开的 NSA（Native Sparse Attention，原生稀疏注意力）论文，关键词是「原生」和「可训练」。</p>
+<p>过去很多稀疏注意力是「事后补」的：模型先用全量注意力训好，推理时再硬加一层筛选逻辑去省算力。问题是模型在训练阶段从没见过这种稀疏模式，推理时突然被砍掉一部分输入，负责检索的那些注意力头会「错乱」，长文档里的关键信息容易被漏掉。</p>
+<p>NSA 的答案是：让稀疏从预训练第一天起就进到梯度里，模型自己学会该看哪、该忽略哪。它把每个 query 要看的内容拆成三条并行的支路：</p>
+<ul>
+<li><strong>压缩支路（粗看全局）</strong>：把连续的 token 按块（块大小 32）压缩成一个个摘要 token，让模型用很小的代价先扫一遍全局大意；</li>
+<li><strong>选择支路（细看重点）</strong>：根据压缩支路算出的相关性分数，挑出最重要的若干个块（块大小 64，选 top-16 块），在这些块的原始 token 上做精细注意力；</li>
+<li><strong>滑动窗口支路（盯住眼前）</strong>：固定关注最近的 512 个 token，保证近处的上下文不丢，并通过门控（gating）与前两条支路隔开，防止模型偷懒只学近处。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/cn-sparse-attention-long-context-race-2026-06-09-img2.png" alt="NSA 三支路稀疏注意力架构示意"></p>
+<p>这套设计的好处是数字会说话。在 64k 长度上，相对全量注意力，NSA 的前向传播快 9.0 倍、反向传播快 6.0 倍、解码快 11.6 倍（来源：NSA 论文 arXiv:2502.11089）。更关键的是质量没掉——在 64k 的「大海捞针」检索测试里，NSA 在所有位置都做到了满分检索，在通用基准、长文本任务、推理任务上与全量注意力打平甚至更好。</p>
+<p>算一笔直观的账：64k token 里，每个 query 真正去细算的，大约就是选中的 16 个块（约 1024 个 token）加上 512 个窗口 token，再加上少量压缩摘要——加起来一千多 token，相对 64k 全量是很小的一部分。这就是 9 到 11 倍加速的来源。NSA 还有一个容易被忽略的硬功夫：它的稀疏模式是按 GPU 访存特性专门对齐设计的（hardware-aligned），不是只在纸面上省了计算量、实际跑起来却卡在内存搬运上。</p>
+<h2>路线二：DeepSeek DSA——上线版本里更克制的一手</h2>
+<p>如果说 NSA 是 DeepSeek 在研究层面把可训练稀疏注意力跑通的样板，那 2025 年底随 V3.2 上线的 DSA（DeepSeek Sparse Attention），就是把这套思路收进真实产品时更克制的一个版本。</p>
+<p>DSA 的机制比 NSA 更精简，只有两步（来源：DeepSeek-V3.2 论文 arXiv:2512.02556）：</p>
+<ol>
+<li><strong>闪电索引器（Lightning Indexer）</strong>：一个极轻量的打分器，用很少的注意力头、FP8 低精度，快速给前面每个 token 打一个相关性分数。它本身的复杂度还是 O(L²)，但因为又轻又快，开销相对主注意力可以忽略；</li>
+<li><strong>Top-k 选择</strong>：从 12.8 万 token 里挑出分数最高的 2048 个 token，只让主注意力在这 2048 个上做完整计算。</li>
+</ol>
+<p>这一挑，核心注意力的复杂度就从 O(L²) 降到了 O(Lk)——计算量不再随长度平方涨，而是随长度线性涨。DSA 是搭在 DeepSeek 自家的 MLA（Multi-head Latent Attention，多头潜在注意力）之上的，跑在 MLA 的 MQA 模式下，让一个潜在向量被所有 query 头共享，省下大量 KV cache（键值缓存）。</p>
+<p>落到用户能感知的层面：12.8 万 token 上下文下，V3.2 的长文推理成本明显低于上一代密集注意力的 V3.1-Terminus，质量几乎无损（来源：DeepSeek-V3.2 论文 arXiv:2512.02556）。NSA 证明了「稀疏可以训」，DSA 则证明了「稀疏可以稳稳上线、明显降本」——一前一后，把这条路从论文走到了 API。</p>
+<h2>路线三：MiniMax 的来回——M2 退回全量，M3 重押稀疏</h2>
+<p>这场路线之争里最有意思的一段，来自 MiniMax。它不是一条直线，而是一段有来有回的弯路，恰好把「稀疏注意力到底成不成熟」这个问题摊开讲清楚了。</p>
+<p>MiniMax 的 M1 用过线性注意力（Lightning Attention）。但到了 M2，团队做了一个反直觉的决定：<strong>退回全量注意力</strong>。原因 MiniMax 在公开说明里讲得很实在（来源：LMSYS 对 M2 的技术分析，lmsys.org）：</p>
+<ul>
+<li>线性、滑动窗口这些高效注意力变体，在 MMLU、BBH 这类常规基准上看着和全量注意力不相上下，可一旦上到更大规模、遇到「多跳推理」（multi-hop reasoning，需要跨长文档把分散的线索串起来）这类任务，短板就暴露得很明显；</li>
+<li>线性注意力在工程上「受内存带宽限制」，连训练阶段都吃不满 GPU 算力；低精度 KV cache 对数值精度也更敏感；</li>
+<li>和前缀缓存、投机解码（speculative decoding）这些生产系统配合起来，问题一堆。</li>
+</ul>
+<p>MiniMax 当时的结论很硬：一个又快又不够聪明的模型没有实用价值，宁可扛下全量注意力的高成本，也要保住前沿水准的智能。这不是稀疏注意力不好，而是当时它「还没到能上生产的成熟度」。</p>
+<p>半年后的 M3，故事反转了。MiniMax 重新押注稀疏，但这一次不再赌线性注意力，而是走「softmax 表达力 + 块级 top-k 选择」这条路——既保住质量，又拿到次二次方（sub-quadratic）的复杂度。官方给出的数字相当亮眼：在 100 万 token 长度上，预填充（prefill）阶段加速 9.7 倍、解码阶段加速 15.6 倍（来源：VentureBeat 报道与 MiniMax 公开说明，2026 年 5 月）。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/09/cn-sparse-attention-long-context-race-2026-06-09-img3.png" alt="MiniMax 从 M2 全量到 M3 稀疏的路线转折示意"></p>
+<p>M3 的稀疏注意力（业界惯称 MSA，MiniMax Sparse Attention）和 NSA 是近亲，但更精简。它以 GQA（Grouped-Query Attention，分组查询注意力）为骨干，分两步走：先用一个共享的单头索引、配合块最大池化（BlockMaxPool）算出每个块的相关性分数，再用 Top-k 选出要算的块；然后——这是它和 DSA 的关键区别——直接在<strong>未压缩的完整 K/V</strong> 上做注意力，不像 DSA 那样先压成潜在向量。NSA 有压缩、选择、滑动窗口三条支路，MSA 砍到只剩选择一条，等于一个「瘦身版 NSA」，工程上更好和 vLLM、SGLang 这些主流推理框架对接。</p>
+<p>MiniMax 这一来一回的价值，在于它替整个行业把话说明白了：稀疏注意力能不能上生产，从来不只是算法问题，而是要算法、评测方法、训练数据、推理工程一起成熟到位。M2 那一退，退的是当时还没配齐的工程条件；M3 这一进，进的是这些条件终于凑齐之后的水到渠成。</p>
+<h2>路线四：Kimi Linear——把线性注意力和全量按 3:1 混着用</h2>
+<p>月之暗面（Moonshot AI）的 Kimi 给出了第四种答案，思路又不一样：<strong>不在「全稀疏」和「全量」之间二选一，而是把两者按比例混着搭。</strong></p>
+<p>Kimi Linear 的核心部件叫 KDA（Kimi Delta Attention，Kimi 增量注意力），是一种线性注意力，用了细粒度的通道门控和一套对硬件友好的分块算法。但 Kimi 没有全用 KDA——它按 <strong>KDA 比全量 MLA 等于 3:1</strong> 的比例分层交错：每三层高效的 KDA，配一层全量的 MLA（来源：Kimi Linear 论文 arXiv:2510.26692）。</p>
+<p>这个比例是经验调出来的折中：KDA 负责扛住绝大部分长度带来的开销，少量穿插的全量 MLA 层负责补上线性注意力在精确检索、多跳推理上的短板——正好对应 MiniMax 当年发现的线性注意力软肋。结果是：在相同训练配方下，Kimi Linear 全面超过纯全量 MLA 基线，同时把 KV cache 用量最多减少 75%（即降到约 1/4），在 100 万 token 上下文下解码吞吐最高提到 6.3 倍（来源：Kimi Linear 论文 arXiv:2510.26692）。</p>
+<p>这条路的取舍很清楚：线性注意力天生省内存、KV cache 小，特别适合长上下文下的高并发推理；代价是表达力不如 softmax 注意力。Kimi 的解法不是硬抬线性注意力的上限，而是用少量全量层把短板补齐——3:1 这个比例，就是它在「省」和「准」之间找到的那个平衡点。</p>
+<h2>路线五：千问的长上下文——把功夫下在推理期外推</h2>
+<p>千问（Qwen）的长上下文方案，落点和前面几家明显不同：前面几家主要在「训练时就把稀疏学进去」，千问的 1M 方案更倚重<strong>推理期的外推与加速</strong>，不强依赖把模型重训一遍。</p>
+<p>千问的 1M token 上下文主要靠三招配合（来源：千问 Qwen2.5-1M 官方技术博客）：</p>
+<ul>
+<li><strong>双块注意力（DCA，Dual Chunk Attention）</strong>：把长序列切成一段段可控长度的块，重新映射块内和块间的相对位置，避免出现训练时从没见过的超大位置距离——这是一种长度外推方法，让模型从 256k 的训练长度外推到 100 万，不必额外训练；</li>
+<li><strong>YaRN</strong>：对注意力权重做重新缩放，进一步改善长度外推的稳定性；</li>
+<li><strong>基于 MInference 的稀疏注意力</strong>：在预填充阶段做选择性计算来加速。</li>
+</ul>
+<p>数字上，1M token 序列的预填充速度，不同模型规模和 GPU 上能拿到 3.2 到 6.7 倍加速（来源：千问 Qwen2.5-1M 官方技术博客）。千问这条路的好处是灵活——长上下文能力很大程度上是推理期「叠」上去的，对已有模型的改动相对小，部署门槛低；它和前面几家「原生训练稀疏」的路线形成了一个很有意思的对照：一个把功夫下在训练前置，一个把功夫下在推理后置。</p>
+<h2>五条路线横着摆一桌：到底差在哪</h2>
+<p>把上面五条路线放到一张表里对照，分叉点一下就清楚了：</p>
+<table>
+<thead>
+<tr>
+<th>路线</th>
+<th>代表模型</th>
+<th>核心机制</th>
+<th>稀疏在训练还是推理</th>
+<th>关键加速数字（口径）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>NSA 原生稀疏注意力</td>
+<td>DeepSeek（论文样板）</td>
+<td>压缩 + 块级选择 + 滑动窗口三支路，GQA</td>
+<td>原生可训练</td>
+<td>64k：前向 9.0×、反向 6.0×、解码 11.6×</td>
+</tr>
+<tr>
+<td>DSA 稀疏注意力</td>
+<td>DeepSeek V3.2</td>
+<td>闪电索引器打分 + top-2048 token 选择，搭 MLA</td>
+<td>原生可训练</td>
+<td>128k：复杂度 O(L²)→O(Lk)，长文成本明显低于上代</td>
+</tr>
+<tr>
+<td>MSA 稀疏注意力</td>
+<td>MiniMax M3</td>
+<td>单头索引 + 块最大池化 + top-k 块，在完整 K/V 上算，GQA</td>
+<td>原生可训练</td>
+<td>1M：预填充 9.7×、解码 15.6×</td>
+</tr>
+<tr>
+<td>Kimi Linear（KDA）</td>
+<td>Kimi</td>
+<td>线性注意力 KDA 与全量 MLA 按 3:1 分层混合</td>
+<td>原生混合训练</td>
+<td>1M：KV cache 降到约 1/4、解码吞吐最高 6.3×</td>
+</tr>
+<tr>
+<td>千问长上下文</td>
+<td>Qwen 1M</td>
+<td>双块注意力 DCA + YaRN 外推 + MInference 稀疏</td>
+<td>偏推理期外推</td>
+<td>1M：预填充加速 3.2×–6.7×</td>
+</tr>
+</tbody></table>
+<p>注：各家加速数字的上下文长度口径不同（64k / 128k / 1M），不能直接横向比绝对倍数；表格按各自论文/官方公开口径如实列出，重点看路线差异而非数字大小。</p>
+<p>读这张表，有三组取舍值得开发者记在心里：</p>
+<p><strong>第一组：训练可学习，还是推理临时筛。</strong> NSA、DSA、MSA、Kimi Linear 都选了「让模型在训练时就学会稀疏模式」，好处是稀疏和模型能力是长在一起的，长文检索不容易漏；代价是要重训或大规模继续训练。千问偏向「推理期外推」，好处是改动小、灵活，代价是长度外推到极限时稳定性更依赖工程技巧。</p>
+<p><strong>第二组：精度优先，还是速度优先。</strong> MiniMax 的 M2→M3 来回，本质就是这组取舍的现场演示——M2 阶段稀疏/线性还保不住多跳推理的精度，宁可慢也要准；M3 阶段技术配齐了，才敢在保精度的前提下要速度。Kimi 用 3:1 混合，也是在同一组取舍上找平衡。</p>
+<p><strong>第三组：在压缩表示上算，还是在完整 K/V 上算。</strong> DSA 搭在 MLA 的潜在向量上，省 KV cache 更狠；MSA 坚持在未压缩的完整 K/V 上做注意力，质量更稳、工程对接更顺。没有谁对谁错，是面向不同部署条件的不同选择。</p>
+<h2>落到开发者头上：你用长上下文时，到底感知到什么</h2>
+<p>讲了这么多机制，最实在的问题是：这些架构差异，会怎么落到天天用长上下文的开发者头上？分三个典型场景说。</p>
+<p><strong>场景一：代码仓库级的上下文（几十个文件一起喂进去）。</strong> 这类任务最怕「漏看」——模型得在几万行代码里准确定位到某个函数的定义和所有调用点，本质是高难度的多跳检索。这正是 MiniMax 当年发现线性注意力会翻车的地方。对这类活，<strong>原生训练的块级稀疏（NSA / MSA 这一脉）和带全量层兜底的混合方案（Kimi Linear）更稳</strong>，因为它们要么把检索能力训进了稀疏模式里，要么留了全量层专门补检索短板。</p>
+<p><strong>场景二：长文档问答与长合同审阅（10 万字以上单文档）。</strong> 这类任务对「大海捞针」式精确检索的要求极高。NSA 在 64k 大海捞针上做到全位置满分检索，DSA 在 12.8 万 token 上明显降本且质量无损——这一脉对单条超长文档的精确定位有实打实的验证。如果你的活是从一份超长文档里反复抠细节，优先看这类原生稀疏方案。</p>
+<p><strong>场景三：长 agent 轨迹（几小时的工具调用历史滚成几十万 token）。</strong> 这类场景上下文一直在涨、对解码速度（一个字一个字往外吐的速度）和 KV cache 占用最敏感。<strong>解码加速和 KV cache 压缩越狠越舒服</strong>——MSA 在 1M 上解码加速 15.6 倍、Kimi Linear 把 KV cache 降到约 1/4，都是直接冲着这个场景的痛点去的。agent 跑得越久，这两项的价值越能被你感知成「响应没变慢、显存没爆」。</p>
+<p>把三个场景合起来看，结论不是「哪条路线最好」，而是<strong>长上下文已经没有一把通吃的钥匙</strong>：要极致精确检索，偏向原生训练的块级稀疏；要长 agent 下的高吞吐低显存，偏向线性混合或激进的 KV 压缩；要对已有模型低成本叠加长度，偏向推理期外推。知道自己的活属于哪一类，比记住谁家的倍数更大有用得多。</p>
+<h2>写在最后：分叉，恰恰是这条路在往前走的证据</h2>
+<p>一年前，国产模型聊长上下文，话题还停在「支持多长」。今天，几家头部团队已经把竞争推进到了注意力架构这一最底层——NSA 把稀疏做进训练、DSA 把它稳稳搬上生产、MSA 用一段来回验证了成熟度、Kimi Linear 把线性和全量调成 3:1、千问把长度外推做到推理期。</p>
+<p>这种「不走同一条路」本身是件好事。注意力是 Transformer 最核心也最难动的部件，几家团队各自在这一层做出可验证的实测数字、还愿意把弯路（比如 M2 的退回）公开讲清楚，说明国产团队已经有能力在最硬的架构层面做原创取舍，而不只是跟着调参数。</p>
+<p>对开发者来说，这意味着接下来用长上下文会越来越像「挑工具」：清楚自己的活更吃精确检索还是更吃吞吐显存，就能更准地选到合适的那条路线。分叉不是混乱，是这条路终于走到了需要分工的阶段——而能分工，恰恰是因为每一条都已经走得足够扎实。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
