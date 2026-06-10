@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Starlette漏洞CVE-2026-48710：如何让AI代理与LLM网关“裸奔”？ — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-10</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-10</span><span class="tag-pill">AI Daily</span></div>
+      <h1>Starlette漏洞CVE-2026-48710：如何让AI代理与LLM网关“裸奔”？</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-10/ufuicrekl9gwmwhetej5-micro/head.png" alt=""></p>
+<p>2026 年 6 月，安全研究员在审计 vLLM 的源代码时，发现了一个漏洞。它不在某个函数里，不在某个文件里，而是藏在 Python Web 框架 Starlette 处理 HTTP Host 头的那一行逻辑里。这个漏洞被编号为 CVE-2026-48710，代号 BadHost。它的攻击成本低到什么程度？在 Host 头里加一个问号，就能绕过基于路径的访问控制。</p>
+<pre><code>curl -i -H &#39;Host: foo&#39; http://target/admin  # 403
+curl -i -H &#39;Host: foo?&#39; http://target/admin # 200
+</code></pre>
+<p>就一个字符。<code>?</code>、<code>/</code> 或 <code>#</code> 任选其一。攻击者不需要伪造 token、不需要撞库、不需要社工，只需要改一行 HTTP 头。</p>
+<p>而 Starlette 的每周下载量是 3.25 亿次。它被 FastAPI、vLLM、各种 MCP 服务器和 LLM 网关广泛使用。这意味着 BadHost 的攻击面不是某个应用，而是整个 AI 基础设施栈里那些被默认信任的内部网络、实验室子网和研究环境。</p>
+<p><strong>一个 6.5 分的“中等”漏洞，实际上是一条直通 LLM 服务原语的捷径。</strong></p>
+<h2>三个独立层，拼在一起才炸</h2>
+<p>Starlette 重建 <code>request.url</code> 的逻辑大致是这样的：把 HTTP Host 头的值与请求路径拼接起来，然后对结果重新解析。问题在于，它在拼接之前没有根据 RFC 9112 或 RFC 3986 校验 Host 值的语法。一旦 Host 头里塞进了 <code>/</code>、<code>?</code> 或 <code>#</code>，重新解析时路径、查询参数和片段的边界就会发生偏移。<code>request.url.path</code> 返回的结果，将与 ASGI 服务器实际接收并用于路由的路径不再一致。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-10/ufuicrekl9gwmwhetej5-micro/schematic-1.png" alt="BadHost 攻击流程示意，Host 头注入特殊字符 → Starlette 重新解析 URL → 路径偏移 → 中间件鉴权被绕过"></p>
+<p>安全公司 X41 D-Sec 和 Secwest 的研究人员指出，这个漏洞涉及三个独立层：ASGI 服务器原样传递 Host 头，Starlette 在构建 URL 时无条件信任它，而下游中间件作者则假设 <code>request.url.path</code> 在身份验证决策中是安全的。每一层单独看，行为都符合预期。漏洞只出现在它们交互的那个接缝处。</p>
+<p>这正是最难发现的那类漏洞。Claude Mythos 在做自动审计时完全没扫出来——尽管同一个团队在 Glasswing 项目中用其他方法识别出了超过 10000 个漏洞。X41 的分析证实，这个单字符的原始参数可以触发身份验证绕过、SSRF 乃至远程代码执行。而最初发现它的场景——对 vLLM 的源代码审计——说明从 Starlette 漏洞到 LLM 服务原语的路径不是理论推演，是实战中打通的。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-10/ufuicrekl9gwmwhetej5-micro/schematic-2.png" alt="三层架构图，ASGI 服务器 / Starlette URL 重建 / 中间件鉴权，标注每层的信任边界"></p>
+<p>更让人不安的是受影响系统的部署拓扑。AI 服务通常跑在内部网络、实验室子网和 LLM 研究环境里，这些地方缺少生产系统中常见的反向代理保护。Hacker News 用户 acdha 在讨论中指出，如果前面套了 CDN、负载均衡器或 API 网关，攻击难度会大幅上升，因为那些无效字符大概率无法匹配到正确的客户路由。但问题恰恰在于，大量 AI 基础设施是裸奔的——它们设计之初就没考虑过会被外部直接访问，结果反而成了 BadHost 最理想的靶子。</p>
+<h2>MCP 服务器的命门，和一场评分争议</h2>
+<p>MCP 服务器面临的风险被研究人员单独点名。MCP 规范要求使用未经身份验证的 OAuth 发现端点。这意味着攻击者不需要任何凭证就能接触到一个可靠的利用入口。把 BadHost 的路径绕过能力和一个无需认证的端点放在一起看，这就是一条从公网直达内部工具调用链的通道。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/ai-daily/main/2026-06-10/ufuicrekl9gwmwhetej5-micro/schematic-3.png" alt="MCP 服务器暴露面示意，外部请求 → OAuth 发现端点（无需认证）→ BadHost 绕过 → 内部工具调用"></p>
+<p>然而 CVE-2026-48710 的 CVSS 评分只有 6.5 分，定性为“中等”。这个分数在安全社区引发了不小的争议。研究人员明确表态，评分“低估了其下游影响”，应该被视为“严重”级别。Hacker News 上用户 ostif-derek 说得更直白：</p>
+<blockquote>
+<p>这可真是个大麻烦。将其评定为“中等”严重性，低估了它对数千个下游项目和数十亿次安装造成的冲击。大家必须尽快打补丁。我通常反对那种“给漏洞起名字、设计标志、建网站”的做法，但这次正因为将其评为“中等”严重性，导致补丁部署率很低。</p>
+</blockquote>
+<p>这段话点出了一个现实问题：CVSS 评分不仅影响技术讨论，还直接影响运维团队的补丁优先级。6.5 分的漏洞大概率会被排在“下周再说”的队列里，而实际上它可能已经被人用一行 curl 命令摸过了。</p>
+<p>Starlette 在 1.0.1 版本中已经修复了该漏洞，修复方式是在 URL 重建前对 Host 头做语法校验。研究团队还上线了 badhost.org，提供免费在线扫描工具，帮助开发者检测自己的服务是否存在暴露风险。InfoQ 中国在 2026 年 6 月的报道中详细披露了技术细节和利用方式。</p>
+<p>让我觉得最有意思的是这个漏洞的“非原子性”。它不属于某个文件、某个仓库、某行代码，而是三个组件各自做对了自己的事，拼在一起却出现了一个谁都没预料到的安全缺口。这种跨层漏洞在 AI 基础设施快速叠积木的当下，恐怕不会是最后一例。开发者默认信任框架的 URL 解析结果，框架默认信任上游传进来的 Host 头，而 ASGI 服务器默认不拦截格式异常的头部——每个假设单独看都合理，合在一起就是一条攻击链。</p>
+<p>Starlette 每周 3.25 亿次的下载量意味着，即使只有 1% 的部署实例直接暴露，那也是 325 万个可能被人用一个问号敲开的后门。下次你看到某个 AI 代理的接口返回 200 的时候，最好确认一下，它是不是真的验过了你是谁。</p>
+<p>#BadHost #AI #LLM #科技</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude 最强公开模型出了，碰到高危问题自动换弱模型答 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-10</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-10</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Claude 最强公开模型出了，碰到高危问题自动换弱模型答</h1>
+<p>当地时间 6 月 9 日，Anthropic 把一个此前很少在公众视野里露面的模型——Claude Fable 5——推成了所有人当天就能调用的最强公开模型。</p>
+<p>它有多强？在软件工程基准 SWE-Bench Pro 上拿到 80.3%，把 Opus 4.8 的 69.2% 甩开 11 个百分点；Stripe 用它一天迁完一个 5000 万行的 Ruby 代码库，这活原本要一支全队两个月。</p>
+<p>但这篇文章真正想讲的，不是它有多强。是这个最强模型做了一件以前没人在产品层默认做的事：<strong>碰到网络攻击、生化、蒸馏这三类高危请求，它会自动把回答交给一个更弱的模型——Opus 4.8——来答</strong>，大约 5% 的会话会被触发。能力顶到天花板，厂商却主动给它留了一道默认的闸。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/claude-fable5-mythos-safety-fallback-2026-06-10.png" alt="复古印刷海报风格画面：一只由发光线条组成的蝴蝶，翅膀拼成一个巨大的数字 5，蝴蝶旁边立着一个老式断路器闸刀，画面冷暖对照，下方是密排的代码纹理"></p>
+<h2>先说清楚 Fable 5 和 Mythos 5 是什么关系</h2>
+<p>Anthropic 这次一口气放了两个名字：Claude Fable 5 和 Claude Mythos 5。它俩是同一个底模型，差别只在安全防护层。</p>
+<ul>
+<li><strong>Claude Mythos 5</strong>：完整能力的版本，安全护栏在部分领域是放开的。只发给一小撮通过审批的网络防御方和基础设施厂商，初期通过 Project Glasswing 和美国政府合作部署，是目前网络安全能力最强的模型。</li>
+<li><strong>Claude Fable 5</strong>：面向所有人公开的版本，是 Mythos 5 套上一层安全防护后的产物。模型标识 <code>claude-fable-5</code>，今天就能在 Claude API 里直接调。</li>
+</ul>
+<p>换句话说，你今天能摸到的 Fable 5，是把那个最强内核装好闸之后开放出来的。这个区分很关键——它解释了为什么一个&quot;最强公开模型&quot;会在某些问题上主动降速。</p>
+<p>值得注意的还有命名背后的安排。Mythos 这个内核 Anthropic 此前一直只在受限范围内给少数机构用，并多次公开表达过对它能力的谨慎态度；Fable 5 是第一次把 Mythos 级别的能力，以一个&quot;对一般用途安全&quot;的姿态放给所有人。也就是说，公开和受限不是两个不同的模型，而是同一个模型的两种开放程度——一种给所有人、装了闸，一种给少数审批过的防御方、开了闸。这种&quot;一套内核、两档护栏&quot;的做法，本身就是这次发布最有信息量的设计。</p>
+<p>这套设计的好处在于：它让 Anthropic 不必在&quot;把强能力藏起来&quot;和&quot;把强能力裸放出去&quot;之间二选一。强能力照样开发、照样给最需要它的防御方用满血版；面向大众的那一份，则把高危方向单独摁住，其余全部开放。对普通开发者，这意味着你拿到的不是一个被整体阉割过的弱化版，而是一个只在三类边缘话题上降速、其余地方满血的最强公开模型。这个分寸，正是这次发布里最值得琢磨的地方。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/fable5-source-anthropic-news.png" alt="Anthropic 官方公告页截图，标题为 Claude Fable 5 and Claude Mythos 5"></p>
+<p>来源：Anthropic 官方公告页 <code>anthropic.com/news/claude-fable-5-mythos-5</code>，2026-06-09。</p>
+<h2>编程到底强到什么程度</h2>
+<p>先看你最关心的：写代码。这也是 Fable 5 拉开差距最明显的地方。</p>
+<p>两个基准摆在一起看更清楚。SWE-Bench Pro 测的是接近真实软件工程的任务；FrontierCode 则是按生产标准衡量的高难编程评测。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/fable5-chart-swebench.png" alt="Claude Fable 5 在 SWE-Bench Pro 和 FrontierCode 两项编程基准上与 Opus 4.8、GPT-5.5、Gemini 3.1 Pro 的横向对比条形图"></p>
+<p>具体数字：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>SWE-Bench Pro</th>
+<th>FrontierCode</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Claude Fable 5（Anthropic）</td>
+<td>80.3%</td>
+<td>29.3%</td>
+</tr>
+<tr>
+<td>Claude Opus 4.8（Anthropic）</td>
+<td>69.2%</td>
+<td>13.4%</td>
+</tr>
+<tr>
+<td>GPT-5.5（OpenAI）</td>
+<td>58.6%</td>
+<td>5.7%</td>
+</tr>
+<tr>
+<td>Gemini 3.1 Pro（Google）</td>
+<td>54.2%</td>
+<td>—</td>
+</tr>
+</tbody></table>
+<p>SWE-Bench Pro 上 80.3% 已经够亮眼，但 FrontierCode 这一栏才是分水岭。这个基准故意按生产标准卡，越往难处走分数掉得越狠——GPT-5.5 只剩 5.7%，Opus 4.8 也只有 13.4%，而 Fable 5 拿到 29.3%，是第二名的两倍多。</p>
+<p>一句话收尾：常规软件工程任务大家都还能跟，越往&quot;真实生产里的硬骨头&quot;走，Fable 5 的领先越成倍数级。</p>
+<p>为什么这两个基准要分开看？因为它们测的是不同的东西。SWE-Bench Pro 偏向&quot;能不能解决一个软件工程问题&quot;，大多数前沿模型都已经能跟上，差距是十几个百分点的量级。FrontierCode 则把题目卡在生产标准——代码要可维护、要符合工程规范、要经得起真实评审——这种题对模型的要求高一个量级，分数普遍很低，谁能多扛住几个百分点都不容易。Fable 5 在前者领先一截，在后者直接翻倍，说明它的优势不只是&quot;会解题&quot;，而是在&quot;按真实工程标准解题&quot;这件难事上拉开了距离。</p>
+<p>落到实际：如果你的活只是写写脚本、补补函数，各家模型其实都够用，没必要为最强买单；但如果你面对的是遗留系统重构、跨框架迁移、要过 code review 的生产代码，FrontierCode 这一栏的差距会实打实地反映在你的工作效率上。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/fable5-source-swebench.png" alt="the-decoder 文章中的 Claude Fable 5 编程基准对比图"></p>
+<p>来源：the-decoder 报道配图，2026-06-09。</p>
+<h2>客户拿它干了什么</h2>
+<p>基准分数容易让人麻木，两个真实客户的反馈更直观。</p>
+<ul>
+<li><strong>Stripe</strong>：用 Fable 5 做 Ruby 代码库迁移，称它&quot;把五个月的工程压成了几天&quot;，一个 5000 万行的代码库一天就迁完了——这活按原计划要一支全队干两个月。</li>
+<li><strong>IMC（量化交易团队）</strong>：说 Fable 5&quot;几乎全数通过了他们的交易分析评估&quot;。</li>
+</ul>
+<p>这两个反馈的共同点是：它们都不是演示，是被丢进真实代码库和真实评估流程里跑出来的结果。对天天用 Claude Code 写代码的人来说，这意味着大体量重构、跨语言迁移这类以前最熬人的活，多了一个值得认真试的选项。</p>
+<p>Stripe 那个例子尤其值得拆开看。5000 万行的 Ruby 代码库迁移，难的从来不是单点改一行代码，而是要在整个代码库里保持一致——同一个改动模式要在成千上万处正确套用，还不能把别处弄坏。这种活之所以原本要两个月一支全队，正是因为它考验的是&quot;在大范围内保持一致和正确&quot;的能力，而这恰好是 FrontierCode 那一栏想测的东西。把基准分数和这个客户案例对起来读，Fable 5 的领先就不是一个抽象数字，而是落到了&quot;一天 vs 两个月&quot;这种能直接感受到的差别上。</p>
+<p>IMC 那个例子则指向另一类场景。量化交易团队的&quot;交易分析评估&quot;，考验的是模型在专业、密集、容错率极低的领域里能不能稳定给出靠谱判断。Fable 5 几乎全数通过，说明它的强不只体现在写代码上，在需要严谨推理和领域知识的分析类任务上同样能打。这对那些用 AI 做数据分析、研究辅助、专业文档处理的人，是个值得留意的信号。</p>
+<p>当然，这两个都是 Anthropic 官方放出的客户口径，分数也来自厂商提供的评测，读的时候心里有数即可——真正的判断，还得等你把自己的代码库或自己的分析任务丢进去跑一遍。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/fable5-source-decoder-logo.png" alt="the-decoder 文章中的 Claude Fable 5 标识图"></p>
+<p>来源：the-decoder 报道配图，2026-06-09。</p>
+<h2>重点来了：那道自动换弱模型的闸</h2>
+<p>现在回到这篇文章的核心。这么强一个模型，Anthropic 给它配了一套以前没在公开产品里默认上过的机制。</p>
+<p>Fable 5 内置了一组新分类器，专门识别三类高危请求。一旦命中，<strong>模型不会用自己满血的能力去答，而是自动把这条回答交给更弱的 Opus 4.8</strong>。三类是：</p>
+<ul>
+<li><strong>网络攻击（offensive cyber，即攻击性网络利用）</strong>：写漏洞利用、攻击工具这类</li>
+<li><strong>生物化学</strong>：生化武器、双用途的危险知识</li>
+<li><strong>蒸馏（distillation，把强模型的能力抽取到弱模型里）</strong>：防止别人通过提问把 Fable 5 的能力&quot;抽&quot;走</li>
+</ul>
+<p>这三类各自防的是什么，值得简单说清楚：</p>
+<ul>
+<li><strong>网络攻击</strong>：防的是有人用它生成实际可用的攻击代码、漏洞利用链。这类能力一旦满血放出去，等于给攻击方递工具，所以这是闸卡得最死的一类。</li>
+<li><strong>生物化学</strong>：防的是危险的双用途知识——同一套化学或生物学原理，做药和做武器只隔一层窗户纸，模型不能成为那层窗户纸被捅破的帮手。</li>
+<li><strong>蒸馏</strong>：这一类有点特别，防的不是用户作恶，而是防别人通过大量提问，把 Fable 5 学到的能力&quot;抽取&quot;出来、复制到自己的弱模型里。换句话说，这道闸里有一部分是在保护模型本身的能力不被低成本搬走。</li>
+</ul>
+<p>超过 95% 的会话不会碰到这道闸，正常写代码、做分析、处理文档完全不受影响。被触发的大约就是那 5%。</p>
+<p>更说明问题的一个数字：在攻击性网络的测试里，<strong>Fable 5 自己的得分是 0%</strong>——不是它不会，是这道闸把它的能力在这个方向上彻底摁住了。而放开护栏的 Mythos 5，在网络安全基准 ExploitBench 上拿到 78%，Opus 4.8 只有 40%。同一个内核，开闸和关闸是两个世界。</p>
+<table>
+<thead>
+<tr>
+<th>ExploitBench（网络安全基准）</th>
+<th>得分</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Claude Mythos 5（放开护栏）</td>
+<td>78%</td>
+</tr>
+<tr>
+<td>Claude Mythos Preview</td>
+<td>69%</td>
+</tr>
+<tr>
+<td>Claude Opus 4.8</td>
+<td>40%</td>
+</tr>
+<tr>
+<td>Claude Fable 5（攻击性网络，闸已合上）</td>
+<td>0%</td>
+</tr>
+</tbody></table>
+<p>这道闸和过去的做法有什么不一样？以前大模型遇到危险问题，常见的处理是直接拒答——&quot;抱歉，我不能帮你做这个&quot;。Fable 5 这次换了个思路：不是拒答，而是降级。它把这条问题悄悄转给能力更弱的 Opus 4.8 来回答，让用户依然能得到一个回复，只是这个回复来自一个在高危方向上&quot;够不到那么深&quot;的模型。对绝大多数正常用户，这个切换几乎无感；对真想往高危方向深挖的人，他拿到的就是一个被刻意压低了上限的答案。</p>
+<p>为什么选&quot;降级&quot;而不是&quot;拒答&quot;？一个合理的理解是：直接拒答容易被绕过，用户换个问法可能就溜过去了；而把整条回答的能力天花板压到更弱模型的水平，等于从根上限制了能挖出多深，而不是只在表面拦一道。这也是为什么 Anthropic 特意公布 Fable 5 在攻击性网络测试上是 0%——它要的不是&quot;少答一点&quot;，而是&quot;在这个方向上彻底够不着&quot;。</p>
+<p>把这几个数字连起来读：Anthropic 不是嘴上说安全，是把&quot;能力越强、越要在高危方向留一道闸&quot;这件事，做成了产品里跑着的默认行为，还用 0% 这个数字给你看它真的合上了。</p>
+<p>这道闸还有一个对普通开发者很友好的特性：它是按请求内容动态判断的，而不是把整类话题一刀切封死。同样是聊网络安全，你问&quot;怎么给我的服务器加固防火墙规则&quot;和问&quot;怎么写一个攻击某系统的漏洞利用&quot;，前者是防御方的正常需求，后者才是闸要拦的方向。所以正经做安全开发、写防御工具、做渗透测试授权范围内工作的人，绝大多数情况不会被误伤——这也是为什么超过 95% 的会话能正常走完。Anthropic 把识别的精度做在了&quot;请求意图&quot;这一层，而不是&quot;话题关键词&quot;这一层，这是它敢公开的底气之一。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/fable5-source-techcrunch.png" alt="TechCrunch 关于 Claude Fable 5 发布的报道页面截图"></p>
+<p>来源：TechCrunch 报道页，2026-06-09。</p>
+<h2>一个&quot;对一般用途安全&quot;的姿态</h2>
+<p>把视角拉远一点看，这次发布有个耐人寻味的安排：Anthropic 在公开 Fable 5 之前，刚刚还在强调前沿 AI 能力正变得越来越需要谨慎对待。紧接着，它就把一个 Mythos 级别的内核推给了所有人——但是以&quot;对一般用途安全&quot;的形态推出。</p>
+<p>这两件事放在一起，并不矛盾，反而正是这次设计的内在逻辑：能力可以放出来，前提是把高危方向的那道闸先装好、装牢、还要能用数字证明它合上了。Mythos 5 那个开了闸的满血版，依然只给通过审批的少数防御方和基础设施厂商，通过 Project Glasswing 和美国政府合作部署，定位是给网络防御的一方更强的工具。公开的归公开、受限的归受限，两条线分得很清楚。</p>
+<p>对开发者来说，这意味着一个挺实在的现实：你能稳定拿到的，是装了闸的最强公开模型；而它之所以敢公开，恰恰是因为那道闸先到位了。能力和约束是同一次发布里一起交付的，不是先放能力、出了事再补约束。这种顺序本身，就是一种踏实。</p>
+<h2>价格、平台和那个时间窗</h2>
+<p>讲完能力和闸，落到能不能用、贵不贵。</p>
+<p><strong>价格</strong>：输入 10 美元 / 百万 token，输出 50 美元 / 百万 token，差不多是 Opus 4.8（输入 5 美元、输出 25 美元）的两倍。在 Claude.ai 的订阅里，Fable 5 按 2 倍用量计。</p>
+<p><strong>平台</strong>：Claude API（模型标识 <code>claude-fable-5</code>）、Claude.ai、AWS Bedrock、Google Vertex AI、Microsoft Foundry 都能用，Pro / Max / Team / Enterprise 套餐覆盖。</p>
+<p>这里有个时间窗要留意：6 月 22 日前，Fable 5 在 Pro / Max / Team / 席位制 Enterprise 套餐里免费包含；6 月 23 日起会从这些套餐里撤出，之后要用额度，Anthropic 说会尽快把它恢复成标准订阅功能。想体验满血最强公开模型的，这两周是窗口期。</p>
+<p>把价格和平台两件事并起来看，结论很简单：</p>
+<ul>
+<li><strong>想先尝鲜、不想多花钱的</strong>：趁 6 月 22 日前，用 Pro / Max / Team 套餐直接体验，零额外成本，正好拿自己手头最难的一个任务去试它的上限。</li>
+<li><strong>要写进自己产品里调用的</strong>：在 Claude API 用 <code>claude-fable-5</code> 这个标识接入，AWS Bedrock、Google Vertex AI、Microsoft Foundry 也都能用，挑你团队已经在用的那条线接最省事。</li>
+<li><strong>对成本敏感的</strong>：记住输出端是 Opus 4.8 的两倍价，把它留给真正啃硬骨头的任务，常规活继续用便宜档位。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/fable5-source-decoder-agentic.png" alt="the-decoder 文章中的 Claude Fable 5 智能体编程基准对比图"></p>
+<p>来源：the-decoder 报道配图，2026-06-09。</p>
+<h2>放到当前的几家模型里看，它处在什么位置</h2>
+<p>光看 Anthropic 自家的对照容易失真，把这次的几个数字放进当前主流模型的格局里，位置会更清楚。</p>
+<p>在 SWE-Bench Pro 上，Fable 5 的 80.3% 领先 GPT-5.5 的 58.6% 和 Gemini 3.1 Pro 的 54.2%，差距在二十多个百分点；在 FrontierCode 这种生产标准的高难编程上，差距进一步拉大到成倍。也就是说，在&quot;写代码&quot;这个被反复争夺的赛道上，Fable 5 这次把领先做得相当扎实，而不是靠某个单项基准的微弱优势。</p>
+<p>但有两点要冷静地放在心里：</p>
+<ul>
+<li><strong>基准不等于全部体验。</strong> 编程基准只能反映模型在特定任务集上的表现，真实开发里还有上下文长度、响应速度、工具调用稳定性、对你这套代码风格的适应度等一堆因素，这些不是一张分数表能说清的。</li>
+<li><strong>价格是另一边的秤。</strong> Fable 5 输出 50 美元 / 百万 token，是 Opus 4.8 的两倍，也明显高于不少竞品。强是真的强，但贵也是真的贵，值不值得要看你这活的难度配不配得上这个价。</li>
+</ul>
+<p>还有一个容易被忽略的对照维度：这次拉开差距的方式。过去几代模型之间的竞争，常常是你追我赶、互相只差几个百分点，今天你领先、过几周对手就追平。Fable 5 在 FrontierCode 上的领先是成倍的，这种量级的差距短期内不容易被快速抹平，它更像是在&quot;按真实工程标准写代码&quot;这个具体能力上建立了一段实打实的距离。如果你的核心工作正好压在这类高难编程上，短期内它值得被当成一个认真的生产力选项来评估，而不只是看个热闹。</p>
+<p>所以更稳妥的读法是：在最硬的那批编程任务上，Fable 5 目前站在比较靠前的位置；但它不是一个&quot;无脑替换掉手头所有模型&quot;的选项，而是一个&quot;该上的时候上&quot;的重型档位。</p>
+<h2>这条行为你自己就能验</h2>
+<p>这次发布最让人安心的一点，是它不靠口头承诺，而是可以亲手测。</p>
+<p>你需要的只是一个 Claude API 的访问权限。把模型标识填成 <code>claude-fable-5</code>，按 10 美元 / 百万 token 输入、50 美元 / 百万 token 输出的价跑就行。验证思路很直接：</p>
+<ul>
+<li><strong>先验它的强。</strong> 拿一段你自己代码库里真实的、麻烦的重构任务丢给它，对比一下用 Opus 4.8 跑同样的任务，看 Fable 5 是不是在那些&quot;需要全局一致性&quot;的活上明显更稳。</li>
+<li><strong>再感受那道闸。</strong> 在正常开发请求里，你几乎察觉不到任何回退；只有当请求落到网络攻击、生化、蒸馏这三类边缘时，回答质量才会出现&quot;像是换了个更弱模型&quot;的落差。这就是约 5% 会话被触发的那道闸在起作用。</li>
+</ul>
+<p>这种&quot;能力和约束都摆在明面、都能自己跑一遍&quot;的状态，对开发者其实比一堆漂亮的发布会数字更有价值——你不需要相信厂商说了什么，你可以自己看它做了什么。</p>
+<h2>那 5% 对你到底意味着什么</h2>
+<p>回到开头那句：能力顶格，却给自己默认留了一道闸。这件事可以拆成三个清楚的判断。</p>
+<p><strong>什么活该上 Fable 5。</strong> 大体量重构、跨语言迁移、生产标准下的高难编程——这些是它拉开差距最大的场景，Stripe 一天迁 5000 万行就是样板。常规问答、轻量脚本用 Opus 4.8 已经够，没必要为两倍价格买单。</p>
+<p><strong>价格怎么算。</strong> 输入 10 美元、输出 50 美元，是 Opus 4.8 的两倍；订阅里按 2 倍用量扣。把它当成&quot;啃硬骨头时才上的重型档位&quot;，按任务难度挑，比无脑全量切换划算。</p>
+<p><strong>那 5% 回退意味着什么。</strong> 如果你的活正好落在网络安全、生化或模型蒸馏这三类边缘，可能会撞上自动换 Opus 4.8 回答、质量不如预期的情况——这不是模型变笨，是闸合上了。绝大多数日常开发完全碰不到这道闸，不用担心。这条行为是可以实测的：API 直接传 <code>claude-fable-5</code>，按 10 美元 / 50 美元的价跑，约 5% 的会话会回退，你自己就能验。</p>
+<p>把这三条收成一句：这一代开发者很幸运，手里能直接调到的最强公开模型，同时也是第一个把&quot;遇到高危问题就主动降到更弱模型&quot;做成默认的模型。能力和那道闸是一起交到你手上的——它强，且它知道在哪儿该停。这种踏实感，比单纯一个高分更值得记住。</p>
+<p>往前看一步，Fable 5 这次给整个行业留下的或许不只是又一个更高的分数，而是一种可以被借鉴的姿态：模型能力越往上走，约束就越要做在产品默认里、做得能被验证、做得不误伤正常用户。这条路前面已经有人趟出来了，对正在追赶的国内团队也是一份现成的参照。能力会一代代更强，而怎么让强能力被安心地用起来，正在成为同样重要的一道考题——这道题有人开始认真答了，是件让人对接下来更有底气的事。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

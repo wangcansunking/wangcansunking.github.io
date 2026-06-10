@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>代码能跑 ≠ 能合并：FrontierCode 最难档剩 13.4 分 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-10</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-10</span><span class="tag-pill">Daily Report</span></div>
+      <h1>代码能跑 ≠ 能合并：FrontierCode 最难档剩 13.4 分</h1>
+<p>你大概有过这样一个瞬间：让 Claude Code 或 Cursor 改一个 bug，几分钟后绿灯亮起，单元测试全过，你顺手点了合并。三周后线上报警，回头一看，那段&quot;测试全过&quot;的补丁顺手动了三个不相干的函数，删掉了一处别人专门留的边界判断，还塞进来一个永远跑不到的 if 分支。测试没拦住它——因为根本没有测试覆盖那几处。</p>
+<p>这不是个例，而是一个被长期回避的问题：<strong>AI 写的代码&quot;能跑&quot;，和&quot;能合进团队主干&quot;，是两件完全不同的事。</strong> 前者只要单测亮绿就算赢，后者要过的是一个真实维护者挑剔的眼睛——改动够不够克制、有没有破坏别的东西、风格合不合、测试本身写得对不对、半年后别人还看不看得懂。</p>
+<p>2026 年 6 月，Devin 的母公司 Cognition 发布了一个叫 <strong>FrontierCode</strong> 的编码基准，第一次把&quot;可合并性（mergeability）&quot;这件一直说不清的事，量化成了分数。结果相当扎眼：当今最强的模型，在最难一档上只拿到 <strong>13.4 分（满分 100）</strong>。其余顶级模型连两位数都没摸到。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/frontiercode-chart1-mergeability-concept.png" alt="一名维护者在审查一段 AI 生成的补丁，屏幕上绿色的测试全过，但补丁本身被红笔圈出多处问题"></p>
+<p>这篇文章想讲清楚三件事：FrontierCode 到底测了什么、为什么它和你熟悉的 SWE-bench 不一样、以及对每天用 AI 写代码的国内开发者——你和我——这个 13.4 分意味着什么。</p>
+<h2>先看分数：最难档 13.4 分，集体不及格</h2>
+<p>FrontierCode 把题目分成三档，由易到难层层嵌套：<strong>Extended 全集 150 题 → Main 取其中最难的 100 题 → Diamond 取最难的 50 题</strong>。同一批模型在三档上的得分，越往难处走掉得越狠。</p>
+<p>下面这张表是官方公布的核心成绩（满分均为 100，时间口径为 Cognition 2026-06 发布时的测评）：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>Extended（150 题）</th>
+<th>Main（100 题）</th>
+<th>Diamond（50 题）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Claude Opus 4.8</td>
+<td>51.8</td>
+<td>34.3</td>
+<td><strong>13.4</strong></td>
+</tr>
+<tr>
+<td>GPT-5.5</td>
+<td>—*</td>
+<td>—*</td>
+<td>6.3</td>
+</tr>
+<tr>
+<td>Gemini 3.1 Pro</td>
+<td>—*</td>
+<td>—*</td>
+<td>4.7</td>
+</tr>
+<tr>
+<td>Kimi K2.6（最强开源权重）</td>
+<td>37</td>
+<td>16</td>
+<td>3.8</td>
+</tr>
+</tbody></table>
+<p>*注：GPT-5.5、Gemini 3.1 Pro 的 Extended/Main 分项 Cognition 未在博客正文逐项列出，本文只引用其公布过的 Diamond 档分数；Opus 4.8 与 Kimi K2.6 三档齐全。</p>
+<p>这张表里有三处落差，每一处都指向同一件事。</p>
+<p>第一，<strong>最强的 Claude Opus 4.8，在最难档也只有 13.4 分</strong>。这不是&quot;接近满分还差临门一脚&quot;，而是&quot;一百道真实维护任务里，能干到维护者愿意合并标准的不到七分之一&quot;。</p>
+<p>第二，<strong>从 Extended 到 Diamond，同一个模型掉了将近四十分</strong>（Opus 4.8 从 51.8 跌到 13.4）。题目难度一上真实维护现场，分数就崩——说明模型在&quot;教科书式简单题&quot;和&quot;真实工程现场&quot;之间存在巨大落差。</p>
+<p>第三，<strong>第二名到第四名集体卡在个位数</strong>：GPT-5.5 拿 6.3、Gemini 3.1 Pro 拿 4.7、开源权重最强的 Kimi K2.6 拿 3.8。在 Diamond 这一档，没有一个模型&quot;及格&quot;，差距更像是&quot;都没怎么及格，只是有人错得少一点&quot;。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/frontiercode-chart2-three-tier-scores.png" alt="FrontierCode 三档（Extended/Main/Diamond）四个模型得分对比柱状图，Diamond 档全员个位数到十几分"></p>
+<p>为什么分数这么低？因为它测的根本不是&quot;能不能跑通&quot;。</p>
+<h2>它测的是&quot;维护者会不会按下合并键&quot;</h2>
+<p>FrontierCode 的核心问题只有一句话：<strong>这段补丁，一个真实的开源维护者，会不会愿意把它合进主干？</strong></p>
+<p>这句话听起来朴素，但它把评分的着力点从&quot;功能对不对&quot;挪到了&quot;工程质量整体过不过关&quot;。Cognition 给每道题设了六个评判维度，一道补丁要同时在这六项上达标，才算高分：</p>
+<ul>
+<li><strong>行为正确（behavioral correctness）</strong>——功能真的实现了吗？这是 SWE-bench 那一类基准唯一认真测的东西，在 FrontierCode 里只是六分之一。</li>
+<li><strong>回归安全（regression safety）</strong>——改这块有没有顺手弄坏别的地方？真实代码库里，&quot;修好一个、带崩三个&quot;是合并被打回的头号原因。</li>
+<li><strong>整洁度（mechanical cleanliness）</strong>——有没有留下死代码、多余的导入、临时打印、注释掉的旧逻辑？</li>
+<li><strong>测试正确（test correctness）</strong>——补丁自带的测试是真在测东西，还是写了个永远会过的空壳？这一项专门防&quot;为了过测试而糊弄测试&quot;。</li>
+<li><strong>改动范围（scope）</strong>——只动了该动的地方，还是顺手重构了一大片没人要它碰的代码？维护者最警惕的就是越界改动。</li>
+<li><strong>代码质量（code quality）</strong>——风格合不合项目惯例、命名清不清楚、半年后接手的人看不看得懂。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/frontiercode-chart3-six-dimensions.png" alt="FrontierCode 六个评判维度雷达图：行为正确、回归安全、整洁度、测试正确、改动范围、代码质量"></p>
+<p>这六项连起来，正是一个老练的同事在 code review 里逐条盯你的那几件事。单测通过只对应其中第一项，剩下五项——回归、整洁、测试质量、改动克制、可维护——全是 AI 现在最容易翻车、而 benchmark 又一直没认真测的地方。</p>
+<p>FrontierCode 的价值，就是把这五项一起搬上了秤。</p>
+<p>举个真实工程里再常见不过的场景，你立刻能体会这五项的分量。假设任务是&quot;给一个缓存模块加上过期时间&quot;。一个只盯&quot;功能正确&quot;的模型，很可能交出这样一段补丁：它确实让缓存到点过期了，单测也亮绿，但同时——顺手把旁边一个共用的工具函数改了签名（破坏了回归安全）、留下一行调试用的打印语句（整洁度失分）、新写的测试只断言&quot;函数不抛异常&quot;而没真验证过期行为（测试正确失分）、还顺带把整个文件按自己的喜好重排了导入顺序（改动范围严重越界）。</p>
+<p>这段补丁在 SWE-bench 那把尺子上是&quot;通过&quot;，在维护者眼里却是&quot;打回重写&quot;。FrontierCode 做的事，就是把&quot;维护者会打回&quot;这件以前只存在于人脑里的判断，拆成可打分的六个维度，让机器也能量出来。</p>
+<p>而且为了让这把尺子本身可靠，Cognition 还做了一道&quot;评分标准加固&quot;的工序：先让维护者写出每道题的评分细则，再用模型生成的各种补丁去反复压测这套细则，把那些&quot;明明该判不合格却被判通过&quot;的漏洞一个个堵上。换句话说，他们不只是出题，还专门校准了&quot;批卷子的尺子&quot;——这正是它敢说自己误判率低的底气来源。</p>
+<h2>这些题不是刷出来的，是维护者亲手攒的</h2>
+<p>一个基准可信不可信，关键看题从哪儿来。FrontierCode 在这件事上下了重本。</p>
+<p><strong>出题人是 20 多位世界级开源维护者，题目取自他们自己亲手维护的 36 个主力仓库。</strong> 不是从公开数据集里筛、不是让模型生成、更不是众包标注，而是真正每天在维护这些项目的人，从自己处理过的多 PR 改动链和真实需求里挑出来的硬骨头。</p>
+<p>更夸张的是单题工作量：<strong>平均每道题的构建超过 40 个小时</strong>。150 道题，光出题就是六千多小时的世界级维护者人力。这意味着每道题都带着真实工程的全部复杂度——上下文、隐含约束、风格惯例、那些&quot;老维护者一看就懂、新人完全摸不着&quot;的潜规则。</p>
+<p>这套做法直接决定了 FrontierCode 的难度天花板和可信度：题目本身就是从&quot;会被真人 reviewer 反复打回&quot;的真实场景里长出来的，模型再想靠&quot;猜测试用例&quot;取巧就行不通了。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/frontiercode-chart4-construction-pipeline.png" alt="FrontierCode 题目构建流程示意：20+ 维护者从 36 个真实仓库出题，每题超 40 小时打磨"></p>
+<h2>和 SWE-bench 比：&quot;过测试&quot;不等于维护者会接受</h2>
+<p>讲到这里，绕不开你最熟的那个名字——SWE-bench。这几年但凡模型发布会吹编码能力，PPT 上几乎一定有 SWE-bench 的分数。FrontierCode 摆明了就是冲着补它的短板来的。</p>
+<p>Cognition 在博客里给出了一个相当直接的可靠性数字：FrontierCode 自称<strong>误判率比 SWE-Bench Pro 低 81%</strong>。这里的&quot;误判&quot;指的是基准把一个其实不合格的补丁判成&quot;通过&quot;（假阳性）。这个 81% 衡量的是评测口径本身的可靠性——FrontierCode 想说的是：我这把秤，更不容易把烂代码称成好代码。</p>
+<p>而它为什么要专门补这一刀，背后是学术界早有的一个观察。Cognition 在博客里引用了研究机构 METR 的发现：<strong>在 SWE-bench 这类基准上拿高分的模型，产出的补丁往往不会被人类维护者接受。</strong> &quot;拿高分&quot;和&quot;会被合并&quot;之间，隔着一整个真实工程的距离——一个补丁能让单测亮绿，不代表它在风格、改动范围、回归安全上经得起维护者那一关。</p>
+<p>把这条线索串起来，FrontierCode 想纠正的是一种行业惯性：<strong>长期以来，我们用&quot;测试过不过&quot;代替了&quot;代码好不好&quot;，因为前者好测、后者难测。</strong> 现在有人愿意花六千小时把后者也测出来了，结果就是顶级模型集体现原形。</p>
+<p>这不是说 SWE-bench 没用——它仍然是衡量&quot;功能正确&quot;的有效尺子。只是当所有人都开始拿 SWE-bench 分数当&quot;AI 能不能替代工程师&quot;的证据时，FrontierCode 提醒你：那个分数只覆盖了真实工作的六分之一。</p>
+<p>这里还藏着一个容易被忽略的连锁反应。当一个基准的分数能被&quot;刷&quot;——比如靠生成大量改动来碰巧覆盖更多测试用例——模型在训练时就会被悄悄引导向&quot;多改、广改&quot;的方向，因为那样更容易在分数上得利。可真实维护现场要的恰恰相反：<strong>改得越少、越精准越好。</strong> 一个只奖励&quot;功能过测试&quot;的基准，长期看甚至会鼓励出更不可合并的代码。</p>
+<p>FrontierCode 把&quot;改动范围克制&quot;单列成一个维度来扣分，等于是在源头上纠这个偏——它告诉模型，越界改动不是中性的，是要被罚的。这一点对整个行业往哪个方向训模型，比那个 13.4 分本身更有长远意义。</p>
+<h2>和海外旗舰同台对比：Kimi K2.6 坐稳开源权重头名</h2>
+<p>对国内开发者来说，最该关心的一栏是 Kimi K2.6。</p>
+<p>在 FrontierCode 上，<strong>Kimi K2.6 是所有开源权重模型里得分最高的一个</strong>：Extended 37 分、Main 16 分、Diamond 3.8 分。它来自北京的月之暗面（Moonshot AI），是一个万亿参数规模的混合专家（MoE）模型，以开放权重发布——这意味着它不只是个 API，权重可下载、可本地部署、可二次开发。</p>
+<p>把它放进上下文看，有两面要同时讲清楚。</p>
+<p><strong>一面是值得高兴的：</strong> 在闭源巨头扎堆的最难赛道上，国产开放权重模型不仅在场，还坐稳了开源阵营头名。</p>
+<p>放到海外旗舰的坐标里看，Kimi K2.6 的 3.8 离闭源第一的 Opus 4.8（Diamond 13.4）确实有差距；但海外的两款闭源旗舰，GPT-5.5 拿 6.3、Gemini 3.1 Pro 拿 4.7，和 Kimi K2.6 已经处在同一个量级里厮杀——而 Kimi K2.6 是这一档里<strong>唯一所有人都能下载来用的</strong>。在更偏功能正确的 SWE-bench Pro 上，Kimi K2.6 此前甚至是首个登顶的开放权重模型。</p>
+<p><strong>另一面是要清醒的：</strong> Diamond 这一档全员个位数到十几分，谁也没真正过关。所以正确的读法不是&quot;国产落后多少&quot;,而是&quot;<strong>这是一道全人类的模型都没解出来的难题，国内团队站在了开源那一侧的最前排</strong>&quot;。可合并性这个山头，闭源开源一起在爬，没有谁已经登顶。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/frontiercode-source-kimi-k26-comparison.png" alt="Kimi K2.6 与多家前沿模型在编码任务上的能力对比图，开放权重模型领跑开源阵营">
+<em>图：第三方机构 Artificial Analysis 对 Kimi K2.6 等前沿模型的编码能力对比（2026 年发布版本口径）</em></p>
+<p>对天天用通义灵码、用 DeepSeek、用 Kimi 的国内开发者，这一栏给的信号很实在：你手里这些工具，在&quot;功能写对&quot;上已经和海外第一梯队同台；真正的共同短板是&quot;写得够不够干净、能不能直接合并&quot;——而这个短板，全世界一起补。</p>
+<p>把 SWE-bench Pro 和 FrontierCode 两张榜并排看，能读出一条更清楚的国产模型轨迹。在偏&quot;功能正确&quot;的 SWE-bench Pro 上，Kimi K2.6 此前能登顶开放权重榜，说明国产模型在&quot;把功能写对&quot;这件事上已经追到了世界第一档。可一换到 FrontierCode 这把更严的尺子，它和所有模型一起被压回了个位数。这两个分数放一起不矛盾，反而互相印证了同一件事：<strong>今天所有顶级模型——不分国别、不分开源闭源——的能力边界，都卡在了&quot;从写对到写好&quot;这道坎上。</strong> 国产模型已经站上了第一道坎的顶端，第二道坎对谁都还是悬崖。</p>
+<h2>这件海外冷门的事，为什么和你的日常工作直接相关</h2>
+<p>一个海外公司发的、国内还没怎么讨论的基准，跟你每天敲代码到底有什么关系？</p>
+<p>关系在于，它精准命中了你正在经历的一个工作方式转变。一两年前，AI 顶多帮你补全几行；现在 Claude Code、Cursor 这类工具，已经能一口气改完整个功能、自己跑测试、自己开 PR。你的角色正在从&quot;逐行写代码的人&quot;，变成&quot;审阅 AI 改动、决定合不合的人&quot;。这个转变越深，&quot;可合并性&quot;就越是你每天要做的核心判断——而不再是某个遥远的学术指标。</p>
+<p>FrontierCode 等于提前把这个转变的难点标了出来：当 AI 能批量产出&quot;能跑的代码&quot;时，瓶颈不在产出端，而在把关端。它六个维度里的每一项，都会变成你审阅 AI 补丁时下意识要扫的那一眼。理解这套尺子，本质上是在给自己未来几年的工作方式提前画一张地图——知道 AI 强在哪、弱在哪、哪些判断永远得你自己来做。</p>
+<h2>那 13.4 分，到底改变了什么</h2>
+<p>那么这个分数，对每天用 AI 写代码的你，到底意味着什么？</p>
+<p><strong>第一，重新校准你对 benchmark 分数的信任。</strong> 下次再看到某模型&quot;SWE-bench 刷到 80 分&quot;的发布会海报，你心里要多一句话：那只是&quot;功能正确&quot;这一项的分数。同一个模型，到了同时考回归、整洁、测试质量、改动克制、可维护的 FrontierCode 上，最难档可能只有 13.4。<strong>一个数字背后测的是什么，比这个数字多高重要得多。</strong></p>
+<p><strong>第二，code review 不是会被 AI 取代的环节，恰恰是 AI 时代最该加固的环节。</strong> FrontierCode 的六个维度，几乎就是一份 code review 检查清单。模型现在能高质量完成&quot;写出能跑的代码&quot;，但&quot;这段改动该不该合&quot;这个判断，依然牢牢落在人这一侧。AI 写得越快、越多，把关那道工序的价值反而越高——你不再是逐行敲代码的人，而是那个决定&quot;这段补丁配不配进主干&quot;的维护者。</p>
+<p><strong>第三，看 AI 生成的补丁，眼睛要从&quot;测试过了吗&quot;挪到&quot;改动克制吗&quot;。</strong> 真实事故里，AI 补丁翻车最多的不是功能不对，而是顺手越界：动了不该动的代码、删了有意保留的判断、塞进死分支。下次合并 AI 改的代码，除了看绿灯，多花十秒看一眼 diff 的范围——它是不是只动了该动的地方。这一眼，往往就是事故和平安的分界。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/frontiercode-chart5-review-shift.png" alt="一名开发者在审查 AI 生成补丁时，重点不再是看测试是否通过，而是看改动范围是否克制"></p>
+<p>FrontierCode 真正的好消息，藏在那个看起来很丧的 13.4 分里：它不是在说&quot;AI 不行&quot;，而是在说&quot;AI 已经强到，我们需要一把更严的尺子来衡量它了&quot;。当一个基准的最难档能把所有顶级模型同时摁到不及格，说明这个领域终于开始诚实地面对真实工程的复杂度——而不再满足于&quot;测试亮绿&quot;的安慰剂。</p>
+<p>对国内开发者，这把新尺子给的不是焦虑，是方向：手里的工具在功能上已经追到第一梯队，下一个要一起翻越的山头是&quot;可合并性&quot;，而国产开源权重模型正站在攀登队伍的最前排。这座山没人登顶，意味着机会对所有人敞开——包括我们。</p>
+<p>下次 AI 帮你写完一段代码、测试全绿的时候，不妨学一回 FrontierCode 的维护者们：别急着点合并，先问一句——<strong>这段代码，半年后接手的人，会感谢我吗？</strong></p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

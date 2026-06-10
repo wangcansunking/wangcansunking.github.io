@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>让 agent 安全跑代码：不依赖 Docker 的 WASM 沙箱 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-10</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-10</span><span class="tag-pill">Daily Report</span></div>
+      <h1>让 agent 安全跑代码：不依赖 Docker 的 WASM 沙箱</h1>
+<p>让一个 agent 写出一段 Python 代码，今天已经不算难事。难的是下一步：这段由模型生成、你没逐行读过的代码，要在哪里跑、谁来兜底它不会删你的文件、不会把数据库里的数据 POST 到外网、不会写一个死循环把机器 CPU 占满。</p>
+<p>这正是当下每一个做 Coding agent、做&quot;让模型自己跑代码&quot;功能的团队都绕不开的工程难点。Datasette 作者 Simon Willison 这周连发三个开源包，给出了他自己的答案：把 MicroPython 编译成 WebAssembly，让不可信的模型代码在一个内存、CPU、文件系统、网络都被卡死的盒子里执行。这条路线轻量、本地可复现、不依赖 Docker，也不依赖任何云端代码执行服务。</p>
+<p>本文要讲清的核心是一件事：<strong>安全地&quot;运行&quot; agent 写的代码，是一道独立于&quot;生成代码&quot;的工程题，而 WASM 沙箱是一条值得国内团队认真评估的轻量解法。</strong> 下面先看 Simon 这套东西到底是什么、隔离强度如何，再对位国内开发者熟悉的 Docker 沙箱、E2B 类云执行、Pyodide 三条路线讲清取舍，最后给出本地上手的锚点。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/micropython-sandbox-source-blog-card.png" alt="Simon Willison 博客文章《Running Python code in a sandbox with MicroPython and WASM》的分享卡片，2026 年 6 月 6 日发布。图片来源：simonwillison.net，2026-06-06"></p>
+<h2>一周内连发的三个包，分别解决执行、接入、编辑</h2>
+<p>先把这一周发布的东西摆出来，口径均来自 Simon Willison 博客与 PyPI 包页面，时间为 2026 年 6 月 2 日至 7 日：</p>
+<table>
+<thead>
+<tr>
+<th>包名</th>
+<th>版本</th>
+<th>发布日</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>micropython-wasm</td>
+<td>0.1a2</td>
+<td>6 月 6 日</td>
+<td>把 MicroPython 的 WASM 构建用 wasmtime 跑起来，提供一次性执行、持久会话、CLI</td>
+</tr>
+<tr>
+<td>datasette-agent-micropython</td>
+<td>0.1a0</td>
+<td>6 月 2 日</td>
+<td>把上面的沙箱包装成一个 <code>execute_micropython</code> 工具，暴露给 Datasette Agent 里的模型调用</td>
+</tr>
+<tr>
+<td>datasette-agent-edit</td>
+<td>0.1a0</td>
+<td>6 月 7 日</td>
+<td>一套 <code>view</code> / <code>str_replace</code> / <code>insert</code> 的文本编辑工具，设计参照 Claude 的文件编辑工具</td>
+</tr>
+</tbody></table>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/micropython-sandbox-chart2-three-packages.png" alt="一周内发布的三个开源包对比：micropython-wasm 0.1a2 管执行、datasette-agent-micropython 0.1a0 管接入、datasette-agent-edit 0.1a0 管改文件。自制对比表"></p>
+<p>三个包的版本号全是 <code>0.1a</code> 开头的 alpha 预发布。Simon 自己把话说得很直白：他特意打了 alpha 的版本号，&quot;还没准备好推荐给任何不愿意承担明显风险的人&quot;（据 Simon Willison，2026-06-06）。这一点后文谈隔离强度时会回扣——它现在的定位是一个可用、可玩、但别拿去扛生产流量的实验件。</p>
+<p>三者的分工很清楚：micropython-wasm 是底层执行引擎，datasette-agent-micropython 是把引擎接到 agent 工具调用上的胶水层，datasette-agent-edit 则是另一条线——给 agent 一套安全改文件的工具。本文重心放在前两个，因为它们直接对应&quot;安全跑代码&quot;这道题；编辑工具单独在最后一节讲。</p>
+<h2>为什么是沙箱：插件全权限的老问题，到了 agent 时代变急</h2>
+<p>Simon 做沙箱不是从 agent 起步的。他的几个开源项目——Datasette、LLM、sqlite-utils——都支持插件，而插件是以完整权限执行的。用他的话说，一个有 bug 或者有恶意的插件&quot;可能搞垮一切，或者泄露隐私数据&quot;（据 Simon Willison，2026-06-06）。沙箱化的价值，是让插件能在受限环境里安全跑。</p>
+<p>到了 LLM agent 这里，这个老问题变急了。插件好歹是人写的、能 review 的；agent 生成的代码是模型当场吐出来的，没人逐行看。你要么不让 agent 跑代码——那它只能纸上谈兵，要么给它一个真能执行代码的环境——那执行环境的隔离强度就成了整个系统的安全底线。</p>
+<p>这也是为什么&quot;代码执行沙箱&quot;最近成了 agent 工程的高频词。国内团队做 Coding agent、做数据分析 agent、做&quot;自然语言转可执行脚本&quot;的产品，迟早都要回答同一个问题：模型写的这段代码，在哪跑、怎么兜底。</p>
+<h2>WASM 怎么隔离：内存、CPU、文件、网络四道闸全部默认关死</h2>
+<p>micropython-wasm 的隔离强度，来自 WebAssembly 加 wasmtime 这套组合。它不是在浏览器里跑，而是用官方的 wasmtime Python 包，在服务端把一个定制的 MicroPython WASI 构建跑起来。四道闸的默认状态如下，口径来自 PyPI 包说明与 GitHub 项目仓库的 README：</p>
+<ul>
+<li><strong>网络</strong>：默认零网络访问。WebAssembly 本身没有网络能力，沙箱里的代码拿不到 socket，发不出请求。这意味着模型即便写了一段把数据外传的代码，也发不出去。</li>
+<li><strong>文件系统</strong>：默认无任何访问。要让沙箱读文件，必须由宿主显式预开一个只读目录（<code>readonly_dir</code> 参数）。没预开就是一片空白，读不到、写不了。</li>
+<li><strong>内存</strong>：可配置上限（<code>memory_bytes</code>），CLI 里对应 <code>--memory</code> 参数。</li>
+<li><strong>CPU</strong>：用 wasmtime 的 &quot;fuel&quot;（燃料）机制限制一次调用能执行多少操作，CLI 里对应 <code>--fuel</code>，外加一个可选的墙钟超时。</li>
+</ul>
+<p>fuel 这个机制值得单独说。它给每次执行一个&quot;操作预算&quot;，预算烧完调用就被掐断。Simon 试的默认值是 2000 万 fuel，但他坦言这个单位&quot;很难直观理解&quot;，自己也不确定这是不是最合适的值（据 Simon Willison，2026-06-06）。实际效果是：你写一段 <code>s = &quot;&quot;; while True: s += &quot;longer&quot;</code> 这样的死循环，fuel 烧完进程以退出码 1 结束，不会把机器拖垮。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/micropython-sandbox-chart1-isolation-gates.png" alt="四道隔离闸默认状态对比：网络默认关闭、文件系统默认无访问需显式预开只读目录、内存可配上限、CPU 用 fuel 燃料预算限制。自制示意图"></p>
+<p>为什么选 WASM 而不是别的？Simon 给的理由是：JavaScript 引擎&quot;极其复杂，而且本就不是为嵌入别的项目设计的&quot;，而 WebAssembly&quot;从一开始就是奔着我在意的这些特性去设计的，而且在浏览器里被测试了将近十年&quot;（据 Simon Willison，2026-06-06）。换句话说，WASM 的隔离模型经过了浏览器多年的实战检验，比临时拿一个 JS 引擎来关代码要可靠。</p>
+<h2>代价：能跑的是 MicroPython，不是完整 CPython</h2>
+<p>隔离强度上去了，代价在哪？代价是：沙箱里跑的是 MicroPython，不是你熟悉的完整 CPython。</p>
+<p>MicroPython 是 Python 3 的一个精简高效实现，只带一小部分标准库，本来是为单片机和受限环境优化的。它的好处是编译出来极小——整个 WebAssembly blob 只有 362KB。代价是标准库不全。</p>
+<p>GitHub 项目仓库 README 里实测能用的有 <code>math</code>、<code>json</code>、<code>re</code>、<code>binascii</code>、<code>sys</code>，以及 <code>os.listdir()</code> 这类基础能力。明确缺失的包括 <code>hashlib.sha256</code>、<code>zlib</code>。更重要的是，那些 Coding agent 场景里最常被用到的第三方库——比如做数据分析的 pandas、numpy——MicroPython 这套是没有的。</p>
+<p>这就划定了它的适用边界：<strong>它适合让 agent 跑&quot;纯计算、纯逻辑、纯字符串处理&quot;的小段代码，不适合让 agent 跑需要重量级科学计算栈的活。</strong> 如果你的 agent 任务是&quot;算一下这组数的标准差&quot;&quot;把这段 JSON 重新格式化&quot;&quot;写个正则提取一下&quot;，MicroPython 沙箱够用且安全；如果是&quot;用 pandas 读这个 CSV 做透视表&quot;，那它就不是对的工具。</p>
+<h2>执行有三种姿势：一次性、持久会话、回放会话</h2>
+<p>micropython-wasm 提供了三种执行姿势，对应 agent 里的不同需求。</p>
+<p>最简单的是一次性执行。每次调用开一个全新的沙箱，跑完即弃：</p>
+<pre><code class="language-python">from micropython_wasm import run
+result = run(&quot;print(1 + 1)&quot;)
+print(result.stdout)  # &quot;2\n&quot;
+</code></pre>
+<p>返回的 <code>RunResult</code> 带 <code>stdout</code>、<code>stderr</code>，还有一个 <code>fuel_remaining</code>——告诉你这次执行烧了多少燃料、还剩多少。这对调 fuel 默认值很有用。</p>
+<p>但 agent 经常需要状态延续——上一步定义的变量，下一步还要用。这就是持久会话 <code>MicroPythonSession</code>，它在一个后台线程里维持一个活的虚拟机，跨多次执行保留状态：</p>
+<pre><code class="language-python">with MicroPythonSession() as session:
+    session.run(&quot;x = 10&quot;)
+    session.run(&quot;x += 5&quot;)  # x 还在，现在是 15
+</code></pre>
+<p>它的实现挺巧：宿主通过一个请求队列把代码发给 WASM 里一个阻塞的 <code>__session_next__()</code> 函数，里面求值后再通过 <code>__session_result__()</code> 把结果传回来。这样一个 VM 实例就能服务多轮对话。</p>
+<p>第三种是回放会话 <code>MicroPythonReplaySession</code>，无后台线程，靠把之前成功跑过的代码片段重新执行一遍来&quot;假装&quot;状态还在。适合不方便常驻线程的场景。datasette-agent-micropython 里给每个对话维持各自独立的解释器实例、各自独立的变量和函数状态，走的就是会话这条路。</p>
+<h2>对位国内熟悉的三条路：Docker 沙箱、云执行、Pyodide</h2>
+<p>讲到这里，国内做 agent 的同行最想知道的是：这条 WASM 路线，和我们现在用的方案比，取舍在哪。把四条路摆在一起看最清楚。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>MicroPython 加 WASM</th>
+<th>Docker 沙箱</th>
+<th>E2B 类云执行</th>
+<th>Pyodide</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>隔离强度</td>
+<td>进程内 WASM 隔离，网络文件默认全关</td>
+<td>容器级隔离，强</td>
+<td>远端 VM 隔离，强</td>
+<td>浏览器内 WASM 隔离</td>
+</tr>
+<tr>
+<td>启动开销</td>
+<td>极轻，开一个 WASM 实例</td>
+<td>拉镜像、起容器，重</td>
+<td>网络往返加远端冷启动</td>
+<td>浏览器内，轻</td>
+</tr>
+<tr>
+<td>运行位置</td>
+<td>本地服务端，可离线</td>
+<td>本地或自建机器</td>
+<td>必须联网调远端</td>
+<td>只能浏览器或 Node</td>
+</tr>
+<tr>
+<td>能跑的库</td>
+<td>MicroPython 精简库，无 pandas</td>
+<td>完整 CPython 加任意依赖</td>
+<td>完整 CPython 加任意依赖</td>
+<td>较完整 CPython 加部分科学栈</td>
+</tr>
+<tr>
+<td>依赖外部服务</td>
+<td>无</td>
+<td>需 Docker 守护进程</td>
+<td>需第三方服务和账号</td>
+<td>无</td>
+</tr>
+</tbody></table>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/micropython-sandbox-chart3-four-routes.png" alt="四条代码执行路线取舍对比：MicroPython 加 WASM、Docker 沙箱、E2B 类云执行、Pyodide，从隔离强度、启动开销、运行位置、能跑的库、外部依赖五个维度对照。自制对比表"></p>
+<p>口径说明：Docker、E2B、Pyodide 三列为本文基于公开认知的对位整理，非 Simon 原文逐条对比；Simon 原文明确提到的对照是 Pyodide——他指出 Pyodide 由 Emscripten 工具链构建，&quot;只能在浏览器或 Node.js 里跑&quot;（据 Simon Willison 引述，时间口径为其文中标注的 2024 年 10 月）。也就是说服务端的 Python-in-WASM，此前一直缺一个成熟选项，这正是 micropython-wasm 想补的位置。</p>
+<p>把取舍说透：</p>
+<ul>
+<li><strong>比 Docker 沙箱</strong>：WASM 路线赢在轻和无依赖。Docker 隔离强、能跑任意库，但要起容器、要拉镜像、要 Docker 守护进程，开销重，本地复现和分发都麻烦。WASM 这边开一个实例就跑，输在能跑的库少。</li>
+<li><strong>比 E2B 类云执行</strong>：云执行能跑完整 Python 加任意依赖，但必须联网、要账号、要按量付费，数据要出本地。WASM 路线全程本地、可离线、不掏钱，输在库少。对数据敏感、不想让代码出本地的团队，这一条是实打实的优势。</li>
+<li><strong>比 Pyodide</strong>：两边都是 WASM，但 Pyodide 绑死浏览器和 Node，micropython-wasm 是奔着服务端去的。Pyodide 科学栈更全，micropython-wasm 更轻更小（362KB 的 blob）。</li>
+</ul>
+<p>这张表说到底就一句话：<strong>如果你要让 agent 安全跑的是轻量逻辑代码，又想本地可复现、不引入 Docker 和云依赖，WASM 这条路是当前最省事的；如果非要跑重型科学计算栈，它现在还接不住。</strong></p>
+<h2>顺带的一条线：datasette-agent-edit 把 Claude 的编辑工具搬过来</h2>
+<p>6 月 7 日发的 datasette-agent-edit 是另一条线，但同样切中 agent 工程的真实需求：让 agent 安全、可靠地改文件。</p>
+<p>Simon 说，让 agent 编辑文本&quot;想做对其实有点微妙&quot;，而他最喜欢的已公开设计就是 Claude 的文本编辑工具（据 Simon Willison，2026-06-07）。于是这个包实现了三个核心工具：</p>
+<ul>
+<li><strong>view</strong>：带行号展示文件片段，让模型先看清要改的地方</li>
+<li><strong>str_replace</strong>：定位一个确切的字符串并替换；如果这个字符串在文件里不唯一，就直接失败——这是防止改错位置的关键设计</li>
+<li><strong>insert</strong>：在指定行号之后插入文本</li>
+</ul>
+<p><code>str_replace</code> 要求被替换串唯一、否则报错，这个约束很重要：它逼着模型先用 <code>view</code> 看准上下文、给出足够独特的定位串，而不是含糊地&quot;把那个 foo 改成 bar&quot;导致改错地方。</p>
+<p>这个包的架构分了三层：底层是纯字符串变换、不带任何读写的 operations；中间是一个存储抽象层 EditStore，能接 SQLite、磁盘、S3、GitHub 多种后端；上层 EditToolset 把任意一个 EditStore 转成标准的 agent 工具，输出统一的 JSON 格式。它还支持通过 <code>apply_edits</code> 做批量编辑。</p>
+<p>这种&quot;存储无关&quot;的分层，和把编辑逻辑绑死在某个后端的做法相比，好处是同一套编辑逻辑可以跨不同存储复用——你可以让 agent 用一模一样的工具去改 SQLite 里的内容、改本地磁盘文件、改 S3 上的对象。对做 agent 平台的团队，这是个值得借鉴的抽象方式。</p>
+<h2>本地怎么试：一行命令就能跑</h2>
+<p>这套东西最大的好处之一，是上手成本极低，本地一行命令就能验证。以下命令来自 GitHub 项目仓库 README 与 Simon 博客的&quot;自己试试&quot;一节。</p>
+<p>最快的体验，不用装，直接用 uvx 拉起来跑：</p>
+<pre><code class="language-bash">uvx micropython-wasm -c &#39;print(&quot;Hello world&quot;)&#39;
+</code></pre>
+<p>想看 fuel 机制怎么掐死循环，跑这个，它会在燃料烧完时以退出码 1 结束：</p>
+<pre><code class="language-bash">uvx micropython-wasm -c &#39;s = &quot;&quot;; while True: s += &quot;longer&quot;&#39;
+</code></pre>
+<p>想手动调内存和 fuel 预算：</p>
+<pre><code class="language-bash">micropython-wasm --memory 33554432 --fuel 20000000 -c &quot;print(&#39;hello&#39;)&quot;
+</code></pre>
+<p>装进项目里用 API：</p>
+<pre><code class="language-bash">pip install micropython-wasm
+</code></pre>
+<p>它需要 Python 3.10 及以上，依赖官方的 wasmtime 模块，许可证是 Apache-2.0。项目仓库目前约 98 星（口径为本文核验时的近似值，星数会变）。要把它接到 agent 上，再装 datasette-agent-micropython，模型那边就会多出一个 <code>execute_micropython</code> 工具，每个对话各自维持独立的解释器状态，输出从 <code>print()</code> 的 stdout/stderr 捕获，还带一个 <code>read_only_sql_query()</code> 帮手用来只读查库——网络和文件系统照旧默认全关。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/micropython-sandbox-source-datasette-agent.png" alt="Datasette Agent 中模型调用 execute_micropython 工具执行 MicroPython 代码的界面截图。图片来源：simonwillison.net，2026-06-06"></p>
+<h2>结尾：这条路的意义，是把&quot;安全执行&quot;从重活变成轻活</h2>
+<p>回到开头那句话：让 agent 写代码容易，让 agent 安全地跑它写的代码才是工程难点。</p>
+<p>Simon 这套 alpha 件不是要取代 Docker，也不是要干掉云执行服务。它的意义在于，给&quot;让 agent 跑轻量代码&quot;这个高频需求，提供了一条不用起容器、不用联网、不用掏钱、本地一行命令就能复现的轻路子。隔离强度靠 WASM 多年浏览器实战打底，代价是只能跑 MicroPython 那套精简库——边界清晰，取舍诚实。</p>
+<p>对国内正在做 Coding agent、数据 agent 的团队，它至少提供了三点可借鉴的东西：一是&quot;代码执行隔离&quot;该被当成独立工程题认真对待，而不是顺手 <code>exec()</code> 了事；二是 WASM 服务端沙箱这条路确实走得通，362KB 的 blob 就能把四道闸关死；三是 datasette-agent-edit 那套存储无关的编辑工具分层，是个干净的抽象范式。</p>
+<p>工具还在 alpha，但思路已经很清楚。值得放进自己的方案库里，需要的时候本地试一把——成本不过是一行 <code>uvx</code>。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

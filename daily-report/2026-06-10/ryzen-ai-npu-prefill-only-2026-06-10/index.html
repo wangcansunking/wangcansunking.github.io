@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ryzen AI 笔记本的 NPU 只快在读题，生成还得靠 iGPU — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-10</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-10</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Ryzen AI 笔记本的 NPU 只快在读题，生成还得靠 iGPU</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/ryzen-ai-npu-prefill-only-2026-06-10.png" alt="一颗发光的 Ryzen AI 主板神经网络处理器芯片，从中央引出一快一慢两束光流，快的标着「预填充」、慢的标着「生成」，背景是笔记本主板的电路纹理"></p>
+<p>很多人买 Ryzen AI（AMD 的 AI 笔记本平台）笔记本，是冲着芯片里那颗 NPU（神经网络处理器）去的——宣传页写着几十 TOPS 算力，听起来本地跑千问（Qwen）、Llama 全靠它。</p>
+<p>实测把这个想象按住了。同一颗 Ryzen AI 7 350，跑 Llama 3.1 8B，NPU 预填充（prompt processing，读 prompt 那一段）能到 403 令牌/秒；可一到解码（token generation，逐字往外蹦字），只剩 12.8 令牌/秒，差出约 31 倍。</p>
+<p><strong>这篇文章只想说清一件事：Ryzen AI 的 NPU 不是「跑模型的主力」，它是「专抢预填充的协处理器」。</strong> 你本地跑大模型时，真正逐字生成回答的主力是 iGPU（核显），NPU 负责的只是开头那段「读题」。把这个分工记住，买了 Ryzen AI 本的人就知道该让谁干什么活了。</p>
+<p>NPU 跑大模型这件事，本身是今年才真正落到 Ryzen AI 笔记本用户手里的。今年 3 月，AMD 的 Lemonade 10.0 配上 FastFlowLM，第一次让 Ryzen AI 的 NPU 在 Linux 上能拿来跑大语言模型；在这之前，那颗 NPU 对大多数本地跑模型的人来说基本是「买了用不上」的状态。所以现在正是把它的真实能力摸清楚的好时候——它到底强在哪、弱在哪，值得一个一个数字看明白。</p>
+<h2>同一颗芯片，预填充和生成差出 31 倍</h2>
+<p>先看同一颗 Ryzen AI 7 350 在 FastFlowLM 官方基准页上的两组数字（模型 Llama 3.1 8B、4-bit 权重）：</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>1k 上下文</th>
+<th>32k 上下文</th>
+<th>这一步在干嘛</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>预填充（读 prompt）</td>
+<td>403 令牌/秒</td>
+<td>281 令牌/秒</td>
+<td>把你输入的全部 token 一次性「读」进去</td>
+</tr>
+<tr>
+<td>解码（生成回答）</td>
+<td>12.8 令牌/秒</td>
+<td>8.5 令牌/秒</td>
+<td>一个一个 token 往外吐</td>
+</tr>
+</tbody></table>
+<p>同一颗芯片、同一个模型，两个阶段差了 31 倍。这不是 NPU 坏了，而是这两件事的计算方式根本不一样。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/ryzen-chart-pp-vs-tg.png" alt="同一颗 Ryzen AI 7 350：NPU 预填充极快、一到解码就交给 iGPU 的对比柱状图"></p>
+<p>预填充是「批量读」：你的 prompt 有几百上千个 token，可以一口气并行算完，这种密集矩阵乘法正好是 NPU 的强项。解码是「挤牙膏」：每生成一个新 token 都要把之前所有内容过一遍，一次只算一个，受内存带宽卡脖子——NPU 的算力优势在这种串行小批量上发挥不出来。</p>
+<p>值得一提的是，上下文越长，两个阶段都会变慢，但变慢的幅度不一样。预填充从 1k 上下文的 403 令牌/秒掉到 32k 的 281 令牌/秒，掉了约 30%；解码从 12.8 掉到 8.5，掉了约 34%。也就是说，长上下文对解码这个本来就慢的阶段更不友好——你塞的历史越长，逐字生成越吃力。</p>
+<p><strong>所以结论很直白：NPU 快在「读题」，慢在「答题」；上下文一长，「答题」更慢。</strong></p>
+<h2>长 prompt 才轮到 NPU 出场，短问题反而 iGPU 快</h2>
+<p>NPU 预填充也不是永远快。按 FastFlowLM 对自身工作方式的说明，它在<strong>长 prompt</strong> 上约是 iGPU 预填充的 5.2 倍；可一旦 prompt 很短，NPU 反而输——短 prompt 下 NPU 约 90 令牌/秒，iGPU 能到约 176 令牌/秒。</p>
+<table>
+<thead>
+<tr>
+<th>prompt 长度</th>
+<th>NPU 预填充</th>
+<th>iGPU 预填充</th>
+<th>谁更快</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>长 prompt（贴长文、塞大段代码）</td>
+<td>约 5.2 倍 iGPU</td>
+<td>1 倍（基准）</td>
+<td>NPU</td>
+</tr>
+<tr>
+<td>短 prompt（一句话提问）</td>
+<td>约 90 令牌/秒</td>
+<td>约 176 令牌/秒</td>
+<td>iGPU</td>
+</tr>
+</tbody></table>
+<p>这背后是个固定开销的问题：NPU 每次启动有一笔不小的固定成本，prompt 越长，这笔成本被摊得越薄，优势才显出来；prompt 短的时候，启动开销占了大头，还不如 iGPU 直接算。</p>
+<p><strong>记住这条边界：你贴一篇长文档、塞一大段代码进去让模型总结，预填充交给 NPU 划算；你只是一句话闲聊，NPU 没必要上场。</strong></p>
+<h2>生成这一段，主力一直是 iGPU</h2>
+<p>既然 NPU 解码只有 12.8 令牌/秒，本地跑大模型靠谁逐字生成？答案是 iGPU 走 Vulkan。</p>
+<p>同属 Ryzen AI 家族的 Strix Halo 平台，有人用 llama.cpp 实测过：跑千问 Qwen3-30B-A3B（一个稀疏混合专家模型，MoE）、IQ4_XS 量化，iGPU/Vulkan 解码能到 100.04 令牌/秒——是 Ryzen AI 7 350 那颗 NPU 解码（12.8）的约 7.8 倍。</p>
+<p>Hacker News 上那条 Lemonade（AMD 的本地大模型服务器）讨论帖里，几位真人贴出了自己机器上的解码速度：</p>
+<ul>
+<li>一位用户在 Strix Halo 核显上用 Vulkan 跑 Qwen3.5 122B，拿到 35 令牌/秒；</li>
+<li>另一位在 128GB 内存的 Framework 机器上跑 Qwen3-Coder-Next，43 令牌/秒，换 Q4 量化后能到 55 令牌/秒。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/ryzen-source-lemonade-thread.png" alt="Hacker News 上关于 AMD Lemonade 本地大模型服务器的真人讨论，多位用户贴出各自的解码速度"></p>
+<blockquote>
+<p>来源：Hacker News 「Lemonade by AMD」讨论帖，多位用户实测反馈</p>
+</blockquote>
+<p>这些数字都来自 iGPU，没有一个是靠 NPU 解码撑起来的。<strong>所以本地跑大模型，逐字生成的主力一直是 iGPU；NPU 在生成阶段基本闲着。</strong></p>
+<h3>50 TOPS 的算力，为什么生成时用不上</h3>
+<p>XDNA2 这代 NPU 标称约 50 TOPS，听起来不小，但在通用大模型推理里，它大部分时间是闲置的——真正一直在干活的是核显。</p>
+<p>这里容易踩一个理解上的坑：TOPS 衡量的是「每秒能做多少次运算」，它对预填充这种算力密集的批量计算确实管用；但解码阶段卡的不是算力，是内存带宽——每生成一个 token 都要把模型权重从内存里搬一遍，搬运速度才是瓶颈。算力再高，搬不动权重也没用。</p>
+<p>所以你会看到一个反直觉的现象：标着 50 TOPS 的 NPU，解码只有 12.8 令牌/秒；而算力账面数字未必更漂亮的 iGPU，靠着更高的内存带宽利用，解码反而能到 100 令牌/秒。<strong>TOPS 高不等于生成快，这是看 Ryzen AI 宣传页时最容易被带偏的一点。</strong></p>
+<h2>完整路径长这样：NPU 读题 + iGPU 答题</h2>
+<p>把两段拼起来，Ryzen AI 跑大模型最舒服的形态是「混合执行」：预填充卸载给 NPU，解码交给 iGPU 或独显。这正是上面那两组数字告诉我们的分工。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/ryzen-source-fastflowlm-benchmark.png" alt="FastFlowLM 官方基准页：Llama 3.x 的预填充与解码吞吐量，按上下文长度分列"></p>
+<blockquote>
+<p>来源：FastFlowLM 官方基准页（Llama 3.x · Ryzen AI 7 350）</p>
+</blockquote>
+<p>不同系统上，这套路径的现成方案不太一样：</p>
+<ul>
+<li><strong>Windows</strong>：AMD 的 Lemonade 提供混合执行，但只支持 ONNX 格式的模型，而且混合模式下上下文上限只有 3K——想塞长文档会被卡住。</li>
+<li><strong>Linux</strong>：走 FastFlowLM 的 NPU 内核，今年 3 月起 Lemonade 10.0 加上 FastFlowLM 让 Ryzen AI 的 NPU 在 Linux 上第一次真正能用；上下文上限随版本提到了 256k token（0.9.35 及以后）。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/ryzen-source-fastflowlm-repo.png" alt="FastFlowLM 项目页"></p>
+<blockquote>
+<p>来源：FastFlowLM 项目主页</p>
+</blockquote>
+<p>技术上，Windows 上 NPU 这条路走的是 ONNX：把预填充这种密集计算丢给 NPU，解码这种内存带宽敏感的活儿留给 iGPU 或独显。这种「一个 prompt、两段在不同硬件上跑」的安排，就是混合执行的核心——它不是让你二选一，而是让 NPU 和 iGPU 在同一次推理里接力。HN 上也有人提到 FastFlowLM 的 NPU 内核是闭源二进制，这是想完全自己掌控底层的人需要先了解的一点。</p>
+<p>要不要费劲走 NPU 这条混合路径，其实取决于你的用法。如果你天天往模型里塞长文档、长代码，预填充耗时占比高，NPU 那 5.2 倍的预填充加速能实打实省下等待时间；如果你只是短问短答，预填充本来就快，NPU 的固定开销反而拖后腿，老老实实让 iGPU 全程跑 llama.cpp 更省心。没有「必须用 NPU」一说，看你喂给模型的 prompt 有多长。</p>
+<p>版本上这两个月也在往前走：5 月 18 日的 v10.5.1 加了 MTP（多 token 预测），把解码最多提速到 2 倍；5 月 21 日又出了 v10.6.0。底层一直在补，但分工的大格局没变——NPU 读题、iGPU 答题。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/ryzen-source-strix-halo-guide.png" alt="strix-halo-guide 项目页：Strix Halo 平台本地大模型优化记录"></p>
+<blockquote>
+<p>来源：strix-halo-guide 项目主页（Strix Halo iGPU 真人实测对照）</p>
+</blockquote>
+<h2>你自己就能测出这个落差</h2>
+<p>这套结论不用信我，装好工具，同一颗 Ryzen AI 7 350 自己跑一遍就清楚：</p>
+<ol>
+<li><strong>装 Lemonade / FastFlowLM</strong>，让 NPU 在你的系统上可用（Linux 走 FastFlowLM 内核，Windows 走 Lemonade 混合）；</li>
+<li><strong>同一个模型分别测预填充和解码</strong>，你会看到预填充冲到几百令牌/秒、解码掉到十几令牌/秒，这就是那个约 31 倍的落差；</li>
+<li><strong>想要快的生成，就让解码走 iGPU/Vulkan</strong>（llama.cpp），千问 Qwen3 这类模型解码能上百令牌/秒。</li>
+</ol>
+<p>测完你心里会有一张很清楚的分工表，再也不会纠结「NPU 怎么生成这么慢」——它本来就不负责生成。</p>
+<h2>该让 NPU 干嘛，一句话记牢</h2>
+<p>回到开头那句话：Ryzen AI 的 NPU 不是跑模型的主力，是专抢预填充的协处理器。对照着用就行——</p>
+<ul>
+<li><strong>该走 NPU 的场景</strong>：长 prompt 预填充。你贴长文档、塞大段代码让模型读，这段读题交给 NPU，约是 iGPU 的 5.2 倍快；</li>
+<li><strong>该走 iGPU/Vulkan 的场景</strong>：逐字生成。所有「答题」都让核显跑 llama.cpp，千问、Llama 解码能上百令牌/秒，是 NPU 解码的好几倍；</li>
+<li><strong>短问题随手聊</strong>：prompt 很短时连预填充都不必上 NPU，iGPU 直接算更快。</li>
+</ul>
+<p>知道了这个分工，买 Ryzen AI 笔记本本地跑大模型这件事就很有掌控感了：NPU 帮你飞快读完题，iGPU 稳稳把答案吐出来，两颗各司其职。底层工具这两个月还在持续补功能，能用的上下文越来越长、解码也在提速，本地跑模型这条路只会越走越顺。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

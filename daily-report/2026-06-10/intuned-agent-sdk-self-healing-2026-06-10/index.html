@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Agent SDK 给爬虫装自愈：站点变了自己改代码 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/daily-report/">Daily Report</a>
+      <span class="sep">/</span>
+      <span class="current">2026-06-10</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-06-10</span><span class="tag-pill">Daily Report</span></div>
+      <h1>Claude Agent SDK 给爬虫装自愈：站点变了自己改代码</h1>
+<p>大家这一年都在聊一件事：agent 能写代码了。Claude Code 在写、Cursor 在写、各种 coding agent 都在写。但写出来只是开始——代码会坏，尤其是爬虫这种天生脆弱的代码，今天好好的，明天站点改个按钮位置就全线红。真正费人的从来不是第一次写，而是写完之后没完没了的维护。</p>
+<p>一家叫 Intuned 的 YC S22 公司，这两天在 Hacker News 上线了它们的产品，给出的答案不是&quot;让 agent 写得更好&quot;，而是换了个更狠的角度：<strong>让 agent 负责维护</strong>。它把 Claude Agent SDK 缝进自己的浏览器自动化平台，做出一种会自愈的爬虫——agent 先自己探索站点、提取数据结构、写出代码、对着真站点跑一遍验证后交付；等哪天站点变了、线上任务跑挂了，同一个 agent 会去读这次运行的轨迹，诊断哪里坏了，改好代码，重新部署。整个过程不需要人盯着。</p>
+<p>这篇文章想拆的不是 Intuned 这个产品本身好不好用，而是它背后那套&quot;自愈&quot;工程闭环到底怎么搭起来的——探索、生成、校验、失败诊断、修复、重新部署这一圈是怎么连成环的，它和传统爬虫维护、和老一代 RPA 的区别在哪，Claude Agent SDK 在里头扮演什么角色。对正在做 agent 产品和自动化的同行来说，这是一个少见的、把生产级 agent 闭环讲清楚的案例。很多人手里已经在用 Claude Agent SDK，正好顺着这个熟悉的锚点，看看别人把它用到了哪一步。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/intuned-source-product-hero.png" alt="Intuned 产品首图：code-first 浏览器自动化平台，agent 构建并维护自动化（来源：Intuned 官网 og-image，2026-06）"></p>
+<h2>先看它把哪几件脏活交给了 agent</h2>
+<p>Intuned 官方对自己的定义是一句话：<strong>&quot;带 AI agent 的 code-first 浏览器自动化平台，agent 负责构建并维护你的自动化&quot;</strong>（来源：Intuned 官网产品页，2026-06）。这句里有两个关键词，&quot;code-first&quot;和&quot;维护&quot;，恰好对应它和市面上两类产品的分界。</p>
+<p>它不是那种点点点录制、生成黑盒流程的可视化工具。你拿到的是真代码——用 TypeScript 或 Python 写，跑在 Playwright 上，平台提供一个叫 <code>@intuned/sdk</code> 的库，在 Playwright 之上加了一批针对常见自动化场景的辅助方法。代码是一等公民，能 review、能改、能进版本管理，这是&quot;code-first&quot;的含义。</p>
+<p>而 agent 干的活，按官方描述分成三段，每段都是过去得人肉去做的：</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>agent 做什么</th>
+<th>官方口径</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>构建</td>
+<td>先列计划，后台开真实浏览器，对着活页面边跑边验证，交付能用的代码加样例数据</td>
+<td>&quot;creates a plan, controls a real browser in the background, validates against live pages, and delivers working code with sample data&quot;，通常耗时 30–60 分钟</td>
+</tr>
+<tr>
+<td>编辑</td>
+<td>改选择器、加字段、调分页逻辑</td>
+<td>agent 可按反馈修改已有项目</td>
+</tr>
+<tr>
+<td>修复</td>
+<td>打开一个失败的 run，让 agent 调查并准备修复</td>
+<td>&quot;you can open a failed run and have the agent investigate and prepare a fix&quot;</td>
+</tr>
+</tbody></table>
+<p>（上表口径均来自 Intuned 官方文档，2026-06）</p>
+<p>把这三段连起来看，你会发现它覆盖的恰好是一条自动化脚本的完整生命周期——从无到有写出来、按需求改、坏了修。传统做法里，这三件事分别落在不同的人和不同的时刻：开发写第一版，需求方提变更，运维半夜被告警叫起来查日志。Intuned 想做的，是把这三段全部塞进同一个 agent 的工作范围。</p>
+<h2>自愈这套闭环，到底是怎么转起来的</h2>
+<p>&quot;自愈&quot;这个词容易被当成营销话术，所以得把它拆到具体机制上看才有意义。Intuned 这套闭环，核心其实是六个环节首尾相接。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/intuned-chart1-self-healing-loop.png" alt="自愈闭环六环节：探索站点 → 提取数据结构 → 生成代码 → 真站点校验 → 失败读轨迹诊断 → 改代码重新部署，最后回到监控（自制流程图）"></p>
+<p><strong>第一环，探索站点。</strong> agent 拿到一个目标网址，不是直接闷头写代码，而是先开一个真实浏览器去把站点逛一遍，搞清楚页面长什么样、数据藏在哪、要不要翻页、要不要登录。官方的说法是 agent&quot;controls a real browser in the background, and works in the background as long as needed&quot;（来源：Intuned 官方文档，2026-06）——它有一个能长时间挂着的真实浏览器和对平台的完整访问权。</p>
+<p><strong>第二环，提取数据结构。</strong> 逛完之后，agent 要从页面里归纳出你想要的数据长什么样——哪些字段、什么类型。这一步对应的是你最终拿到结构化数据的&quot;形状&quot;。这正好踩在 Claude Agent SDK 擅长的事情上：SDK 原生支持结构化输出，能让你预先定义想要的数据形状，agent 用各种工具完成任务后，最后吐出一份符合 schema 的、校验过的 JSON。</p>
+<p><strong>第三环，生成代码。</strong> 有了结构，agent 写出真正的 TypeScript / Python 自动化代码。注意这里是写代码，不是生成一段一次性的执行指令——代码可以反复跑、可以部署、可以被下一轮 agent 读懂和修改。</p>
+<p><strong>第四环，对真站点校验。</strong> 这是和很多&quot;AI 生成爬虫&quot;演示拉开差距的一环。agent 不是写完就交，而是把代码对着活生生的目标站点跑一遍，看真能不能抓到数据，最后连工作代码带样例数据一起交付。官方明确说是&quot;validates against live pages, and delivers working code with sample data&quot;。这一步等于把&quot;我以为它能跑&quot;变成&quot;它确实跑通了&quot;。</p>
+<p><strong>第五环，失败读轨迹诊断。</strong> 前四环是把东西造出来，真正叫&quot;自愈&quot;的是后两环。Intuned 的基础设施会捕获每一次 run 的上下文——日志、浏览器轨迹（trace）、会话录制。创始人在 HN 上的原话是：<strong>&quot;our infra captures the context of every run, allowing our agent to debug and maintain the underlying code&quot;</strong>（我们的基础设施捕获每一次运行的上下文，让 agent 能调试和维护底层代码，来源：Launch HN 帖文，2026-06）。当线上任务挂了，你打开那个失败的 run，错误上下文是预填好的，agent 拿着这份现场去查、去定位。</p>
+<p><strong>第六环，改代码重新部署。</strong> 诊断完，agent 准备一份修复，按你设的自主程度（configurable autonomy）决定是直接合并重新部署，还是先给你过目。修复合并后重新上线，闭环回到监控状态，等下一次异常。</p>
+<p>值得单独点出来的是它的异常检测不是简单的成功/失败二值。官方说自愈能力&quot;detect issues automatically—not just pass/fail, but anomalies in response size, output patterns, and run behavior&quot;（来源：Intuned 官方文档，2026-06）——除了任务报错，它还盯响应体积、输出模式、运行行为这些更细的信号。这点很关键：爬虫最阴险的故障不是直接崩，而是悄悄抓回一堆空字段或者错位数据，看着像成功，数据全废。盯异常而不只盯报错，才接得住这种暗病。</p>
+<h2>Claude Agent SDK 在这套闭环里到底干了什么</h2>
+<p>把上面六环和 Claude Agent SDK 官方那套循环放一起对照，会发现它们几乎是同一张图。</p>
+<p>Claude Agent SDK 的核心循环，Anthropic 官方讲得很直白：<strong>&quot;gather context → take action → verify work → repeat&quot;</strong>（搜集上下文 → 采取行动 → 验证成果 → 重复，来源：Claude 官方工程博客，2026）。它给你的是驱动 Claude Code 的那同一套工具、agent 循环和上下文管理，能用 Python 和 TypeScript 编程，内置读文件、跑命令、改代码这些工具，agent 不用你自己实现工具执行就能直接干活。</p>
+<p>把这套循环铺到爬虫场景上：</p>
+<table>
+<thead>
+<tr>
+<th>Claude Agent SDK 循环</th>
+<th>Intuned 自愈闭环里的对应</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>搜集上下文（agentic search、读文件、跑命令）</td>
+<td>agent 开真实浏览器探索站点、读每次 run 的轨迹和日志</td>
+</tr>
+<tr>
+<td>采取行动（写代码、跑命令、调工具）</td>
+<td>生成 TypeScript / Python 自动化代码、改选择器和分页</td>
+</tr>
+<tr>
+<td>验证成果（规则反馈、视觉反馈、模型判定）</td>
+<td>对真站点跑一遍校验，盯响应体积和输出模式的异常</td>
+</tr>
+<tr>
+<td>重复</td>
+<td>run 挂了重新进入诊断-修复-部署一圈</td>
+</tr>
+</tbody></table>
+<p>（左列为 Claude Agent SDK 官方循环口径；右列为 Intuned 官方/HN 描述的对应实现，2026-06）</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/intuned-chart3-sdk-mapping.png" alt="Claude Agent SDK 通用循环铺到爬虫场景上的逐项对应：搜集上下文对应探索站点读轨迹、采取行动对应生成改代码、验证成果对应真站点校验盯异常、重复对应诊断修复部署一圈（自制对照图）"></p>
+<p>所以 Claude Agent SDK 在这里不是被当成一个&quot;调一下就出代码&quot;的代码生成器，而是被当成驱动整个长任务的引擎。Intuned 在 HN 上还提了一句很实在的话——它们在更强的模型出来之后，把已经准备发布的版本推倒重做，重建了 agent（来源：Launch HN 帖文，2026-06）。这个动作本身说明 agent 部分不是外壳贴皮，而是产品的承重墙，值得为了底层模型升级整个重写。</p>
+<p>SDK 提供的几样能力，恰好都是这套闭环吃得最重的：长会话的上下文管理（探索一个复杂站点要逛很久）、结构化输出（提数据 schema）、内置的代码读写和命令执行（生成和修改自动化代码）、以及验证环节的多种反馈方式（对真站点校验）。Intuned 等于是拿 SDK 的通用能力，往一个最容易坏的具体场景里灌。</p>
+<h2>它和传统爬虫维护、老 RPA 差在哪</h2>
+<p>光说&quot;自愈&quot;听着抽象，对照着过去两种做法看，差别就具体了。</p>
+<p><strong>和传统爬虫维护比。</strong> 传统流程是这样的：站点改版 → 定时任务报错或者数据异常 → 告警 → 工程师被叫来 → 翻日志、本地复现、改选择器、本地测、提交、重新部署。这一圈里每一步都卡在人身上，尤其是&quot;复现&quot;——线上挂的那一刻的页面状态，工程师未必能在本地原样重现。Intuned 把&quot;捕获每次 run 的完整轨迹&quot;做成基础设施，等于把案发现场冻结下来直接交给 agent，省掉了最磨人的复现环节。人从&quot;每个故障都要亲自下场&quot;变成&quot;设好自主程度、必要时审一眼&quot;。</p>
+<p><strong>和老一代 RPA 比。</strong> UiPath 那一代 RPA 是可视化拖拽、录制回放，产物是黑盒流程而非可读代码，脆得出名，UI 一动就断，而且断了之后排查全靠人在可视化界面里点。有意思的是，Intuned 创始人之一 Faisal 此前在 UiPath 干过多年工程负责人（据 YC 公司页，2026-06）——等于是从老 RPA 阵营里出来的人，反过来用 code-first 加 agent 自愈去解老 RPA 最痛的维护问题。产物是真代码而不是黑盒，坏了是 agent 读轨迹自己修而不是人在界面里点，这两点正好戳在老 RPA 的软肋上。</p>
+<p>下面这张表把三种做法的维护方式摆一起：</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/intuned-chart2-three-approaches.png" alt="三种做法对比：传统爬虫维护靠人复现改代码、老 RPA 黑盒断了人工点、Intuned agent 读轨迹自愈，从产物形态到故障响应逐项对照（自制对比表图）"></p>
+<p>除了自愈这条主线，Intuned 还把一堆爬虫绕不开的脏活打包进了平台：内置反检测套件（隐身模式、自动过验证码、代理），创始人在 HN 上提到验证码处理走的是定制 chromium 构建；登录态管理通过 create.ts / check.ts 两个文件来定义和校验会话；运行侧分成两种接口，Runs API 管单次执行（适合 RPA 和集成场景，带并发控制），Jobs 管定时批量（适合爬虫和爬取，能跨多台机器自动扩缩）。这些不是自愈的核心，但它们是让爬虫真能在生产里活下去的配套——再聪明的 agent，绕不过反爬和登录态也白搭。</p>
+<h2>成本这件事，得拿真实数字说话</h2>
+<p>agent 驱动的自动化有个绕不开的现实问题：每跑一次都在烧 token 和各种服务费，到底贵不贵？这事不能拍脑袋，得看真实数字。</p>
+<p>HN 上有用户晒了自己的实测账单：用 Intuned 提交一个联系表单、跑了 3 次，一共花了 2.27 美元（来源：Launch HN 评论区用户实测，2026-06）；同一个用户还提到验证码求解的价格大约是每 1000 次 2 美元（人工验证那种）。把这两个数字摆一起看挺有意思：单看每千次 2 美元的验证码很便宜，但 3 次表单提交就 2.27 美元，说明大头不在验证码，而在 agent 本身探索、决策、重试这一圈的开销。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/06/10/intuned-chart4-cost-breakdown.png" alt="两个成本数字对照：单次表单提交约 0.76 美元（3 次 2.27 美元摊算）远高于每次验证码约 0.002 美元，直观看出花费大头在 agent 决策而非验证码（自制对比图，数据据 Launch HN 用户实测）"></p>
+<p>这给了一个很务实的判断基准：<strong>自愈 agent 适合的是单价能容忍、但维护成本极高的场景，不适合那种海量、单次价值极低、且结构稳定的批量抓取。</strong> govtech（政务科技）、insurance tech（保险科技）这两类正是 Intuned 点名的主力客户（来源：创始人 HN 回复，2026-06），它们的共同点是：目标站点形态杂、变更频繁、数据本身价值高、错一条后果重——恰好是那种&quot;宁可多花点钱让它自己别断&quot;的场景。官方还提到有些公司用它跑着 1000+ 个爬虫、合作两年以上，说明在对的场景里这套模式确实站得住。</p>
+<h2>这套工程模式，哪几条能直接拿来用</h2>
+<p>这个案例最值钱的地方，不是 Intuned 这家公司，而是它示范的工程模式。把它抽象出来，对正在做 agent 产品和自动化的同行，至少有几条能直接拿走。</p>
+<p><strong>第一，让 agent 接管的应该是生命周期，不是单点。</strong> 大多数 agent 产品停在&quot;帮你生成&quot;这一步，生成完就交给人。Intuned 的差异化恰恰在于把&quot;维护&quot;也圈进 agent 的职责——它真正的护城河不是生成质量，而是那套&quot;捕获每次运行轨迹&quot;的基础设施。这给的启发是：选一个生成只占 20%、维护占 80% 的场景，把 agent 铺到维护那 80% 上，价值密度高得多。</p>
+<p><strong>第二，验证环节决定 agent 产品能不能进生产。</strong> &quot;对真站点校验后才交付&quot;这一环，是把演示级 agent 和生产级 agent 分开的关键。任何让 agent 自动产出东西的产品，都得回答一个问题：它产出的东西凭什么可信？Intuned 的答案是对真实环境跑一遍加盯输出异常。没有这层，agent 产出的就是个需要人逐条复核的草稿，省不了多少事。</p>
+<p><strong>第三，把现场冻结下来，agent 才修得动。</strong> agent 能自愈的前提，是它能拿到故障发生那一刻的完整上下文。Intuned 把&quot;捕获每次 run 的轨迹、日志、录制&quot;做成底层能力，这件事本身比 agent 多聪明更重要——再强的模型，没有现场也只能瞎猜。任何想做自愈的产品，都得先把可观测这层打厚。</p>
+<p><strong>第四，给人留一个自主程度的旋钮。</strong> Intuned 的修复不是无脑全自动，而是&quot;configurable autonomy&quot;——你可以让它自己改自己部署，也可以让它改完先给你过目。这个设计很务实：完全自动会让用户没安全感，完全手动又失去了自愈的意义，给个可调的旋钮，让用户按场景风险自己定。</p>
+<p>至于坑，也得说清楚。自愈 agent 不是万能钥匙：成本上，每次运行都在烧钱，海量低价值场景不划算；可靠性上，agent 改完的代码仍可能引入新问题，所以&quot;改完先过目&quot;的选项在高风险场景几乎是必选；还有就是，agent 能修的是&quot;站点变了导致选择器失效&quot;这类结构性故障，但如果是目标站点上了更强的反爬、或者干脆封了你的代理，那不是改代码能解的，得回到反检测那一层。</p>
+<hr>
+<p>这一年我们见了太多&quot;agent 能写代码&quot;的演示，惊艳，但写完那一刻的惊艳和三个月后没人维护的烂摊子之间，隔着一整条没人愿意走的路。Intuned 的价值不在于它写代码写得多好，而在于它认真地去走了维护这条路——用 Claude Agent SDK 把探索、生成、校验、诊断、修复、重新部署连成一个能自己转起来的环，专挑爬虫这个最容易坏的场景下手。</p>
+<p>它给行业递过来的，是一个朴素但被长期低估的判断：agent 真正的生产力，不在它能从零造出什么，而在它能不能把造出来的东西一直维护下去。对每一个正在把 agent 往生产环境里推的团队来说，这个判断都值得抄进自己的设计里。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
