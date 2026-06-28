@@ -19,19 +19,9 @@ const PRODUCTS = {
     type: 'blog-by-date-dir',
     src: 'sources/ai-daily',
     title: 'AI Daily',
-    tagline: '每日 AI 与技术内容，agent pipeline 自动生成',
+    tagline: 'AI 日报 + 专题深度，agent pipeline 自动生成（含原 daily-report 历史内容）',
     repoUrl: 'https://github.com/wangcansunking/ai-daily',
     eyebrow: '/ai-daily',
-  },
-  'daily-report': {
-    type: 'blog-flat',
-    src: 'sources/daily-report/public',
-    title: 'Daily Report',
-    tagline: 'AI 日报自动生成系统 · 每日深度内容',
-    repoUrl: 'https://github.com/wangcansunking/daily-report',
-    eyebrow: '/daily-report',
-    // 跳过 -kimi / -wechat 多版本，只用主 .md
-    excludeSuffix: ['-kimi', '-wechat', '.meta'],
   },
   'can-claude-plugins': {
     type: 'readme-only',

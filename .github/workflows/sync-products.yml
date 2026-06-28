@@ -1,12 +1,11 @@
 name: Sync products
 
-# 统一同步 4 个 product 到 portfolio 子路径：
+# 统一同步 3 个 product 到 portfolio 子路径：
 #   - agent-learning:    cp + path-rewrite (static HTML already)
-#   - ai-daily:          markdown → HTML via scripts/sync-products.mjs
-#   - daily-report:      markdown → HTML (PAT required, private repo)
+#   - ai-daily:          markdown → HTML via scripts/sync-products.mjs（含原 daily-report 历史内容，已并入 ai-daily）
 #   - can-claude-plugins: README render
 #
-# AGENT_LEARNING_PAT secret 必须有 contents:read on 4 个 source repo
+# AGENT_LEARNING_PAT secret 必须有 contents:read on 3 个 source repo
 
 on:
   workflow_dispatch:
@@ -56,17 +55,6 @@ jobs:
           path: sources/ai-daily
           fetch-depth: 1
 
-      - name: Checkout daily-report (public/ only)
-        uses: actions/checkout@v4
-        with:
-          repository: wangcansunking/daily-report
-          token: ${{ secrets.AGENT_LEARNING_PAT }}
-          path: sources/daily-report
-          fetch-depth: 1
-          sparse-checkout: |
-            public
-          sparse-checkout-cone-mode: false
-
       - name: Checkout can-claude-plugins
         uses: actions/checkout@v4
         with:
@@ -108,7 +96,7 @@ jobs:
         working-directory: scripts
         run: npm install --no-fund --no-audit --silent
 
-      - name: Render ai-daily / daily-report / can-claude-plugins
+      - name: Render ai-daily / can-claude-plugins
         working-directory: scripts
         run: node sync-products.mjs
 
@@ -116,20 +104,24 @@ jobs:
       - name: Remove sources/
         run: rm -rf sources
 
+      # daily-report 内容已并入 ai-daily，删除旧的失效输出子路径
+      - name: Remove stale daily-report subpath
+        run: rm -rf daily-report
+
       # ---------- Commit + push ----------
       - name: Commit & push if changed
         run: |
           set -euo pipefail
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add agent-learning ai-daily daily-report can-claude-plugins
+          git add agent-learning ai-daily can-claude-plugins daily-report
           if git diff --cached --quiet; then
             echo "No changes — nothing to commit."
             exit 0
           fi
           ts=$(date -u +"%Y-%m-%d %H:%M UTC")
           git commit -m "chore(sync): refresh product subpaths ($ts)" \
-            -m "Synced: agent-learning, ai-daily, daily-report, can-claude-plugins" \
+            -m "Synced: agent-learning, ai-daily, can-claude-plugins" \
             -m "" \
             -m "Co-Authored-By: CodeBlend <aka.ms/codeblend> & Claude <noreply@anthropic.com>"
           git push origin master
