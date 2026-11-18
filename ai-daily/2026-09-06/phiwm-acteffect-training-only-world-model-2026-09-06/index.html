@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phi-WM 1.0：训练时预演，执行时直出 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-09-06</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-09-06</span><span class="tag-pill">AI Daily</span></div>
+      <h1>Phi-WM 1.0：训练时预演，执行时直出</h1>
+<p>机器人策略常被迫在两件事之间取舍：动作前多预测几种未来，决策会更有依据；控制环里每多一次预测和比较，又会增加等待与算力。光象科技与清华大学李升波教授课题组在 8 月 23 日公开的 Phi-WM 1.0 ActEffect，给出了一种明确分工：<strong>训练时用受控世界模型评估动作后果，部署时把它移除。</strong></p>
+<p>这不是让机器人工作时持续“脑内模拟”。ActEffect 在训练中只比较策略自己提出的三份完整动作提案，并用预测后果形成排序反馈；实际执行时，世界模型、未来观测分支和候选评估都不再参与，只留下策略中的最小迭代策略（MIP）动作头直接出动作。</p>
+<p><em>下图来源：Phi-WM 1.0 ActEffect 官方论文与公司材料，2026-08-23/26。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/phiwm-acteffect-training-only-world-model-2026-09-06.png" alt="Phi-WM 1.0 ActEffect 训练时预测后果、部署时直接出动作"></p>
+<h2>动作相近，不等于物理结果相同</h2>
+<p><em>下图来源：Phi-WM 1.0 ActEffect 官方论文与公司材料，2026-08-23/26。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/phiwm-source-action-consequence.png" alt="ActEffect 从动作干预后的状态变化评价策略提案"></p>
+<p>机器人控制不是静态问答。机械臂根据图像、语言指令和自身状态，连续输出末端轨迹、手腕姿态与夹爪开合。两段动作在数值上很接近，执行结果仍可能完全不同：夹爪早合一点会抓空，手腕偏几度会让插接卡住，长动作序列里的微小误差还会逐步累积。</p>
+<p>行为克隆主要回答“演示者在这里做了什么”，训练损失通常度量预测动作与示范动作的距离。ActEffect 追问的是另一个问题：<strong>这个动作会把物理世界带到哪里？</strong> 动作质量不只由数值相似度决定，还要看它造成的状态转移与任务结果。</p>
+<p>这也是受控世界模型进入训练的理由。它不代替策略生成动作，而是为策略自己的动作提案补上一种结果导向的反馈。整个方法围绕三点组织：</p>
+<ul>
+<li>策略暴露可执行、可比较的完整动作提案；</li>
+<li>世界模型在同一当前状态下预测不同动作的后果；</li>
+<li>排序损失把“后果有没有变好”传回策略。</li>
+</ul>
+<p>世界模型由此从运行时规划器变成训练时评估器。</p>
+<h2>完整动作提案只有三份</h2>
+<p><em>下图来源：Phi-WM 1.0 ActEffect 官方论文与公司材料，2026-08-23/26。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/phiwm-source-three-proposals.png" alt="ActEffect 的前馈、粗提案与精提案三份完整动作"></p>
+<p>标准扩散或流匹配策略在训练中会经历许多带噪中间状态。这些中间量不是完整、可执行的动作，直接拿来比较物理后果并不合适。ActEffect 因此采用 MIP，把动作生成压缩成逐步精修，并显式暴露三份完整提案：</p>
+<ol>
+<li><strong>前馈提案</strong>：视觉语言主干中的动作查询经 MLP 直接给出动作；</li>
+<li><strong>粗提案</strong>：MIP 动作头生成第一阶段结果；</li>
+<li><strong>精提案</strong>：MIP 在粗提案基础上继续修正，形成最终动作。</li>
+</ol>
+<p>三者共享同一个当前状态和任务上下文，区别在于动作干预不同。这个设计让比较有了清楚边界：世界模型不搜索整个动作空间，也不扩展一棵候选树，只评估策略已经给出的三份提案。</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>ActEffect 的边界</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>比较对象</td>
+<td>前馈、粗提案、精提案三份完整动作</td>
+</tr>
+<tr>
+<td>比较时机</td>
+<td>仅训练阶段</td>
+</tr>
+<tr>
+<td>世界模型输入</td>
+<td>当前视觉状态与动作提案</td>
+</tr>
+<tr>
+<td>部署阶段</td>
+<td>不预测未来，不做 rollout，不比较候选</td>
+</tr>
+</tbody></table>
+<p>三份提案若都不好，排序只能找出相对较好者，不能凭空产生第四份正确动作。这是受限比较的代价，也是理解实验结果时不能忽略的范围。</p>
+<h2>世界模型只学“动作让场景怎么变”</h2>
+<p><em>下图来源：Phi-WM 1.0 ActEffect 官方论文与公司材料，2026-08-23/26。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/phiwm-source-controlled-world-model.png" alt="受控世界模型在独立视觉空间预测动作后果"></p>
+<p>ActEffect 把任务语义与后果建模分开。语言指令留在视觉语言策略一侧，负责决定任务需要什么动作；受控世界模型只接收当前视觉状态与动作，不读取语言指令。</p>
+<p>原因很直接。同样是推杯子，杯子如何移动取决于当前位置、接触关系和机械臂施加的动作。指令写“挪开杯子”还是“清理桌面”，不会改变这次推动本身造成的物理变化。论文因此把动作后果写成由当前状态与动作决定的受控转移。</p>
+<p>未来状态也不靠生成一张写实图片来比较。论文使用冻结的 DINOv3 编码器，把当前与未来观测放进独立的视觉特征空间；受控世界模型是一个 4 层、隐藏维度 768 的 Transformer，预测动作对应的未来视觉表征。这样做有三层含义：</p>
+<ul>
+<li>任务理解仍由视觉语言策略承担；</li>
+<li>世界模型聚焦物体位置、姿态与场景结构变化；</li>
+<li>三份提案都经过同一个模型、同一个后果空间，误差可以直接比较。</li>
+</ul>
+<p>它仍然是学习得到的近似模型，预测会受训练分布限制。“受控”指输入和比较条件被约束，并不等于对真实物理有完备描述。</p>
+<h2>排序反馈要求每次精修真的变好</h2>
+<p><em>下图来源：Phi-WM 1.0 ActEffect 官方论文与公司材料，2026-08-23/26。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/phiwm-source-ranking-feedback.png" alt="三份预测后果与示范未来比较后形成排序反馈"></p>
+<p>训练数据不仅有当前观测和示范动作，也有动作后的真实观测。ActEffect 把这段示范未来编码为固定目标，再分别计算三份提案的预测后果与目标之间的距离。</p>
+<p>论文预设的次序是：精提案优于粗提案，粗提案优于前馈提案。它并不要求世界模型给每个动作判一个抽象“好分数”，而是要求后续精修得到的预测未来逐步靠近示范未来。</p>
+<p>一次训练中的数据流可以概括为：</p>
+<ol>
+<li>策略依据当前观测提出三份完整动作；</li>
+<li>共享世界模型分别预测三份动作的未来表征；</li>
+<li>预测结果与示范未来比较，形成两组相对排序；</li>
+<li>排序反馈更新 MIP 策略，让精修后的动作更接近正确后果。</li>
+</ol>
+<p>排序损失还对较弱提案的参考误差做梯度截断。否则模型可能通过“让差答案更差”来满足次序，而不是让较好提案继续进步。梯度截断把优化方向限制为推动被偏好的提案接近示范未来。</p>
+<p>这套监督仍然没有全局最优保证。排序质量依赖世界模型、示范未来和训练分布；若预测后果本身有系统偏差，反馈也可能把策略推向错误方向。它提供的是比单纯动作拟合更丰富的训练信号，不是取消机器人学习中的不确定性。</p>
+<p>还有一层边界容易被忽略：训练目标以示范未来为参照，因此“更好”首先意味着更接近数据中实际出现的结果。示范若只覆盖顺利完成的常规轨迹，排序很难自动学到碰撞、滑落、遮挡后恢复等长尾情况。要把这套反馈用于更开放的场景，数据还需要包含足够多的失败后果、恢复动作与环境变化，而不是只增加演示数量。</p>
+<h2>部署图里，世界模型被明确删除</h2>
+<p><em>下图来源：Phi-WM 1.0 ActEffect 官方论文与公司材料，2026-08-23/26。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/phiwm-source-training-deployment.png" alt="ActEffect 训练阶段保留后果反馈，部署阶段移除世界模型"></p>
+<p>ActEffect 最容易被误读为“机器人上线后用世界模型规划”。论文写得相反：部署时移除受控世界模型和未来观测分支，当前观测的 DINOv3 路径仍属于策略，MIP 动作头直接先给粗提案，再给精修动作。</p>
+<p>运行时明确不需要三件事：</p>
+<ul>
+<li>不预测未来观测；</li>
+<li>不执行世界模型 rollout；</li>
+<li>不对多份候选后果在线打分。</li>
+</ul>
+<p>因此，方法能合理声称减少了相对于在线世界模型规划的附加推理步骤与依赖。论文没有给出真实硬件上的端到端时延、显存、功耗或每工位成本测量，所以更严谨的说法是“设计上移除了这部分在线计算”，而不是已经证明了某个固定比例的降本或加速。</p>
+<p>与 9 月 5 日的 SmoothRL 相比，SmoothRL 处理异步执行中的在线强化学习，ActEffect 则把后果反馈限定在训练阶段，部署时不保留世界模型评估。</p>
+<h2>模拟成绩分三组来看</h2>
+<p><em>下图来源：Phi-WM 1.0 ActEffect 官方论文与公司材料，2026-08-23/26。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/phiwm-source-libero-results.png" alt="ActEffect 在 LIBERO 四套任务上的论文自报结果"></p>
+<p>论文报告 ActEffect 在 LIBERO 上平均成功率为 <strong>98.8%</strong>。LIBERO 使用 Franka Emika Panda 机械臂，包含 Spatial、Object、Goal、Long 四组任务；每组 10 项任务，每项以 50 次 rollout 评估。</p>
+<p>这个结果说明，在接近饱和的桌面操作基准上，引入后果反馈没有牺牲基础模仿能力。不过，98.8% 属于论文团队按其协议报告的仿真成绩，不能直接换算为真实机械臂的长期可靠性。</p>
+<p><em>下图来源：Phi-WM 1.0 ActEffect 官方论文与公司材料，2026-08-23/26。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/phiwm-source-libero-plus-results.png" alt="ActEffect 在 LIBERO-PLUS 七类分布变化上的论文自报结果"></p>
+<p>LIBERO-PLUS 加入七类受控变化：相机视角、机器人初始状态、语言改写、光照、背景纹理、传感器噪声和物体布局。论文报告的宏平均成功率为 <strong>80.3%</strong>。</p>
+<p>这组测试更接近“条件变化后是否还能完成任务”，但仍是受控模拟分布。它不能覆盖真实工厂里的相机抖动、材质差异、摩擦变化、执行器磨损和异常接触。</p>
+<p><em>下图来源：Phi-WM 1.0 ActEffect 官方论文与公司材料，2026-08-23/26。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/phiwm-source-robocasa-gr1.png" alt="ActEffect 在 RoboCasa-GR1 高维双臂任务上的论文自报结果"></p>
+<p>RoboCasa-GR1 使用傅利叶 GR-1 人形机器人配置：两条 7 自由度手臂、两只 6 自由度灵巧手和 3 自由度腰部，共同构成 <strong>29 维动作空间</strong>。基准包含 <strong>24 项</strong>家庭桌面操作，论文报告平均成功率为 <strong>67.5%</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>模拟基准</th>
+<th>主要考察</th>
+<th align="right">论文自报平均成功率</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>LIBERO</td>
+<td>四组多任务桌面操作</td>
+<td align="right">98.8%</td>
+</tr>
+<tr>
+<td>LIBERO-PLUS</td>
+<td>七类受控分布变化</td>
+<td align="right">80.3%</td>
+</tr>
+<tr>
+<td>RoboCasa-GR1</td>
+<td>24 项、29 维双臂与腰部操作</td>
+<td align="right">67.5%</td>
+</tr>
+</tbody></table>
+<p>消融实验也只在论文协议内成立：移除后果反馈后，LIBERO 均值从 98.8% 降到 97.0%；把独立的 DINO 空间换成视觉语言模型表征后为 97.3%；移除排序损失后为 98.1%。这些结果支持各组成部分在当前实现中的作用，但还不能区分其在不同真实机器人、不同数据规模下的贡献。</p>
+<h2>更严格的判断要等真机数据</h2>
+<p><em>下图来源：Phi-WM 1.0 ActEffect 官方论文与公司材料，2026-08-23/26。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/phiwm-source-action-consequence.png" alt="ActEffect 以动作后果反馈训练策略的整体方法图"></p>
+<p>目前能够确认的是一套边界清楚的方法，而不是一份已经完成真实产线验证的结论。论文与公司材料给出了三个模拟基准及消融结果；公开材料中尚未看到 ActEffect 自身的独立复现，也没有看到把新策略部署到真实机器人后，对时延、算力、连续运行和故障恢复的成套测量。</p>
+<p>后续验证至少要回答四个问题：</p>
+<ul>
+<li>三份固定提案在复杂长任务中是否够用；</li>
+<li>世界模型预测偏差如何传给排序反馈；</li>
+<li>从仿真到真机后，直接动作策略如何应对动力学偏移；</li>
+<li>不做在线候选评估时，失败恢复能力是否会受限。</li>
+</ul>
+<p>ActEffect 的技术判断仍然鲜明：世界模型不一定要常驻机器人控制环，预测未来也可以只作为训练监督。它把较重的后果比较留在训练，把实际执行缩短为直接策略输出。</p>
+<p><strong>谨慎结论是：ActEffect 已用论文自报的模拟结果证明这套训练方法具有研究价值，但“降低部署时延与算力”的收益目前主要来自架构上的明确删减。等真实机器人上的时延、功耗、稳定性和独立复现补齐后，才能判断它是否适合大规模实际部署。</strong></p>
+<p>对机器人学习来说，这个设计留下了一个可检验的方向：训练可以承担更多比较与预测，部署则只保留已经吸收这些反馈的直接策略。它没有让世界模型消失，而是把世界模型放到更适合承担试错成本的位置。若真机实验能证实训练收益在新场景中保持，同时执行端确实降低等待和资源占用，这种分工会比“每一步都在线预演”更接近可持续的机器人控制方案。</p>
+<h2>参考资料</h2>
+<ul>
+<li>光象科技技术报告：<a href="https://www.sunrisingai.com/upload/202608/e597763b7e870a6ec5951d487b4b3e7f.pdf" target="_blank" rel="noopener">https://www.sunrisingai.com/upload/202608/e597763b7e870a6ec5951d487b4b3e7f.pdf</a></li>
+<li>光象科技新闻动态：<a href="https://www.sunrisingai.com/zh-CN/news" target="_blank" rel="noopener">https://www.sunrisingai.com/zh-CN/news</a></li>
+<li>量子位报道：<a href="https://www.qbitai.com/2026/09/484611.html" target="_blank" rel="noopener">https://www.qbitai.com/2026/09/484611.html</a></li>
+<li>36Kr Global 英文版报道：<a href="https://eu.36kr.com/en/p/3969940251209993" target="_blank" rel="noopener">https://eu.36kr.com/en/p/3969940251209993</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

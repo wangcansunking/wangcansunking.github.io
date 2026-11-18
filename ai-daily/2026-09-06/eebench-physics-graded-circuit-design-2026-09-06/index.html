@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 会画电路了，但 EEBench 要它先过物理这一关 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-09-06</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-09-06</span><span class="tag-pill">AI Daily</span></div>
+      <h1>AI 会画电路了，但 EEBench 要它先过物理这一关</h1>
+<p>让 AI 在 KiCad 里移动鼠标、放下几个器件，再把导线连起来，画面很容易让人产生一种错觉：它已经会设计电路板了。</p>
+<p>真正的电路不会因为原理图看起来合理就工作。电容标着 22 µF，加上工作电压后可能只剩一半；电阻和电容都有公差；运放在最坏组合下可能让滤波器的截止频率或 Q 值越界；器件还要买得到，成本也不能无限堆。软件出错可以重跑，硬件出错往往意味着重新打板、返工甚至安全事故。</p>
+<p>EEBench 想测的正是这道鸿沟：模型能否把需求变成一份经过物理验证、可构建且成本合理的电路设计，而不是只产出一张“像电路”的图。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/source-eebench-circuit-hero.png" alt="EEBench 官方博客封面展示 AI 电路设计主题"></p>
+<h2>它不考“会不会点 CAD”，而考闭环工程</h2>
+<p>EEBench 由电子设计工具团队 atopile 建立。V1 一共包含 <strong>13 项任务</strong>，范围覆盖模拟与数字电路的仿真设计。它当前并不声称能判断模型是否会完成 PCB 布局、生产和实物调试；V1 有意把范围收窄在“需求 → 设计 → 测试”的闭环上。</p>
+<p>官方方法页解释了这个取舍：团队先拆解硬件工程师一周的工作，认为需求、设计和测试约占 60%，原理图与布局只是把前面的计算、仿真和研究决策记录下来。于是 EEBench 暂时把布局放到后续版本，先测最能体现工程判断的部分——读懂约束、选择器件、修改设计、运行验证、根据失败结果继续迭代。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/eebench-source-methodology.png" alt="EEBench 官方方法页：V1 聚焦需求、设计与测试闭环"></p>
+<p>这与让智能体操作传统图形界面有明显区别。图形界面会消耗大量上下文来记坐标、菜单和当前选中状态，最后测出来的可能主要是“电脑操作能力”。EEBench 改用 atopile：一种用<strong>声明式代码</strong>描述电子设计的工具。模型直接表达器件、连接关系和电气约束，再调用构建与仿真工具检查结果。</p>
+<p>官方公开的保持供电任务里，起始代码会声明输入电源 vin、受保护电源 vhold 和一组电容 c_bank，并把容量、公差、额定电压、温度特性与封装写进设计。模型不是提交一段解释文字，而是提交一个可以被编译器处理的 atopile 工程包。</p>
+<p>这一步很关键。自然语言里的“加一个足够大的电容”没有可执行含义；声明式代码里的器件参数与连接，却能进入电路图、物料清单（BOM）和 SPICE 仿真。模型给出的每个判断，最终都要落到能被机器检查的对象上。</p>
+<h2>22 µF 的答案，为什么 0.85 毫秒就失败</h2>
+<p>EEBench 博客披露的一个公开任务来自住宅电表：5 V 辅助电源消失后，电路要让处理器继续工作 20 ms，以便保存累计读数；这段时间内，受保护电源轨必须高于 3.0 V 的欠压阈值。</p>
+<p>多数模型能迅速说出方向：加电容。难点在“加多大、用什么器件、在真实条件下还剩多少”。</p>
+<p>某份提交使用了标称 22 µF 的陶瓷电容。源码能够成功构建，但评分器把 4.7 V 直流偏压、器件公差等现实因素放进去后，算出的有效电容只有 <strong>11.4 µF</strong>，远低于任务所需的 <strong>545 µF</strong>。SPICE 波形显示，电源轨在断电后 <strong>0.85 ms</strong> 就跌破 3 V，距离 20 ms 目标差得很远。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/eebench-source-capacitor-failure.png" alt="EEBench 官方博客中的真实失败：标称电容在偏压下容量衰减，保持时间不足"></p>
+<p>这正是“懂电子学知识”与“完成电子工程”的分界。教科书公式可以算出理想电容，真正选型却必须面对多层约束：MLCC（多层陶瓷电容）的直流偏压降容、制造公差、封装和介质要求、额定电压、恢复充电时间，以及增加容量带来的面积与成本。</p>
+<p>更难的模拟任务还会要求模型围绕运放合成多重反馈低通滤波器，在每个器件被推到最坏公差角落后，增益、截止频率与 Q 值仍要落在限制内。评分器会重建不同角落的 SPICE 仿真，做交流和瞬态分析，再把具名探针的测量值逐项对照上下限。</p>
+<p>所以，EEBench 不是检查“电路图语法有没有错”这么简单。它先用编译和构建确保提交形成合法电路，再让物理模型追问：电压到底是多少、纹波是否越界、瞬态多久恢复、最坏公差下还工作吗？</p>
+<h2>编译器、SPICE、公差和成本组成一把硬尺子</h2>
+<p>EEBench 的评分强调<strong>确定性</strong>：没有人工评委，也不用另一个大模型凭感觉打分。每项要求都会变成一个带上下限的测量。</p>
+<p>一份提交会依次接受几类检查：</p>
+<ol>
+<li><strong>构建检查</strong>：atopile 编译设计，生成电路连接图、接口、BOM 与仿真输入；语法正确但连接错误，同样无法过关。</li>
+<li><strong>SPICE 测量</strong>：仿真增益、阈值、纹波、瞬态响应和电源轨变化，结果是数值与波形，不是“看起来可行”。</li>
+<li><strong>公差角落</strong>：把元件推向最坏组合，防止只在标称参数上碰巧成功。</li>
+<li><strong>器件与供应约束</strong>：使用真实厂商器件和数据手册参数，检查封装、额定值与可采购性。</li>
+<li><strong>成本约束</strong>：按 100 件数量级的分销价格比较参考 BOM；只有电路先工作，低价才有意义。</li>
+</ol>
+<p>官方给出的总分公式是 <strong>0.65 × 技术分 + 0.35 × 相对参考 BOM 的成本效率</strong>。这意味着堆昂贵器件“暴力过线”不会拿到最好成绩，拿廉价零件拼出一个不能工作的方案也得不到成本奖励。模型必须在性能、鲁棒性和价格之间做权衡。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/source-eebench-leaderboard-page.png" alt="EEBench 官方榜单页面展示得分、单任务成本、耗时与输出 token"></p>
+<p>它像给编码智能体配上编译器与测试，但测试的不是返回值，而是电压、频率、时间常数与元件行为。与依赖“LLM 评审 LLM”的开放式评分相比，这些结果更容易复查：失败就是某条波形越过了边界，成功则要在隐藏工作点和公差角落里继续成立。</p>
+<p>当然，确定性并不等于已经覆盖完整硬件开发。V1 尚未考布局、信号完整性、可制造性、焊接和实物 bring-up（上电调试），SPICE 模型也不可能包含现实世界的全部寄生效应。EEBench 测到的是一个重要但明确受限的切片，不能把 69 分解释成“可以无人审核设计任何硬件”。</p>
+<h2>同一天出现了两张不同的榜单</h2>
+<p>9 月 4 日发布的官方博客正文，引用的是 <strong>9 月 1 日结果</strong>：Claude Opus 5 以 <strong>61.6%</strong> 排第一，Grok 4.6 为 <strong>57.1%</strong>，Claude Fable 5.1 为 <strong>56.4%</strong>。正文随后明确写道，团队“还没有 GPT-6 Astra 的结果”，希望在看到它操作 KiCad 后测试其电路设计能力。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/eebench-source-blog-leaderboard-context.png" alt="9 月 4 日官方博客正文仍引用 9 月 1 日榜单，并称尚无 Astra 结果"></p>
+<p>但当前 EEBench 首页的榜单同样标注 <strong>Updated 2026-09-04</strong>，已经新增 GPT-6 Astra：<strong>69.3% ± 10.7</strong>，排在 Opus 5 的 61.6% 之前。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/eebench-source-live-leaderboard.png" alt="EEBench 当前官方榜单：GPT-6 Astra 69.3，Claude Opus 5 61.6，Grok 4.6 57.1"></p>
+<p>这不是应该被悄悄抹平的矛盾，而是网页更新时差：博客文章冻结了写作时掌握的 9 月 1 日批次，发布后或同日稍晚，动态榜单补进了 Astra 的测评结果。阅读榜单时应以页面当前状态为准；理解博客叙述时，则要保留它当时“尚未测试”的时间语境。</p>
+<p>榜单头部因此应读成两个截面：</p>
+<table>
+<thead>
+<tr>
+<th>截面</th>
+<th align="right">第 1</th>
+<th align="right">第 2</th>
+<th align="right">第 3</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>博客引用的 9 月 1 日结果</td>
+<td align="right">Opus 5：61.6</td>
+<td align="right">Grok 4.6：57.1</td>
+<td align="right">Fable 5.1：56.4</td>
+</tr>
+<tr>
+<td>当前首页（标注 9 月 4 日更新）</td>
+<td align="right">Astra：69.3</td>
+<td align="right">Opus 5：61.6</td>
+<td align="right">Grok 4.6：57.1</td>
+</tr>
+</tbody></table>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/source-eebench-leaderboard.png" alt="EEBench 官方榜单头部的模型分数对比"></p>
+<p>这些分数还带着较大的标准误，例如 Astra 为 ±10.7、Opus 5 为 ±6.0、Grok 4.6 为 ±9.9。V1 只有 13 项任务，样本量决定了相邻名次不宜被解读成稳定、绝对的能力差距。榜单最重要的信息不是“谁永久领先”，而是头部模型已经能在一组真实约束下完成相当比例的电路任务，同时仍留下大量失败空间。</p>
+<h2>先别把 69.3 分当成“硬件工程自动化率”</h2>
+<p>EEBench 的百分比很直观，也因此特别容易被过度解读。它不是说 Astra 已经能替代 69.3% 的硬件工程师，也不是说剩下 30.7% 再加一些训练就能完全自动设计产品。分数来自 13 项特定任务，每项又把若干技术要求与成本效率组合起来；它衡量的是模型在这套受控环境中的表现。</p>
+<p>不同模型使用的执行脚手架也不同。官网说明，每个模型获得相同任务说明、起始代码、工作区、工具和预算，但会使用厂商最强的智能体外壳；同一厂商内部则固定脚手架以便代际比较。官方做过一个 GPT-5.5 与 GPT-5.6 的二乘二对照，脚手架选择对 GPT-5.5 的影响甚至超过模型从 5.5 到 5.6 的代际差，而 GPT-5.6 在两种外壳中得分相同。</p>
+<p>这说明榜单测到的是“模型 + 智能体工具链”的系统能力，而非一颗脱离环境的模型大脑。对实际采用者，这反而更有意义：工程团队购买的从来不是孤立权重，而是一套会读文件、改设计、调用编译器、观察仿真并重试的完整系统。但在跨厂商比较时，必须把脚手架差异和标准误一起保留，不能把几个百分点包装成确定结论。</p>
+<p>任务保密也是可信度的一部分。EEBench 称这些任务在 2026 年原创，题目、参考解与隐藏公差都未公开，以降低训练数据污染。所有模型面对相同的隐藏任务与预算，失败工件会被保留。这样的设计能挡住“背过答案”，但也意味着外部研究者暂时无法完整复现整套 13 题；当前能公开审视的是方法、样例、运行次数和结果浏览器，而非全部测试包。</p>
+<h2>把这套思路搬进自己的硬件流程</h2>
+<p>对企业硬件团队，EEBench 最可借鉴的并不是照抄排行榜，而是把需求改写成可执行约束。一个模糊要求“断电后留一点时间保存数据”，应该拆成输入如何下降、最低电压、保持时间、负载、恢复时间、允许封装、额定电压与成本上限。没有这些边界，模型和人一样只能猜。</p>
+<p>第二步是把检查放到设计旁边。每次修改元件或连接后自动构建，自动跑标称点和公差角落，再把波形测量绑定到具名要求。这样，智能体得到的不是一条含糊的“方案不好”，而是“4.7 V 偏压下有效容量不足，0.85 ms 跌破 3 V”这种能指导下一轮修改的反馈。</p>
+<p>第三步是区分仿真通过与准许生产。仿真能够快速淘汰明显错误，却不能替代版图寄生参数分析、热设计、电磁兼容、器件生命周期审查和实物测试。尤其在电源、医疗、汽车等安全相关场景，模型输出必须进入现有设计评审和签核流程，不能因为榜单领先就跳过工程责任链。</p>
+<p>最后才是优化成本。先定义不能妥协的技术与安全门槛，再在通过的方案中比较 BOM、面积、交期和可替代料。EEBench“电路先工作，成本才计分”的顺序看似简单，却纠正了自动优化最危险的一种倾向：为了漂亮的价格数字，把安全余量一起削掉。</p>
+<h2>对硬件团队真正有用的，不只是一张榜</h2>
+<p>EEBench 更有价值的产物，可能不是 69.3 或 61.6，而是它把电子工程问题改造成了可反复运行的训练环境。</p>
+<p>一次失败不再只有“答案错了”。环境能指出哪个电压没有达到下限、哪个公差角落失效、恢复时间超了多少，或者方案虽然工作却不必要地昂贵。这些密集、可定位的反馈既能帮助智能体迭代，也能直接成为后训练的奖励信号。</p>
+<p>对硬件工程师，它提供了一种更现实的协作方式：让模型快速搜索元件组合、计算初值、跑仿真和整理失败角落，人负责定义需求边界、审查模型假设，并决定哪些风险必须进入实物验证。不是把原理图交给 AI 后直接下单，而是让 AI 进入原本就应存在的验证闭环。</p>
+<p>对模型团队，它也揭示了一个经常被通用基准遮住的问题：语言模型读过大量数据手册，不等于它能把分散知识压进一个同时满足电气、供应与成本约束的设计。硬件智能需要的不只是更多知识，还需要能执行、测量并从物理失败中修正的环境。</p>
+<p>EEBench V1 还远不是“自动设计整块手机”的考试。13 项仿真任务无法代表完整产业链，布局与实物制造仍在下一阶段。但它已经把问题往前推进了一步：不再问 AI 能不能画出电路，而是问电路在断电、公差与预算一起压上来时，是否仍然工作。</p>
+<p>一张图可以骗过眼睛，一段解释可以说服读者；电压跌破 3 V 的那一刻不会配合表演。对 AI 硬件工程来说，这或许才是最有价值的及格线。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

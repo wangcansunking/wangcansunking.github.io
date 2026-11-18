@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RTX 5090 跑千问：短任务选 NInfer，长任务选 vLLM — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-09-06</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-09-06</span><span class="tag-pill">AI Daily</span></div>
+      <h1>RTX 5090 跑千问：短任务选 NInfer，长任务选 vLLM</h1>
+<p>9 月 5 日，一位把千问（Qwen）3.8-27B 用在生产内容处理中的 RTX 5090 用户，公开了 NInfer、vLLM 和 llama.cpp 的对照结果。</p>
+<p>短上下文里，NInfer 的 NVFP4 版本一度跑到 <strong>127.1 token/s</strong>，快过 vLLM 的 <strong>117.3 token/s</strong>。上下文拉到 16K，次序反过来：vLLM <strong>56.0 token/s</strong>，NInfer <strong>44.3 token/s</strong>。</p>
+<p><strong>这次实测最有用的结论不是“谁最快”，而是：短任务看推测解码，长任务看预填充与缓存，agent 还要把工具调用算进去。</strong></p>
+<p><em>下图来源：r/LocalLLaMA 实测帖索引图，2026-09-05。首图保留原帖的速度对照。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/qwen38-engine-source-reddit-speed-large.png" alt="RTX 5090 上千问三引擎实测速度对照"></p>
+<h2>这不是一张只看峰值的速度表</h2>
+<p><em>下图来源：实测者公开的完整 Gist，最后修订于 2026-08-26；9 月 5 日 r/LocalLLaMA 新帖补充 llama.cpp 与生产样本。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/qwen38-engine-source-gist-card.png" alt="千问 RTX 5090 实测的公开配置与数据页"></p>
+<p>参与对照的是一张 NVIDIA RTX 5090 32GB、千问 3.8-27B 和三套不同推理路径。测试者不是把官方模型卡抄成一张表，而是跑了两类工作：</p>
+<ul>
+<li>0、4K、8K、16K、32K 不同上下文深度的单路与并发吞吐；</li>
+<li>69 个确定性、多轮工具调用场景，覆盖 15 类行为；</li>
+<li>另有 250 多个生产内容样本，用来检查不同引擎的结果差异；</li>
+<li>所有关键启动参数、模板和测量脚本均公开。</li>
+</ul>
+<p>这几类负载不能混为一个“每秒多少 token”。读入 32K 文档，和在零上下文下连续写代码，瓶颈不同；四个请求共用前缀，和四个完全无关的请求，也不是一回事。</p>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>为什么会改变结论</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>权重量化</td>
+<td>NVFP4、Q8_0 与自定义 groupwise-int 的精度和显存不同</td>
+</tr>
+<tr>
+<td>KV cache</td>
+<td>FP8、INT8、Q8_0 的容量与算力开销不同</td>
+</tr>
+<tr>
+<td>MTP</td>
+<td>多 token 预测能直接抬高解码速度，但看接受率</td>
+</tr>
+<tr>
+<td>前缀缓存</td>
+<td>多轮 agent 会复用系统提示词、工具列表和历史代码</td>
+</tr>
+<tr>
+<td>并发上限</td>
+<td>服务端排队时，“总吞吐”与“单用户速度”会分离</td>
+</tr>
+</tbody></table>
+<p>所以，这是一份<strong>选择工作负载</strong>的实测，不是一场统一条件下的内核冠军赛。</p>
+<h2>NInfer 的短任务领先，主要来自 MTP</h2>
+<p><em>下图来源：r/LocalLLaMA 实测帖质量与速度对照图，2026-09-05。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/qwen38-engine-source-reddit-quality-large.png" alt="NInfer 短上下文速度与多 token 预测对照"></p>
+<p>零上下文、单路请求中，NInfer NVFP4 配合 3 个草稿 token 的多 token 预测（MTP3），达到 <strong>127.1 token/s</strong>。同样开 MTP3 的 vLLM 是 <strong>117.3 token/s</strong>，NInfer 领先约 8%。</p>
+<p>4K 上下文时，两者几乎打平：NInfer <strong>87.1 token/s</strong>，vLLM <strong>87.5 token/s</strong>。到了 8K，vLLM 以 <strong>76.7 对 73.1</strong> 开始领先；16K 是 <strong>56.0 对 44.3</strong>；32K 是 <strong>32.7 对 24.2</strong>。</p>
+<table>
+<thead>
+<tr>
+<th align="right">上下文深度</th>
+<th align="right">NInfer NVFP4 · 单路</th>
+<th align="right">vLLM MTP3 · 单路</th>
+<th>当场结论</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="right">0</td>
+<td align="right">127.1 token/s</td>
+<td align="right">117.3 token/s</td>
+<td>NInfer 快约 8%</td>
+</tr>
+<tr>
+<td align="right">4K</td>
+<td align="right">87.1 token/s</td>
+<td align="right">87.5 token/s</td>
+<td>基本持平</td>
+</tr>
+<tr>
+<td align="right">8K</td>
+<td align="right">73.1 token/s</td>
+<td align="right">76.7 token/s</td>
+<td>vLLM 开始领先</td>
+</tr>
+<tr>
+<td align="right">16K</td>
+<td align="right">44.3 token/s</td>
+<td align="right">56.0 token/s</td>
+<td>vLLM 快约 26%</td>
+</tr>
+<tr>
+<td align="right">32K</td>
+<td align="right">24.2 token/s</td>
+<td align="right">32.7 token/s</td>
+<td>vLLM 快约 35%</td>
+</tr>
+</tbody></table>
+<p>原帖进一步给了一个关键拆分：不计 MTP 的原始 NVFP4 解码，两套引擎都在约 <strong>66—70 token/s</strong>。NInfer 之所以能到 <strong>158—213 token/s</strong> 的混合生产速度，主要靠 MTP3 约 <strong>76%</strong> 的接受率。</p>
+<p>这不是坏消息。它恰恰说明 NInfer 的优势是真正可解释的：模型容易预测后续 token 时，草稿头一次猜中多个，GPU 少跑几轮；任务变难、上下文变长或输出结构受约束，接受率和预填充会重新主导。</p>
+<p><strong>短任务选 NInfer，买的是高接受率下的少跑几轮，不是一块神秘的“更快内核”。</strong></p>
+<h2>16K 之后，读上下文成了主战场</h2>
+<p><em>下图来源：公开 Gist 的深度扫测与复现说明。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/qwen38-engine-source-reddit-config-large.png" alt="千问不同上下文深度下的 NInfer 与 vLLM 实测配置"></p>
+<p>长上下文会把预填充成本放大。实测中，NInfer 的冷预填充约 <strong>3.0—3.3K token/s</strong>；vLLM 约 <strong>6—18K token/s</strong>。即使纯解码接近，先读完 16K 或 32K 文档所花的时间，也会把端到端速度拉开。</p>
+<p>这对真实 agent 很重要。一个 Coding Agent 请求里，常见输入包括：</p>
+<ul>
+<li>系统提示词和工具定义；</li>
+<li>仓库说明、计划与历史命令；</li>
+<li>多个源文件或长日志；</li>
+<li>上一轮失败原因与测试输出。</li>
+</ul>
+<p>输入越长，解码峰值越不能单独代表体感。零上下文快 10 token/s，可能抵不过预填充慢半秒；更何况 agent 往往不会只问一次。</p>
+<p>vLLM 的自动前缀缓存（APC）需要显式打开。测试者在 32K 深度复用相同前缀时，双并发有效吞吐从 <strong>28.3</strong> 升到 <strong>124.5 token/s</strong>，四并发从 <strong>31.3</strong> 升到 <strong>223.2 token/s</strong>，分别约 <strong>4.4 倍</strong>和 <strong>7.1 倍</strong>。</p>
+<p>这个数字不能拿去代表四个完全不同的用户。它测的是多轮请求共享系统提示词和前文时，缓存是否真的复用。对同一个 agent 反复读同一仓库、同一工具清单的服务，它比冷启动峰值更接近真实工作。</p>
+<h2>工具调用把“快”改写成“能不能交付”</h2>
+<p><em>下图为本文依据公开数据整理的决策表。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/qwen38-engine-comparison-table.png" alt="RTX 5090 运行千问时三种本地引擎的场景取舍"></p>
+<p>69 个工具调用场景的满分是 138。NInfer 得 <strong>123/138</strong>，折算 <strong>89/100</strong>；vLLM 使用默认模板时，30 个基础场景过了 29 个。换成针对千问 3.8 修过的 <code>froggeric-v22</code> 模板后，vLLM 得 <strong>134/138</strong>，调整一个已复现的评分器误判后为 <strong>97/100</strong>。</p>
+<p>差距最集中在结构化输出：NInfer 是 <strong>5/12</strong>，修过模板的 vLLM 是 <strong>12/12</strong>。这说明同一组权重换引擎后，模型“聪明程度”并没有凭空变化，解析器、聊天模板和结构化输出实现却会决定工具参数能否被正确交给下游。</p>
+<p>同一批 250 多个生产内容样本里，最大质量差约 <strong>2 个百分点</strong>。样本量为 50 的子项标准误约 <strong>5.6 个百分点</strong>，因此原帖把它视为统计噪声，而不是某个引擎让模型突然变聪明。</p>
+<p>这里要把两个判断分开：</p>
+<ul>
+<li>自由文本质量接近，不足以证明所有任务完全等价；</li>
+<li>工具调用的格式正确率确有差异，而且可由模板修正；</li>
+<li><code>json_mode</code> 仍是 NInfer 当前明确缺口；</li>
+<li>生产 agent 失败一次的代价，常常高过快几十 token/s。</li>
+</ul>
+<p><strong>本地 agent 的速度单位不该只是 token/s，还应包括“成功交出可执行参数的请求数”。</strong></p>
+<h2>llama.cpp 没赢吞吐，却保住了通用性</h2>
+<p><em>下图来源：Truespar 的千问 3.8-27B 公开对照板，2026-08-22/23。它使用 RTX PRO 6000，不与 RTX 5090 数字横向相减，只用于观察引擎随并发变化的趋势。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/qwen38-engine-source-paddock-board.png" alt="千问三种服务引擎在单路和并发负载下的公开对照板"></p>
+<p>llama.cpp 在这次 RTX 5090 生产横评里没有拿到吞吐冠军。另一组 RTX PRO 6000 公开测试也显示，同一个 Q8_0 文件下，专用 CUDA 引擎在 13 个场景都更快，差距从 <strong>1.5 倍到 37.5 倍</strong>。</p>
+<p>但这不等于 llama.cpp 没有位置。它保住的是另外四件事：</p>
+<ul>
+<li>GGUF 量化选择最丰富，社区权重获取容易；</li>
+<li>CPU、CUDA、Vulkan、Metal 等硬件范围广；</li>
+<li>单用户、本地桌面和离线批处理设置直观；</li>
+<li>模型或显存不在专用引擎支持表时，通常仍能先跑起来。</li>
+</ul>
+<p>专用引擎把支持范围换成极致速度。NInfer 当前针对 NVIDIA 和少数模型做深度优化；vLLM 更适合 Linux 服务端与并发；llama.cpp 则像一把覆盖面很广的工具。三者不是同一层面的产品。</p>
+<p>还有一个公平性问题。NInfer、vLLM 用 NVFP4，llama.cpp 常用 GGUF Q8_0 或其他量化；KV cache 也可能是 FP8、INT8 或 Q8_0。不同权重和缓存精度混在一起时，速度差不能单独归因给引擎。</p>
+<h2>三套可复现配置怎么起步</h2>
+<p>以下命令保留实测所需的关键开关。模型路径和模板文件要换成你本机实际位置。</p>
+<h3>vLLM：长上下文与多轮 agent</h3>
+<pre><code class="language-bash">vllm serve gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090 \
+  --kv-cache-dtype fp8 \
+  --max-model-len 262144 \
+  --max-num-seqs 16 \
+  --enable-prefix-caching \
+  --reasoning-parser qwen3 \
+  --enable-auto-tool-choice \
+  --tool-call-parser qwen3_xml \
+  --chat-template ./qwen38-froggeric-v22.jinja
+</code></pre>
+<p>先观察 <code>vllm:prefix_cache_hits_total</code>。如果多轮请求的命中一直为零，长上下文优势不会自动出现。</p>
+<h3>NInfer：短上下文与高 MTP 接受率</h3>
+<pre><code class="language-bash">ninfer-serve \
+  --model ./qwen3_8_27b_nvfp4.ninfer \
+  --max-context 131072 \
+  --max-concurrency 2
+</code></pre>
+<p>公开实测中，NVFP4 + MTP3 的单请求上限是 131072。需要完整 262K 时，要关闭 MTP，或换用该测试里的 groupwise-int 权重。<strong>不能同时拿 128K 的速度和 262K 的容量当成一套配置。</strong></p>
+<h3>llama.cpp：跨硬件与 GGUF</h3>
+<pre><code class="language-bash">llama-server \
+  -m ./Qwen3.8-27B-Q8_0.gguf \
+  -ngl 99 \
+  -fa on \
+  -c 262144 \
+  -np 4 \
+  -ctk q8_0 \
+  -ctv q8_0 \
+  --jinja \
+  --top-k 20 \
+  --top-p 0.95
+</code></pre>
+<p>不要一上来就把 <code>-np</code> 设到 32。单人桌面服务先从 1—4 路测起；总吞吐升高时，还要看每个用户的首 token 等待有没有恶化。</p>
+<h2>显存与上下文，不能只看“装得下”</h2>
+<p>RTX 5090 有 32GB 显存。27B 模型做 NVFP4 后，权重能留出较大空间给 KV cache，但上下文上限仍受四项共同约束：权重、缓存精度、并发数和 MTP 草稿状态。</p>
+<p>这也是“支持 262K”最容易误导的地方。支持不代表在 262K 时仍有零上下文速度；单路装得下，也不代表四路并发仍不排队。</p>
+<p>建议用三组真实请求验收：</p>
+<ol>
+<li><strong>短代码问答</strong>：0—4K 输入、单路，测解码和工具参数正确率；</li>
+<li><strong>仓库长任务</strong>：16K—32K 输入、多轮复用前缀，测首 token 和完整任务时间；</li>
+<li><strong>并发服务</strong>：2—8 个真实用户，测总吞吐、每用户速度和 95 分位等待。</li>
+</ol>
+<p>每组至少同时记四个数字：首 token 时间、生成 token/s、完整任务耗时、成功率。只记其中一个，结论很容易被优化项带偏。</p>
+<h2>选择建议：按负载，不按名气</h2>
+<table>
+<thead>
+<tr>
+<th>你的主要负载</th>
+<th>首选</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单人、短上下文、自由文本生成</td>
+<td>NInfer</td>
+<td>MTP 接受率高时，短任务速度领先</td>
+</tr>
+<tr>
+<td>Coding Agent、长仓库、多轮工具调用</td>
+<td>vLLM</td>
+<td>预填充、前缀缓存与结构化输出更稳</td>
+</tr>
+<tr>
+<td>多用户 OpenAI 兼容服务</td>
+<td>vLLM</td>
+<td>并发调度与可观测性更成熟</td>
+</tr>
+<tr>
+<td>Windows / macOS / AMD / CPU / 多种 GGUF</td>
+<td>llama.cpp</td>
+<td>硬件和量化覆盖面更广</td>
+</tr>
+<tr>
+<td>需要 262K 且仍想开 MTP</td>
+<td>先实测</td>
+<td>不同引擎的容量与 MTP 上限不能拼接</td>
+</tr>
+</tbody></table>
+<p>我的建议很明确：<strong>RTX 5090 上跑千问 3.8-27B，个人短任务先试 NInfer；把它当长期运行的 Coding Agent 或多人服务，就从 vLLM + MTP3 + 前缀缓存起步；硬件或量化不在支持表，再回到 llama.cpp。</strong></p>
+<p>这张 5090 没有唯一“正确引擎”。它有三种不同的好用方式。把短任务、长上下文、工具调用和并发拆开测，才不会为了一个漂亮峰值，把真正的工作负载放错地方。</p>
+<h2>参考资料</h2>
+<ul>
+<li>r/LocalLLaMA 实测讨论：<a href="https://www.reddit.com/r/LocalLLaMA/comments/1w821fg/ninfer_vs_llamacpp_vs_vllm_quality_speed/" target="_blank" rel="noopener">https://www.reddit.com/r/LocalLLaMA/comments/1w821fg/ninfer_vs_llamacpp_vs_vllm_quality_speed/</a></li>
+<li>RTX 5090 上 vLLM 与 NInfer 的完整实测 Gist：<a href="https://gist.github.com/PierpaoloPernici/f1d1382f8e357b4faffb1a9f584cc1df" target="_blank" rel="noopener">https://gist.github.com/PierpaoloPernici/f1d1382f8e357b4faffb1a9f584cc1df</a></li>
+<li>Truespar Paddock 千问 3.8-27B 对照板：<a href="https://truespar.com/paddock/benchmarks/qwen38-27b" target="_blank" rel="noopener">https://truespar.com/paddock/benchmarks/qwen38-27b</a></li>
+<li>vLLM 0.28.0 发布说明：<a href="https://github.com/vllm-project/vllm/releases/tag/v0.28.0" target="_blank" rel="noopener">https://github.com/vllm-project/vllm/releases/tag/v0.28.0</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

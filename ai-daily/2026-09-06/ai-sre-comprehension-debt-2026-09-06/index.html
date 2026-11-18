@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI SRE 替你值班后，谁来保持系统直觉 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-09-06</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-09-06</span><span class="tag-pill">AI Daily</span></div>
+      <h1>AI SRE 替你值班后，谁来保持系统直觉</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/ai-sre-comprehension-debt-2026-09-06.png" alt="AI SRE 与 on-call 能力"></p>
+<p>9 月 4 日，Rootly AI Labs 负责人、前 LinkedIn SRE Sylvain Kalache 写下一个很具体的担心：自动化已经能读告警、查遥测、关联部署，甚至执行修复；但那些被自动化平静处理掉的小事故，也曾是工程师认识系统边界的练习场。<a href="https://www.sylvainkalache.com/blog/ai-handles-incidents-engineers-lose-touch-with-their-systems" target="_blank" rel="noopener">原文</a>把这种差距称为“理解债”。</p>
+<p>这不是反对 AI SRE。恰好相反，告警去噪、跨日志与指标建立关联、按规则回滚，应该让值班工程师少在凌晨做重复劳动。真正需要补上的，是另一项可靠性工作：**让自动化处理常规故障，让人定期在受控环境里处理陌生故障。**效率和判断力可以同时获得，关键在于团队是否把演练当作生产能力的一部分。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/ai-sre-comprehension-debt-source-kalache-essay.png" alt="Kalache 对理解债的论述页面"></p>
+<h2>自动化先替人拿走了什么</h2>
+<p>AI SRE 并不是一个单一产品，而是一组连接在一起的能力。Rootly 对这类系统的定义很务实：它读取日志、指标、链路追踪、运行手册、代码差异与事故复盘材料，为事件生成诊断和建议，并在被允许时执行动作。<a href="https://rootly.com/ai-sre-guide" target="_blank" rel="noopener">Rootly 的说明</a>把采用顺序分为只读洞察、建议动作、审批后修复和受约束的自主操作四层。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/ai-sre-comprehension-debt-source-rootly-ai-sre.png" alt="Rootly AI SRE 能力图"></p>
+<p>这一顺序值得保留。前两层把机器放在“搜证和整理”位置，工程师仍需检验因果关系；第三层开始把可逆动作交给系统；最后一层才适合范围很窄、回退明确的任务。</p>
+<p>它能优先拿走的，通常是最适合规则化的工作：</p>
+<ul>
+<li>把同一根因引起的一批告警合并，减少值班人员在多个面板间切换；</li>
+<li>将最近的发布、配置变更与异常指标并列，缩短建立假设的时间；</li>
+<li>调用已验证的运行手册，例如扩容、限流、切换只读或撤回一次发布；</li>
+<li>自动建立事故频道、更新状态页草稿、记录时间线，减轻协调事务。</li>
+</ul>
+<p>Rootly 的事故响应文章把 MTTR 定义为所有事故停机时间除以事故数量，并把事件关联、自动分诊和预定义修复列为缩短恢复时间的主要机制。<a href="https://rootly.com/blog/ai-in-incident-response-how-automation-improves-mttr" target="_blank" rel="noopener">这篇资料</a>的要点不是“让模型替人猜”，而是把人从重复的信息搬运中抽出来。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/ai-sre-comprehension-debt-source-rootly-capabilities.png" alt="Rootly 对自动化响应的说明"></p>
+<p>对值班体验而言，这是实在的改进。被叫醒后，工程师先看一份带证据链接的候选原因、影响范围和可撤销动作，比从上百条告警中手工拼接上下文更稳。对复杂微服务系统，机器尤其适合做广度扫描。</p>
+<h2>理解债不是技能退化的修辞</h2>
+<p>“理解债”指的是：系统持续变化，而团队中真正能解释其依赖、故障传播和恢复边界的人越来越少。它不像技术债那样直接出现在待办列表，却会在一次新型事故里以更慢的判断、更长的升级路径和更保守的操作显现出来。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/ai-sre-comprehension-debt-source-rootly-adoption.png" alt="Rootly 分阶段采用模型"></p>
+<p>Kalache 将其放在 Lisanne Bainbridge 1983 年论文《The Ironies of Automation》的语境中：自动化减少操作员接触日常工作的机会，却把新颖、异常、难以预料的情况留给人。这个判断的重点不是机器“不可靠”，而是人在少量高压时刻仍需具备更强的识别和接管能力。</p>
+<p>软件行业已有相近的经验。Google SRE 的 on-call 实践明确提醒，过少的生产参与会使工程师与所负责系统脱节；它同时将纯运维工作控制在 SRE 时间的一部分，把其余时间用于以工程手段改善服务。<a href="https://sre.google/sre-book/being-on-call/" target="_blank" rel="noopener">《Being On-Call》</a>还给出一个约束：在双人值班、按周轮换的单地点场景，为了让个人的 on-call 时间不超过四分之一，至少需要 8 名工程师参与轮值。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/ai-sre-comprehension-debt-source-google-oncall.png" alt="Google SRE 关于 on-call 负荷的页面"></p>
+<p>这条经验在 AI SRE 时代反而更有价值。目标不是把人留在琐碎告警里“保持手感”，而是把人的注意力迁到更有学习收益的活动：理解服务依赖、参与变更评审、复盘故障机理，以及在模拟中完成不熟悉的恢复。</p>
+<p>可以把两类工作分得更清楚：</p>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>更适合 AI SRE</th>
+<th>更应由工程师保持主导</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>已知告警的归并与分级</td>
+<td>是，依据明确规则合并事件</td>
+<td>审视规则是否遗漏业务影响</td>
+</tr>
+<tr>
+<td>日志、指标、追踪的初步关联</td>
+<td>是，快速给出证据集合</td>
+<td>判断相关性是否构成因果</td>
+</tr>
+<tr>
+<td>低风险、可逆的运行手册动作</td>
+<td>可以，需范围限制与回退</td>
+<td>设定授权边界并抽查结果</td>
+</tr>
+<tr>
+<td>跨团队取舍与用户影响沟通</td>
+<td>辅助整理时间线和草稿</td>
+<td>事故指挥、优先级与承诺</td>
+</tr>
+<tr>
+<td>未见过的级联故障</td>
+<td>提供候选线索</td>
+<td>形成假设、隔离范围、决定接管</td>
+</tr>
+</tbody></table>
+<p>表中的最后一行最容易被忽略。模型可以把历史资料放到眼前，却不能替团队建立“这个服务在降级时会把什么拖进去”的共同认识。这种认识来自反复观察、复盘与亲自操作。</p>
+<h2>把真实事故演练做成能力建设</h2>
+<p>航空业的做法提供了一个直观参照：自动化承担大部分常态飞行，飞行员却仍要反复在模拟器里练习极少发生的异常。Kalache 在文中援引美国联邦航空局规则：机长需要每 6 个月完成复训或能力检查，其中包括起飞阶段发动机失效等场景。软件服务很少面对同等的人身风险，但同样可以借鉴“罕见事件要预先练”的原则。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/ai-sre-comprehension-debt-source-google-postmortem.png" alt="Google SRE 事故复盘与学习页面"></p>
+<p>演练不应是演示自动化有多快。一次有价值的演练，最好让参与者在证据不完整、沟通不断被打断、恢复选项各有代价的条件下做决定。Kalache 所述的 Rootly 与 Uptime Labs 模拟，安排工程师处理一次电商故障，同时与由大模型扮演的管理者和客服角色在 Slack 中协作。这个设计抓住了事故响应的完整性：诊断之外，还有指挥、同步与取舍。</p>
+<p>团队可以从三种场景开始，但每次只挑一个服务和一条用户路径：</p>
+<ol>
+<li><strong>发布后退化</strong>：准备一项可快速撤销的配置或版本变更，让延迟、错误率或队列积压出现组合信号。要求值班人员比较回滚、限流和扩大容量的证据与代价。</li>
+<li><strong>依赖失效</strong>：让一个第三方接口、缓存或消息通道以间歇方式出错。重点不在找到“坏组件”，而在练习隔离影响、启用降级和向业务方说明范围。</li>
+<li><strong>观测缺口</strong>：保留真实服务行为，却移走一个常用面板或让一条告警失效。参与者需要从日志、链路追踪和业务指标重建判断，而不是照着单一仪表盘操作。</li>
+</ol>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/ai-sre-comprehension-debt-source-google-learning.png" alt="Google SRE 对复盘学习的说明"></p>
+<p>演练期间，AI SRE 仍然应该在场，但角色应轮换。一次让它给出事件摘要和证据索引；另一次只允许它回答“你看过哪些信号”；再一次要求人先形成假设，再与其候选结论比较。这样可以检验团队能否独立思考，也能检验机器的说明是否真的有帮助。</p>
+<h2>让自动化留下可学习的证据</h2>
+<p>如果 AI SRE 的输出只有“已修复”，理解债会加得最快。更好的输出是一份可检验的工作记录：看到什么信号、排除了哪些假设、采用哪个运行手册、授权边界是什么、动作是否成功、何时回退。它既是事故记录，也可成为下次演练的材料。</p>
+<p>Google 对无责复盘的解释很适合放在这里。复盘的目标是记录影响、缓解动作、根因和防止复发的后续行动；它不把写复盘视为惩罚，而是让整个组织学习的机会。<a href="https://sre.google/sre-book/postmortem-culture/" target="_blank" rel="noopener">《Postmortem Culture》</a>强调，复盘应研究当时为什么信息不完整，而不是追究某个人为何没做对。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/ai-sre-comprehension-debt-source-rootly-ai-sre.png" alt="Rootly AI SRE 采用方式页面"></p>
+<p>因此，接入 AI SRE 时可以把授权设计为一张“学习保留表”：</p>
+<table>
+<thead>
+<tr>
+<th>自动化等级</th>
+<th>可以授权的动作</th>
+<th>人员能力保留方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>只读</td>
+<td>聚合告警、检索历史事件、生成证据摘要</td>
+<td>每周抽取一个事件，由人复述假设与证据</td>
+</tr>
+<tr>
+<td>建议</td>
+<td>提供回滚、扩容、限流候选</td>
+<td>事故指挥说明为何采纳或拒绝建议</td>
+</tr>
+<tr>
+<td>审批执行</td>
+<td>执行低风险且可逆的运行手册</td>
+<td>定期安排人工执行相同恢复动作</td>
+</tr>
+<tr>
+<td>受约束自主</td>
+<td>明确阈值内的自愈与回退</td>
+<td>对边界案例做演练，复查越界与误判</td>
+</tr>
+</tbody></table>
+<p>这里没有必要把自主操作当作终点。对每个服务，合适的最高等级取决于动作可逆性、影响半径、观测质量与团队的接管速度。让自动化停在一个可解释、可回退、可演练的位置，通常比盲目扩大权限更能提高可靠性。</p>
+<h2>演练要检验人机协作的边界</h2>
+<p>一次演练结束时，不要只记录“恢复用了几分钟”。恢复速度很重要，但它只回答了结果，没有回答团队是否真的能在机器失灵、信息矛盾或权限受限时继续推进。更有意义的是回看四个节点：最初的症状是什么，谁提出了第一个可证伪的假设，哪条证据改变了处置方向，自动化建议在何处被接受或否决。</p>
+<p>这套回看方法也能反过来改进 AI SRE。若系统总能给出正确的候选原因，却无法说明证据，团队应把“可解释记录”设为接入条件；若它在某类告警中经常误合并，就应该缩小授权范围而非要求值班人员永远警惕；若工程师每次都在相同的依赖关系上犹豫，则需要补的是服务地图、运行手册或演练场景，不是再加一个聊天窗口。</p>
+<p>建议把一次演练拆成三个短回合，而非组织一次很长的“灾难日”：</p>
+<ul>
+<li><strong>发现回合</strong>：只给业务症状和部分遥测，参与者独立写出两种可能原因，再查看 AI SRE 的证据摘要；</li>
+<li><strong>处置回合</strong>：给出三种可逆措施，明确每项措施的影响范围、恢复条件和回退条件，由事故指挥作选择；</li>
+<li><strong>沟通回合</strong>：模拟客户支持、产品和管理者的追问，要求用已知事实与未知项更新状态，而不把推测包装成结论。</li>
+</ul>
+<p>这样设计的好处是，演练可以在非生产环境、隔离的流量或经过批准的故障注入中进行，不需要以真实用户体验为代价。它也把“谁最懂系统”的个人能力，转成一组可由新人参与、由全队复用的判断过程。</p>
+<h2>不同团队的起步方式并不相同</h2>
+<p>成熟平台团队可以从已有事故复盘中挑选重复出现、但影响可控的模式，再在预发布环境重现它。新团队则不必一开始搭建完整模拟器：选一条关键下单、登录或支付路径，写清正常信号、降级信号和停止条件，就足以开展第一轮训练。</p>
+<p>有三项边界需要在开始前写清楚：演练不触及真实用户数据；每个注入动作都有明确的停止开关；参与者知道这是训练，却不知道具体故障何时、以何种组合出现。前两项保护服务与用户，最后一项保护判断训练的真实性。</p>
+<p>AI SRE 供应商和内部平台团队也可把“训练模式”做成一等能力。它可以提供脱敏的历史证据、可重复的服务拓扑、受限的工具权限和事后回放，而不是只展示一个会自动恢复的演示。自动化若能帮助团队更好地练习接管，它的价值就不再只体现在一条更低的 MTTR 曲线上。</p>
+<h2>值班能力要从事故数量中解耦</h2>
+<p>过去，团队可能从真实故障的密度中获得经验；未来，成功的自动化会让这些“练习题”变少。解决方法不是制造生产事故，而是让训练频率不再依赖事故频率。</p>
+<p>对运维负责人而言，选择很明确：先用 AI SRE 减轻重复劳动，再把节省下来的值班时间的一部分固定为服务走读、事故模拟和无责复盘。对一线工程师而言，要求系统给出证据与理由，而不只是结论；当它执行一次修复，就把那次动作变成可追问、可复演的材料。</p>
+<p>**AI SRE 最好的结果，不是让团队再也不需要理解系统，而是让大家有更多清醒的时间理解系统。**常规事故被更快处理，真正困难的时刻仍由准备充分的人接管；这两件事放在一起，才是更可持续的 on-call。</p>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

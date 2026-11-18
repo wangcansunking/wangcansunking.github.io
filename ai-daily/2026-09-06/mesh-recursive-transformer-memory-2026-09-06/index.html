@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MeSH给循环模型分出记忆 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-09-06</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-09-06</span><span class="tag-pill">AI Daily</span></div>
+      <h1>MeSH给循环模型分出记忆</h1>
+<blockquote>
+<p>循环 Transformer 省下的是参数，不是计算。MeSH 的价值在于：让每一轮计算能记住该保留什么、该处理什么，而不是把所有信息压进同一份隐状态。</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/mesh-recursive-transformer-memory-2026-09-06.png" alt="MeSH 封面"></p>
+<p>2026 年 9 月，量子位援引 The Information 的报道，把 GPT-6 Astra 与“循环深度”联系起来；OpenAI 尚未公开 Astra 的模型架构。这个未经官方确认的线索，让“同一组层能否多算几遍”重新回到讨论中，但不能据此认定具体产品采用了哪种递归方案。</p>
+<p>MeSH 是与这场讨论相互独立的研究。论文由阿里及合作高校团队完成，2025 年 10 月 9 日首次公开，2026 年 4 月 20 日修订，论文页面标注已被 ICLR 2026 接收。它把问题放到模型内部检查：计算是否集中在第一轮、相邻轮次的表示是否已经相同、状态空间是否被挤到低维区域。</p>
+<p><strong>MeSH 的核心判断很直接：共享核心层可以继续复用，但状态不能再由一条单通道独自承担。</strong></p>
+<h2>循环层为何常在后面失效</h2>
+<p>递归 Transformer 把“参数深度”和“计算深度”拆开。常规 24 层模型有 24 组不同参数；递归结构可以让一个较小的核心块反复运行，用多次计算得到更深的变换。论文采用 Prelude-Recurrent-Coda 结构：前置块准备状态，中间共享核心块循环，尾部块产出最终表示。</p>
+<p>这种结构并不等于免费能力。权重共享减少的是需要存储和训练的参数；每一轮 Attention 与矩阵运算依然要执行。若后续循环输出近乎不变，省下参数的同时也浪费了计算时间。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/mesh-recursive-transformer-memory-2026-09-06-source-diagnosis.png" alt="递归 Transformer 的三项内部诊断"></p>
+<p><em>来源：MeSH 论文 Figure 1，arXiv 版本 v2。图中以 Pythia-410M 的 3 次核心循环展示更新幅度、CKA 相似度和奇异值谱。</em></p>
+<p>论文在 500 个 Pile 样本上观察到三种相互关联的现象：</p>
+<ul>
+<li><strong>计算偏斜</strong>：第一轮共享核心块承担主要状态更新，后续轮次的更新幅度明显降低；</li>
+<li><strong>表征停滞</strong>：相邻循环状态的中心化核对齐（CKA）相似度很高，意味着反复处理已接近固定点；</li>
+<li><strong>表征坍缩</strong>：循环状态的奇异值谱衰减更快，有效表达维度缩小。</li>
+</ul>
+<p>这些证据指向两个原因。第一，核心块只看到当前状态，却没有一个随循环阶段变化的状态接口，容易把每轮处理成相似变换。第二，一个隐状态既要保存输入中的长期线索，又要容纳本轮临时计算；稳定保存和快速改写被迫共用同一空间。</p>
+<p>这不是“模型记不住”这么简单。为避免把初始语义洗掉，系统会倾向保留一种各轮都能承受的共同表示；但这种共同表示也会压缩当前轮需要的变化空间。后续循环因此既缺分工，也缺可用的工作区。</p>
+<h2>固定残差为何还不够</h2>
+<p>递归模型此前常用两种补充方式。残差连接把上一轮状态加回来；锚点连接把循环开始时的状态，或原始词嵌入，持续加回当前状态。它们能减轻遗忘，却是固定规则：每一轮、每个 Token 都按相同方式取用历史信息。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/mesh-recursive-transformer-memory-2026-09-06-source-architecture.png" alt="固定补充与 MeSH 状态流的对比"></p>
+<p><em>来源：MeSH 论文 Figure 2，arXiv 版本 v2。左侧为常见递归状态传递，中间为固定补充连接，右侧为带读写路由的 MeSH。</em></p>
+<p>这类方法对“别忘了输入”有效，却无法回答另一件事：这一轮该读取输入、上一轮结果，还是更早阶段留下的信息？固定相加没有为不同轮次提供选择，也无法为不同 Token 分配不同历史。</p>
+<p>论文的 Pythia-410M 对照很能说明问题。在参数减少 50% 的 3+6R3+3 配置下，基础递归模型 5-shot 平均准确率为 44.01%；加锚点后为 44.90%；MeSH 为 46.04%。前两者在保留信息上有所帮助，但 MeSH 取得的提升来自“保留什么、何时读取”的机制改变，而非多加一条静态旁路。</p>
+<table>
+<thead>
+<tr>
+<th>Pythia-410M，减少 50% 非嵌入参数</th>
+<th align="right">5-shot 平均准确率</th>
+<th align="right">相对普通 24 层模型</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>普通 Transformer</td>
+<td align="right">45.31%</td>
+<td align="right">基准</td>
+</tr>
+<tr>
+<td>基础递归</td>
+<td align="right">44.01%</td>
+<td align="right">-1.30 个百分点</td>
+</tr>
+<tr>
+<td>锚点递归</td>
+<td align="right">44.90%</td>
+<td align="right">-0.41 个百分点</td>
+</tr>
+<tr>
+<td>MeSH 递归</td>
+<td align="right">46.04%</td>
+<td align="right">+0.73 个百分点</td>
+</tr>
+</tbody></table>
+<p><em>来源：MeSH 论文 Table 1。该表对应特定 Pythia 预训练与下游任务设置，不代表通用大模型的实际产品能力。</em></p>
+<h2>显式 memory slots 怎么工作</h2>
+<p>MeSH 的全称是 Memory-as-State-Highways。它在共享核心块外设置一个显式状态缓冲区，由多个 memory slots（记忆槽）组成。每个槽与隐状态具有相同的序列长度和隐藏维度；循环开始时，原始 Token 嵌入放入第一个槽，其余槽置零。</p>
+<p>这里的“显式”不是把文本写进外部数据库，也不是 RAG。它仍处于模型内部计算图中，只是把状态保存从单个隐状态拆成多个可学习访问的位置。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/mesh-recursive-transformer-memory-2026-09-06-source-compute.png" alt="状态更新的计算偏斜"></p>
+<p><em>来源：MeSH 论文 Figure 3，arXiv 版本 v2。图比较基础递归、残差、锚点与 MeSH 在各计算块中的相对状态更新。</em></p>
+<p>每一个循环步骤都有一对轻量的路由器：</p>
+<ol>
+<li><strong>写路由器</strong>根据当前隐状态，为每个 Token 在各记忆槽上生成写入权重；</li>
+<li>共享核心块先计算本轮输出；</li>
+<li>输出按写入权重分布式累加到多个槽中；</li>
+<li><strong>读路由器</strong>再为每个 Token 生成读取权重，从更新后的各槽加权合成下一轮隐状态。</li>
+</ol>
+<p>路由器在不同循环步骤间不共享参数。这一点很关键：核心块本身仍然共享，但不同步骤通过不同的读写接口获得了不同的状态组合。早期轮次可以多读原始输入，后期轮次可多读已经加工过的信息；同一轮的不同 Token 也不必读写同一槽。</p>
+<p>因此，MeSH 并不是把“多轮循环”换成“多套核心网络”。它只给状态管理增加很小的可学习接口，把单一路径上的固定加法改为按步骤、按 Token 的状态编排。</p>
+<h2>把长期保存和临时计算分开</h2>
+<p>常规递归更新可近似写成“核心块输出 + 固定补充状态”。MeSH 改成“核心块输出写入缓冲，再按权重从缓冲读取”。前者让一份状态同时做档案和工作台；后者允许记忆槽承担较持久的信息，当前隐状态更多服务于这一轮变换。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/mesh-recursive-transformer-memory-2026-09-06-source-cka.png" alt="相邻循环状态的 CKA 相似度"></p>
+<p><em>来源：MeSH 论文 Figure 4，arXiv 版本 v2。高相似度表示相邻循环状态趋于不再演化。</em></p>
+<p>论文的诊断结果正对应这一设计。基础递归的第一轮更新大、后续更新小；MeSH 让三次核心循环都有显著贡献。基础递归的相邻状态 CKA 很高；MeSH 让相邻状态的相似度降低，同时仍保有到输入信息的读取通道。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/mesh-recursive-transformer-memory-2026-09-06-source-spectrum.png" alt="循环状态的奇异值谱"></p>
+<p><em>来源：MeSH 论文 Figure 5，arXiv 版本 v2。谱衰减越快，表示状态更接近低维表示。</em></p>
+<p>更重要的是，MeSH 试图解决稳定性与可塑性的冲突。固定锚点把原始信息持续塞回状态，能稳定但不够灵活；纯递归让状态反复改写，灵活却容易漂移。多槽缓冲把历史信息留在可读位置，使当前状态不必为“长期安全保存”牺牲全部表达维度。</p>
+<p>这也是论文相对 Hyper-Connections 一类多路径状态传递工作的区别：MeSH 的目标场景是权重共享的递归循环，路由器按循环步骤独立，并把“哪些状态留在缓冲、下一轮如何混合”作为主要问题。</p>
+<h2>1.4B 实验说明了什么</h2>
+<p>主结果中，Pythia-1.4B 的普通 24 层模型，非嵌入参数为 1,208,602,624。4+8R2+4 的递归模型把这一数字降至 805,736,448，约少 33.3%。加上 MeSH 后为 805,797,918；路由器权重为 61,470，仅比普通模型的非嵌入参数多约 0.005%。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/mesh-recursive-transformer-memory-2026-09-06-source-training.png" alt="不同训练阶段的损失与准确率"></p>
+<p><em>来源：MeSH 论文 Figure 6，arXiv 版本 v2。该图展示 Pythia-1.4B 递归变体在 120,000 步量级预训练中的损失和下游准确率。</em></p>
+<p>在该设置下，MeSH 递归模型的 0-shot 下游平均准确率为 50.56%，普通 Transformer 为 49.50%，绝对高 1.06 个百分点；5-shot 分别为 52.79% 与 51.93%。Pile 困惑度则从 7.44 降到 7.39。</p>
+<p>这个比较有两个边界必须保留：</p>
+<ul>
+<li>这是从头训练的 Pythia 系列实验，不能直接推到闭源大模型或在线服务；</li>
+<li>递归模型的优势是参数效率，不是推理计算自动减少。论文针对长度为 4096 的单次前向计算，报告 MeSH 相对基础递归增加 0.7551 GFLOPs，即约 0.014051%。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/09/06/mesh-recursive-transformer-memory-2026-09-06-source-scaling.png" alt="不同参数规模下的性能趋势"></p>
+<p><em>来源：MeSH 论文 Figure 7，arXiv 版本 v2。图比较普通、基础递归和 MeSH 在不同非嵌入参数规模下的评测表现。</em></p>
+<p>从 160M 到 6.9B 的 Pythia 实验中，MeSH 相对基础递归均有改善。2.8B 递归模型的 0-shot 平均准确率由 52.49% 增至 54.71%，6.9B 则由 56.67% 增至 58.83%。这证明该设计在论文选择的规模和数据分布中可扩展，但仍缺少更大规模、不同架构与真实部署延迟上的公开复现。</p>
+<h2>对模型架构讨论的实际启发</h2>
+<p>量子位 9 月 5 日的文章把循环 Transformer 放进当前的模型架构讨论中。这个背景可以解释为什么递归深度再次受到关注，但并不能证明任何具体产品采用了 MeSH，也不能替代论文实验。</p>
+<p>MeSH 更实际的启发是方法顺序：先用内部信号确认循环的计算是否失衡，再改变状态接口。对训练团队而言，单看最终损失不足以判断共享循环是否有效，还可以检查：</p>
+<ul>
+<li>后续循环的状态更新是否趋近于零；</li>
+<li>相邻步骤的表示相似度是否持续过高；</li>
+<li>奇异值谱是否显示有效秩迅速降低；</li>
+<li>memory slots 数量是否过少或过多。</li>
+</ul>
+<p>论文的 Pythia-410M 消融中，2 次循环加 2 个额外 scratchpad slots、总缓冲长度为 5 时，四项困惑度指标优于总长度 3、4 和 6 的比较设置。这提示记忆槽不是越多越好；它是与循环次数、训练目标和序列结构共同调节的容量选择。</p>
+<p>官方代码提供 Pythia-70M 的 MiniPile 快速验证脚本，也给出 1.4B Pile 主实验的配置。对大多数工程团队而言，更合理的第一步不是把 MeSH 直接放进生产模型，而是在一个可控的共享层基线中复现诊断图、测量状态停滞，再验证路由器带来的收益是否抵得过训练和服务复杂度。</p>
+<p>还有一项值得保留的工程判断：MeSH 的记忆槽和 KV cache 不是同一个东西。KV cache 服务于自回归生成时复用已经算过的注意力键和值；MeSH 的状态缓冲服务于同一次前向中共享核心块的多步状态合成。前者主要影响解码阶段的重复计算，后者试图改变训练和前向计算中每一轮拿到的表示。两者可以同时存在，却不能互相替代。</p>
+<p>因此，验证这条路线时也不宜只测吞吐量。参数量、训练损失、下游精度和实际解码延迟是不同维度。论文已经给出前面三类证据，但生产级模型还要补上长序列、批量服务、不同硬件和混合精度下的测量。把这些边界说清楚，才能知道状态路由带来的是真实收益，还是只在某个训练配置中成立。</p>
+<p><strong>循环模型的下一步，不是简单地把同一组层多跑几次，而是给每一次复用安排不同的记忆入口和工作空间。</strong> 当状态管理可被观察、可被路由，参数共享才有机会从压缩手段变成可靠的计算方式。</p>
+<h2>参考资料</h2>
+<ul>
+<li>MeSH 论文：<a href="https://arxiv.org/abs/2510.07739" target="_blank" rel="noopener">arXiv 2510.07739</a></li>
+<li>MeSH 论文 HTML 与实验图：<a href="https://arxiv.org/html/2510.07739" target="_blank" rel="noopener">arXiv HTML</a></li>
+<li>同行评审页：<a href="https://openreview.net/forum?id=IhTrFvY7p3" target="_blank" rel="noopener">OpenReview</a></li>
+<li>量子位 2026 年 9 月 5 日报道：<a href="https://www.qbitai.com/2026/09/484726.html" target="_blank" rel="noopener">GPT-6 带火循环 Transformer</a></li>
+<li>独立技术解读：<a href="https://papernotes.org/ICLR2026/llm_efficiency/mesh_memory-as-state-highways_for_recursive_transformers/" target="_blank" rel="noopener">PaperNotes</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
