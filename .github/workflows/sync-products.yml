@@ -54,6 +54,10 @@ jobs:
           token: ${{ secrets.AGENT_LEARNING_PAT }}
           path: sources/ai-daily
           fetch-depth: 1
+          # ai-daily 仓库约 2GB；渲染脚本只需 YYYY-MM-DD/*/README.md
+          sparse-checkout: |
+            **/*.md
+          sparse-checkout-cone-mode: false
 
       - name: Checkout can-claude-plugins
         uses: actions/checkout@v4
@@ -114,7 +118,10 @@ jobs:
           set -euo pipefail
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add agent-learning ai-daily can-claude-plugins daily-report
+          # daily-report 子路径已从仓库删除；再 git add 该路径会以
+          # "fatal: pathspec 'daily-report' did not match any files" 失败（2026-10 起定时任务连续失败原因）。
+          git rm -r --ignore-unmatch --cached daily-report || true
+          git add agent-learning ai-daily can-claude-plugins
           if git diff --cached --quiet; then
             echo "No changes — nothing to commit."
             exit 0
