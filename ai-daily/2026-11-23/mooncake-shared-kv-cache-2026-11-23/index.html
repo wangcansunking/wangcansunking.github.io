@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mooncake 上榜，Kimi 怎样跨机器复用推理缓存 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-11-23</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-11-23</span><span class="tag-pill">AI Daily</span></div>
+      <h1>Mooncake 上榜，Kimi 怎样跨机器复用推理缓存</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/23/mooncake-shared-kv-cache-2026-11-23.png" alt="数据可视化抽象封面"></p>
+<p>11 月 23 日上午，GitHub Trending 的 C++ 日榜显示，月之暗面 Kimi 使用的推理服务项目 Mooncake 累计 7,108 颗星、今日新增 6 颗。它把大模型推理中可复用的前缀状态放进跨实例缓存，并提供高效搬运数据的引擎。对需要反复读长文档的服务，复用这些状态可以释放算力，但前提是读缓存真的更省时。</p>
+<h2>要点速览</h2>
+<ul>
+<li>GitHub C++ 日榜快照为 7,108 stars，+6 today，统计口径来自同一个榜单页面。</li>
+<li>项目以键值缓存为中心，可结合推理框架分开部署预填充和逐词元解码。</li>
+<li>Mooncake Store 管缓存对象，Transfer Engine 管数据搬运；部署时两层可以有不同的优化目标。</li>
+<li>上手应从相同流量的单机基线开始，随后才排查跨实例复用、带宽和尾延迟。</li>
+</ul>
+<h2>长前缀怎样被算了很多遍</h2>
+<p>一套问答服务可能反复输入同一份产品手册，每次只替换最后一个问题。模型先处理输入，逐层建立注意力计算所需的键和值，生成时继续使用。只要模型与共享前缀的约束匹配，就有机会复用这些键值缓存，省去重复预填充。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/23/moon-arch.png" alt="Mooncake 官方文档架构图（取阅）"></p>
+<p><em>图片来源：Mooncake 官方文档架构图（取阅），2026-11-23。</em></p>
+<p>普通实例的缓存通常优先照顾当前工作进程。扩到多机后，请求可能落在另一节点，之前算出的状态拿不到，或者当热点变了又很快被淘汰。Mooncake 的做法是为缓存设计共享层，使推理框架能够用同一入口查找、分配和传输这些对象。</p>
+<table>
+<thead>
+<tr>
+<th>部件</th>
+<th>负责的事</th>
+<th>上线先测</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>预填充与解码实例</td>
+<td>处理输入与生成输出</td>
+<td>首词延迟、逐词延迟</td>
+</tr>
+<tr>
+<td>Mooncake Store</td>
+<td>分配与查找共享对象</td>
+<td>命中率、淘汰、容量</td>
+</tr>
+<tr>
+<td>Transfer Engine</td>
+<td>搬运已定位的数据</td>
+<td>尾延迟、有效带宽</td>
+</tr>
+</tbody></table>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/23/moon-parts.png" alt="Mooncake 官方 README 组件图（取阅）"></p>
+<p><em>图片来源：Mooncake 官方 README 组件图（取阅），2026-11-23。</em></p>
+<p>拆分推理工作会带来通信成本。预填充阶段计算长输入，解码阶段反复读历史状态并输出新词元。如果两个阶段放在不同工作池，调度可以各自扩容，但创建的缓存必须按时送到下一池。链路拥堵时，即使两边都有闲置算力，也可能在队列里等数据。</p>
+<h2>命中后，读缓存仍可能比重算慢</h2>
+<p>决定收益的是命中后节省的预填充时间，与查找、复制和跨节点传输的耗时。短前缀重算很快，走远端缓存反而可能多一次等待。前缀很长并且被反复请求时，复用一次通常更有意义，尤其是工作集能在共享内存层保持一段时间。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/23/moon-transfer.png" alt="Mooncake 官方 README 传输引擎性能图（取阅）"></p>
+<p><em>图片来源：Mooncake 官方 README 传输引擎性能图（取阅），2026-11-23。</em></p>
+<p>项目 README 报告，Kimi 在真实工作负载下遵守服务等级目标时能处理多 75% 的请求。这是项目方的工作负载结果。团队要复核相似场景，可以先看自家前缀分布、冷热周期、硬件互联与当前排队情况，再设计可比较的压测。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/23/moon-hit.png" alt="Mooncake 文档所列缓存命中率示意图（取阅）"></p>
+<p><em>图片来源：Mooncake 文档所列缓存命中率示意图（取阅），2026-11-23。</em></p>
+<p>公共前缀可以来自重复的规范、常驻知识库或长工具说明，缓存也可能包含隔离域内的客户信息。容量之外，还要和业务定义复用范围、版本变化和保留时间。否则为追求高命中率做出的缓存键安排，可能打破原有的运行边界。</p>
+<h2>社区集成告诉我们什么</h2>
+<p>仓库跟踪了 vLLM、SGLang 等推理框架的集成，并列出 AMD ATOM 合作案例。这表明团队可以从已有服务端接入，工程初期通常集中在连接器、配置和测量。接入说明所写的模型、设备和缓存方式各有条件，连接器的版本需要与部署版本对齐。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/23/moon-store.png" alt="Mooncake 文档所列 HiCache 与 Store 架构图（取阅）"></p>
+<p><em>图片来源：Mooncake 文档所列 HiCache 与 Store 架构图（取阅），2026-11-23。</em></p>
+<p>对于有明显冷热差异的工作集，项目资料还给出通过 SSD 扩容的方案。使用较慢的存储之前，先明确读旧状态能省下多少重新计算，再观察并发读取时尾延迟是否上升。只统计总体命中率，往往看不出最慢的那批用户发生了什么。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/23/moon-ssd.png" alt="Mooncake 文档所列 SSD 卸载架构图（取阅）"></p>
+<p><em>图片来源：Mooncake 文档所列 SSD 卸载架构图（取阅），2026-11-23。</em></p>
+<h2>流量形态决定容量和回退策略</h2>
+<p>预填充与解码拆分后，容量预测也需要分开。长输入突然增多时，预填充池容易先排队。长输出显著变多时，解码池可能持续占住设备。共享缓存可以改变两边的负载，但团队仍需按实际的输入长度和输出长度分别建模。</p>
+<p>缓存怎样失效同样重要。模型升级、前缀模板变化或节点被迁移，都可能让同一个业务在短时间内失去许多命中。测试时可以主动减少可用缓存容量，观察流量是否回到计算路径，以及回退是否挤压原本无需远端缓存的请求。</p>
+<p>观测也应给工程师一个能定位问题的链条。一次首词延迟过高，可能是没有命中，也可能是找到对象之后读取排队。把查找耗时和传输耗时分别记录，才能判断是调整调度、扩大热层，还是换网络通道。</p>
+<p>共享缓存还涉及排期上的取舍。将所有推理实例一次迁移到新方案，会让指标波动难以归因。可以先接入一类请求和一小组副本，观察命中、重算和异常回退，再扩大到下一类工作负载。每一步都保留同一套对比指标。</p>
+<h2>从一组可重复的请求开始</h2>
+<ul>
+<li>按官方快速入门选择硬件包。常规 Linux CUDA 起步可用 <code>pip install mooncake-transfer-engine</code>，再按框架文档配置连接器，并记录模型版本和上下文配置。</li>
+<li>先用现有服务测基线。准备一组共享长前缀的请求和一组没有公共前缀的请求，保持并发、输入长度与输出上限稳定。</li>
+<li>用单机或小规模测试启用共享缓存，分别查看首次请求和前缀复用请求。记录首词时间、每秒输出、传输量和长尾。</li>
+<li>然后扩大到跨节点，增加网络压力测试。观察缓存缺失或组件重启后，服务是否能返回到重算路径。</li>
+<li>若长前缀和热点负载达到预定收益，再验证连续运行和版本更换时的淘汰策略。</li>
+</ul>
+<p>把压测结果提交给同事时，可以并列展示高频前缀和普通请求的分位数。若热门请求变快而其他请求变慢，要进一步比较回退、连接池与后台淘汰带来的资源占用，才能决定是否扩大适用范围。</p>
+<p>日榜新增 6 颗星说明这是一次小幅升温。Mooncake 本身的实用性需要从部署形态判断：已有成熟单机推理的小团队可以先保留简洁架构，需要分离算力池或共享大型前缀的团队则有更明确的评估对象。</p>
+<p>Mooncake 值得试用的条件，是共享缓存能在自家的流量与网络上持续降低请求时延，同时维持可预期的服务质量。</p>
+<h2>🔗 引用链接</h2>
+<ul>
+<li><a href="https://github.com/%74rending/cpp?since=daily" target="_blank" rel="noopener">GitHub Trending C++ 日榜</a></li>
+<li><a href="https://github.com/kvcache-ai/Mooncake" target="_blank" rel="noopener">Mooncake 项目 GitHub README</a></li>
+<li><a href="https://kvcache-ai.github.io/Mooncake/" target="_blank" rel="noopener">Mooncake 官方文档</a></li>
+<li><a href="https://kvcache-ai.github.io/Mooncake/performance/mooncake/index.html" target="_blank" rel="noopener">Mooncake 性能文档</a></li>
+<li><a href="https://kvcache-ai.github.io/Mooncake/getting_started/quick-start.html" target="_blank" rel="noopener">Mooncake 官方快速入门</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
