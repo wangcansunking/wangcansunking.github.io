@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>bitnet.cpp 怎样在本机跑低比特模型 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-11-22</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-11-22</span><span class="tag-pill">AI Daily</span></div>
+      <h1>bitnet.cpp 怎样在本机跑低比特模型</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/22/bitnet-cpp-local-inference-2026-11-22.png" alt="浅色石面上的处理器与推理电路板"></p>
+<p>微软的 bitnet.cpp 登上 11 月 22 日 GitHub Trending 的 C++ 日榜，快照显示累计 42,374 颗星，当日增加 43 颗。这个开源推理框架用优化内核运行 BitNet 等低比特模型，官方 README 提供 CPU 构建流程，也列出了单独的 GPU 内核。</p>
+<h2>要点速览</h2>
+<ul>
+<li>bitnet.cpp 面向兼容的低比特模型。BitNet b1.58 的权重采用三值表示。</li>
+<li>官方示例使用 BitNet-b1.58-2B-4T，从源码构建并使用 I2_S 的 GGUF 文件。</li>
+<li>官方性能图可以帮助选择测试项目，机器上的速度取决于处理器、线程数和任务。</li>
+<li>同一台设备可以分别记录模型载入、首个 token 等待和后续生成速度。</li>
+</ul>
+<h2>1.58 比特是怎么来的</h2>
+<p>BitNet b1.58 的权重取负一、零和正一三个值。用以 2 为底的对数表示三个离散状态，需要约 1.58 比特的信息量。工程实现还涉及实际打包、量化比例和元数据，安装示例使用预转换的 GGUF 文件。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/22/bitnet-source-performance.jpg" alt="BitNet 不同处理器和线程数的推理速度对照"></p>
+<p><em>图片来源：微软 bitnet.cpp 官方 README 性能图（取阅），2026-11-22。</em></p>
+<p>项目重点是怎样执行这种权重表示。低比特的权重更紧凑，内核则要把权重组织成处理器能高效读取和计算的形式。运行时总内存还会用来存放上下文状态、输入和临时缓冲区，不能直接用权重位数估算整套程序占用。</p>
+<p>官方仓库给出不同架构的速度和能耗比较。阅读时应看清对照实现、模型规模和处理器，先把图当成选择测试点的依据。换了一台机器或换成另一份模型文件，速度需要重新测量。</p>
+<h2>拿官方模型跑一次</h2>
+<p>仓库的示例选择 BitNet-b1.58-2B-4T。微软发布页用 2B 作型号名称，README 标注实际参数量约 24 亿，并注明训练使用 4 万亿 token。下面是 CPU 路径的关键步骤。</p>
+<ul>
+<li>按仓库的安装说明准备 Python、CMake 和 Clang，使用 Git 的递归方式拉取子模块，并安装依赖。</li>
+<li>从 Hugging Face 将微软的 BitNet-b1.58-2B-4T-GGUF 下载到示例目录，再运行 <code>python setup_env.py -md models/BitNet-b1.58-2B-4T -q i2_s</code>。</li>
+<li>以 README 的 <code>run_inference.py</code> 加载下载的 <code>ggml-model-i2_s.gguf</code>，提供短提示并记录输出速度。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/22/bitnet-source-model.jpg" alt="BitNet b1.58 2B 模型能力基准"></p>
+<p><em>图片来源：微软 bitnet.cpp 官方 README 2B 模型图（取阅），2026-11-22。</em></p>
+<p>首轮可先用一段公开材料做问答或摘要，并记录运行的仓库版本、设备和线程数。不同输出长度会影响整体等待时间，比较前先定好最大输出长度，避免把多生成的内容误判为推理变慢。</p>
+<h2>读图时拆开三种指标</h2>
+<table>
+<thead>
+<tr>
+<th>环节</th>
+<th>记录指标</th>
+<th>用在什么判断</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>模型载入</td>
+<td>准备时间、进程峰值内存</td>
+<td>本机能否稳定运行</td>
+</tr>
+<tr>
+<td>处理提示</td>
+<td>首个 token 等待时间</td>
+<td>长材料的交互体验</td>
+</tr>
+<tr>
+<td>生成答案</td>
+<td>后续每秒 token 数</td>
+<td>输出较长内容的速度</td>
+</tr>
+</tbody></table>
+<p>项目另公开两款嵌入模型的提示处理测试图，分别对应约 6 亿和 2.7 亿参数的版本。图里对照的是不同精度下的 prefill，用于观察生成嵌入前的处理效率。聊天模型持续生成时的速度需要另测。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/22/bitnet-source-embedding.jpg" alt="BitNet 0.6B 嵌入模型 prefill 性能"></p>
+<p><em>图片来源：微软 bitnet.cpp 官方 README 0.6B 嵌入图（取阅），2026-11-22。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/22/bitnet-source-compact.jpg" alt="BitNet 270M 嵌入模型 prefill 性能"></p>
+<p><em>图片来源：微软 bitnet.cpp 官方 README 270M 嵌入图（取阅），2026-11-22。</em></p>
+<p>用同一组提示多跑几次，记录线程、输入长度、输出长度和温度设置。项目提供端到端基准脚本，可把应用自己的计时与模型基准并列记录。对于检索应用，还要单独对照相关结果能否排在前面，因为嵌入速度与检索质量是两项测量。</p>
+<p>一句话总结：bitnet.cpp 给了本机运行低比特模型的路径，试用价值可以用相同模型、相同输入条件下的速度、内存和输出质量来判断。</p>
+<h2>来源</h2>
+<ul>
+<li><a href="https://www.github.com/trending/cpp?since=daily" target="_blank" rel="noopener">GitHub Trending C++ 日榜</a></li>
+<li><a href="https://github.com/microsoft/BitNet" target="_blank" rel="noopener">微软 bitnet.cpp 官方仓库</a></li>
+<li><a href="https://huggingface.co/microsoft/BitNet-b1.58-2B-4T" target="_blank" rel="noopener">微软 BitNet-b1.58-2B-4T 模型卡</a></li>
+<li><a href="https://huggingface.co/microsoft/BitNet-b1.58-2B-4T-gguf" target="_blank" rel="noopener">微软发布的 GGUF 文件</a></li>
+<li><a href="https://arxiv.org/abs/2502.11880" target="_blank" rel="noopener">bitnet.cpp 系统技术报告</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

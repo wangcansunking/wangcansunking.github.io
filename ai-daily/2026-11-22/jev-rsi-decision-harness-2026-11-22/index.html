@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>轻量模型怎样复用大模型的经验，JevRSI 做了三组实验 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-11-22</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-11-22</span><span class="tag-pill">AI Daily</span></div>
+      <h1>轻量模型怎样复用大模型的经验，JevRSI 做了三组实验</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/22/jev-rsi-decision-harness-2026-11-22.png" alt="纸张和视觉素材的编辑拼贴"></p>
+<p>港科大（广州）与 LIGHTSPEED 研究人员在 JevRSI 预印本里，让轻量模型负责一步步执行，让大模型根据历史轨迹改进执行所需的上下文。作者在三类交互任务上报告成功率和成本对照，并给出了表现下滑的例子。</p>
+<h2>要点速览</h2>
+<ul>
+<li>JevRSI 将较重的分析放到异步开发流程，由轻量模型执行当前动作。</li>
+<li>可复用上下文包括操作步骤、状态记忆和世界模型。</li>
+<li>StartLux-27B 配合 Qwen 开发模块时，TextCraft 分布外成功率从 62.66% 升至 70.66%。</li>
+<li>换用 Jev 执行时，Qwen 开发的模块让 TextCraft 分布外成功率由 22.00% 降至 20.00%。</li>
+</ul>
+<h2>把哪一段工作留给大模型</h2>
+<p>交互任务要连续做决定。每走一步都请求大模型，可以获得更多分析，同时要支付延迟与词元开销。轻量模型执行更快，遇到陌生状态时却可能重复试错。</p>
+<p>JevRSI 先让轻量模型执行，把动作序列、反馈和结局保存为证据。异步运行的大模型检查这些证据，修改之后可以重复使用的辅助模块。后续运行时，轻量模型根据检索到的上下文选择动作。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/22/jevRSI-framework.png" alt="JevRSI JevRSI 的快速执行和异步开发框架"></p>
+<p><em>图片来源：JevRSI 预印本图 1，2026-11-20。</em></p>
+<p>模块有三类。操作步骤记录遇到某类条件时如何行动。状态记忆保存观察与历史变化。世界模型预测某个动作可能带来的后果。检索还参考模块在过去任务中的效用，避免仅凭文字相似度挑选经验。</p>
+<h2>同一个模块开发模型，两种执行结果</h2>
+<table>
+<thead>
+<tr>
+<th>执行模型与评测设置</th>
+<th align="right">基础模型</th>
+<th align="right">加入 Qwen 开发的模块</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>StartLux-27B，TextCraft 分布外</td>
+<td align="right">62.66%</td>
+<td align="right">70.66%</td>
+</tr>
+<tr>
+<td>Jev，TextCraft 分布外</td>
+<td align="right">22.00%</td>
+<td align="right">20.00%</td>
+</tr>
+</tbody></table>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/22/jevRSI-scores.png" alt="JevRSI 三套任务的单次尝试成功率"></p>
+<p><em>图片来源：JevRSI 预印本表 2，2026-11-20。</em></p>
+<p>两组数字出自论文表 2，指标为单次尝试成功率。分布内测试考查训练分布中的未见任务，分布外测试考查遇到分布变化后的泛化。同一项分布外评测更换执行模型，结果从增加 8.00 个百分点变为下降 2.00 个百分点。</p>
+<p>训练轨迹用于开发模块，测试任务用于判断积累的经验能否迁移。若一个步骤在旧任务里表现很好，却只在特定目标和环境组合下成立，换任务后反而可能干扰轻量模型。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/22/jevRSI-ablation.png" alt="JevRSI 三类模块的分布内和分布外消融结果"></p>
+<p><em>图片来源：JevRSI 预印本图 5，2026-11-20。</em></p>
+<h2>成本要把运行和开发都带上</h2>
+<p>论文将词元开销与推理耗时分别作图。在线执行省下来的时间是一笔账，离线分析轨迹、修订模块与检查回退又是另一笔账。两笔开销能否摊薄，取决于模块在多少后续任务中可以复用。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/22/jevRSI-cost.png" alt="JevRSI 三套任务的成本和成功率比较"></p>
+<p><em>图片来源：JevRSI 预印本图 2，2026-11-20。</em></p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/22/jevRSI-latency.png" alt="JevRSI 不同设置的推理耗时对照"></p>
+<p><em>图片来源：JevRSI 预印本图 3，2026-11-20。</em></p>
+<p>作者还展示了训练过程中开发模块的干预频次。它能帮助读者判断实验里何时集中修改、何时较少修改。对长周期业务的维护成本，仍需用实际运行日志估算。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/22/jevRSI-development.png" alt="JevRSI 训练阶段模块开发的干预频次"></p>
+<p><em>图片来源：JevRSI 预印本图 4，2026-11-20。</em></p>
+<h2>把表里的失败留在复盘中</h2>
+<p>如果要在自己的工作流试验，先固定动作权限、任务时限与重试次数，再比较原轻量模型、加入辅助上下文、以及每步调用大模型三条路径。训练阶段可以用旧日志，最后保留全新任务做测试。</p>
+<p>除成功率外，记录每次动作的延迟、当批开发成本和重复失败次数。特别保留关闭一个模块后反而好转的任务，检查是否因为步骤过时、状态记录不完整，或者预测模块给出了不可靠的建议。</p>
+<p>这三套交互基准仍与实际业务有差距。把一次任务从完成到失败的轨迹完整存下来，再按场景拆分复盘，通常比只看汇总成功率更能说明问题。</p>
+<p>若流程依赖外部工具，还应记录每次调用失败，以及过期上下文被重新检索的次数。</p>
+<h2>一句话总结</h2>
+<p>JevRSI 把大模型推理变成可复用的执行上下文，值不值得采用要同时看迁移后的得失和开发成本。</p>
+<h2>🔗 引用链接</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2611.22432" target="_blank" rel="noopener">JevRSI 预印本</a></li>
+<li><a href="https://arxiv.org/pdf/2611.22432" target="_blank" rel="noopener">JevRSI 论文原文及图片</a></li>
+<li><a href="https://github.com/usail-hkust/JevRSI" target="_blank" rel="noopener">JevRSI 官方仓库</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

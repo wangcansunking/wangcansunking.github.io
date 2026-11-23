@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>豆包实时音视频 API 上线，画面和插话怎么接 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-11-20</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-11-20</span><span class="tag-pill">AI Daily</span></div>
+      <h1>豆包实时音视频 API 上线，画面和插话怎么接</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/20/seedrealtime-api-2026-11-20.png" alt="玻璃板里的声波与摄像光圈"></p>
+<p>11 月 19 日，火山引擎上线豆包 SeedRealtime 1.0 的 API 服务。开发者可以在实时语音会话中发送摄像头或屏幕画面，让应答结合说话内容和画面。官方文档规定每个会话的画面推送频率不超过 <strong>2 FPS</strong>，超限帧会被网关丢弃，还给出了 Web Demo 和客户端播放状态的接入说明。</p>
+<h2>看得见画面，也要知道画面是哪一刻的</h2>
+<p>视频支持体现在客户端把一帧帧画面发送给服务端。两帧每秒意味着达到频率上限时平均每半秒一帧。动作持续得比采样间隔短时，相关画面有可能恰好落在两帧之间。遇到用户把设备指示灯一晃就移走，助手可能更需要请用户保持镜头稳定，再解释灯显示的状态。</p>
+<p>屏幕协助同样存在时序问题。用户问「这个开关吗」的时候，最新发送的画面可能还停在上一步。实验可以把采集时刻、语音起始时刻和模型发声时刻打在同一条时间线上，再用同一个页面分别测试慢速移动、快速切换和窗口短时遮挡。观察模型是否把眼下可见的内容与此前的画面混在一起。遇到颜色或编号难以分辨的场景，可以引导用户放大并停在画面上。</p>
+<h2>用户插话时，旧回答什么时候停</h2>
+<p>官方接入说明要求客户端把语音识别结果与播放器的状态切换解耦。转写事件用于字幕或纪要。开始说话、取消和结束则分别由 <code>response.created</code>、<code>response.canceled</code> 和 <code>response.done</code> 驱动。收到取消事件时还要清空音频缓冲，避免播放器继续播报旧答复。</p>
+<p>这是能在原型中复现的问题。让助手开始读一段较长的操作步骤，在第二步插话更正第一个选项。录下实际扬声器输出，看看旧音频还播了多长时间，新回答是否用到了刚更正的信息。即使服务端的事件已经按预期触发，客户端若仍在消化旧缓冲，用户感受到的就还是抢话。把取消事件到扬声器停止的时间单列，能避免把播放端延迟都算给模型。</p>
+<h2>从一个范围很小的演示入手</h2>
+<p>官方 Web Demo 用控制台的 API Key 体验。产品原型可以挑一个既依赖画面又需要自然对话的场景，比如请助手确认设置页当前打开了哪项，然后口头改一次需求。测试脚本应该记录三类结果，分别是指代是否正确、打断后能否顺利恢复、没看清时是否会请求重拍。先用测试设备与无隐私的页面，可控制相机或共享屏幕暴露的内容。</p>
+<p>这次 API 上线把实时音视频交互开放给应用开发者。评估的落点在具体交互：看不清时怎么补一帧，听到打断后能不能停下来，几秒前的画面是否还在主导回答。短小但可复现的任务，比一段只展示最佳效果的录屏更容易发现接入问题。</p>
+<h2>🔗 引用链接</h2>
+<ul>
+<li><a href="https://docs.volcengine.com/docs/doubao-voice/seedrealtime?lang=zh" target="_blank" rel="noopener">火山引擎 Seed-Realtime API 参考与 Web Demo</a></li>
+<li><a href="https://original.ifeng.com/c/8yBDkaZU0eF" target="_blank" rel="noopener">凤凰网科技 11 月 19 日上线报道</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>

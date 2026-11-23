@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inworld 开源语音降噪模型，噪声去掉多少才好 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-11-20</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-11-20</span><span class="tag-pill">AI Daily</span></div>
+      <h1>Inworld 开源语音降噪模型，噪声去掉多少才好</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/20/inworld-voice-isolator-2026-11-20.png" alt="穿过声学空间的橙色波形"></p>
+<p>Inworld 在 11 月 18 日公开 Voice Isolator，提供离线和实时两种 <strong>48 kHz</strong> 语音降噪模型，代码与权重采用 Apache 2.0 许可。模型卡给出的参数规模分别为 <strong>64.0M</strong> 和 <strong>58.2M</strong>。项目尝试在清除背景乐、杂音和部分背景说话声时保留前景人声的音色以及呼吸、笑声等细节。</p>
+<h2>同一段声音有两种处理方式</h2>
+<p>离线版可以利用前后的声音来判断当前片段是什么。模型卡说明，长输入按重叠的八秒窗口处理，窗口之间再做拼接。这种方式适合已经录好的采访和播客。实时版则要把一段声音尽快交回给通话下游，训练支持 0、20、40 毫秒几种前瞻设置。设置为 20 毫秒时，模型卡列出的算法延迟是 63 毫秒。采集、重采样、推理耗时和网络等环节还会影响实际通话感受到的延迟。</p>
+<p>设想主持人刚把话筒递给嘉宾。录音剪辑可以用上下文判断这段手部摩擦声应压到什么程度，连线主持则更在意嘉宾第一声有没有被吞掉、下一次接话是不是仍然及时。前者可以离线一遍遍听，后者最好在实际设备上从收音到播放测整条链路。两种模式的指标不必相同。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/20/source-inworld-architecture.png" alt="Inworld Voice Isolator 双检查点网络结构"></p>
+<p><em>图片来源：Inworld Voice Isolator 仓库 README 的官方架构图，2026-11-20 查阅。</em></p>
+<h2>一段已知原始素材最适合评估</h2>
+<p>可以用自己有权处理的一段干净语音，混入可辨别的键盘声、音乐、与目标人声相近的另一条声音，分别保留混音前的干净参考。安装官方 Python 包后，使用 <code>voice-isolate noisy.wav clean.wav</code> 生成离线输出。需要比较实时路径时可加 <code>--mode streaming --lookahead 2</code>。参数值 2 指两帧，对应 20 毫秒前瞻。权重会在首次使用时下载。把输入和输出对齐并调到相近的回放音量，再核对词尾、换气声和来自背景的串音。</p>
+<p>对采访还可以另挑一段多人同时说话的片段。模型卡指出，两条人声电平相近时往往都会保留。这对希望只听到固定发言人的用户很重要。测试时要把目标说话人的保留率与背景人声残留单独记分。如果原始录音已经削波或缺失一段频带，第一版的抑噪能力也无法把缺失内容还原出来。</p>
+<h2>把厂商分数带回自己的噪声里</h2>
+<p>Inworld 公布的内部 VIBE 降噪评估中，离线版得分 0.768，实时版得分 0.718。发布方明确说评估集暂未公开。两个数字适合用来理解公司报告的质量与实时性取舍。部署前的比较仍应使用自己的设备、语料和噪声条件，并记录信号中哪些细节是一错就无法接受的。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/20/source-inworld-vibe-denoising.png" alt="厂商 VIBE 降噪评估对比图"></p>
+<p><em>图片来源：Inworld Voice Isolator 仓库 README 的官方 VIBE 降噪图，2026-11-20 查阅。</em></p>
+<p>实时通话试点可以分别观察三种声音：长空调噪声、突然响起的碰撞声、另一位说话人的连续语句。每类都放入轻声或吞音明显的短句，交给实际使用者听。回放结束后问他们具体哪几个字听错了、笑声是否还在、下一轮对话有无明显拖延。这些结果直接影响选用离线版还是实时版。</p>
+<h2>🔗 引用链接</h2>
+<ul>
+<li><a href="https://inworld.ai/blog/introducing-voice-isolator" target="_blank" rel="noopener">Inworld Voice Isolator 发布说明</a></li>
+<li><a href="https://huggingface.co/inworld/voice-isolator" target="_blank" rel="noopener">Hugging Face 模型卡</a></li>
+<li><a href="https://github.com/inworld-ai/voice-isolator" target="_blank" rel="noopener">Voice Isolator 官方仓库</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
