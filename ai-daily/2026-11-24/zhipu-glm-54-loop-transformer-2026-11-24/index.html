@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GLM-5.4 发布，28 层循环两轮换来什么 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-11-24</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-11-24</span><span class="tag-pill">AI Daily</span></div>
+      <h1>GLM-5.4 发布，28 层循环两轮换来什么</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/24/zhipu-glm-54-loop-transformer-2026-11-24.png" alt="GLM-5.4 发布，28 层循环两轮换来什么"></p>
+<p>智谱 11 月 23 日发布 GLM-5.4，把约 7500 亿参数基座的中间 28 层重复运行两轮。它先向 GLM Coding Plan 订阅用户开放，带来了视觉输入和新的编程用法。新架构把一个熟悉的问题摆到开发者面前：模型花更多算力思考一遍，任务能不能更快完成？</p>
+<h2>要点速览</h2>
+<ul>
+<li>中间 28 层共享同一组权重，执行两轮，增加的是每次前向传播的计算深度。</li>
+<li>智谱加入门控更新、混合 KV 缓存和稀疏注意力索引复用，控制两轮计算的开销。</li>
+<li>同参数对照实验的测试对象是 300 亿参数模型，旗舰服务的输出速度由智谱另行报告。</li>
+<li>Coding Plan 已开放，API 和权重发布仍要等待后续安排。</li>
+</ul>
+<h2>先向订阅开放</h2>
+<p>界面新闻报道，11 月 23 日起 GLM-5.4 向 GLM Coding Plan 全量用户开放，同时进入 ZCode、TRAE、WorkBuddy 和 Qoder 等平台。报道转述智谱称，Coding Plan V2、V3 和团队版使用这款模型的额度提升到原来的 1.5 倍。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/24/noon-glm3.png" alt="智谱运营人员上线说明"></p>
+<p><em>图片来源：IT之家智谱上线报道 · 智谱运营人员上线说明（原图），2026-11-23。</em></p>
+<p>IT之家在 Coding Plan 模型列表看到“1M”和“视觉”标识。上下文窗口容纳多少内容、某个客户端一次能传多少内容，以及完成任务实际用多少额度，是三个需要分别测量的数字。大项目尤其要看客户端如何选择、裁剪和发送上下文。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/24/noon-glm4.png" alt="Coding Plan 模型列表"></p>
+<p><em>图片来源：IT之家智谱上线报道 · Coding Plan 模型列表（原图），2026-11-23。</em></p>
+<h2>同一组权重用两次</h2>
+<p>普通 Transformer 在一次前向计算里，每层依次执行一次。Loop Transformer 把一组层变成共享区块，第二轮读第一轮留下的状态，再用同一批权重更新。权重占用保持在原有量级，而内存访问、计算和响应时间会随实现变化。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/24/noon-glm1.png" alt="Loop Transformer 架构图"></p>
+<p><em>图片来源：智谱 GLM-5.4 技术博客 · Loop Transformer 架构图（原图），2026-11-23。</em></p>
+<p>技术博客披露，直接用第二轮的状态覆盖第一轮，会遇到激活尺度变化的问题。智谱用逐 token 门控控制每轮写回多少信息。按团队的观察，第一轮更保守地形成全局上下文，第二轮再加大更新，进一步修正表示。</p>
+<p>缓存是部署端的另一笔账。若两轮都保留整段上下文的键值缓存，长任务会增加一份完整缓存。智谱让第二轮复用第一轮选出的稀疏 KV，在滑动窗口内才保留第二轮自己的 KV，还复用第一轮生成的注意力索引。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/24/noon-glm6.png" alt="750B 基座与循环层数"></p>
+<p><em>图片来源：智谱 GLM-5.4 技术博客 · 750B 基座与循环层数（原网页局部截图），2026-11-23。</em></p>
+<h2>哪组数字回答哪个问题</h2>
+<p>智谱在一款架构与旗舰基座相同的 300 亿参数模型上，比较了相同参数量的循环版和普通版。循环版在该实验中增加约 10% 总训练计算量。这个对照说明循环设计值得继续研究，旗舰服务的成本和效果仍需结合其自身配置判断。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/24/noon-glm2.png" alt="智谱发布稿图表"></p>
+<p><em>图片来源：智谱 GLM-5.4 技术博客 · 智谱发布稿图表（原图），2026-11-23。</em></p>
+<table>
+<thead>
+<tr>
+<th>数字</th>
+<th>官方口径</th>
+<th>阅读时核对</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>7500 亿</td>
+<td>基座量级</td>
+<td>与每轮激活或推理成本分开</td>
+</tr>
+<tr>
+<td>28 层、两轮</td>
+<td>循环区块和执行轮数</td>
+<td>第二轮共用原权重</td>
+</tr>
+<tr>
+<td>最高 200 token/s</td>
+<td>官方报告的低峰输出速度</td>
+<td>记录首字、总时长与重试</td>
+</tr>
+<tr>
+<td>70–80 token/s</td>
+<td>官方报告的高峰输出速度</td>
+<td>区分客户端和时段</td>
+</tr>
+</tbody></table>
+<p>智谱称整体能力可与 2 万亿到 3 万亿参数量级模型相比。这是厂商对能力的评估，外部选型仍要回到同样的工作负载。官方也承认模型有时会长时间反复思考，解码得快和任务完成得快有时会给出不同结果。</p>
+<h2>从报表截图到可交付任务</h2>
+<p>智谱把这次升级的目标称作“泛编程”，并展示视频制作、游戏和三维工程的示例。视觉输入使模型能读取截图，代码可以把修改变成可执行的产物。演示展示了单次可行的路径，企业选型更关心能否反复做到。</p>
+<p>一次低成本测试可从有公开测试的旧项目开始，比如给模型一张界面对照图、一个小的布局修改和一条明确的行为要求。记录首次产出的提交是否通过测试，视觉要求是否落实，以及复查后还剩多少手工工作。</p>
+<p>第二组可以刻意加入跨文件约束，例如一处改动需要同时更新类型、界面与文档。给旧模型和新模型相同模型入口、时间上限、测试用例和提交规则，再分别记录首次可运行、最终通过、失败重试和人工修订的次数。</p>
+<p>独立试用应保留版本名和渠道。订阅端的模型选择器和接入方的封装可能有不同的上下文裁剪、工具调用和额度设置。若同一任务在两个客户端结果差距明显，应先看传入材料和工具反馈，再讨论模型差异。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/24/noon-glm5.png" alt="订阅开放及后续 API 时间表"></p>
+<p><em>图片来源：界面新闻 GLM-5.4 发布报道 · 订阅开放及后续 API 时间表（原网页局部截图），2026-11-23。</em></p>
+<p>API 需待安全评估完成后开放，权重处于计划开源阶段。对需要自管推理或通过 API 批量部署的团队，先把订阅端当成适配验证，等后续明确接口、价格和权重许可之后，再用企业自己的任务样本重做比较。</p>
+<h2>权重共享之后，哪些指标会变</h2>
+<p>共享 28 层意味着模型文件无需再保存一组独立的同规模层，实际前向运行却多了一轮。这会改变推理服务的计算量。混合缓存和注意力索引复用可以削减重复工作，收益还与输入长度、并发和部署硬件有关。</p>
+<p>把同一个大型任务分两组测试，也能看到架构与应用的相互作用。第一组输入一小段代码和一张图，第二组输入跨模块材料。在两组都固定任务条件后记录首次响应和总耗时，就能看出多轮推理主要在哪一组带来收益。</p>
+<p>还应区分长上下文和有效上下文。把所有仓库文件一次塞进去，可能使得模型关注到无关细节。若团队在模型调用前有索引和文件选择器，试用要固定这部分实现，并把模型实际收到的截图、文件与差异记录下来。</p>
+<p>订阅配额扩大也需要对应到任务。单个模型可以拿到更多额度，工作负载仍可能因输出、工具往返和反复验证而改变。开发者可以统计一个典型需求最终用了几次交互，再与旧版本在同一入口的成本做比较。</p>
+<p>智谱把自适应计算列为后续研究方向，讨论让更难的 token 使用更多迭代。当前公开架构采用固定的两轮计算。后续即使开放更多循环设置，也需要观察调度策略怎样权衡难任务正确率与短任务响应速度。</p>
+<p>独立测试也可以把模型是否提出可核对的修改计划列入记录。这样在两次都通过测试的情况下，还能比较接手修改的人是否更容易定位差异和回退改动。</p>
+<p>GLM-5.4 把增加计算深度的路线带进了订阅产品，实际收益要用任务通过率、重试次数和交付时间一起衡量。</p>
+<h2>🔗 引用链接</h2>
+<ul>
+<li><a href="https://z.ai/blog/glm-5.4" target="_blank" rel="noopener">智谱 GLM-5.4 技术博客</a></li>
+<li><a href="https://finance.eastmoney.com/a/202611233937387956.html" target="_blank" rel="noopener">界面新闻 GLM-5.4 发布报道</a></li>
+<li><a href="https://www.ithome.com/1/030/809.htm" target="_blank" rel="noopener">IT之家智谱上线报道</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
