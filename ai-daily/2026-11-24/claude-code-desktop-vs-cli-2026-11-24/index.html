@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code Desktop 与 CLI，何时用哪一个 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-11-24</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-11-24</span><span class="tag-pill">AI Daily</span></div>
+      <h1>Claude Code Desktop 与 CLI，何时用哪一个</h1>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/24/claude-code-desktop-vs-cli-2026-11-24.png" alt="青色与琥珀色粒子轨迹汇聚"></p>
+<p>截至 2026 年 11 月 24 日，Claude Code Desktop 指 Claude 桌面应用中的 Code 标签页，Claude Code CLI 则是从终端启动的 <code>claude</code>。两者共用底层引擎，真正影响选型的是人在哪里审查改动、任务在哪里执行、输出要交给谁。</p>
+<h2>要点速览</h2>
+<ul>
+<li><strong>要逐行看改动、边改边验界面</strong>，优先用 Desktop 的 Changes 面板和本地预览。</li>
+<li><strong>要把任务串进脚本或 CI</strong>，用 CLI 的 <code>-p</code> 和结构化输出，把结果交给下游程序。</li>
+<li><strong>要在同一仓库并行改文件</strong>，两端都能用 Git worktree。分开会话后，还要分开工作目录。</li>
+<li><strong>要离开当前终端继续运行</strong>，先区分 CLI 本机后台、Desktop 的 SSH 远程进程和云端会话。</li>
+</ul>
+<h2>同一个引擎，两种工作台</h2>
+<p>Anthropic 在 2025 年 11 月公布桌面端可并行运行 Claude Code 会话。2026 年 4 月的改版加入会话侧栏、可拖动面板、内置终端和文件编辑器，把原本散落在几个窗口的操作放到同一工作台。</p>
+<p>Desktop 开始会话前可选执行环境、项目目录和权限模式。</p>
+<p>本地会话在所选目录工作，SSH 会话在远端主机工作，Cloud 会话默认用 Anthropic 托管环境。本地执行描述的是工具和文件所在位置。</p>
+<p>CLI 在当前目录启动交互会话，也可用 <code>claude -p</code> 执行一次请求后返回。</p>
+<p>所谓终端快，主要指少切窗口、命令可复用、结果能直接进管道。两种界面本身不足以判断模型响应哪边更快。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/24/source-claude-code-terminal.jpg" alt="Claude Code 产品页的终端模式视觉"></p>
+<p><em>图片来源：Anthropic Claude Code 产品页，2026-11-24 查阅。</em></p>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>Desktop</th>
+<th>CLI</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>审查改动</td>
+<td>Changes 逐文件看 diff，可逐行留言</td>
+<td><code>/diff</code> 交互查看，可配合 <code>git diff</code></td>
+</tr>
+<tr>
+<td>验证页面</td>
+<td>本地 Browser 面板预览开发服务器</td>
+<td>在 shell 跑项目已有的构建和测试</td>
+</tr>
+<tr>
+<td>同仓并行</td>
+<td>新会话开启 Worktree，侧栏切换</td>
+<td><code>claude --worktree &lt;名称&gt;</code></td>
+</tr>
+<tr>
+<td>跟踪后台</td>
+<td>Background tasks 查看当前会话内任务</td>
+<td><code>--bg</code> 启动后台会话，<code>claude agents</code> 查看</td>
+</tr>
+<tr>
+<td>固定流程</td>
+<td>交互选择环境与权限</td>
+<td><code>-p --output-format json</code> 接脚本或 CI</td>
+</tr>
+<tr>
+<td>自有远端</td>
+<td>Desktop 经 SSH 连接主机</td>
+<td>SSH 登录后在主机上运行 <code>claude</code></td>
+</tr>
+</tbody></table>
+<h2>审查改动，还是把输出接入工具链</h2>
+<p>在 Desktop 打开 <strong>Changes</strong>，可以逐文件看代码差异。把鼠标移到行号旁点加号，写下反馈，再一次发给 Claude。比如在校验函数旁加一句“保留空值处理”，改完继续看新 diff。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/24/source-desktop-changes.png" alt="Desktop Changes 中按文件显示的代码差异"></p>
+<p><em>图片来源：Anthropic 桌面端预览与审查公告，2026-02-20。</em></p>
+<p>做前端任务时，可以把 Changes 与本地 <strong>Browser</strong> 面板并排。让 Claude 启动开发服务器，再检查报错状态和空数据页面。页面验证、代码审查和测试分别回答不同问题，交付前可逐项验收。</p>
+<p>Desktop 可用已安装并登录的 GitHub CLI（<code>gh</code>）跟踪拉取请求（PR）的持续集成（CI）状态。现行指南称自动修复和自动合并开关为 <strong>Auto-fix</strong>、<strong>Merge when ready</strong>。</p>
+<p>下图展示 2026 年 2 月的旧界面。试用时可先观察 CI 状态，由负责人决定何时开启自动修复与合并。SSH 和 WSL 会话中的 <strong>Merge when ready</strong> 处于禁用状态。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/24/source-desktop-ci-monitoring.png" alt="Desktop 的 CI 监控状态以及 Auto fix、Auto merge 开关"></p>
+<p><em>图片来源：Anthropic 桌面端预览与审查公告，2026-02-20。</em></p>
+<p>CLI 也有交互式 <code>/diff</code>。如果只需对照一个文件和一条测试结果，留在 shell 里就能完成。批量处理则可把日志或命令输出送入 <code>claude -p</code>，用 <code>--output-format json</code> 给后续脚本读取。</p>
+<p>例如用 <code>claude -p &quot;总结标准输入里的测试失败&quot; --output-format json &lt; test.log &gt; diagnosis.json</code> 保存诊断结果。</p>
+<p>是否允许合并仍可由 CI 的真实测试退出码决定，模型摘要负责帮助工程师定位问题。</p>
+<h2>并行时先隔离目录，再看任务在哪运行</h2>
+<p>同仓库同时修两处时，在 Desktop 发第一条消息前开启 <strong>Worktree</strong>，或在终端用 <code>claude --worktree fix-tests</code>。每项任务在独立的 Git 工作目录和分支上改动，共用仓库历史。</p>
+<p>新建 worktree 默认以远端默认分支为基础。若要带上当前分支的已提交改动，可设 <code>worktree.baseRef</code> 为 <code>head</code>。主工作目录的未提交改动不会自动进入新目录。</p>
+<p>Desktop 的 Worktree 默认关闭。团队可先试两项互不依赖的改动，确认会话所在目录和分支，再核对依赖、环境变量和测试命令。若两个任务需要启动服务，也应为它们分配不同端口。</p>
+<p>Desktop 的 <strong>Background tasks</strong> 面板可查看当前会话内的子代理和后台命令。CLI 的 <code>claude --bg &quot;梳理测试失败&quot;</code> 则启动整个后台会话，关闭原终端后由本机后台服务继续管理。</p>
+<p>用 <code>claude agents</code> 打开后台会话列表。更新日志记载，Agent view 在 2026 年 5 月随 v2.1.139 加入，截至核查日仍是研究预览。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/24/source-anthropic-agent-view.png" alt="终端 Agent view 显示等待输入、进行中和已完成的会话"></p>
+<p><em>图片来源：Anthropic Claude Code Agent view 官方文档，2026-11-24 查阅。</em></p>
+<p>需要关机后仍能推进的任务，可另开 Cloud 会话。先检查云端是否能拉取仓库、安装依赖和运行测试，再交付长任务。</p>
+<p>回到本地时，可用 CLI 的 <code>--teleport</code> 接续云端会话，需用同一 Claude 账号并准备匹配的本地仓库。</p>
+<p>若要同时切换到云端任务分支，先确认本地工作区干净、云端分支已推送。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/24/source-claude-code-cloud.jpg" alt="Claude Code 网页端的仓库与分支选择界面"></p>
+<p><em>图片来源：Anthropic Claude Code 产品页，2026-11-24 查阅。</em></p>
+<h2>扩展、权限和 SSH</h2>
+<p>两端共享项目说明 <code>CLAUDE.md</code> 和 Claude Code 配置。模型上下文协议（MCP）服务可写入项目的 <code>.mcp.json</code>，也可配置在用户侧的 <code>~/.claude.json</code>。</p>
+<p>Desktop 为符合条件的本地和 SSH 会话提供 Connectors 界面。</p>
+<p>独立 CLI 不直接读 <code>claude_desktop_config.json</code>。团队需要两端一致时，可先以项目级 MCP 配置试跑一个只读查询，再检查两端加载的工具和认证。桌面聊天里的连接配置也应纳入这次核对。</p>
+<p>钩子（hooks）可按事件执行确定的动作。<code>PreToolUse</code> 可在工具执行前拦截调用，<code>PostToolUse</code> 可在调用成功后运行检查。可用后者在编辑完成后执行格式检查，再观察两端是否给出一致结果。</p>
+<p>高影响改动可先选 <strong>Plan</strong> 审阅方案，再切 <strong>Manual</strong> 逐项放行。CLI 可用 <code>--permission-mode</code> 设定模式。</p>
+<p>批处理前应明确允许哪些工具，并先在与正式任务相同的账户和目录下验证规则。</p>
+<p>已有远端开发机时，Desktop 可经 SSH 登录并使用图形界面，代码与命令在远端运行。远端开发服务器可用端口转发查看。本地 Browser 面板的自动验证工具在 SSH 会话里不可用。</p>
+<p>终端用户可直接 SSH 到主机、进入仓库再启动 CLI。需要断线后继续时，要确认主机允许后台进程存活。</p>
+<p>Desktop 自 2.31226.0 起支持 SSH 断连后继续运行，也受远端进程策略和凭据有效期约束。</p>
+<h2>怎么选，怎么搭配</h2>
+<ul>
+<li><strong>选 Desktop</strong>。改动横跨多个文件，验收靠逐行反馈、页面检查或并排追踪多条任务时，从 Code 标签页开工。交付前看 Changes，再跑项目测试。</li>
+<li><strong>选 CLI</strong>。修复范围小、日常工作已在 shell，或需要复用命令、保存 JSON、接入 CI 时，从仓库目录启动。先跑一份可人工复核的输入，再做批量。</li>
+<li><strong>两者搭配</strong>。本地 CLI 先跑测试并定位文件，需要集中审查时运行 <code>/desktop</code>，或关闭终端会话后从 Desktop 本地会话用 <code>/resume</code> 接续。交付以分支、diff 和测试记录为准。</li>
+</ul>
+<p><code>/desktop</code> 有平台和登录条件。官方文档列出 macOS、x64 Windows 和 Claude 订阅登录。团队若跨机器或跨认证方式，可用 Git 分支和测试日志交接，再在目标环境启动会话。</p>
+<h2>一句话总结</h2>
+<blockquote>
+<p>用 Desktop 把人工审查和验收放在同一窗口，用 CLI 把可重复步骤交给脚本，并在并行执行前选好目录与运行环境。</p>
+</blockquote>
+<h2>来源</h2>
+<ul>
+<li><a href="https://claude.com/product/claude-code" target="_blank" rel="noopener">Anthropic Claude Code 产品页</a></li>
+<li><a href="https://www.anthropic.com/news/claude-opus-4-5" target="_blank" rel="noopener">Anthropic Opus 4.5 发布公告及桌面端更新</a></li>
+<li><a href="https://claude.com/resources/articles/preview-review-and-merge-with-claude-code" target="_blank" rel="noopener">Anthropic 桌面端预览与审查公告</a></li>
+<li><a href="https://claude.com/resources/articles/claude-code-desktop-redesign" target="_blank" rel="noopener">Anthropic Claude Code 桌面端改版公告</a></li>
+<li><a href="https://code.claude.com/docs/en/desktop" target="_blank" rel="noopener">Claude Code Desktop 官方指南</a></li>
+<li><a href="https://code.claude.com/docs/en/cli-reference" target="_blank" rel="noopener">Claude Code CLI 命令参考</a></li>
+<li><a href="https://code.claude.com/docs/en/headless" target="_blank" rel="noopener">Claude Code 无交互运行指南</a></li>
+<li><a href="https://code.claude.com/docs/en/commands" target="_blank" rel="noopener">Claude Code 交互命令参考</a></li>
+<li><a href="https://code.claude.com/docs/en/changelog" target="_blank" rel="noopener">Claude Code 官方更新日志</a></li>
+<li><a href="https://code.claude.com/docs/en/worktrees" target="_blank" rel="noopener">Claude Code Git worktree 文档</a></li>
+<li><a href="https://code.claude.com/docs/en/agent-view" target="_blank" rel="noopener">Claude Code 后台会话与 Agent view</a></li>
+<li><a href="https://code.claude.com/docs/en/claude-code-on-the-web" target="_blank" rel="noopener">Claude Code 云端运行指南</a></li>
+<li><a href="https://code.claude.com/docs/en/mcp" target="_blank" rel="noopener">Claude Code MCP 文档</a></li>
+<li><a href="https://code.claude.com/docs/en/hooks" target="_blank" rel="noopener">Claude Code hooks 参考</a></li>
+<li><a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">Claude Code 权限文档</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
