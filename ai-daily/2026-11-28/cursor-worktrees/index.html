@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cursor 实战：2 个 Agent 并行改代码 — wangcansunking — products & playground</title>
+  
+  <meta name="theme-color" content="#010102">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235e6ad2'/><text x='12' y='17' text-anchor='middle' font-family='monospace' font-size='13' font-weight='700' fill='white'>w</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/product-styles.css">
+</head>
+<body class="">
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="mark">w</span>
+      <span>wangcansunking</span>
+    </a>
+    <nav>
+      <a href="/#products">Products</a>
+      <a href="/#about">About</a>
+      <a class="cta" href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </header>
+  
+  <main class="container product-page">
+    <nav class="crumb">
+      <a href="/">主页</a>
+      <span class="sep">/</span>
+      <a href="/ai-daily/">AI Daily</a>
+      <span class="sep">/</span>
+      <span class="current">2026-11-28</span>
+    </nav>
+    <article class="article">
+      <div class="post-meta"><span>2026-11-28</span><span class="tag-pill">AI Daily</span></div>
+      <h1>Cursor 实战：2 个 Agent 并行改代码</h1>
+<p>你在 Cursor 里同时开了两个对话。一个改导出按钮，另一个补 CSV 解析测试。结果第二个 Agent 拿着第一个刚改到一半的代码跑测试，谁的改动让构建变红都搞不清。下一次让两项工作从同一个提交出发，各去一个 Git worktree。</p>
+<h2>要点速览</h2>
+<ul>
+<li>Cursor 的 Agents Window 可以让每个 Agent 在单独的 Git 检出目录里工作。</li>
+<li>用两项独立的小任务起步，各自限定改动范围和交付物。</li>
+<li>用一份初始化配置安装依赖，完成后逐份收回补丁，再跑合并后的组合测试。</li>
+</ul>
+<h2>两个对话，两个可运行的目录</h2>
+<p>Git worktree 允许同一个仓库拥有多个检出目录。每个目录有自己的工作文件和索引，可以同时站在不同的分支上。于是 A 安装依赖、修改组件时，B 的测试还能在自己的检出目录继续跑。你也可以在主工作区继续读代码或写文档。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/28/cursor-parallel.jpg" alt="Cursor 官方 Agents Window 演示"></p>
+<p><em>图片来源：Cursor 3 发布文章本地与云端切换演示，2026-04-02。</em></p>
+<p>下面这组练习可以用样例仓库跑一遍。第一次用，挑一份你熟悉、单测能独立跑的小仓库。先把两个任务共同依赖的代码整理成一个提交并记下哈希。当前正在编写的内容如果需要被两个任务引用，把它提交到自己的起点分支，让两个 Agent 都从这里开始。</p>
+<table>
+<thead>
+<tr>
+<th>交给谁</th>
+<th>交付目标</th>
+<th>允许改动</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Agent A</td>
+<td>导出按钮点击后立即禁用，完成时恢复</td>
+<td>按钮组件和组件测试</td>
+</tr>
+<tr>
+<td>Agent B</td>
+<td>给 CSV 解析补上空行和引号样例</td>
+<td>CSV 解析测试与 fixtures</td>
+</tr>
+</tbody></table>
+<p>如果手头只有一个问题，但想比较两套解法，也可以给两份 worktree 同一条任务，最后只收一个补丁。分工时把文件范围写清楚。比较方案时则固定输入、预期行为和测试命令，让两份结果落在同一把尺上。</p>
+<h2>在 Agents Window 分出两条线</h2>
+<ul>
+<li>在 Cursor 命令面板打开 <strong>Agents Window</strong>，选择已有 Git 仓库。</li>
+<li>分别新建两个会话，在 Agents Window 中将每个会话启动在 worktree 中，也可以把已有会话移入 worktree。让两次检出以同一提交为基准。经典 IDE 走 Worktree Skills，3.0 更新日志列出的入口是 <code>/worktree</code>。</li>
+<li>各自给一条限定范围的任务。随提示附上项目里实际可跑的测试命令，要求记录执行结果、主要变化和剩余疑问。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/28/cursor-worktrees.jpg" alt="Cursor 的 Worktrees 演示界面"></p>
+<p><em>图片来源：Cursor Worktrees 更新演示，2026-04-24。</em></p>
+<p>可以把 A 的提示直接写成这样。只动导出按钮和它的组件测试。开始导出时给用户即时反馈，完成或报错后恢复按钮。沿用当前接口和样式。列出变更文件和实际跑过的测试，提交留在本次工作分支。</p>
+<p>给 B 的提示可以更短。只补 CSV 解析的回归测试与最小样例数据。如果现有实现对某个用例失败，记录复现输入和实际输出，保持业务代码原样。这样 B 即使暴露一个旧 Bug，也能单独变成后续任务。</p>
+<h2>初始化一次写好，每个 worktree 自动执行</h2>
+<p>新检出目录经常缺 <code>node_modules</code>。官方文档说明 Cursor 创建 worktree 时会读取仓库下的 <code>.cursor/worktrees.json</code>。以有 lockfile、支持 <code>npm ci</code> 的 Node 项目为例。</p>
+<pre><code class="language-json">{
+  &quot;setup-worktree&quot;: [&quot;npm ci&quot;]
+}
+</code></pre>
+<p>把这份设置放进两个会话共用的起点。如果项目用 pnpm，把例子替换成项目已有的安装命令。团队需要区分不同操作系统时，官方文档也列出了平台专属配置项。</p>
+<p>被 Git 忽略的环境文件不会凭空出现在新目录。有测试配置模板就由初始化步骤从模板生成。需要凭据的操作，可以改用测试账户或本地替身。要同时开两个本地服务，给它们分配不同端口，避免打开 A 的 URL 却浏览到 B。</p>
+<p>如果初始化花了两分钟，先在其中一个目录确认依赖安装正常，再开第二个。日常开发只需要跑组件单测时，没必要让每个目录都起同一套数据库和前端服务。把初始化缩到两项任务都用得上的部分，其余步骤写进对应任务。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/28/cursor-editor.jpg" alt="Cursor 在 Agent 窗口中打开源文件的演示"></p>
+<p><em>图片来源：Cursor 3 发布文章源文件浏览演示，2026-04-02。</em></p>
+<h2>收回补丁的顺序比启动顺序更重要</h2>
+<p>结束时在 Agents Window 打开两份改动，先浏览文件范围和测试摘要。可以在各自的 checkout 继续修、提交或开 PR，也可以把结果带回主工作区。下面这个顺序适用于两份改动都要留下的情况。</p>
+<p><img src="https://raw.githubusercontent.com/wangcansunking/daily-report-images/master/content/2026/11/28/cursor-review.jpg" alt="Cursor 对变更及交付流程的演示"></p>
+<p><em>图片来源：Cursor 3 发布文章提交与 PR 演示，2026-04-02。</em></p>
+<p>先拿 A 的结果，跑一次导出按钮的测试。再拿 B 的测试改动，跑解析相关用例。最后在同时包含两份改动的分支上跑原来的构建和组合测试。两个目录各自全绿只覆盖了两个中间状态，团队最终使用的是合在一起的版本。</p>
+<p>如果两个任务都碰了 lockfile、全局类型或公共组件，收回时仍可能冲突。从差异更小、可独立交付的一份开始。让第二个任务在新基线上重新跑一次，旧 worktree 留到补丁和结果都保存好再清理。</p>
+<p>这种分离发生在 Git 工作目录。两个 Agent 仍可能共享机器、端口、全局缓存和账号权限。从两路并行起步，记录每条任务的实际等待时间。如果多数时间花在装依赖或争用资源，先改善本地环境，再增加会话。</p>
+<p><strong>一句话总结</strong>：让两个 Agent 从同一个提交出发，在两个 worktree 里独立工作，最后把可读、可跑的改动一份份带回主分支。</p>
+<h2>来源</h2>
+<ul>
+<li><a href="https://cursor.com/docs/configuration/worktrees" target="_blank" rel="noopener">Cursor Worktrees 文档</a></li>
+<li><a href="https://cursor.com/blog/cursor-3" target="_blank" rel="noopener">Cursor 3 发布文章</a></li>
+<li><a href="https://cursor.com/changelog/04-24-26" target="_blank" rel="noopener">Cursor 3.2 更新与 Worktrees 演示</a></li>
+<li><a href="https://git-scm.com/docs/git-worktree" target="_blank" rel="noopener">Git worktree 命令文档</a></li>
+</ul>
+
+    </article>
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <span class="made">crafted with Claude Code · hosted on GitHub Pages</span>
+        <div class="links">
+          <a href="https://github.com/wangcansunking" target="_blank" rel="noopener">GitHub</a>
+          <a href="/">主页</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="/assets/main.js" defer></script>
+</body>
+</html>
